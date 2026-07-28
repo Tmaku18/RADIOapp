@@ -37,6 +37,7 @@ class _LiveStreamViewerState extends State<LiveStreamViewer> {
 
   bool _rendererReady = false;
   bool _hasRemoteStream = false;
+  bool _hasVideoTrack = false;
   bool _hlsReady = false;
   bool _failed = false;
   Timer? _hlsRetryTimer;
@@ -66,6 +67,21 @@ class _LiveStreamViewerState extends State<LiveStreamViewer> {
     }
   }
 
+  void _bindRemoteStream(MediaStream stream) {
+    if (!mounted) return;
+    // Re-assign even when the stream identity is unchanged — video tracks
+    // often arrive after audio, and RTCVideoRenderer won't pick them up
+    // unless srcObject is set again.
+    _renderer.srcObject = null;
+    _renderer.srcObject = stream;
+    final hasVideo = stream.getVideoTracks().any((t) => t.enabled);
+    setState(() {
+      _hasRemoteStream = true;
+      _hasVideoTrack = hasVideo;
+      _failed = false;
+    });
+  }
+
   Future<void> _startWhep(String whepUrl, {String? fallbackHls}) async {
     await _renderer.initialize();
     if (!mounted) return;
@@ -73,25 +89,33 @@ class _LiveStreamViewerState extends State<LiveStreamViewer> {
 
     final whep = WhepPlayer();
     _whep = whep;
-    whep.onRemoteStream = (stream) {
-      if (!mounted) return;
-      // Ensure livestream audio is audible as soon as tracks arrive (radio was
-      // soft-paused by WatchLiveScreen).
-      whep.setMuted(false);
-      _renderer.srcObject = stream;
-      setState(() => _hasRemoteStream = true);
-    };
+    whep.onRemoteStream = _bindRemoteStream;
     whep.onPermanentFailure = () {
       if (!mounted) return;
       if (fallbackHls != null && fallbackHls.isNotEmpty) {
-        // Ingest mode was unknown — the stream may be RTMP after all.
         unawaited(_startHls(fallbackHls));
       } else {
         setState(() => _failed = true);
       }
     };
     whep.setMuted(false);
-    await whep.start(whepUrl);
+    // Critical: do NOT attach WhepPlayer's headless audio sink — that second
+    // RTCVideoRenderer steals video frames and leaves this view black while
+    // audio still plays.
+    await whep.start(
+      whepUrl,
+      bindHeadlessAudioSink: false,
+      waitForAudio: true,
+    );
+    if (!mounted) return;
+    // If audio arrived but video is still missing, keep waiting a bit — the
+    // publisher may still be negotiating the video m-line.
+    if (_hasRemoteStream && !_hasVideoTrack) {
+      await Future<void>.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+      final stream = whep.remoteStream;
+      if (stream != null) _bindRemoteStream(stream);
+    }
   }
 
   Future<void> _startHls(String hlsUrl) async {
@@ -129,7 +153,7 @@ class _LiveStreamViewerState extends State<LiveStreamViewer> {
   @override
   void dispose() {
     _hlsRetryTimer?.cancel();
-    unawaited(_whep?.stop());
+    unawaited(_whep?.dispose());
     _renderer.srcObject = null;
     _renderer.dispose();
     _hlsController?.dispose();
@@ -149,9 +173,22 @@ class _LiveStreamViewerState extends State<LiveStreamViewer> {
         ),
       );
     } else if (_rendererReady && _hasRemoteStream) {
-      child = RTCVideoView(
-        _renderer,
-        objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitContain,
+      child = Stack(
+        fit: StackFit.expand,
+        children: [
+          RTCVideoView(
+            _renderer,
+            objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitContain,
+            mirror: false,
+          ),
+          if (!_hasVideoTrack)
+            const Center(
+              child: Text(
+                'Waiting for video…',
+                style: TextStyle(color: Colors.white70),
+              ),
+            ),
+        ],
       );
     } else if (_failed) {
       child = const Center(

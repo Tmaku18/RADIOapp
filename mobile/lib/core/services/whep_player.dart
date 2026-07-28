@@ -4,14 +4,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:http/http.dart' as http;
 
-/// Receive-only WHEP (WebRTC-HTTP Egress Protocol) audio player for the DJ
-/// booth talk-over. Cloudflare Stream only supports WebRTC playback for
-/// streams that were published via WHIP — the HLS manifest of a WHIP input
-/// always returns 204 — so listeners must connect over WHEP.
-///
-/// Remote WebRTC audio is routed by flutter_webrtc. On some platforms binding
-/// the remote stream to a headless [RTCVideoRenderer] is required for the
-/// audio unit to actually output sound.
+/// Receive-only WHEP (WebRTC-HTTP Egress Protocol) player for:
+/// - DJ booth talk-over (audio-only; uses a headless [RTCVideoRenderer] so
+///   iOS actually routes remote audio), and
+/// - Livestream viewing (audio + video; caller binds its own renderer —
+///   never attach the headless sink or it steals the video frames).
 class WhepPlayer {
   RTCPeerConnection? _pc;
   MediaStream? _remoteStream;
@@ -20,6 +17,8 @@ class WhepPlayer {
   String? _resourceUrl;
   bool _muted = false;
   bool _hasRemoteAudio = false;
+  bool _hasRemoteVideo = false;
+  bool _bindHeadlessAudioSink = true;
   Timer? _retryTimer;
   int _consecutiveFailures = 0;
 
@@ -30,28 +29,44 @@ class WhepPlayer {
   /// quiet forever.
   void Function()? onPermanentFailure;
 
-  /// Invoked when the remote media stream arrives — bind it to an
-  /// [RTCVideoRenderer] for video playback (livestream viewing).
+  /// Invoked when the remote media stream arrives or gains a new track —
+  /// bind it to an [RTCVideoRenderer] for video playback (livestream viewing).
+  /// Called again when a video track arrives after audio so the UI can rebind.
   void Function(MediaStream stream)? onRemoteStream;
 
   bool get isActive => _url != null;
   bool get hasRemoteAudio => _hasRemoteAudio;
+  bool get hasRemoteVideo => _hasRemoteVideo;
   String? get url => _url;
   MediaStream? get remoteStream => _remoteStream;
 
-  /// Connect to [whepUrl] and start playing the remote audio. Safe to call
-  /// repeatedly; reconnects only when the URL changes.
+  /// Connect to [whepUrl] and start playing remote media.
   ///
-  /// Completes after an audio track arrives (or after a timeout so callers can
-  /// decide whether to duck music). Throws if negotiation fails hard.
-  Future<void> start(String whepUrl) async {
-    if (_url == whepUrl && _pc != null && _hasRemoteAudio) return;
+  /// Set [bindHeadlessAudioSink] to false for livestream viewing where the
+  /// caller owns a visible [RTCVideoRenderer]. Leaving it true (default)
+  /// attaches a hidden renderer so booth talk-over audio plays on iOS — but
+  /// that same sink steals video frames from any second renderer.
+  Future<void> start(
+    String whepUrl, {
+    bool bindHeadlessAudioSink = true,
+    bool waitForAudio = true,
+  }) async {
+    if (_url == whepUrl &&
+        _pc != null &&
+        _hasRemoteAudio &&
+        _bindHeadlessAudioSink == bindHeadlessAudioSink) {
+      return;
+    }
     await stop();
     _url = whepUrl;
     _consecutiveFailures = 0;
     _hasRemoteAudio = false;
-    await _ensureAudioSink();
-    await _connect(waitForAudio: true);
+    _hasRemoteVideo = false;
+    _bindHeadlessAudioSink = bindHeadlessAudioSink;
+    if (bindHeadlessAudioSink) {
+      await _ensureAudioSink();
+    }
+    await _connect(waitForAudio: waitForAudio);
   }
 
   Future<void> _ensureAudioSink() async {
@@ -59,6 +74,14 @@ class WhepPlayer {
     final renderer = RTCVideoRenderer();
     await renderer.initialize();
     _audioSink = renderer;
+  }
+
+  void _emitRemoteStream(MediaStream stream) {
+    _remoteStream = stream;
+    if (_bindHeadlessAudioSink) {
+      _audioSink?.srcObject = stream;
+    }
+    onRemoteStream?.call(stream);
   }
 
   Future<void> _connect({bool waitForAudio = false}) async {
@@ -78,15 +101,35 @@ class WhepPlayer {
 
     pc.onTrack = (event) {
       if (_url != whepUrl) return;
-      if (event.streams.isNotEmpty) {
-        final stream = event.streams.first;
-        if (stream != _remoteStream) {
-          _remoteStream = stream;
-          // Headless renderer keeps the WebRTC audio unit routed to speakers
-          // on iOS/Android even for audio-only talk-overs.
-          _audioSink?.srcObject = stream;
-          onRemoteStream?.call(stream);
-        }
+
+      MediaStream? stream =
+          event.streams.isNotEmpty ? event.streams.first : _remoteStream;
+
+      // Some stacks deliver a bare track with no stream container — build one.
+      if (stream == null) {
+        unawaited(() async {
+          try {
+            final synth = await createLocalMediaStream('whep-remote');
+            await synth.addTrack(event.track);
+            if (_url != whepUrl) return;
+            event.track.enabled =
+                event.track.kind == 'audio' ? !_muted : true;
+            if (event.track.kind == 'audio') {
+              _hasRemoteAudio = true;
+              _consecutiveFailures = 0;
+              if (!audioReady.isCompleted) audioReady.complete();
+              try {
+                Helper.setSpeakerphoneOn(true);
+              } catch (_) {}
+            } else if (event.track.kind == 'video') {
+              _hasRemoteVideo = true;
+            }
+            _emitRemoteStream(synth);
+          } catch (e) {
+            debugPrint('WhepPlayer: synth stream failed: $e');
+          }
+        }());
+        return;
       }
 
       if (event.track.kind == 'audio') {
@@ -97,6 +140,18 @@ class WhepPlayer {
         try {
           Helper.setSpeakerphoneOn(true);
         } catch (_) {}
+      } else if (event.track.kind == 'video') {
+        event.track.enabled = true;
+        _hasRemoteVideo = true;
+      }
+
+      // Always re-emit on video (and on first stream) so the visible renderer
+      // rebinds after late video tracks — otherwise audio-first delivery leaves
+      // a black frame forever.
+      final isNewStream = stream != _remoteStream;
+      final isVideo = event.track.kind == 'video';
+      if (isNewStream || isVideo || _remoteStream == null) {
+        _emitRemoteStream(stream);
       }
     };
 
@@ -110,12 +165,13 @@ class WhepPlayer {
       }
     };
 
+    // Video first so the offer prefers a video m-line (matches web watch page).
     await pc.addTransceiver(
-      kind: RTCRtpMediaType.RTCRtpMediaTypeAudio,
+      kind: RTCRtpMediaType.RTCRtpMediaTypeVideo,
       init: RTCRtpTransceiverInit(direction: TransceiverDirection.RecvOnly),
     );
     await pc.addTransceiver(
-      kind: RTCRtpMediaType.RTCRtpMediaTypeVideo,
+      kind: RTCRtpMediaType.RTCRtpMediaTypeAudio,
       init: RTCRtpTransceiverInit(direction: TransceiverDirection.RecvOnly),
     );
 
@@ -145,14 +201,10 @@ class WhepPlayer {
       await pc.setRemoteDescription(RTCSessionDescription(res.body, 'answer'));
 
       if (waitForAudio) {
-        // Wait for remote audio, but don't hang forever — Cloudflare may still
-        // be warming the WHIP ingest. Callers can retry via mic_on / poll.
         try {
           await audioReady.future.timeout(const Duration(seconds: 8));
         } on TimeoutException {
           debugPrint('WhepPlayer: no remote audio yet for $whepUrl');
-          // Still mark active; retry loop may recover. Don't throw so duck
-          // logic in the handler can decide based on hasRemoteAudio.
         }
       }
     } catch (e) {
@@ -195,7 +247,6 @@ class WhepPlayer {
     final resourceUrl = _resourceUrl;
     _resourceUrl = null;
     if (resourceUrl != null) {
-      // Best-effort WHEP session delete so Cloudflare frees the connection.
       unawaited(
         http.delete(Uri.parse(resourceUrl)).catchError(
               (Object _) => http.Response('', 200),
@@ -211,6 +262,7 @@ class WhepPlayer {
     _pc = null;
     _remoteStream = null;
     _hasRemoteAudio = false;
+    _hasRemoteVideo = false;
     if (!keepUrl) {
       // no-op; stop() clears url
     }
