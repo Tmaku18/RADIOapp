@@ -666,9 +666,9 @@ FCM registration tokens and published app versions for soft/force update prompts
 
 Nearby People directory and map pins (coords remain on `artist_lat` / `artist_lng`).
 
-### storage.buckets feed (107)
+### storage.buckets feed (107 → 116)
 
-Discover feed media: **75MB** limit; image + video MIME types (`video/mp4`, `video/webm`, `video/quicktime`, …).
+Discover feed media: **1GB** limit; image, video and audio MIME types (`video/mp4`, `video/webm`, `video/quicktime`, `audio/mpeg`, `audio/mp4`, …). Raised from 75MB → 200MB → 1GB so a few minutes of 4K phone video fits.
 
 ## Migration notes: leaderboard reactions & temperature (047 → 049)
 

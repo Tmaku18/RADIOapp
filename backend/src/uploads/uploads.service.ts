@@ -34,7 +34,7 @@ export class UploadsService {
   private readonly songBucketTargetBytes = 100 * 1024 * 1024;
   private readonly imageUploadMaxBytes = 15 * 1024 * 1024;
   /** Discover feed posts (images, ≤5 min phone videos, audio tracks). */
-  private readonly feedUploadMaxBytes = 200 * 1024 * 1024;
+  private readonly feedUploadMaxBytes = 1024 * 1024 * 1024;
   private readonly feedUploadAllowedMimeTypes = [
     'image/jpeg',
     'image/jpg',
@@ -492,7 +492,7 @@ export class UploadsService {
   /**
    * Upload a discover feed post media file (Discover tab).
    * Accepts images (JPEG/PNG/WebP), videos (MP4/WEBM/MOV), and audio tracks
-   * (MP3/WAV/AAC/M4A/OGG/FLAC) up to 200MB.
+   * (MP3/WAV/AAC/M4A/OGG/FLAC) up to 1GB.
    */
   async uploadFeedPostMedia(
     file: Express.Multer.File,

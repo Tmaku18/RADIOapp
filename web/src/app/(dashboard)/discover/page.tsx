@@ -61,7 +61,7 @@ interface DiscoveryProfile {
 
 const PAGE_SIZE = 20;
 const FEED_PAGE_SIZE = 16;
-const FEED_UPLOAD_MAX_BYTES = 200 * 1024 * 1024;
+const FEED_UPLOAD_MAX_BYTES = 1024 * 1024 * 1024;
 const FEED_VIDEO_MAX_SECONDS = 300;
 const FEED_AUDIO_MAX_SECONDS = 600;
 const FEED_ALLOWED_AUDIO_MIME_TYPES = [
@@ -110,7 +110,7 @@ async function validateFeedUploadFile(file: File): Promise<string | null> {
     return 'Unsupported file type. Allowed: JPG, PNG, WEBP, MP4, WEBM, MOV, MP3, WAV, M4A, AAC, OGG, FLAC.';
   }
   if (file.size > FEED_UPLOAD_MAX_BYTES) {
-    return 'File size exceeds 200MB.';
+    return 'File size exceeds 1GB.';
   }
   if (isAudio || file.type.startsWith('video/')) {
     const kind = isAudio ? 'audio' : 'video';
@@ -445,7 +445,7 @@ export default function DiscoverPage() {
                             onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
                           />
                           <p className="mt-2 text-xs text-muted-foreground">
-                            Max size: 200MB. Videos up to 5 minutes, audio up to 10 minutes.
+                            Max size: 1GB. Videos up to 5 minutes, audio up to 10 minutes.
                           </p>
                         </div>
                         {uploadFile && FEED_ALLOWED_AUDIO_MIME_TYPES.includes(uploadFile.type) && (

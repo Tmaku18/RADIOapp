@@ -525,7 +525,7 @@ export class DiscoveryController {
         { name: 'cover', maxCount: 1 },
       ],
       {
-        limits: { fileSize: 200 * 1024 * 1024 }, // 200MB — room for ~5 min phone videos
+        limits: { fileSize: 1024 * 1024 * 1024 }, // 1GB — a 4K phone video runs ~200MB/min
       },
     ),
   )

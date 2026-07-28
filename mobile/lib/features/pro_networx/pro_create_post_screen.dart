@@ -25,7 +25,8 @@ class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
   /// Must match backend `maxFeedVideoDurationSeconds` / web FEED_VIDEO_MAX_SECONDS.
   static const int _maxVideoDurationSec = 300;
   static const int _maxAudioDurationSec = 600;
-  static const int _maxFileSizeBytes = 200 * 1024 * 1024;
+  static const int _maxFileSizeBytes = 1024 * 1024 * 1024;
+  static const int _maxCoverSizeBytes = 15 * 1024 * 1024;
   static const List<String> _audioExtensions = [
     'mp3',
     'm4a',
@@ -89,7 +90,7 @@ class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
       );
       if (picked == null) return;
       final file = File(picked.path);
-      if (await file.length() > _maxFileSizeBytes) {
+      if (await file.length() > _maxCoverSizeBytes) {
         if (mounted) setState(() => _error = 'Cover image is too large.');
         return;
       }
@@ -168,7 +169,7 @@ class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
     if (size > _maxFileSizeBytes) {
       final mb = (size / (1024 * 1024)).toStringAsFixed(0);
       if (mounted) {
-        setState(() => _error = 'File too large ($mb MB). Max is 200 MB.');
+        setState(() => _error = 'File too large ($mb MB). Max is 1 GB.');
       }
       return;
     }

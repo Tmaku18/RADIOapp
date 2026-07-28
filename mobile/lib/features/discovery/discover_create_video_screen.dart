@@ -295,7 +295,7 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
     final file = File(picked.path);
     final size = await file.length();
     if (size > _maxFileSizeBytes) {
-      setState(() => _error = 'File too large (max 75 MB)');
+      setState(() => _error = 'File too large (max 200 MB)');
       return;
     }
     setState(() {

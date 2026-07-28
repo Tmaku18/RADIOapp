@@ -45,7 +45,9 @@ class ApiService {
   factory ApiService() => _instance;
   ApiService._internal();
   static const Duration _requestTimeout = Duration(seconds: 15);
-  static const Duration _uploadTimeout = Duration(seconds: 120);
+  /// Feed media can reach 1GB, which outlasts any short request timeout on a
+  /// cellular connection.
+  static const Duration _uploadTimeout = Duration(minutes: 30);
   /// Direct Nest/Railway host — Vercel (networxradio.com) rejects large
   /// multipart bodies with 413 before the Nest feed upload limit applies.
   static const String _directBackendFallback =
