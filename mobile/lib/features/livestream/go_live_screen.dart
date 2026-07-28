@@ -101,6 +101,9 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
         await handler.setUserPaused(true);
         _didSoftPauseRadio = true;
       }
+      // Fully release the audio unit — soft-pause keeps just_audio rendering
+      // at volume 0, which can silence WebRTC mic capture on iOS.
+      await handler.hardPauseMusicForCapture();
     } catch (_) {}
   }
 

@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 class WhipBroadcaster {
   RTCPeerConnection? _pc;
   MediaStream? _localStream;
+  RTCRtpSender? _audioSender;
   RTCRtpSender? _videoSender;
   String _facingMode = 'user';
   bool _camBusy = false;
@@ -80,7 +81,8 @@ class WhipBroadcaster {
     }
     for (final track in audioTracks) {
       track.enabled = true;
-      await pc.addTrack(track, stream);
+      final sender = await pc.addTrack(track, stream);
+      _audioSender ??= sender;
     }
 
     // Always create exactly one video m-line (matches web CameraBroadcaster).
@@ -152,6 +154,7 @@ class WhipBroadcaster {
       await _pc?.close();
     } catch (_) {}
     _pc = null;
+    _audioSender = null;
     _videoSender = null;
   }
 
@@ -254,6 +257,101 @@ class WhipBroadcaster {
   static int _asInt(Object? value) {
     if (value is num) return value.toInt();
     return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  static double _asDouble(Object? value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  /// Instantaneous capture level (0..1) + cumulative energy from WebRTC stats.
+  /// Energy that never increases while packets flow = the mic is sending
+  /// silence (the classic iOS just_audio/WebRTC session fight).
+  Future<({double level, double energy})> micCaptureStats() async {
+    final pc = _pc;
+    if (pc == null) return (level: 0.0, energy: 0.0);
+    var level = 0.0;
+    var energy = 0.0;
+    try {
+      final stats = await pc.getStats();
+      for (final report in stats) {
+        final values = report.values;
+        final kind = (values['kind'] ?? values['mediaType'])?.toString();
+        if ((report.type == 'media-source' || report.type == 'track') &&
+            (kind == null || kind == 'audio')) {
+          final l = _asDouble(values['audioLevel']);
+          final e = _asDouble(values['totalAudioEnergy']);
+          if (l > level) level = l;
+          if (e > energy) energy = e;
+        }
+      }
+    } catch (e) {
+      debugPrint('WhipBroadcaster.micCaptureStats: $e');
+    }
+    return (level: level, energy: energy);
+  }
+
+  /// Wait until the mic is capturing REAL audio (energy rising / level > 0),
+  /// not just sending RTP packets of silence.
+  Future<bool> waitForLiveMicAudio({
+    Duration timeout = const Duration(seconds: 5),
+  }) async {
+    final first = await micCaptureStats();
+    var baseline = first.energy;
+    if (first.level > 0.0005) return true;
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 450));
+      final s = await micCaptureStats();
+      if (s.level > 0.0005) return true;
+      if (s.energy > baseline + 1e-7) return true;
+      if (s.energy > 0 && baseline == 0) baseline = s.energy;
+      for (final track in _localStream?.getAudioTracks() ?? const []) {
+        track.enabled = true;
+      }
+    }
+    return false;
+  }
+
+  /// Tear down and re-acquire the microphone, swapping the fresh track into
+  /// the live audio sender. Recovers the known iOS state where getUserMedia
+  /// returned a track whose capture unit never started (silent frames).
+  Future<bool> restartAudioCapture() async {
+    final sender = _audioSender;
+    final stream = _localStream;
+    if (sender == null || stream == null) return false;
+    try {
+      final micStream = await navigator.mediaDevices.getUserMedia({
+        'audio': {
+          'echoCancellation': true,
+          'noiseSuppression': true,
+          'autoGainControl': true,
+        },
+      });
+      final newTrack = micStream.getAudioTracks().isNotEmpty
+          ? micStream.getAudioTracks().first
+          : null;
+      if (newTrack == null) return false;
+      newTrack.enabled = true;
+      await sender.replaceTrack(newTrack);
+      for (final old
+          in List<MediaStreamTrack>.from(stream.getAudioTracks())) {
+        try {
+          await stream.removeTrack(old);
+        } catch (_) {}
+        try {
+          await old.stop();
+        } catch (_) {}
+      }
+      await stream.addTrack(newTrack);
+      try {
+        await Helper.ensureAudioSession();
+      } catch (_) {}
+      return true;
+    } catch (e) {
+      debugPrint('WhipBroadcaster.restartAudioCapture: $e');
+      return false;
+    }
   }
 
   bool toggleMic() {
@@ -411,6 +509,7 @@ class WhipBroadcaster {
       _localStream = null;
       await _pc?.close();
       _pc = null;
+      _audioSender = null;
       _videoSender = null;
     } catch (_) {
       /* noop */

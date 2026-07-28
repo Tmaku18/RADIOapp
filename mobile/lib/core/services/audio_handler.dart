@@ -287,6 +287,22 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
     }
   }
 
+  /// Fully stop the just_audio output unit while THIS device captures the mic
+  /// for WebRTC (DJ booth / go-live). Soft-pause alone keeps the player
+  /// rendering at volume 0, which on iOS keeps the shared audio session busy
+  /// and can make the WebRTC voice-processing unit capture pure silence —
+  /// listeners then get ducked music with no voice. Resume happens via
+  /// `setUserPaused(false)` (music.play()); the radio background sync re-seeks
+  /// any drift on its next tick.
+  Future<void> hardPauseMusicForCapture() async {
+    try {
+      await music.pause();
+    } catch (_) {}
+    try {
+      await voice.pause();
+    } catch (_) {}
+  }
+
   /// True while THIS device is publishing the DJ booth mic (admin DJ Booth
   /// screen). The booth admin must never play their own talk-over back:
   /// starting the WHEP overlay reconfigures the shared iOS audio session

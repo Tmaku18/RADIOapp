@@ -51,6 +51,8 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
 
   Timer? _pollTimer;
   Timer? _realtimeRefreshTimer;
+  Timer? _micLevelTimer;
+  double _micLevel = 0;
   StreamSubscription<DjBoothRealtimeEvent>? _eventSub;
   bool _hasQueueEdits = false;
   /// True when we muted radio so WHIP mic capture can own the audio session.
@@ -66,6 +68,7 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
   void dispose() {
     _pollTimer?.cancel();
     _realtimeRefreshTimer?.cancel();
+    _micLevelTimer?.cancel();
     unawaited(_eventSub?.cancel() ?? Future.value());
     unawaited(() async {
       await _micBroadcaster.dispose();
@@ -75,10 +78,10 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
     super.dispose();
   }
 
-  /// Mute radio on THIS device before WHIP publish. Leaving music playing
-  /// while opening the mic is the main reason booth talk-over is silent on
-  /// iOS: just_audio keeps the audio unit and WebRTC captures empty frames.
-  /// (Same pattern as Go Live.)
+  /// Silence AND fully stop the radio player on THIS device before WHIP
+  /// publish. Soft-pause (volume 0) is not enough on iOS: just_audio keeps
+  /// rendering into the shared audio session and the WebRTC capture unit
+  /// records silence — listeners get ducked music but no voice.
   Future<void> _softPauseRadioForMic() async {
     try {
       final handler = AudioPlayerService.handler;
@@ -86,6 +89,8 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
         await handler.setUserPaused(true);
         _didSoftPauseRadio = true;
       }
+      // Truly release the audio unit (soft-pause keeps playing at volume 0).
+      await handler.hardPauseMusicForCapture();
     } catch (_) {}
   }
 
@@ -288,6 +293,21 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
     }
   }
 
+  /// Live capture meter while publishing — makes a silent mic obvious on the
+  /// phone instead of listeners discovering it.
+  void _startMicLevelMeter() {
+    _micLevelTimer?.cancel();
+    _micLevelTimer = Timer.periodic(const Duration(milliseconds: 400), (_) async {
+      if (!_publishing) {
+        _micLevelTimer?.cancel();
+        if (mounted) setState(() => _micLevel = 0);
+        return;
+      }
+      final s = await _micBroadcaster.micCaptureStats();
+      if (mounted) setState(() => _micLevel = s.level);
+    });
+  }
+
   Future<void> _run(Future<void> Function() fn) async {
     setState(() {
       _busy = true;
@@ -333,9 +353,29 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
             'Check mic permission, then Disconnect and Connect Mic again.',
           );
         }
+        // Packets alone can be silence: verify the mic is capturing REAL
+        // audio energy; if not, restart the capture once (iOS recovery).
+        var live = await _micBroadcaster.waitForLiveMicAudio(
+          timeout: const Duration(seconds: 5),
+        );
+        if (!live) {
+          final restarted = await _micBroadcaster.restartAudioCapture();
+          if (restarted) {
+            live = await _micBroadcaster.waitForLiveMicAudio(
+              timeout: const Duration(seconds: 4),
+            );
+          }
+        }
+        if (!live) {
+          throw Exception(
+            'The microphone is connected but capturing silence. '
+            'Close other audio apps, then Disconnect and Connect Mic again.',
+          );
+        }
         await _booth.micOn(stationId);
         await _loadStatus();
       }
+      _startMicLevelMeter();
     } catch (e) {
       await _micBroadcaster.dispose();
       await AudioPlayerService.handler.setSuppressVoiceOverlay(false);
@@ -557,6 +597,7 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
                     micActive: _micActive,
                     sessionConnected: _sessionConnected,
                     publishing: _publishing,
+                    micLevel: _micLevel,
                     duckVolume: _duckVolume,
                     busy: _busy,
                     onConnect: _connectMic,
@@ -749,6 +790,7 @@ class _MicSection extends StatelessWidget {
     required this.micActive,
     required this.sessionConnected,
     required this.publishing,
+    required this.micLevel,
     required this.duckVolume,
     required this.busy,
     required this.onConnect,
@@ -760,6 +802,7 @@ class _MicSection extends StatelessWidget {
   final bool micActive;
   final bool sessionConnected;
   final bool publishing;
+  final double micLevel;
   final double duckVolume;
   final bool busy;
   final VoidCallback onConnect;
@@ -839,6 +882,47 @@ class _MicSection extends StatelessWidget {
             ],
           ],
         ),
+        if (publishing) ...[
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Icon(
+                micLevel > 0.002 ? Icons.graphic_eq : Icons.mic_none,
+                size: 16,
+                color: micLevel > 0.002
+                    ? Colors.green
+                    : theme.colorScheme.outline,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    value: (micLevel * 6).clamp(0.0, 1.0),
+                    minHeight: 6,
+                    backgroundColor:
+                        theme.colorScheme.surfaceContainerHighest,
+                    color: micLevel > 0.002
+                        ? Colors.green
+                        : theme.colorScheme.outline,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text('Mic level', style: theme.textTheme.labelSmall),
+            ],
+          ),
+          if (micActive && micLevel <= 0.0005)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'No sound detected — if this stays empty while you talk, listeners hear silence. Disconnect and reconnect the mic.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.error,
+                ),
+              ),
+            ),
+        ],
         const SizedBox(height: 12),
         Text(
           'Music duck while mic is on: ${(duckVolume * 100).round()}%',
