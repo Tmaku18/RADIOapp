@@ -501,11 +501,14 @@ export default function DashboardLayout({
       <SidebarInset
         className={`bg-transparent ${isListenPage ? 'h-svh overflow-hidden' : ''}`}
       >
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b border-white/10 px-4 md:px-8 glass-strong dimension-chrome dim-text relative">
+        <header
+          className="flex shrink-0 items-center gap-2 border-b border-white/10 px-4 md:px-8 glass-strong dimension-chrome dim-text relative pt-[env(safe-area-inset-top,0px)]"
+          style={{ minHeight: 'calc(4rem + env(safe-area-inset-top, 0px))' }}
+        >
           <div className="neon-line absolute bottom-0 left-0 right-0" aria-hidden />
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
-          <h1 className="text-xl font-semibold text-foreground">
+          <h1 className="text-xl font-semibold text-foreground truncate">
             {getPageTitle(pathname)}
           </h1>
 

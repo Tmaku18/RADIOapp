@@ -135,18 +135,18 @@ export function RadioListenExperience({
     <div className="relative flex h-full min-h-0 overflow-hidden" data-dimension>
       <ButterflyPulseOverlay active={pulseActive} />
 
-      <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 lg:p-6">
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-6">
         <div className="max-w-7xl mx-auto space-y-5 pb-28">
           <Reveal>
             <div className="flex items-center justify-between flex-wrap gap-3">
-              <div>
+              <div className="min-w-0">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="live-dot w-1.5 h-1.5 rounded-full bg-pink-500" />
                   <span className="font-dim-mono text-[10px] tracking-[0.3em] text-pink-400">
                     ON AIR · {currentStation?.genre?.toUpperCase() ?? 'THE REFINERY'}
                   </span>
                 </div>
-                <h1 className="font-unbounded font-black tracking-tighter uppercase text-3xl md:text-4xl">
+                <h1 className="font-unbounded font-black tracking-tighter uppercase text-3xl md:text-4xl leading-[1.15] py-0.5">
                   Live <span className="text-glow-cyan text-cyan-300">radio</span>
                 </h1>
               </div>
