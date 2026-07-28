@@ -418,9 +418,13 @@ class _LikedArtistsTab extends StatefulWidget {
 
 class _LikedArtistsTabState extends State<_LikedArtistsTab> {
   final DiscoverAudioService _discover = DiscoverAudioService();
-  bool _loading = true;
-  String? _error;
-  List<DiscoverLikedArtist> _artists = const [];
+  final NearbyService _people = NearbyService();
+  bool _loadingLiked = true;
+  bool _loadingMore = true;
+  String? _likedError;
+  String? _moreError;
+  List<DiscoverLikedArtist> _liked = const [];
+  List<Map<String, dynamic>> _moreArtists = const [];
 
   @override
   void initState() {
@@ -430,144 +434,315 @@ class _LikedArtistsTabState extends State<_LikedArtistsTab> {
 
   Future<void> reload() async {
     setState(() {
-      _loading = true;
-      _error = null;
+      _loadingLiked = true;
+      _loadingMore = true;
+      _likedError = null;
+      _moreError = null;
     });
+    await Future.wait([_loadLiked(), _loadMoreArtists()]);
+  }
+
+  Future<void> _loadLiked() async {
     try {
       final items = await _discover.getLikedArtists(limit: 100);
       if (!mounted) return;
-      setState(() => _artists = items);
+      setState(() => _liked = items);
     } catch (_) {
       if (!mounted) return;
       setState(
-        () => _error =
-            "Couldn't load artists you've liked. Pull to refresh or tap retry.",
+        () => _likedError =
+            "Couldn't load artists you've liked. Pull to refresh.",
       );
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) setState(() => _loadingLiked = false);
     }
   }
 
-  void _open(DiscoverLikedArtist artist) {
+  Future<void> _loadMoreArtists() async {
+    try {
+      final res = await _people.listPeople(
+        role: 'artist',
+        limit: 40,
+        offset: 0,
+      );
+      final raw = (res['items'] is List) ? res['items'] as List : const [];
+      final likedIds = _liked.map((a) => a.userId).toSet();
+      // Prefer excluding already-liked when that list is already in; if liked
+      // hasn't finished yet, filter again after both settle in build.
+      final items = raw
+          .whereType<Map>()
+          .map((m) => Map<String, dynamic>.from(m))
+          .where((m) {
+            final id = (m['userId'] ?? m['user_id'] ?? m['id'] ?? '')
+                .toString();
+            return id.isNotEmpty && !likedIds.contains(id);
+          })
+          .toList();
+      if (!mounted) return;
+      setState(() => _moreArtists = items);
+    } catch (_) {
+      if (!mounted) return;
+      setState(
+        () => _moreError = "Couldn't load more artists. Pull to refresh.",
+      );
+    } finally {
+      if (mounted) setState(() => _loadingMore = false);
+    }
+  }
+
+  void _openLiked(DiscoverLikedArtist artist) {
     if (artist.userId.isEmpty) return;
-    Navigator.pushNamed(
-      context,
-      AppRoutes.artistProfile,
-      arguments: artist.userId,
+    unawaited(
+      AppRoutes.openArtistProfile(context, artistId: artist.userId),
     );
+  }
+
+  void _openPerson(Map<String, dynamic> person) {
+    final id = (person['userId'] ?? person['user_id'] ?? person['id'] ?? '')
+        .toString()
+        .trim();
+    if (id.isEmpty) return;
+    unawaited(AppRoutes.openArtistProfile(context, artistId: id));
+  }
+
+  List<Map<String, dynamic>> get _browseArtists {
+    final likedIds = _liked.map((a) => a.userId).toSet();
+    return _moreArtists.where((m) {
+      final id = (m['userId'] ?? m['user_id'] ?? m['id'] ?? '').toString();
+      return id.isNotEmpty && !likedIds.contains(id);
+    }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
     final surfaces = context.networxSurfaces;
-    if (_loading && _artists.isEmpty) {
+    final scheme = Theme.of(context).colorScheme;
+    final browse = _browseArtists;
+    final initialLoading =
+        (_loadingLiked && _liked.isEmpty) && (_loadingMore && browse.isEmpty);
+
+    if (initialLoading) {
       return const Center(child: CircularProgressIndicator());
-    }
-    if (_error != null && _artists.isEmpty) {
-      return RefreshIndicator(
-        onRefresh: reload,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            SizedBox(
-              height: MediaQuery.of(context).size.height * 0.55,
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _error!,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: surfaces.textSecondary),
-                      ),
-                      const SizedBox(height: 12),
-                      FilledButton.icon(
-                        onPressed: reload,
-                        icon: const Icon(Icons.refresh),
-                        label: const Text('Retry'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-    if (_artists.isEmpty) {
-      return RefreshIndicator(
-        onRefresh: reload,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: [
-            SizedBox(
-              height: MediaQuery.of(context).size.height * 0.55,
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                    'Artists you like show up here.\nSwipe right on Discover songs to add them.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: surfaces.textSecondary),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
     }
 
     return RefreshIndicator(
       onRefresh: reload,
-      child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
-        itemCount: _artists.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 8),
-        itemBuilder: (context, index) {
-          final artist = _artists[index];
-          final name = (artist.displayName ?? 'Artist').trim().isEmpty
-              ? 'Artist'
-              : artist.displayName!.trim();
-          final subtitle = [
-            if ((artist.username ?? '').isNotEmpty) '@${artist.username}',
-            if ((artist.headline ?? '').isNotEmpty) artist.headline!,
-            if (artist.likedSongCount > 0)
-              '${artist.likedSongCount} liked song${artist.likedSongCount == 1 ? '' : 's'}',
-          ].join(' · ');
-          return Card(
-            child: ListTile(
-              onTap: () => _open(artist),
-              leading: CircleAvatar(
-                backgroundColor: Theme.of(context)
-                    .colorScheme
-                    .surfaceContainerHighest,
-                backgroundImage: (artist.avatarUrl ?? '').isNotEmpty
-                    ? NetworkImage(artist.avatarUrl!)
-                    : null,
-                child: (artist.avatarUrl ?? '').isEmpty
-                    ? const Icon(Icons.person_outline)
-                    : null,
-              ),
-              title: Text(
-                name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              subtitle: subtitle.isEmpty
-                  ? null
-                  : Text(
-                      subtitle,
-                      maxLines: 2,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 32),
+        children: [
+          _sectionLabel(surfaces, 'Artists you’ve liked'),
+          const SizedBox(height: 8),
+          if (_loadingLiked && _liked.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            )
+          else if (_likedError != null && _liked.isEmpty)
+            _messageCard(
+              surfaces,
+              _likedError!,
+              actionLabel: 'Retry',
+              onAction: _loadLiked,
+            )
+          else if (_liked.isEmpty)
+            _messageCard(
+              surfaces,
+              'None yet — swipe right on Discover songs, or browse more artists below.',
+            )
+          else
+            ..._liked.map((artist) {
+              final name = (artist.displayName ?? 'Artist').trim().isEmpty
+                  ? 'Artist'
+                  : artist.displayName!.trim();
+              final handle = (artist.username ?? '').trim();
+              final headline = (artist.headline ?? '').trim();
+              final meta = [
+                if (handle.isNotEmpty) '@$handle',
+                if (headline.isNotEmpty) headline,
+              ].join(' · ');
+              final likedLine = artist.likedSongCount > 0
+                  ? '${artist.likedSongCount} liked song${artist.likedSongCount == 1 ? '' : 's'}'
+                  : null;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Card(
+                  child: ListTile(
+                    onTap: () => _openLiked(artist),
+                    leading: CircleAvatar(
+                      backgroundColor: scheme.surfaceContainerHighest,
+                      backgroundImage: (artist.avatarUrl ?? '').isNotEmpty
+                          ? NetworkImage(artist.avatarUrl!)
+                          : null,
+                      child: (artist.avatarUrl ?? '').isEmpty
+                          ? const Icon(Icons.person_outline)
+                          : null,
+                    ),
+                    title: Text(
+                      name,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-              trailing: const Icon(Icons.chevron_right),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (meta.isNotEmpty)
+                          Text(
+                            meta,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: surfaces.textSecondary,
+                              fontSize: 13,
+                            ),
+                          ),
+                        if (likedLine != null)
+                          Text(
+                            likedLine,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: surfaces.textMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                      ],
+                    ),
+                    isThreeLine: meta.isNotEmpty && likedLine != null,
+                    trailing: const Icon(Icons.chevron_right),
+                  ),
+                ),
+              );
+            }),
+          const SizedBox(height: 16),
+          _sectionLabel(surfaces, 'More artists'),
+          const SizedBox(height: 4),
+          Text(
+            'Search above to find anyone by name, or browse here.',
+            style: TextStyle(color: surfaces.textMuted, fontSize: 12),
+          ),
+          const SizedBox(height: 8),
+          if (_loadingMore && browse.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            )
+          else if (_moreError != null && browse.isEmpty)
+            _messageCard(
+              surfaces,
+              _moreError!,
+              actionLabel: 'Retry',
+              onAction: _loadMoreArtists,
+            )
+          else if (browse.isEmpty)
+            _messageCard(
+              surfaces,
+              'No other discoverable artists right now. Try searching by name.',
+            )
+          else ...[
+            ...browse.map((person) {
+              final name =
+                  (person['displayName'] ??
+                          person['display_name'] ??
+                          'Artist')
+                      .toString()
+                      .trim();
+              final handle =
+                  (person['username'] ?? '').toString().trim();
+              final headline =
+                  (person['headline'] ?? '').toString().trim();
+              final avatar =
+                  (person['avatarUrl'] ?? person['avatar_url'] ?? '')
+                      .toString();
+              final meta = [
+                if (handle.isNotEmpty) '@$handle',
+                if (headline.isNotEmpty) headline,
+              ].join(' · ');
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Card(
+                  child: ListTile(
+                    onTap: () => _openPerson(person),
+                    leading: CircleAvatar(
+                      backgroundColor: scheme.surfaceContainerHighest,
+                      backgroundImage:
+                          avatar.isNotEmpty ? NetworkImage(avatar) : null,
+                      child: avatar.isEmpty
+                          ? const Icon(Icons.person_outline)
+                          : null,
+                    ),
+                    title: Text(
+                      name.isEmpty ? 'Artist' : name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: meta.isEmpty
+                        ? null
+                        : Text(
+                            meta,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                    trailing: const Icon(Icons.chevron_right),
+                  ),
+                ),
+              );
+            }),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+              child: Text(
+                'That’s everyone for now. Use search to find more.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: surfaces.textMuted, fontSize: 12),
+              ),
             ),
-          );
-        },
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionLabel(NetworxSurfaces surfaces, String text) {
+    return Text(
+      text,
+      style: TextStyle(
+        color: surfaces.textSecondary,
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.2,
+      ),
+    );
+  }
+
+  Widget _messageCard(
+    NetworxSurfaces surfaces,
+    String message, {
+    String? actionLabel,
+    Future<void> Function()? onAction,
+  }) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: surfaces.textSecondary, fontSize: 13),
+            ),
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(height: 10),
+              Center(
+                child: TextButton.icon(
+                  onPressed: () => unawaited(onAction()),
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: Text(actionLabel),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
