@@ -162,12 +162,16 @@ export function LyricsPlayer({
   }
 
   useEffect(() => {
-    if (activeLineRef.current && containerRef.current) {
-      activeLineRef.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-      });
-    }
+    const container = containerRef.current;
+    const active = activeLineRef.current;
+    if (!container || !active) return;
+    // Scroll only this list — scrollIntoView() also scrolls every scrollable
+    // ancestor, which shifts the surrounding player card.
+    const containerTop = container.getBoundingClientRect().top;
+    const activeTop = active.getBoundingClientRect().top;
+    const centerOffset = (container.clientHeight - active.clientHeight) / 2;
+    const top = container.scrollTop + (activeTop - containerTop) - centerOffset;
+    container.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
   }, [activeIndex]);
 
   const startEditing = () => {

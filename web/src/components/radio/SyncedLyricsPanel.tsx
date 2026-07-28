@@ -65,12 +65,17 @@ export function SyncedLyricsPanel({
   const idx = activeIndex();
 
   useEffect(() => {
-    if (activeRef.current && containerRef.current) {
-      activeRef.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-      });
-    }
+    const container = containerRef.current;
+    const active = activeRef.current;
+    if (!container || !active) return;
+    // Scroll only this list. scrollIntoView() also scrolls every scrollable
+    // ancestor — including the overflow-hidden player card — which drags the
+    // track title up out of view once lyrics load.
+    const containerTop = container.getBoundingClientRect().top;
+    const activeTop = active.getBoundingClientRect().top;
+    const centerOffset = (container.clientHeight - active.clientHeight) / 2;
+    const top = container.scrollTop + (activeTop - containerTop) - centerOffset;
+    container.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
   }, [idx]);
 
   const hasLyrics = (lines && lines.length > 0) || (plainText && plainText.trim());
