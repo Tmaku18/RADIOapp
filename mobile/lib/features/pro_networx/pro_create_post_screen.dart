@@ -22,7 +22,7 @@ class ProCreatePostScreen extends StatefulWidget {
 
 class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
   /// Must match backend `maxFeedVideoDurationSeconds` / web FEED_VIDEO_MAX_SECONDS.
-  static const int _maxVideoDurationSec = 15;
+  static const int _maxVideoDurationSec = 60;
   static const int _maxFileSizeBytes = 75 * 1024 * 1024;
 
   final ProNetworxService _service = ProNetworxService();

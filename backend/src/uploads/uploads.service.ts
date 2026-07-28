@@ -33,7 +33,7 @@ interface UploadOptions {
 export class UploadsService {
   private readonly songBucketTargetBytes = 100 * 1024 * 1024;
   private readonly imageUploadMaxBytes = 15 * 1024 * 1024;
-  /** Discover feed posts (images + ≤15s phone videos). */
+  /** Discover feed posts (images + ≤60s phone videos). */
   private readonly feedUploadMaxBytes = 75 * 1024 * 1024;
   private readonly feedUploadAllowedMimeTypes = [
     'image/jpeg',

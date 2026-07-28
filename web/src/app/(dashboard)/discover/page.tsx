@@ -62,7 +62,7 @@ interface DiscoveryProfile {
 const PAGE_SIZE = 20;
 const FEED_PAGE_SIZE = 16;
 const FEED_UPLOAD_MAX_BYTES = 75 * 1024 * 1024;
-const FEED_VIDEO_MAX_SECONDS = 15;
+const FEED_VIDEO_MAX_SECONDS = 60;
 const FEED_ALLOWED_UPLOAD_MIME_TYPES = [
   'image/jpeg',
   'image/jpg',
@@ -101,10 +101,10 @@ async function validateFeedUploadFile(file: File): Promise<string | null> {
     try {
       const durationSeconds = await getVideoDurationSeconds(file);
       if (!Number.isFinite(durationSeconds) || durationSeconds > FEED_VIDEO_MAX_SECONDS) {
-        return 'Video length must be 15 seconds or less.';
+        return `Video length must be ${FEED_VIDEO_MAX_SECONDS} seconds or less.`;
       }
     } catch {
-      return 'Unable to read video duration. Please upload MP4, WEBM, or MOV up to 15 seconds.';
+      return `Unable to read video duration. Please upload MP4, WEBM, or MOV up to ${FEED_VIDEO_MAX_SECONDS} seconds.`;
     }
   }
   return null;
@@ -421,7 +421,7 @@ export default function DiscoverPage() {
                             onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
                           />
                           <p className="mt-2 text-xs text-muted-foreground">
-                            Max size: 75MB. Videos must be 15 seconds or less.
+                            Max size: 75MB. Videos must be 60 seconds or less.
                           </p>
                         </div>
                         <div>
