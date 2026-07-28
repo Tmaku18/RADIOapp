@@ -38,7 +38,7 @@ export class DiscoveryController {
     'video/webm',
     'video/quicktime',
   ];
-  private readonly maxFeedVideoDurationSeconds = 60;
+  private readonly maxFeedVideoDurationSeconds = 300;
 
   constructor(
     private readonly discovery: DiscoveryService,
@@ -483,7 +483,7 @@ export class DiscoveryController {
   }
 
   /**
-   * Create a discover feed post (image or ≤60s video).
+   * Create a discover feed post (image or ≤5 min video).
    * Listeners may post TikTok-style videos synced to a liked Discover clip;
    * artists, Catalysts, and admins may also post.
    * Send image/video as "file" and optional "caption" in body.
@@ -493,7 +493,7 @@ export class DiscoveryController {
   @Roles('listener', 'artist', 'service_provider', 'admin')
   @UseInterceptors(
     FileInterceptor('file', {
-      limits: { fileSize: 75 * 1024 * 1024 }, // 75MB — room for ~60s phone videos
+      limits: { fileSize: 200 * 1024 * 1024 }, // 200MB — room for ~5 min phone videos
     }),
   )
   async createFeedPost(

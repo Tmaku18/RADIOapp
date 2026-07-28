@@ -1164,7 +1164,7 @@ export const discoveryApi = {
             status: 413,
             data: lastParsed ?? {
               message:
-                'Upload rejected as too large. Try a shorter clip (max 60s / 75MB).',
+                'Upload rejected as too large. Try a shorter clip (max 5 min / 200MB).',
             },
           },
         };

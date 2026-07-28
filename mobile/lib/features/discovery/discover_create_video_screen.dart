@@ -43,7 +43,7 @@ class DiscoverCreateVideoScreen extends StatefulWidget {
 class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
   static const int _maxDurationSec = 15;
   static const int _cameraCountdownSec = 5;
-  static const int _maxFileSizeBytes = 75 * 1024 * 1024;
+  static const int _maxFileSizeBytes = 200 * 1024 * 1024;
 
   final ApiService _api = ApiService();
   final DiscoverAudioService _discover = DiscoverAudioService();

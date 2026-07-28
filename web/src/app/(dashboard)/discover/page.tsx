@@ -61,8 +61,8 @@ interface DiscoveryProfile {
 
 const PAGE_SIZE = 20;
 const FEED_PAGE_SIZE = 16;
-const FEED_UPLOAD_MAX_BYTES = 75 * 1024 * 1024;
-const FEED_VIDEO_MAX_SECONDS = 60;
+const FEED_UPLOAD_MAX_BYTES = 200 * 1024 * 1024;
+const FEED_VIDEO_MAX_SECONDS = 300;
 const FEED_ALLOWED_UPLOAD_MIME_TYPES = [
   'image/jpeg',
   'image/jpg',
@@ -95,16 +95,16 @@ async function validateFeedUploadFile(file: File): Promise<string | null> {
     return 'Unsupported file type. Allowed: JPG, PNG, WEBP, MP4, WEBM, MOV.';
   }
   if (file.size > FEED_UPLOAD_MAX_BYTES) {
-    return 'File size exceeds 75MB.';
+    return 'File size exceeds 200MB.';
   }
   if (file.type.startsWith('video/')) {
     try {
       const durationSeconds = await getVideoDurationSeconds(file);
       if (!Number.isFinite(durationSeconds) || durationSeconds > FEED_VIDEO_MAX_SECONDS) {
-        return `Video length must be ${FEED_VIDEO_MAX_SECONDS} seconds or less.`;
+        return 'Video length must be 5 minutes or less.';
       }
     } catch {
-      return `Unable to read video duration. Please upload MP4, WEBM, or MOV up to ${FEED_VIDEO_MAX_SECONDS} seconds.`;
+      return 'Unable to read video duration. Please upload MP4, WEBM, or MOV up to 5 minutes.';
     }
   }
   return null;
@@ -421,7 +421,7 @@ export default function DiscoverPage() {
                             onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
                           />
                           <p className="mt-2 text-xs text-muted-foreground">
-                            Max size: 75MB. Videos must be 60 seconds or less.
+                            Max size: 200MB. Videos must be 5 minutes or less.
                           </p>
                         </div>
                         <div>

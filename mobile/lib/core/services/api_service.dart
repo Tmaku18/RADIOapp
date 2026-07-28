@@ -47,7 +47,7 @@ class ApiService {
   static const Duration _requestTimeout = Duration(seconds: 15);
   static const Duration _uploadTimeout = Duration(seconds: 120);
   /// Direct Nest/Railway host — Vercel (networxradio.com) rejects large
-  /// multipart bodies with 413 before the Nest 75MB limit applies.
+  /// multipart bodies with 413 before the Nest feed upload limit applies.
   static const String _directBackendFallback =
       'https://backend-production-17cc.up.railway.app';
   String? _resolvedBaseUrl;

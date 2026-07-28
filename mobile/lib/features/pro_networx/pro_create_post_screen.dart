@@ -22,8 +22,8 @@ class ProCreatePostScreen extends StatefulWidget {
 
 class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
   /// Must match backend `maxFeedVideoDurationSeconds` / web FEED_VIDEO_MAX_SECONDS.
-  static const int _maxVideoDurationSec = 60;
-  static const int _maxFileSizeBytes = 75 * 1024 * 1024;
+  static const int _maxVideoDurationSec = 300;
+  static const int _maxFileSizeBytes = 200 * 1024 * 1024;
 
   final ProNetworxService _service = ProNetworxService();
   final TextEditingController _captionCtrl = TextEditingController();
@@ -82,7 +82,7 @@ class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
     final file = File(picked.path);
     final size = await file.length();
     if (size > _maxFileSizeBytes) {
-      if (mounted) setState(() => _error = 'File too large (max 75 MB).');
+      if (mounted) setState(() => _error = 'File too large (max 200 MB).');
       return;
     }
     if (isVideo) {
@@ -91,8 +91,7 @@ class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
       if (duration != null &&
           duration.inMilliseconds > (_maxVideoDurationSec + 1) * 1000) {
         if (mounted) {
-          setState(() => _error =
-              'Video length must be $_maxVideoDurationSec seconds or less.');
+          setState(() => _error = 'Video length must be 5 minutes or less.');
         }
         return;
       }
@@ -220,7 +219,7 @@ class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           Text(
-            'Share an image or a short video (max ${_maxVideoDurationSec}s) with the people who follow you.',
+            'Share an image or a video (max 5 min) with the people who follow you.',
             style: TextStyle(color: surfaces.textSecondary, fontSize: 14),
           ),
           const SizedBox(height: 16),
