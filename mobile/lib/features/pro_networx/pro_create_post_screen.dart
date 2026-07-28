@@ -32,6 +32,7 @@ class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
   File? _file;
   bool _isVideo = false;
   bool _uploading = false;
+  bool _picking = false;
   String? _error;
 
   @override
@@ -41,6 +42,11 @@ class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
   }
 
   Future<void> _pickImage(ImageSource source) async {
+    if (_picking) return;
+    setState(() {
+      _picking = true;
+      _error = null;
+    });
     try {
       final picked = await _picker.pickImage(
         source: source,
@@ -48,29 +54,44 @@ class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
         maxWidth: 2048,
       );
       await _setPicked(picked, isVideo: false);
-    } catch (_) {
-      if (mounted) setState(() => _error = 'Could not pick that image.');
+    } catch (e) {
+      if (mounted) setState(() => _error = 'Could not pick that image: $e');
+    } finally {
+      if (mounted) setState(() => _picking = false);
     }
   }
 
   Future<void> _pickVideo(ImageSource source) async {
+    if (_picking) return;
+    setState(() {
+      _picking = true;
+      _error = null;
+    });
     try {
       final picked = await _picker.pickVideo(
         source: source,
-        maxDuration: const Duration(seconds: _maxVideoDurationSec),
+        // Only cap live recording. Passing maxDuration for a library pick makes
+        // iOS force a trim/export that can fail before returning a file.
+        maxDuration: source == ImageSource.camera
+            ? const Duration(seconds: _maxVideoDurationSec)
+            : null,
       );
       await _setPicked(picked, isVideo: true);
-    } catch (_) {
-      if (mounted) setState(() => _error = 'Could not pick that video.');
+    } catch (e) {
+      if (mounted) setState(() => _error = 'Could not pick that video: $e');
+    } finally {
+      if (mounted) setState(() => _picking = false);
     }
   }
 
   Future<Duration?> _readVideoDuration(File file) async {
     final controller = VideoPlayerController.file(file);
     try {
-      await controller.initialize();
-      return controller.value.duration;
+      await controller.initialize().timeout(const Duration(seconds: 10));
+      final duration = controller.value.duration;
+      return duration > Duration.zero ? duration : null;
     } catch (_) {
+      // Unreadable metadata must not block the pick — the API validates too.
       return null;
     } finally {
       await controller.dispose();
@@ -82,7 +103,10 @@ class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
     final file = File(picked.path);
     final size = await file.length();
     if (size > _maxFileSizeBytes) {
-      if (mounted) setState(() => _error = 'File too large (max 200 MB).');
+      final mb = (size / (1024 * 1024)).toStringAsFixed(0);
+      if (mounted) {
+        setState(() => _error = 'File too large ($mb MB). Max is 200 MB.');
+      }
       return;
     }
     if (isVideo) {
@@ -90,8 +114,10 @@ class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
       final duration = await _readVideoDuration(file);
       if (duration != null &&
           duration.inMilliseconds > (_maxVideoDurationSec + 1) * 1000) {
+        final mins = (duration.inSeconds / 60).toStringAsFixed(1);
         if (mounted) {
-          setState(() => _error = 'Video length must be 5 minutes or less.');
+          setState(() => _error =
+              'Video is $mins minutes. Max length is 5 minutes.');
         }
         return;
       }
@@ -105,7 +131,7 @@ class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
   }
 
   void _showPickSheet() {
-    if (_uploading) return;
+    if (_uploading || _picking) return;
     showModalBottomSheet<void>(
       context: context,
       builder: (ctx) => SafeArea(
@@ -204,7 +230,7 @@ class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
         title: const Text('New post'),
         actions: [
           TextButton(
-            onPressed: _uploading || file == null ? null : _publish,
+            onPressed: _uploading || _picking || file == null ? null : _publish,
             child: _uploading
                 ? const SizedBox(
                     height: 18,
@@ -234,7 +260,23 @@ class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
                 border: Border.all(color: surfaces.border),
               ),
               clipBehavior: Clip.antiAlias,
-              child: file == null
+              child: _picking
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(
+                          height: 28,
+                          width: 28,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Preparing media…',
+                          style: TextStyle(color: surfaces.textSecondary),
+                        ),
+                      ],
+                    )
+                  : file == null
                   ? Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -273,7 +315,7 @@ class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
             Align(
               alignment: Alignment.centerRight,
               child: TextButton.icon(
-                onPressed: _uploading ? null : _showPickSheet,
+                onPressed: _uploading || _picking ? null : _showPickSheet,
                 icon: const Icon(Icons.swap_horiz, size: 18),
                 label: const Text('Change'),
               ),
@@ -298,7 +340,7 @@ class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
           ],
           const SizedBox(height: 16),
           FilledButton(
-            onPressed: _uploading || file == null ? null : _publish,
+            onPressed: _uploading || _picking || file == null ? null : _publish,
             child: _uploading
                 ? const SizedBox(
                     height: 20,
