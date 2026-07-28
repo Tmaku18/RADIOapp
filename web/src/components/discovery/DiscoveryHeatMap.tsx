@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Circle,
@@ -20,6 +20,9 @@ import {
   type DiscoveryMapHeatBucket,
 } from '@/lib/api';
 import { artistProfilePath } from '@/lib/artist-links';
+
+/** Fallback when the API omits `vicinityRadiusKm`; mirrors the backend value. */
+const DEFAULT_VICINITY_RADIUS_KM = 3;
 
 const artistIcon = new L.DivIcon({
   className: 'artist-marker',
@@ -236,32 +239,44 @@ export function DiscoveryHeatMap({
           ))}
 
           {artists.map((artist) => (
-            <Marker
-              key={artist.artistId}
-              position={[artist.lat, artist.lng]}
-              icon={artistIcon}
-            >
-              <Popup>
-                <div className="text-xs space-y-1 min-w-[150px]">
-                  <p className="font-medium">{artist.displayName || 'Artist'}</p>
-                  <p className="text-muted-foreground">{artist.locationRegion || 'Unknown location'}</p>
-                  <p>{artist.likeCount} likes</p>
-                  <Link
-                    href={artistProfilePath(artist.artistId)}
-                    className="text-blue-600 hover:underline"
-                  >
-                    Open profile
-                  </Link>
-                </div>
-              </Popup>
-            </Marker>
+            <Fragment key={artist.artistId}>
+              {/* The artist is somewhere in this circle, not at its centre. */}
+              <Circle
+                center={[artist.lat, artist.lng]}
+                radius={(artist.vicinityRadiusKm ?? DEFAULT_VICINITY_RADIUS_KM) * 1000}
+                pathOptions={{
+                  color: '#0ea5e9',
+                  fillColor: '#0ea5e9',
+                  fillOpacity: 0.12,
+                  weight: 1.5,
+                }}
+              />
+              <Marker position={[artist.lat, artist.lng]} icon={artistIcon}>
+                <Popup>
+                  <div className="text-xs space-y-1 min-w-[150px]">
+                    <p className="font-medium">{artist.displayName || 'Artist'}</p>
+                    <p className="text-muted-foreground">{artist.locationRegion || 'Unknown location'}</p>
+                    <p>{artist.likeCount} likes</p>
+                    <p className="text-muted-foreground">
+                      Approximate area only
+                    </p>
+                    <Link
+                      href={artistProfilePath(artist.artistId)}
+                      className="text-blue-600 hover:underline"
+                    >
+                      Open profile
+                    </Link>
+                  </div>
+                </Popup>
+              </Marker>
+            </Fragment>
           ))}
         </MapContainer>
       </div>
 
       <div className="rounded-lg border border-border bg-card/40 p-3 text-xs text-muted-foreground flex items-center justify-between">
         <span>
-          Heat key: low <span className="mx-1">◌</span> high
+          Circles show a general area, not an exact location
         </span>
         <span>
           {loading

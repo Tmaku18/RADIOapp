@@ -597,7 +597,13 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    return transformUser(data);
+    // Anyone signed in can read this route, so keep the stored coordinates out
+    // of it. Maps get an approximated point from the discovery endpoints, and
+    // the owner still sees their own exact values via GET /users/me.
+    const { artistLat: _lat, artistLng: _lng, ...publicUser } = transformUser(
+      data,
+    );
+    return publicUser;
   }
 
   async updateUser(

@@ -197,7 +197,7 @@ describe('UploadsService', () => {
           makeFile({
             mimetype: 'video/mp4',
             originalname: 'huge.mp4',
-            size: 210 * 1024 * 1024,
+            size: 1025 * 1024 * 1024,
           }),
           'user-1',
         ),

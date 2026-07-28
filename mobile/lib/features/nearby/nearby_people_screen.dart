@@ -23,6 +23,10 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
   static const double _kmPerMile = 1.609344;
   static const LatLng _fallbackCenter = LatLng(39.8283, -98.5795); // US
 
+  /// Fallback when the API omits `vicinityRadiusKm`; must not read as more
+  /// precise than the backend's own approximation radius.
+  static const double _fallbackVicinityKm = 3;
+
   late final TabController _tabs;
   final MapController _mapController = MapController();
 
@@ -143,6 +147,31 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
     );
   }
 
+  double _vicinityKm(Map<String, dynamic> item) =>
+      _asDouble(item['vicinityRadiusKm']) ?? _fallbackVicinityKm;
+
+  /// Shaded areas rather than pins: a person sits somewhere inside their
+  /// circle, so a sharp pin would claim precision the data doesn't have.
+  List<CircleMarker> get _vicinityCircles {
+    final circles = <CircleMarker>[];
+    for (final item in _items) {
+      final lat = _asDouble(item['lat']);
+      final lng = _asDouble(item['lng']);
+      if (lat == null || lng == null) continue;
+      circles.add(
+        CircleMarker(
+          point: LatLng(lat, lng),
+          radius: _vicinityKm(item) * 1000,
+          useRadiusInMeter: true,
+          color: NetworxTokens.electricCyan.withValues(alpha: 0.14),
+          borderColor: NetworxTokens.electricCyan.withValues(alpha: 0.65),
+          borderStrokeWidth: 1.5,
+        ),
+      );
+    }
+    return circles;
+  }
+
   List<Marker> get _markers {
     final markers = <Marker>[];
     for (final item in _items) {
@@ -152,17 +181,25 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
       markers.add(
         Marker(
           point: LatLng(lat, lng),
-          width: 44,
-          height: 44,
+          width: 34,
+          height: 34,
           child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
             onTap: () => _openPersonProfile(item),
-            child: const Icon(
-              Icons.location_on,
-              color: NetworxTokens.electricCyan,
-              size: 40,
-              shadows: [
-                Shadow(color: Colors.black54, blurRadius: 6),
-              ],
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.75),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: NetworxTokens.electricCyan,
+                  width: 2,
+                ),
+              ),
+              child: const Icon(
+                Icons.person,
+                color: NetworxTokens.electricCyan,
+                size: 18,
+              ),
             ),
           ),
         ),
@@ -262,7 +299,8 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Pins show an approximate city area — not exact addresses or live GPS. '
+                'Each circle is a general area — the person is somewhere inside '
+                'it, not at the centre. Never exact addresses or live GPS. '
                 '${_pos != null ? 'Green mark is you (for centering only).' : 'Enable location to center the map on you.'}',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: scheme.onSurface.withValues(alpha: 0.7),
@@ -331,6 +369,7 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
                   urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                   userAgentPackageName: 'com.tmaktechnologies.networxradio',
                 ),
+                CircleLayer(circles: _vicinityCircles),
                 MarkerLayer(markers: _markers),
               ],
             ),

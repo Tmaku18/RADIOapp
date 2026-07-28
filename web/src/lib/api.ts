@@ -1270,8 +1270,11 @@ export interface DiscoveryMapArtistMarker {
   displayName: string | null;
   avatarUrl: string | null;
   locationRegion: string | null;
+  /** Approximate, not exact — see `vicinityRadiusKm`. */
   lat: number;
   lng: number;
+  /** The artist is somewhere within this many km of `lat`/`lng`. */
+  vicinityRadiusKm?: number;
   likeCount: number;
 }
 

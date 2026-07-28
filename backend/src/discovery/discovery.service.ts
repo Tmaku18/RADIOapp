@@ -3,6 +3,7 @@ import { getSupabaseClient } from '../config/supabase.config';
 import {
   approximatePublicCoords,
   geocodeCityZip,
+  LOCATION_VICINITY_RADIUS_KM,
 } from '../common/geocode.util';
 import { isExplicitFilteredStation } from '../radio/station.constants';
 import { UsersService } from '../users/users.service';
@@ -18,8 +19,11 @@ export interface DiscoveryProfile {
   locationRegion: string | null;
   city?: string | null;
   zipCode?: string | null;
+  /** Approximate, not exact — see `vicinityRadiusKm`. */
   lat?: number | null;
   lng?: number | null;
+  /** The person is somewhere within this many km of `lat`/`lng`. */
+  vicinityRadiusKm?: number | null;
   role: 'artist' | 'service_provider' | 'listener';
   serviceTypes: string[];
   createdAt: string;
@@ -99,8 +103,11 @@ export interface DiscoveryMapArtistMarker {
   displayName: string | null;
   avatarUrl: string | null;
   locationRegion: string | null;
+  /** Approximate, not exact — see `vicinityRadiusKm`. */
   lat: number;
   lng: number;
+  /** The artist is somewhere within this many km of `lat`/`lng`. */
+  vicinityRadiusKm: number;
   likeCount: number;
 }
 
@@ -284,14 +291,21 @@ export class DiscoveryService {
       userQuery = userQuery.in('role', ['artist', 'service_provider']);
     }
 
+    // Coordinates get shifted below, so widen the stored-coord filter by the
+    // shift distance. Without the padding, someone whose approximate pin lands
+    // inside the viewport would be dropped here for sitting just outside it.
+    const { latPad, lngPad } = this.vicinityBoundsPadding(
+      params.minLat,
+      params.maxLat,
+    );
     if (params.minLat != null)
-      userQuery = userQuery.gte('artist_lat', params.minLat);
+      userQuery = userQuery.gte('artist_lat', params.minLat - latPad);
     if (params.maxLat != null)
-      userQuery = userQuery.lte('artist_lat', params.maxLat);
+      userQuery = userQuery.lte('artist_lat', params.maxLat + latPad);
     if (params.minLng != null)
-      userQuery = userQuery.gte('artist_lng', params.minLng);
+      userQuery = userQuery.gte('artist_lng', params.minLng - lngPad);
     if (params.maxLng != null)
-      userQuery = userQuery.lte('artist_lng', params.maxLng);
+      userQuery = userQuery.lte('artist_lng', params.maxLng + lngPad);
 
     const { data: users, error: usersError } = await userQuery.limit(3000);
     if (usersError) {
@@ -347,16 +361,42 @@ export class DiscoveryService {
           Number.isFinite(u.artist_lat) &&
           Number.isFinite(u.artist_lng),
       )
-      .map((u) => ({
-        id: u.id,
-        display_name: u.display_name ?? null,
-        avatar_url: u.avatar_url ?? null,
-        location_region: u.location_region ?? null,
-        role: u.role ?? null,
-        artist_lat: u.artist_lat as number,
-        artist_lng: u.artist_lng as number,
-        like_count: likeMap.get(u.id) ?? 0,
-      }));
+      .map((u) => {
+        // Approximate here rather than at each call site: heat buckets and
+        // clusters are built from these rows too, and a bucket holding a
+        // single artist would otherwise publish that artist's exact point.
+        const approx = approximatePublicCoords(
+          u.artist_lat as number,
+          u.artist_lng as number,
+          u.id,
+        );
+        return {
+          id: u.id,
+          display_name: u.display_name ?? null,
+          avatar_url: u.avatar_url ?? null,
+          location_region: u.location_region ?? null,
+          role: u.role ?? null,
+          artist_lat: approx.lat,
+          artist_lng: approx.lng,
+          like_count: likeMap.get(u.id) ?? 0,
+        };
+      });
+  }
+
+  /**
+   * Degrees of slack to add to a stored-coordinate bounding box so people whose
+   * approximate pin falls inside the viewport survive the database filter.
+   */
+  private vicinityBoundsPadding(
+    minLat?: number,
+    maxLat?: number,
+  ): { latPad: number; lngPad: number } {
+    const latPad = LOCATION_VICINITY_RADIUS_KM / 110.574;
+    // A degree of longitude covers less ground toward the poles, so size the
+    // padding off whichever edge of the viewport is nearest a pole.
+    const edgeLat = Math.max(Math.abs(minLat ?? 0), Math.abs(maxLat ?? 0));
+    const cosLat = Math.max(0.01, Math.cos((edgeLat * Math.PI) / 180));
+    return { latPad, lngPad: latPad / cosLat };
   }
 
   async getMapHeat(params: {
@@ -557,8 +597,10 @@ export class DiscoveryService {
         displayName: row.display_name ?? null,
         avatarUrl: row.avatar_url ?? null,
         locationRegion: row.location_region ?? null,
+        // Already approximated in loadMapArtistRows.
         lat: row.artist_lat,
         lng: row.artist_lng,
+        vicinityRadiusKm: LOCATION_VICINITY_RADIUS_KM,
         likeCount: row.like_count,
       })),
     };
@@ -690,7 +732,8 @@ export class DiscoveryService {
         u.artist_lng != null && Number.isFinite(Number(u.artist_lng))
           ? Number(u.artist_lng)
           : null;
-      // Never expose exact stored coords — coarse cell + per-user jitter.
+      // Never expose exact stored coords — publish a point inside the
+      // person's general vicinity instead.
       let lat: number | null = null;
       let lng: number | null = null;
       if (rawLat != null && rawLng != null) {
@@ -719,6 +762,7 @@ export class DiscoveryService {
         zipCode,
         lat,
         lng,
+        vicinityRadiusKm: lat != null ? LOCATION_VICINITY_RADIUS_KM : null,
         role: u.role,
         serviceTypes: [] as string[],
         createdAt: u.created_at,
