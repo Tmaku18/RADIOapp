@@ -7,6 +7,7 @@ import '../../core/auth/auth_service.dart';
 import '../../core/models/pro_networx_models.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/services/pro_networx_service.dart';
+import '../../core/services/users_service.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 import 'widgets/pro_network_paywall_sheet.dart';
@@ -21,12 +22,17 @@ class ProNetworxProfileScreen extends StatefulWidget {
 
 class _ProNetworxProfileScreenState extends State<ProNetworxProfileScreen> {
   final ProNetworxService _service = ProNetworxService();
+  final UsersService _users = UsersService();
   bool _loading = true;
   Map<String, dynamic>? _profile;
   String? _error;
   String? _myUserId;
+  bool _following = false;
+  bool _followLoading = false;
   List<ProFeedPost> _posts = const [];
   List<ProServiceListing> _services = const [];
+
+  bool get _isOwnProfile => _myUserId != null && _myUserId == widget.userId;
 
   @override
   void initState() {
@@ -63,6 +69,12 @@ class _ProNetworxProfileScreenState extends State<ProNetworxProfileScreen> {
             .items;
         _services = results[1] as List<ProServiceListing>;
       });
+      if (!_isOwnProfile) {
+        final following = await _users
+            .isFollowing(widget.userId)
+            .catchError((_) => false);
+        if (mounted) setState(() => _following = following);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = e.toString());
@@ -90,6 +102,30 @@ class _ProNetworxProfileScreenState extends State<ProNetworxProfileScreen> {
           "Resumes include contact info. Subscribe to Pro-Networx to open this creator's resume.",
     );
     if (ok == true) _load();
+  }
+
+  Future<void> _toggleFollow() async {
+    if (_isOwnProfile || _followLoading) return;
+    final next = !_following;
+    setState(() {
+      _followLoading = true;
+      _following = next;
+    });
+    try {
+      if (next) {
+        await _users.follow(widget.userId);
+      } else {
+        await _users.unfollow(widget.userId);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _following = !next);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update follow: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _followLoading = false);
+    }
   }
 
   /// DMs are subscription-gated the same way as resumes.
@@ -278,6 +314,26 @@ class _ProNetworxProfileScreenState extends State<ProNetworxProfileScreen> {
                         ],
                       ),
                       const SizedBox(height: 12),
+                      if (!_isOwnProfile && _myUserId != null) ...[
+                        SizedBox(
+                          width: double.infinity,
+                          child: _following
+                              ? OutlinedButton.icon(
+                                  onPressed:
+                                      _followLoading ? null : _toggleFollow,
+                                  icon: const Icon(Icons.check, size: 18),
+                                  label: const Text('Following'),
+                                )
+                              : FilledButton.icon(
+                                  onPressed:
+                                      _followLoading ? null : _toggleFollow,
+                                  icon: const Icon(Icons.person_add_alt_1,
+                                      size: 18),
+                                  label: const Text('Follow'),
+                                ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
                       Row(
                         children: [
                           Expanded(

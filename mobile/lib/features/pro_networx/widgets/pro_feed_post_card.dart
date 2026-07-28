@@ -232,17 +232,41 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
         (_myUserId == post.authorUserId || _isAdmin);
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      // Opaque fill + a visible edge: translucent cards ran into each other in
+      // a scrolling feed, making it unclear which header owned which media.
       decoration: BoxDecoration(
-        color: isDark ? cs.surface.withValues(alpha: 0.62) : cs.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.3)),
+        color: isDark ? cs.surfaceContainerHigh : cs.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark
+              ? cs.primary.withValues(alpha: 0.28)
+              : cs.outlineVariant,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.08),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
+          Container(
             padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? cs.surfaceContainerHighest.withValues(alpha: 0.55)
+                  : cs.surfaceContainerLow,
+              border: Border(
+                bottom: BorderSide(
+                  color: cs.outlineVariant.withValues(alpha: 0.5),
+                ),
+              ),
+            ),
             child: Row(
               children: [
                 Expanded(
@@ -339,6 +363,22 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
                       color: cs.surfaceContainerHighest,
                       alignment: Alignment.center,
                       child: const Icon(Icons.broken_image_outlined),
+                    ),
+                  ),
+                // Tall media often fills the screen with the header scrolled
+                // off, so keep the poster's name on the media itself.
+                if (post.mediaType == 'video' || post.mediaType == 'audio')
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    child: _AuthorChip(
+                      name: post.authorDisplayName ??
+                          (post.authorUsername ?? 'Creator'),
+                      avatarUrl: post.authorAvatarUrl,
+                      onTap: () => Navigator.of(context).pushNamed(
+                        AppRoutes.proProfile,
+                        arguments: post.authorUserId,
+                      ),
                     ),
                   ),
                 if (canDelete)
@@ -467,6 +507,63 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Compact "posted by" badge shown over video and audio media.
+class _AuthorChip extends StatelessWidget {
+  const _AuthorChip({
+    required this.name,
+    required this.avatarUrl,
+    required this.onTap,
+  });
+
+  final String name;
+  final String? avatarUrl;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasAvatar = avatarUrl != null && avatarUrl!.isNotEmpty;
+    return Material(
+      color: Colors.black.withValues(alpha: 0.55),
+      borderRadius: BorderRadius.circular(20),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(4, 4, 12, 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircleAvatar(
+                radius: 12,
+                backgroundColor: Colors.white24,
+                backgroundImage:
+                    hasAvatar ? CachedNetworkImageProvider(avatarUrl!) : null,
+                child: hasAvatar
+                    ? null
+                    : const Icon(Icons.person, size: 14, color: Colors.white),
+              ),
+              const SizedBox(width: 8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 180),
+                child: Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
