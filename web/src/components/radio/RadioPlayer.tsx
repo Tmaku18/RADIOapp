@@ -1376,7 +1376,7 @@ export function RadioPlayer({
             </Alert>
           )}
 
-          <div className="relative p-6 pt-7 md:p-8 md:pt-9 flex flex-col md:flex-row gap-6 md:gap-8 items-center">
+          <div className="relative p-6 pt-7 md:p-8 md:pt-9 flex flex-col md:flex-row gap-6 md:gap-8 items-center md:items-start">
             <div
               ref={artRef}
               className="relative w-56 h-56 md:w-72 md:h-72 rounded-2xl overflow-hidden ring-1 ring-cyan-400/30 shrink-0 transition-[box-shadow,transform] duration-75 will-change-transform"
@@ -1404,9 +1404,9 @@ export function RadioPlayer({
               <div className="font-dim-mono text-[10px] tracking-[0.3em] text-cyan-300 mb-2">
                 NOW PLAYING
               </div>
-              {/* leading-none + truncate clips Unbounded Black glyph tops; keep
-                  a little line-height and vertical room so titles aren't cut off. */}
-              <div className="font-unbounded font-black text-3xl md:text-5xl tracking-tighter leading-[1.15] text-white truncate py-0.5">
+              {/* Unbounded Black extends beyond its reported font box. Never use
+                  overflow-hidden/truncate here: it slices the glyph tops. */}
+              <div className="font-unbounded font-black text-3xl md:text-4xl xl:text-5xl tracking-tighter leading-[1.3] text-white whitespace-normal break-words overflow-visible py-2">
                 {state.track?.title || 'No track playing'}
               </div>
               {state.track?.artistId ? (
