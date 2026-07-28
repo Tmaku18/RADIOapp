@@ -10,7 +10,9 @@ import 'package:http/http.dart' as http;
 class WhipBroadcaster {
   RTCPeerConnection? _pc;
   MediaStream? _localStream;
+  RTCRtpSender? _videoSender;
   String _facingMode = 'user';
+  bool _camBusy = false;
 
   MediaStream? get localStream => _localStream;
 
@@ -18,6 +20,8 @@ class WhipBroadcaster {
   /// self-preview without affecting the outgoing stream.
   bool get isFrontCamera => _facingMode == 'user';
   bool get isPublishing => _pc != null;
+  bool get hasVideoTrack =>
+      _localStream?.getVideoTracks().isNotEmpty == true;
 
   /// Acquire mic (and optionally camera) so the host can preview before WHIP
   /// negotiation finishes (or if publish fails). Pass [video]: false for
@@ -80,17 +84,17 @@ class WhipBroadcaster {
     }
 
     // Always create exactly one video m-line (matches web CameraBroadcaster).
-    // Cloudflare WHIP for DJ booth is published audio-only on web with an empty
-    // sendonly video transceiver — omitting it can yield an unplayable ingest.
+    // When starting audio-only (Live DJ), keep an empty sendonly sender so the
+    // host can turn the camera on later via replaceTrack — no renegotiation.
     final videoTracks = stream.getVideoTracks();
     if (videoTracks.isNotEmpty) {
-      await pc.addTrack(videoTracks.first, stream);
+      _videoSender = await pc.addTrack(videoTracks.first, stream);
     } else {
-      // Empty sendonly video m-line — required for Cloudflare WHIP parity with web.
-      await pc.addTransceiver(
+      final tx = await pc.addTransceiver(
         kind: RTCRtpMediaType.RTCRtpMediaTypeVideo,
         init: RTCRtpTransceiverInit(direction: TransceiverDirection.SendOnly),
       );
+      _videoSender = tx.sender;
     }
 
     final offer = await pc.createOffer({});
@@ -148,6 +152,7 @@ class WhipBroadcaster {
       await _pc?.close();
     } catch (_) {}
     _pc = null;
+    _videoSender = null;
   }
 
   Future<void> _waitForIceGathering(RTCPeerConnection pc) async {
@@ -260,6 +265,8 @@ class WhipBroadcaster {
     return track.enabled;
   }
 
+  /// Legacy sync toggle — only works when a video track already exists.
+  /// Prefer [toggleCameraAsync] for Live DJ (starts camera-off).
   bool toggleCamera() {
     final track = _localStream?.getVideoTracks().isNotEmpty == true
         ? _localStream!.getVideoTracks().first
@@ -269,6 +276,89 @@ class WhipBroadcaster {
     return track.enabled;
   }
 
+  /// Toggle camera on/off. When starting audio-only (no video track yet),
+  /// acquires the camera and swaps it into the existing video sender — same
+  /// as web CameraBroadcaster — so Live DJ can turn the camera on mid-stream.
+  Future<bool> toggleCameraAsync() async {
+    final tracks = _localStream?.getVideoTracks() ?? const <MediaStreamTrack>[];
+    if (tracks.isNotEmpty) {
+      final track = tracks.first;
+      if (track.enabled) {
+        return setCameraEnabled(false);
+      }
+      track.enabled = true;
+      return true;
+    }
+    return setCameraEnabled(true);
+  }
+
+  /// Enable or disable the camera. Turning off stops the hardware and clears
+  /// the sender; turning on re-acquires and replaceTrack's into [_videoSender].
+  Future<bool> setCameraEnabled(bool enabled) async {
+    final sender = _videoSender;
+    final stream = _localStream;
+    if (sender == null || stream == null || _camBusy) {
+      return hasVideoTrack &&
+          (_localStream?.getVideoTracks().first.enabled ?? false);
+    }
+    _camBusy = true;
+    try {
+      if (!enabled) {
+        try {
+          await sender.replaceTrack(null);
+        } catch (_) {}
+        for (final old in List<MediaStreamTrack>.from(stream.getVideoTracks())) {
+          try {
+            await stream.removeTrack(old);
+          } catch (_) {}
+          try {
+            await old.stop();
+          } catch (_) {}
+        }
+        return false;
+      }
+
+      final camStream = await navigator.mediaDevices.getUserMedia({
+        'audio': false,
+        'video': {
+          'facingMode': _facingMode,
+          'mandatory': {'minFrameRate': '24'},
+          'optional': [],
+        },
+      });
+      final newTrack = camStream.getVideoTracks().isNotEmpty
+          ? camStream.getVideoTracks().first
+          : null;
+      if (newTrack == null) {
+        throw Exception('No camera track available');
+      }
+      await sender.replaceTrack(newTrack);
+      for (final old in List<MediaStreamTrack>.from(stream.getVideoTracks())) {
+        try {
+          await stream.removeTrack(old);
+        } catch (_) {}
+        try {
+          await old.stop();
+        } catch (_) {}
+      }
+      await stream.addTrack(newTrack);
+      // Stop leftover tracks on the temporary getUserMedia stream.
+      for (final t in camStream.getTracks()) {
+        if (t.id != newTrack.id) {
+          try {
+            await t.stop();
+          } catch (_) {}
+        }
+      }
+      return true;
+    } catch (e) {
+      debugPrint('WhipBroadcaster.setCameraEnabled: $e');
+      rethrow;
+    } finally {
+      _camBusy = false;
+    }
+  }
+
   /// Flip between front and back cameras on devices that support it.
   Future<void> switchCamera() async {
     final track = _localStream?.getVideoTracks().isNotEmpty == true
@@ -276,7 +366,38 @@ class WhipBroadcaster {
         : null;
     if (track == null) return;
     _facingMode = _facingMode == 'user' ? 'environment' : 'user';
-    await Helper.switchCamera(track);
+    // Prefer a fresh getUserMedia + replaceTrack — more reliable than
+    // Helper.switchCamera after a late camera attach.
+    final sender = _videoSender;
+    final stream = _localStream;
+    if (sender == null || stream == null) {
+      await Helper.switchCamera(track);
+      return;
+    }
+    try {
+      final camStream = await navigator.mediaDevices.getUserMedia({
+        'audio': false,
+        'video': {
+          'facingMode': _facingMode,
+          'mandatory': {'minFrameRate': '24'},
+          'optional': [],
+        },
+      });
+      final newTrack = camStream.getVideoTracks().first;
+      await sender.replaceTrack(newTrack);
+      for (final old in List<MediaStreamTrack>.from(stream.getVideoTracks())) {
+        try {
+          await stream.removeTrack(old);
+        } catch (_) {}
+        try {
+          await old.stop();
+        } catch (_) {}
+      }
+      await stream.addTrack(newTrack);
+    } catch (_) {
+      // Fall back to in-place switch if getUserMedia fails.
+      await Helper.switchCamera(track);
+    }
   }
 
   Future<void> dispose() async {
@@ -290,6 +411,7 @@ class WhipBroadcaster {
       _localStream = null;
       await _pc?.close();
       _pc = null;
+      _videoSender = null;
     } catch (_) {
       /* noop */
     }

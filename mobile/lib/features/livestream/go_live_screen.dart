@@ -550,18 +550,43 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
                         icon: _camOn ? Icons.videocam : Icons.videocam_off,
                         label: _camOn ? 'Camera' : 'Cam off',
                         active: _camOn,
-                        onTap: () => setState(
-                            () => _camOn = _broadcaster.toggleCamera()),
+                        onTap: () async {
+                          // Live DJ starts audio-only — toggle must acquire a
+                          // camera track and replaceTrack into the WHIP sender
+                          // (sync toggleCamera() is a no-op with no video track).
+                          try {
+                            final on = await _broadcaster.toggleCameraAsync();
+                            _renderer.srcObject = _broadcaster.localStream;
+                            if (mounted) {
+                              setState(() {
+                                _camOn = on;
+                                _mirror = _broadcaster.isFrontCamera;
+                              });
+                            }
+                          } catch (_) {
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Could not switch the camera. Check permissions.',
+                                ),
+                              ),
+                            );
+                          }
+                        },
                       ),
                       _controlButton(
                         icon: Icons.cameraswitch,
                         label: 'Flip',
-                        active: true,
+                        active: _camOn,
                         onTap: () async {
+                          if (!_camOn) return;
                           await _broadcaster.switchCamera();
+                          _renderer.srcObject = _broadcaster.localStream;
                           if (mounted) {
                             setState(
-                                () => _mirror = _broadcaster.isFrontCamera);
+                              () => _mirror = _broadcaster.isFrontCamera,
+                            );
                           }
                         },
                       ),
