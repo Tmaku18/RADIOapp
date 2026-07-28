@@ -126,13 +126,64 @@ type WhepSession = {
 
 const whepSessions = new WeakMap<HTMLAudioElement, WhepSession>();
 
+/**
+ * Overlays whose play() was blocked by the browser autoplay policy: they run
+ * muted (always allowed) so decoding starts, and unmute on the next gesture.
+ */
+const pendingGestureUnmute = new WeakSet<HTMLAudioElement>();
+
 export function applyOverlayVolume(
   controller: OverlayController,
   micActive: boolean,
 ) {
   const v = micActive ? Math.max(0, Math.min(1, controller.userVolume)) : 0;
   controller.overlayAudio.volume = v;
-  controller.overlayAudio.muted = v <= 0.001;
+  const wantMuted = v <= 0.001;
+  // Never unmute an autoplay-blocked overlay from a poll — only the gesture
+  // handler may do that, otherwise Chrome pauses the element again.
+  if (!wantMuted && pendingGestureUnmute.has(controller.overlayAudio)) return;
+  controller.overlayAudio.muted = wantMuted;
+}
+
+/**
+ * Start overlay playback, surviving the browser autoplay policy. When play()
+ * is blocked (listener never interacted with the page — e.g. the radio
+ * auto-resumed on load), fall back to muted playback so the WHEP audio starts
+ * decoding, and unmute + replay on the listener's first gesture. Without this
+ * the DJ talk-over stays silent forever while the music sits ducked.
+ */
+function playOverlayWithAutoplayFallback(controller: OverlayController) {
+  const overlay = controller.overlayAudio;
+  overlay.play().then(
+    () => undefined,
+    (err: unknown) => {
+      const name = (err as Error | undefined)?.name;
+      if (name !== 'NotAllowedError') return;
+      console.warn('[dj-overlay] play() blocked by autoplay policy; starting muted until next gesture');
+      overlay.muted = true;
+      overlay.play().catch(() => undefined);
+      armGestureUnmute(controller);
+    },
+  );
+}
+
+function armGestureUnmute(controller: OverlayController) {
+  const overlay = controller.overlayAudio;
+  if (pendingGestureUnmute.has(overlay)) return;
+  pendingGestureUnmute.add(overlay);
+  const onGesture = () => {
+    document.removeEventListener('pointerdown', onGesture, true);
+    document.removeEventListener('keydown', onGesture, true);
+    document.removeEventListener('touchstart', onGesture, true);
+    pendingGestureUnmute.delete(overlay);
+    const attach = overlayAttachState.get(overlay);
+    const micActive = !!attach?.active;
+    applyOverlayVolume(controller, micActive);
+    if (micActive) overlay.play().catch(() => undefined);
+  };
+  document.addEventListener('pointerdown', onGesture, true);
+  document.addEventListener('keydown', onGesture, true);
+  document.addEventListener('touchstart', onGesture, true);
 }
 
 /** Close any live WHEP connection attached to an overlay element. */
@@ -141,6 +192,7 @@ export function teardownOverlayWhep(overlayAudio: HTMLAudioElement) {
 }
 
 function teardownWhep(overlayAudio: HTMLAudioElement) {
+  pendingGestureUnmute.delete(overlayAudio);
   const session = whepSessions.get(overlayAudio);
   if (!session) return;
   session.disposed = true;
@@ -210,7 +262,7 @@ async function startWhep(
       overlayAudio.srcObject = stream;
     }
     applyOverlayVolume(controller, controller.micActive);
-    if (autoPlay) overlayAudio.play().catch(() => undefined);
+    if (autoPlay) playOverlayWithAutoplayFallback(controller);
   };
 
   const scheduleRetry = () => {
@@ -270,13 +322,13 @@ function attachOverlayLegacyHls(
   const { overlayAudio, hlsRef } = controller;
   const startPlayback = () => {
     applyOverlayVolume(controller, controller.micActive);
-    if (autoPlay) overlayAudio.play().catch(() => undefined);
+    if (autoPlay) playOverlayWithAutoplayFallback(controller);
   };
 
   if (canPlayNativeHls(overlayAudio)) {
     overlayAudio.src = hlsUrl;
     overlayAudio.addEventListener('canplay', startPlayback, { once: true });
-    if (autoPlay) overlayAudio.play().catch(() => undefined);
+    if (autoPlay) playOverlayWithAutoplayFallback(controller);
   } else if (Hls.isSupported()) {
     const hls = new Hls({
       enableWorker: true,
@@ -338,10 +390,10 @@ export function attachOverlayStream(
     overlayAudio.src = streamUrl;
     const startPlayback = () => {
       applyOverlayVolume(controller, controller.micActive);
-      if (autoPlay) overlayAudio.play().catch(() => undefined);
+      if (autoPlay) playOverlayWithAutoplayFallback(controller);
     };
     overlayAudio.addEventListener('canplay', startPlayback, { once: true });
-    if (autoPlay) overlayAudio.play().catch(() => undefined);
+    if (autoPlay) playOverlayWithAutoplayFallback(controller);
   }
 }
 
@@ -372,7 +424,7 @@ export function syncOverlayStream(
   if (prev.url === nextUrl && prev.active) {
     applyOverlayVolume(controller, true);
     if (autoPlay && overlayAudio.paused) {
-      overlayAudio.play().catch(() => undefined);
+      playOverlayWithAutoplayFallback(controller);
     }
     return;
   }
