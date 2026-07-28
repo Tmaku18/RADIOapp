@@ -869,6 +869,23 @@ class _StudioScreenState extends State<StudioScreen>
     );
   }
 
+  void _openArtistForSong(LibrarySong song) {
+    final artistId = song.artistId.trim();
+    if (artistId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Artist profile unavailable for this song.')),
+      );
+      return;
+    }
+    unawaited(
+      AppRoutes.openArtistProfile(
+        context,
+        artistId: artistId,
+        songId: song.id,
+      ),
+    );
+  }
+
   Widget _buildLibrarySongTile(
     NetworxSurfaces surfaces,
     LibrarySong song, {
@@ -883,6 +900,7 @@ class _StudioScreenState extends State<StudioScreen>
       padding: const EdgeInsets.only(bottom: 10),
       child: Card(
         child: ListTile(
+          onTap: () => _openArtistForSong(song),
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 12,
             vertical: 6,

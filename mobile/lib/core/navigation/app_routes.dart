@@ -1,3 +1,38 @@
+import 'package:flutter/material.dart';
+
+/// Arguments for [AppRoutes.artistProfile].
+///
+/// Pass a bare artist id string for the existing callers, or this object when
+/// opening from Liked / Favorites / Library so the discography can scroll to
+/// [songId].
+class ArtistProfileArgs {
+  final String artistId;
+  final String? songId;
+
+  const ArtistProfileArgs({required this.artistId, this.songId});
+
+  static ArtistProfileArgs? tryParse(Object? args) {
+    if (args is ArtistProfileArgs) {
+      if (args.artistId.isEmpty) return null;
+      return args;
+    }
+    if (args is Map) {
+      final artistId = (args['artistId'] ?? args['artist_id'] ?? '')
+          .toString()
+          .trim();
+      if (artistId.isEmpty) return null;
+      final songRaw = (args['songId'] ?? args['song_id'])?.toString().trim();
+      return ArtistProfileArgs(
+        artistId: artistId,
+        songId: (songRaw == null || songRaw.isEmpty) ? null : songRaw,
+      );
+    }
+    final artistId = args?.toString().trim() ?? '';
+    if (artistId.isEmpty) return null;
+    return ArtistProfileArgs(artistId: artistId);
+  }
+}
+
 class AppRoutes {
   static const root = '/';
   static const welcome = '/welcome';
@@ -48,4 +83,21 @@ class AppRoutes {
   static const adminDjBooth = '/admin/dj-booth';
   static const allocatePlays = '/allocate-plays';
   static const discoverCreateVideo = '/discover-create-video';
+
+  /// Open an artist profile, optionally scrolled to [songId] in discography.
+  static Future<T?> openArtistProfile<T extends Object?>(
+    BuildContext context, {
+    required String artistId,
+    String? songId,
+  }) {
+    final id = artistId.trim();
+    if (id.isEmpty) return Future<T?>.value(null);
+    final song = songId?.trim();
+    return Navigator.of(context).pushNamed<T>(
+      artistProfile,
+      arguments: (song == null || song.isEmpty)
+          ? id
+          : ArtistProfileArgs(artistId: id, songId: song),
+    );
+  }
 }

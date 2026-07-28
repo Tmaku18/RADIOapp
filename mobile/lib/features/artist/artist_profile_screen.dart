@@ -23,7 +23,16 @@ import '../../widgets/dimension/dimension_widgets.dart';
 
 class ArtistProfileScreen extends StatefulWidget {
   final String artistId;
-  const ArtistProfileScreen({super.key, required this.artistId});
+
+  /// When set (e.g. from Liked / Favorites / Library), scroll the discography
+  /// to this song after load so Buy / sample / other tracks are easy to reach.
+  final String? focusSongId;
+
+  const ArtistProfileScreen({
+    super.key,
+    required this.artistId,
+    this.focusSongId,
+  });
 
   @override
   State<ArtistProfileScreen> createState() => _ArtistProfileScreenState();
@@ -35,6 +44,8 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
   final AudioPlayer _player = AudioPlayerService().player;
   final LivestreamService _live = LivestreamService();
   final UsersService _users = UsersService();
+  final ScrollController _scrollController = ScrollController();
+  final Map<String, GlobalKey> _songKeys = <String, GlobalKey>{};
 
   bool _loading = true;
   String? _error;
@@ -49,6 +60,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
   String? _downloadingId;
   Timer? _listenTimer;
   Timer? _sampleStopTimer;
+  Timer? _focusClearTimer;
   Map<String, dynamic>? _liveSession;
   bool _liveActionLoading = false;
   bool _isOwnerProfile = false;
@@ -56,6 +68,8 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
   bool _favorited = false;
   bool _followLoading = false;
   bool _favoriteLoading = false;
+  String? _highlightedSongId;
+  bool _didScrollToFocus = false;
 
   @override
   void initState() {
@@ -94,7 +108,39 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
   void dispose() {
     _listenTimer?.cancel();
     _sampleStopTimer?.cancel();
+    _focusClearTimer?.cancel();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  GlobalKey _keyForSong(String songId) =>
+      _songKeys.putIfAbsent(songId, GlobalKey.new);
+
+  Future<void> _scrollToFocusedSong() async {
+    final focusId = widget.focusSongId?.trim();
+    if (focusId == null || focusId.isEmpty || _didScrollToFocus) return;
+    if (!_tracks.any((t) => t.id == focusId)) return;
+    _didScrollToFocus = true;
+    if (mounted) setState(() => _highlightedSongId = focusId);
+
+    // Wait for the list to lay out before ensureVisible.
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    if (!mounted) return;
+    final ctx = _keyForSong(focusId).currentContext;
+    if (ctx != null && ctx.mounted) {
+      await Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 420),
+        curve: Curves.easeOutCubic,
+        alignment: 0.15,
+      );
+    }
+    if (!mounted) return;
+    _focusClearTimer?.cancel();
+    _focusClearTimer = Timer(const Duration(seconds: 4), () {
+      if (!mounted) return;
+      setState(() => _highlightedSongId = null);
+    });
   }
 
   bool _ownsSong(Song s) => _isOwnerProfile || _ownedSongIds.contains(s.id);
@@ -137,7 +183,12 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
       if (!mounted) return;
       setState(() => _error = e.toString());
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          unawaited(_scrollToFocusedSong());
+        });
+      }
     }
   }
 
@@ -738,6 +789,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
       body: Stack(
         children: [
           ListView(
+            controller: _scrollController,
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 110),
             children: [
               glass(
@@ -917,9 +969,19 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
                             ? 'Your track · full play'
                             : 'Purchased · full play')
                       : 'Sample · 30s preview';
+                  final focused = _highlightedSongId == s.id;
                   return Padding(
+                    key: _keyForSong(s.id),
                     padding: const EdgeInsets.only(bottom: 10),
-                    child: glass(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 280),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(18),
+                        border: focused
+                            ? Border.all(color: scheme.primary, width: 2)
+                            : Border.all(color: Colors.transparent, width: 2),
+                      ),
+                      child: glass(
                       // Two rows so play/buy never crush the title into
                       // mid-word wraps like "previe/w" or "View/likes".
                       child: Column(
@@ -1080,6 +1142,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
                             ],
                           ),
                         ],
+                      ),
                       ),
                     ),
                   );

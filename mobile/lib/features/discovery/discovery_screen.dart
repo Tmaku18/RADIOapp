@@ -864,6 +864,10 @@ class _LibraryTabState extends State<_LibraryTab> {
           return Card(
             margin: const EdgeInsets.only(bottom: 10),
             child: ListTile(
+              onTap: () => _openArtistSong(
+                artistId: fav.artistId,
+                songId: fav.id,
+              ),
               leading: ClipRRect(
                 borderRadius: BorderRadius.circular(DimensionTokens.tileRadius),
                 child: SizedBox(
@@ -926,6 +930,23 @@ class _LibraryTabState extends State<_LibraryTab> {
     }
   }
 
+  void _openArtistSong({required String artistId, required String songId}) {
+    final id = artistId.trim();
+    if (id.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Artist profile unavailable for this song.')),
+      );
+      return;
+    }
+    unawaited(
+      AppRoutes.openArtistProfile(
+        context,
+        artistId: id,
+        songId: songId,
+      ),
+    );
+  }
+
   Widget _buildHistorySection(
     NetworxSurfaces surfaces, {
     required List<DiscoverAudioHistoryItem> items,
@@ -965,6 +986,10 @@ class _LibraryTabState extends State<_LibraryTab> {
           final art = item.backgroundUrl;
           return Card(
             child: ListTile(
+              onTap: () => _openArtistSong(
+                artistId: item.artistId,
+                songId: item.songId,
+              ),
               leading: ClipRRect(
                 borderRadius: BorderRadius.circular(
                   DimensionTokens.tileRadius,
@@ -1065,6 +1090,10 @@ class _LibraryTabState extends State<_LibraryTab> {
           final busy = _busyPurchaseId == item.id;
           return Card(
             child: ListTile(
+              onTap: () => _openArtistSong(
+                artistId: item.artistId,
+                songId: item.id,
+              ),
               leading: ClipRRect(
                 borderRadius: BorderRadius.circular(DimensionTokens.tileRadius),
                 child:

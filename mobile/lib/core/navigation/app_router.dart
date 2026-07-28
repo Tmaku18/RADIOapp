@@ -167,9 +167,15 @@ class AppRouter {
       case AppRoutes.apply:
         return _route(const ApplyScreen(), settings);
       case AppRoutes.artistProfile:
-        final artistId = args?.toString();
-        if (artistId == null || artistId.isEmpty) return _unknown(settings);
-        return _route(ArtistProfileScreen(artistId: artistId), settings);
+        final profile = ArtistProfileArgs.tryParse(args);
+        if (profile == null) return _unknown(settings);
+        return _route(
+          ArtistProfileScreen(
+            artistId: profile.artistId,
+            focusSongId: profile.songId,
+          ),
+          settings,
+        );
       case AppRoutes.buyPlays:
         if (args is Song) {
           return _route(BuyPlaysScreen(song: args), settings);
