@@ -9,11 +9,11 @@ import {
   Post,
   Query,
   UnauthorizedException,
-  UploadedFile,
+  UploadedFiles,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { DiscoveryService } from './discovery.service';
 import { FirebaseAuthGuard } from '../auth/guards/firebase-auth.guard';
 import { CurrentUser } from '../auth/decorators/user.decorator';
@@ -38,7 +38,33 @@ export class DiscoveryController {
     'video/webm',
     'video/quicktime',
   ];
+  private readonly allowedFeedAudioMimeTypes = [
+    'audio/mpeg',
+    'audio/mp3',
+    'audio/wav',
+    'audio/x-wav',
+    'audio/aac',
+    'audio/mp4',
+    'audio/x-m4a',
+    'audio/m4a',
+    'audio/ogg',
+    'audio/flac',
+  ];
+  private readonly allowedFeedCoverMimeTypes = [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+  ];
   private readonly maxFeedVideoDurationSeconds = 300;
+  private readonly maxFeedAudioDurationSeconds = 600;
+  /**
+   * Cover art for audio posts published without a picture. Stored on the row so
+   * every grid/tile surface keeps rendering artwork without special-casing.
+   */
+  private readonly fallbackAudioCoverUrl =
+    process.env.WEB_APP_URL?.replace(/\/$/, '') ??
+    'https://www.networxradio.com';
 
   constructor(
     private readonly discovery: DiscoveryService,
@@ -483,59 +509,100 @@ export class DiscoveryController {
   }
 
   /**
-   * Create a discover feed post (image or ≤5 min video).
+   * Create a discover feed post (image, ≤5 min video, or ≤10 min audio).
    * Listeners may post TikTok-style videos synced to a liked Discover clip;
    * artists, Catalysts, and admins may also post.
-   * Send image/video as "file" and optional "caption" in body.
+   * Send image/video/audio as "file" and optional "caption" in body. Audio
+   * posts may add a picture as "cover"; without one they get the Networx logo.
    */
   @Post('feed')
   @UseGuards(RolesGuard)
   @Roles('listener', 'artist', 'service_provider', 'admin')
   @UseInterceptors(
-    FileInterceptor('file', {
-      limits: { fileSize: 200 * 1024 * 1024 }, // 200MB — room for ~5 min phone videos
-    }),
+    FileFieldsInterceptor(
+      [
+        { name: 'file', maxCount: 1 },
+        { name: 'cover', maxCount: 1 },
+      ],
+      {
+        limits: { fileSize: 200 * 1024 * 1024 }, // 200MB — room for ~5 min phone videos
+      },
+    ),
   )
   async createFeedPost(
     @CurrentUser() user: FirebaseUser,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFiles()
+    files: {
+      file?: Express.Multer.File[];
+      cover?: Express.Multer.File[];
+    },
     @Body() body: { caption?: string },
   ) {
+    const file = files?.file?.[0];
+    const cover = files?.cover?.[0];
     if (!file) {
       throw new BadRequestException(
-        'No file uploaded. Send an image or video in the "file" field.',
+        'No file uploaded. Send an image, video, or audio in the "file" field.',
       );
     }
-    if (!this.allowedFeedMimeTypes.includes(file.mimetype)) {
+    const isAudio = this.allowedFeedAudioMimeTypes.includes(file.mimetype);
+    if (!isAudio && !this.allowedFeedMimeTypes.includes(file.mimetype)) {
       throw new BadRequestException(
-        'Unsupported file type. Allowed: JPG, PNG, WEBP, MP4, WEBM, MOV.',
+        'Unsupported file type. Allowed: JPG, PNG, WEBP, MP4, WEBM, MOV, MP3, WAV, M4A, AAC, OGG, FLAC.',
+      );
+    }
+    if (cover && !this.allowedFeedCoverMimeTypes.includes(cover.mimetype)) {
+      throw new BadRequestException(
+        'Unsupported cover image type. Allowed: JPG, PNG, WEBP.',
       );
     }
 
-    const mediaType = file.mimetype.startsWith('video/') ? 'video' : 'image';
-    if (mediaType === 'video') {
+    const mediaType = isAudio
+      ? 'audio'
+      : file.mimetype.startsWith('video/')
+        ? 'video'
+        : 'image';
+
+    if (mediaType === 'video' || mediaType === 'audio') {
       // Camera / mirrored exports often lack parseable duration metadata.
-      // Never treat "unknown" as 180s — that falsely rejects every short take.
+      // Never treat "unknown" as over the cap — that rejects valid short takes.
+      const maxSeconds =
+        mediaType === 'audio'
+          ? this.maxFeedAudioDurationSeconds
+          : this.maxFeedVideoDurationSeconds;
       const durationSeconds = await this.durationService.extractDurationOrNull(
         file.buffer,
         file.mimetype,
       );
       // +1s slack for encoder/timer rounding on the duration cap.
-      if (
-        durationSeconds != null &&
-        durationSeconds > this.maxFeedVideoDurationSeconds + 1
-      ) {
+      if (durationSeconds != null && durationSeconds > maxSeconds + 1) {
         throw new BadRequestException(
-          `Video length must be ${this.maxFeedVideoDurationSeconds} seconds or less.`,
+          mediaType === 'audio'
+            ? `Audio length must be ${Math.round(maxSeconds / 60)} minutes or less.`
+            : `Video length must be ${maxSeconds} seconds or less.`,
         );
       }
     }
 
     const userId = await this.getUserId(user.uid);
-    const imageUrl = await this.uploads.uploadFeedPostMedia(file, userId);
+    const uploadedUrl = await this.uploads.uploadFeedPostMedia(file, userId);
+
+    if (mediaType !== 'audio') {
+      return this.discovery.createFeedPost({
+        authorUserId: userId,
+        imageUrl: uploadedUrl,
+        mediaType,
+        caption: body?.caption?.trim() || null,
+      });
+    }
+
+    const coverUrl = cover
+      ? await this.uploads.uploadFeedPostMedia(cover, userId)
+      : `${this.fallbackAudioCoverUrl}/images/networx-logo-cyan.png`;
     return this.discovery.createFeedPost({
       authorUserId: userId,
-      imageUrl,
+      imageUrl: coverUrl,
+      audioUrl: uploadedUrl,
       mediaType,
       caption: body?.caption?.trim() || null,
     });

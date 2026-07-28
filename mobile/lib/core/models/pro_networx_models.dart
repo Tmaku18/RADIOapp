@@ -325,6 +325,8 @@ class ProFeedPost {
   final String? authorAvatarUrl;
   final String? authorHeadline;
   final String imageUrl;
+  /// Audio track for `mediaType == 'audio'`; [imageUrl] then holds cover art.
+  final String? audioUrl;
   final String mediaType;
   final String? caption;
   final String createdAt;
@@ -341,6 +343,7 @@ class ProFeedPost {
     required this.authorAvatarUrl,
     required this.authorHeadline,
     required this.imageUrl,
+    this.audioUrl,
     required this.mediaType,
     required this.caption,
     required this.createdAt,
@@ -359,6 +362,7 @@ class ProFeedPost {
       authorAvatarUrl: (json['authorAvatarUrl'])?.toString(),
       authorHeadline: (json['authorHeadline'])?.toString(),
       imageUrl: (json['imageUrl'] ?? '').toString(),
+      audioUrl: (json['audioUrl'])?.toString(),
       mediaType: (json['mediaType'] ?? 'image').toString(),
       caption: (json['caption'])?.toString(),
       createdAt: (json['createdAt'] ?? '').toString(),

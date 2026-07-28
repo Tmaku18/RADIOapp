@@ -45,7 +45,9 @@ export interface DiscoverFeedPost {
   authorAvatarUrl: string | null;
   authorHeadline: string | null;
   imageUrl: string;
-  mediaType: 'image' | 'video';
+  /** Audio track for 'audio' posts; imageUrl then holds the cover art. */
+  audioUrl: string | null;
+  mediaType: 'image' | 'video' | 'audio';
   caption: string | null;
   createdAt: string;
   likeCount: number;
@@ -123,7 +125,11 @@ export class DiscoveryService {
     return items.filter((post) => !hidden.has(post.authorUserId));
   }
 
-  private inferFeedMediaType(url: string): 'image' | 'video' {
+  private inferFeedMediaType(
+    url: string,
+    audioUrl?: string | null,
+  ): 'image' | 'video' | 'audio' {
+    if (audioUrl && audioUrl.trim().length > 0) return 'audio';
     const normalized = url.toLowerCase();
     if (
       normalized.includes('.mp4') ||
@@ -1082,6 +1088,7 @@ export class DiscoveryService {
     return rows.map((r) => {
       const u = r.users;
       const imageUrl = r.image_url as string;
+      const audioUrl = (r.audio_url as string | null) ?? null;
       return {
         id: r.id,
         authorUserId: r.author_user_id,
@@ -1090,7 +1097,8 @@ export class DiscoveryService {
         authorAvatarUrl: u?.avatar_url ?? null,
         authorHeadline: u?.headline ?? null,
         imageUrl,
-        mediaType: this.inferFeedMediaType(String(imageUrl ?? '')),
+        audioUrl,
+        mediaType: this.inferFeedMediaType(String(imageUrl ?? ''), audioUrl),
         caption: r.caption ?? null,
         createdAt: r.created_at,
         likeCount: likeCounts.get(r.id) ?? 0,
@@ -1122,6 +1130,7 @@ export class DiscoveryService {
         id,
         author_user_id,
         image_url,
+        audio_url,
         caption,
         created_at,
         users!author_user_id(display_name, username, avatar_url, headline)
@@ -1224,6 +1233,7 @@ export class DiscoveryService {
         id,
         author_user_id,
         image_url,
+        audio_url,
         caption,
         created_at,
         users!author_user_id(display_name, username, avatar_url, headline)
@@ -1468,6 +1478,7 @@ export class DiscoveryService {
             id,
             author_user_id,
             image_url,
+            audio_url,
             caption,
             created_at,
             users!author_user_id(display_name, username, avatar_url, headline)
@@ -1518,6 +1529,7 @@ export class DiscoveryService {
           id,
           author_user_id,
           image_url,
+          audio_url,
           caption,
           created_at,
           users!author_user_id(display_name, username, avatar_url, headline)
@@ -1587,6 +1599,7 @@ export class DiscoveryService {
           id,
           author_user_id,
           image_url,
+          audio_url,
           caption,
           created_at,
           users!author_user_id(display_name, username, avatar_url, headline)
@@ -1644,7 +1657,7 @@ export class DiscoveryService {
     const supabase = getSupabaseClient();
     const { data: post, error: loadError } = await supabase
       .from('discover_feed_posts')
-      .select('id, author_user_id, image_url')
+      .select('id, author_user_id, image_url, audio_url')
       .eq('id', params.postId)
       .maybeSingle();
     if (loadError) {
@@ -1660,10 +1673,13 @@ export class DiscoveryService {
       throw new Error('Forbidden');
     }
 
-    const imageUrl = post.image_url as string | null;
-    if (imageUrl) {
+    for (const mediaUrl of [
+      post.image_url as string | null,
+      post.audio_url as string | null,
+    ]) {
+      if (!mediaUrl) continue;
       try {
-        const storagePath = this.feedStoragePathFromPublicUrl(imageUrl);
+        const storagePath = this.feedStoragePathFromPublicUrl(mediaUrl);
         if (storagePath) {
           await supabase.storage.from('feed').remove([storagePath]);
         }
@@ -1688,7 +1704,8 @@ export class DiscoveryService {
   async createFeedPost(params: {
     authorUserId: string;
     imageUrl: string;
-    mediaType: 'image' | 'video';
+    audioUrl?: string | null;
+    mediaType: 'image' | 'video' | 'audio';
     caption?: string | null;
   }): Promise<DiscoverFeedPost> {
     const supabase = getSupabaseClient();
@@ -1697,6 +1714,7 @@ export class DiscoveryService {
       .insert({
         author_user_id: params.authorUserId,
         image_url: params.imageUrl,
+        audio_url: params.audioUrl ?? null,
         caption: params.caption ?? null,
       })
       .select(
@@ -1704,6 +1722,7 @@ export class DiscoveryService {
         id,
         author_user_id,
         image_url,
+        audio_url,
         caption,
         created_at,
         users!author_user_id(display_name, username, avatar_url, headline)
@@ -1722,6 +1741,7 @@ export class DiscoveryService {
       authorAvatarUrl: u?.avatar_url ?? null,
       authorHeadline: u?.headline ?? null,
       imageUrl: r.image_url,
+      audioUrl: r.audio_url ?? null,
       mediaType: params.mediaType,
       caption: r.caption ?? null,
       createdAt: r.created_at,
@@ -1777,6 +1797,7 @@ export class DiscoveryService {
           id,
           author_user_id,
           image_url,
+          audio_url,
           caption,
           created_at,
           users!author_user_id(display_name, username, avatar_url, headline)
@@ -1827,6 +1848,7 @@ export class DiscoveryService {
           id,
           author_user_id,
           image_url,
+          audio_url,
           caption,
           created_at,
           users!author_user_id(display_name, username, avatar_url, headline)
@@ -1868,7 +1890,7 @@ export class DiscoveryService {
     authorUsername: string | null;
     authorAvatarUrl: string | null;
     imageUrl: string;
-    mediaType: 'image' | 'video';
+    mediaType: 'image' | 'video' | 'audio';
     caption: string | null;
   } | null> {
     const supabase = getSupabaseClient();
@@ -1879,6 +1901,7 @@ export class DiscoveryService {
         id,
         author_user_id,
         image_url,
+        audio_url,
         caption,
         users!author_user_id(display_name, username, avatar_url)
       `,
@@ -1896,7 +1919,10 @@ export class DiscoveryService {
       authorUsername: u?.username ?? null,
       authorAvatarUrl: u?.avatar_url ?? null,
       imageUrl,
-      mediaType: this.inferFeedMediaType(String(imageUrl ?? '')),
+      mediaType: this.inferFeedMediaType(
+        String(imageUrl ?? ''),
+        r.audio_url ?? null,
+      ),
       caption: r.caption ?? null,
     };
   }

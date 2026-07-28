@@ -1100,9 +1100,10 @@ export const discoveryApi = {
       `/discovery/feed/users/${userId}/posts`,
       { params },
     ),
-  createFeedPost: (file: File, caption?: string) => {
+  createFeedPost: (file: File, caption?: string, cover?: File | null) => {
     const form = new FormData();
     form.append('file', file);
+    if (cover) form.append('cover', cover);
     if (caption != null && caption.trim()) form.set('caption', caption.trim());
     // Upload feed media directly to backend when possible.
     // This bypasses web-host request-size limits that can trigger 413 before proxy code runs.
@@ -1121,6 +1122,7 @@ export const discoveryApi = {
           // Rebuild FormData per attempt — some hosts consume the body stream.
           const attemptForm = new FormData();
           attemptForm.append('file', file);
+          if (cover) attemptForm.append('cover', cover);
           if (caption != null && caption.trim()) {
             attemptForm.set('caption', caption.trim());
           }
@@ -1214,7 +1216,9 @@ export interface DiscoverFeedPost {
   authorAvatarUrl: string | null;
   authorHeadline: string | null;
   imageUrl: string;
-  mediaType: 'image' | 'video';
+  /** Audio track for 'audio' posts; imageUrl then holds the cover art. */
+  audioUrl: string | null;
+  mediaType: 'image' | 'video' | 'audio';
   caption: string | null;
   createdAt: string;
   likeCount: number;

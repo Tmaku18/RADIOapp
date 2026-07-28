@@ -33,6 +33,7 @@ export default function ProNetworxFeedPage() {
   const feedSentinelRef = useRef<HTMLDivElement>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadCover, setUploadCover] = useState<File | null>(null);
   const [uploadCaption, setUploadCaption] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -81,17 +82,22 @@ export default function ProNetworxFeedPage() {
 
   const handleCreatePost = async () => {
     if (!uploadFile) {
-      setUploadError('Choose an image.');
+      setUploadError('Choose an image or audio track.');
       return;
     }
     setUploading(true);
     setUploadError(null);
     try {
-      const res = await discoveryApi.createFeedPost(uploadFile, uploadCaption || undefined);
+      const res = await discoveryApi.createFeedPost(
+        uploadFile,
+        uploadCaption || undefined,
+        uploadFile.type.startsWith('audio/') ? uploadCover : null,
+      );
       const created = res.data as DiscoverFeedPost;
       setFeedPosts((prev) => [created, ...prev]);
       setUploadOpen(false);
       setUploadFile(null);
+      setUploadCover(null);
       setUploadCaption('');
     } catch (e: unknown) {
       setUploadError(e instanceof Error ? e.message : 'Upload failed.');
@@ -115,14 +121,28 @@ export default function ProNetworxFeedPage() {
               </DialogHeader>
               <div className="grid gap-4 py-2">
                 <div>
-                  <Label>Image</Label>
+                  <Label>Image or audio</Label>
                   <Input
                     type="file"
-                    accept="image/jpeg,image/png,image/webp,image/jpg"
+                    accept="image/jpeg,image/png,image/webp,image/jpg,audio/mpeg,audio/wav,audio/mp4,audio/aac,audio/ogg,audio/flac"
                     className="mt-1"
                     onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
                   />
                 </div>
+                {uploadFile?.type.startsWith('audio/') && (
+                  <div>
+                    <Label>Cover picture (optional)</Label>
+                    <Input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/jpg"
+                      className="mt-1"
+                      onChange={(e) => setUploadCover(e.target.files?.[0] ?? null)}
+                    />
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Without a picture your track posts with the Networx Radio logo.
+                    </p>
+                  </div>
+                )}
                 <div>
                   <Label>Caption (optional)</Label>
                   <Textarea

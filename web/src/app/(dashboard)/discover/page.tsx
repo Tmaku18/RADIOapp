@@ -63,6 +63,19 @@ const PAGE_SIZE = 20;
 const FEED_PAGE_SIZE = 16;
 const FEED_UPLOAD_MAX_BYTES = 200 * 1024 * 1024;
 const FEED_VIDEO_MAX_SECONDS = 300;
+const FEED_AUDIO_MAX_SECONDS = 600;
+const FEED_ALLOWED_AUDIO_MIME_TYPES = [
+  'audio/mpeg',
+  'audio/mp3',
+  'audio/wav',
+  'audio/x-wav',
+  'audio/aac',
+  'audio/mp4',
+  'audio/x-m4a',
+  'audio/m4a',
+  'audio/ogg',
+  'audio/flac',
+];
 const FEED_ALLOWED_UPLOAD_MIME_TYPES = [
   'image/jpeg',
   'image/jpg',
@@ -71,18 +84,19 @@ const FEED_ALLOWED_UPLOAD_MIME_TYPES = [
   'video/mp4',
   'video/webm',
   'video/quicktime',
+  ...FEED_ALLOWED_AUDIO_MIME_TYPES,
 ];
 const SERVICE_TYPE_OPTIONS = ['mixing', 'mastering', 'production', 'session', 'collab', 'photo', 'video', 'design', 'other'];
 
-async function getVideoDurationSeconds(file: File): Promise<number> {
+async function getMediaDurationSeconds(file: File, kind: 'video' | 'audio'): Promise<number> {
   const objectUrl = URL.createObjectURL(file);
   try {
     const duration = await new Promise<number>((resolve, reject) => {
-      const video = document.createElement('video');
-      video.preload = 'metadata';
-      video.src = objectUrl;
-      video.onloadedmetadata = () => resolve(video.duration);
-      video.onerror = () => reject(new Error('Unable to read video metadata.'));
+      const el = document.createElement(kind);
+      el.preload = 'metadata';
+      el.src = objectUrl;
+      el.onloadedmetadata = () => resolve(el.duration);
+      el.onerror = () => reject(new Error(`Unable to read ${kind} metadata.`));
     });
     return duration;
   } finally {
@@ -91,20 +105,23 @@ async function getVideoDurationSeconds(file: File): Promise<number> {
 }
 
 async function validateFeedUploadFile(file: File): Promise<string | null> {
-  if (!FEED_ALLOWED_UPLOAD_MIME_TYPES.includes(file.type)) {
-    return 'Unsupported file type. Allowed: JPG, PNG, WEBP, MP4, WEBM, MOV.';
+  const isAudio = FEED_ALLOWED_AUDIO_MIME_TYPES.includes(file.type);
+  if (!isAudio && !FEED_ALLOWED_UPLOAD_MIME_TYPES.includes(file.type)) {
+    return 'Unsupported file type. Allowed: JPG, PNG, WEBP, MP4, WEBM, MOV, MP3, WAV, M4A, AAC, OGG, FLAC.';
   }
   if (file.size > FEED_UPLOAD_MAX_BYTES) {
     return 'File size exceeds 200MB.';
   }
-  if (file.type.startsWith('video/')) {
+  if (isAudio || file.type.startsWith('video/')) {
+    const kind = isAudio ? 'audio' : 'video';
+    const maxSeconds = isAudio ? FEED_AUDIO_MAX_SECONDS : FEED_VIDEO_MAX_SECONDS;
     try {
-      const durationSeconds = await getVideoDurationSeconds(file);
-      if (!Number.isFinite(durationSeconds) || durationSeconds > FEED_VIDEO_MAX_SECONDS) {
-        return 'Video length must be 5 minutes or less.';
+      const durationSeconds = await getMediaDurationSeconds(file, kind);
+      if (!Number.isFinite(durationSeconds) || durationSeconds > maxSeconds) {
+        return `${isAudio ? 'Audio' : 'Video'} length must be ${maxSeconds / 60} minutes or less.`;
       }
     } catch {
-      return 'Unable to read video duration. Please upload MP4, WEBM, or MOV up to 5 minutes.';
+      return `Unable to read ${kind} duration. Please upload a file up to ${maxSeconds / 60} minutes.`;
     }
   }
   return null;
@@ -179,6 +196,7 @@ export default function DiscoverPage() {
   const feedSentinelRef = useRef<HTMLDivElement>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadCover, setUploadCover] = useState<File | null>(null);
   const [uploadCaption, setUploadCaption] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -250,7 +268,7 @@ export default function DiscoverPage() {
 
   const handleCreatePost = async () => {
     if (!uploadFile) {
-      setUploadError('Choose an image or video.');
+      setUploadError('Choose an image, video, or audio track.');
       return;
     }
     setUploading(true);
@@ -261,11 +279,17 @@ export default function DiscoverPage() {
         setUploadError(validationError);
         return;
       }
-      const res = await discoveryApi.createFeedPost(uploadFile, uploadCaption || undefined);
+      const isAudio = FEED_ALLOWED_AUDIO_MIME_TYPES.includes(uploadFile.type);
+      const res = await discoveryApi.createFeedPost(
+        uploadFile,
+        uploadCaption || undefined,
+        isAudio ? uploadCover : null,
+      );
       const created = res.data as DiscoverFeedPost;
       setFeedPosts((prev) => [created, ...prev]);
       setUploadOpen(false);
       setUploadFile(null);
+      setUploadCover(null);
       setUploadCaption('');
     } catch (e: unknown) {
       setUploadError(e instanceof Error ? e.message : 'Upload failed.');
@@ -413,17 +437,31 @@ export default function DiscoverPage() {
                       </DialogHeader>
                       <div className="grid gap-4 py-2">
                         <div>
-                          <Label>Image or video</Label>
+                          <Label>Image, video, or audio</Label>
                           <Input
                             type="file"
-                            accept="image/jpeg,image/png,image/webp,image/jpg,video/mp4,video/webm,video/quicktime"
+                            accept="image/jpeg,image/png,image/webp,image/jpg,video/mp4,video/webm,video/quicktime,audio/mpeg,audio/wav,audio/mp4,audio/aac,audio/ogg,audio/flac"
                             className="mt-1"
                             onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
                           />
                           <p className="mt-2 text-xs text-muted-foreground">
-                            Max size: 200MB. Videos must be 5 minutes or less.
+                            Max size: 200MB. Videos up to 5 minutes, audio up to 10 minutes.
                           </p>
                         </div>
+                        {uploadFile && FEED_ALLOWED_AUDIO_MIME_TYPES.includes(uploadFile.type) && (
+                          <div>
+                            <Label>Cover picture (optional)</Label>
+                            <Input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp,image/jpg"
+                              className="mt-1"
+                              onChange={(e) => setUploadCover(e.target.files?.[0] ?? null)}
+                            />
+                            <p className="mt-2 text-xs text-muted-foreground">
+                              Without a picture your track posts with the Networx Radio logo.
+                            </p>
+                          </div>
+                        )}
                         <div>
                           <Label>Caption (optional)</Label>
                           <Textarea

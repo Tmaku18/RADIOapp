@@ -9,6 +9,7 @@ import '../../../core/navigation/app_routes.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/pro_networx_service.dart';
 import '../../../core/services/users_service.dart';
+import 'feed_post_audio.dart';
 import 'feed_post_video.dart';
 import 'pro_network_paywall_sheet.dart';
 import 'share_post_sheet.dart';
@@ -320,19 +321,26 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                post.mediaType == 'video'
-                    ? FeedPostVideo(url: post.imageUrl)
-                    : CachedNetworkImage(
-                        imageUrl: post.imageUrl,
-                        fit: BoxFit.cover,
-                        placeholder: (_, _) =>
-                            Container(color: cs.surfaceContainerHighest),
-                        errorWidget: (_, _, _) => Container(
-                          color: cs.surfaceContainerHighest,
-                          alignment: Alignment.center,
-                          child: const Icon(Icons.broken_image_outlined),
-                        ),
-                      ),
+                if (post.mediaType == 'video')
+                  FeedPostVideo(url: post.imageUrl)
+                else if (post.mediaType == 'audio' &&
+                    (post.audioUrl?.isNotEmpty ?? false))
+                  FeedPostAudio(
+                    audioUrl: post.audioUrl!,
+                    coverUrl: post.imageUrl,
+                  )
+                else
+                  CachedNetworkImage(
+                    imageUrl: post.imageUrl,
+                    fit: BoxFit.cover,
+                    placeholder: (_, _) =>
+                        Container(color: cs.surfaceContainerHighest),
+                    errorWidget: (_, _, _) => Container(
+                      color: cs.surfaceContainerHighest,
+                      alignment: Alignment.center,
+                      child: const Icon(Icons.broken_image_outlined),
+                    ),
+                  ),
                 if (canDelete)
                   Positioned(
                     top: 8,

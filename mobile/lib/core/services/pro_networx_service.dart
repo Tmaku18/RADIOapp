@@ -6,6 +6,20 @@ import 'package:http_parser/http_parser.dart';
 import '../models/pro_networx_models.dart';
 import 'api_service.dart';
 
+/// What the user attached to a feed post, so uploads can label ambiguous
+/// container formats (an `.mp4` may be audio-only) with the right MIME type.
+enum FeedMediaKind {
+  image,
+  video,
+  audio;
+
+  String get defaultMime => switch (this) {
+        FeedMediaKind.image => 'image/jpeg',
+        FeedMediaKind.video => 'video/quicktime',
+        FeedMediaKind.audio => 'audio/mpeg',
+      };
+}
+
 class ProNetworxService {
   final ApiService _api = ApiService();
 
@@ -309,17 +323,19 @@ class ProNetworxService {
     await _api.delete('discovery/feed/comments/$commentId');
   }
 
-  /// Upload an image or short video as a feed post.
+  /// Upload an image, short video, or audio track as a feed post.
   ///
-  /// [isVideo] helps when iOS `image_picker` temp paths lack an extension —
+  /// [kind] helps when iOS `image_picker` temp paths lack an extension —
   /// without it we'd send `application/octet-stream` and the API rejects.
+  /// [cover] is the optional picture shown behind an audio post; audio posts
+  /// without one fall back to the Networx Radio logo server-side.
   Future<ProFeedPost> createFeedPost(
     File file, {
     String? caption,
-    bool? isVideo,
+    FeedMediaKind kind = FeedMediaKind.image,
+    File? cover,
   }) async {
-    final mime = _inferMediaMime(file.path, isVideo: isVideo) ??
-        (isVideo == true ? 'video/quicktime' : 'image/jpeg');
+    final mime = _inferMediaMime(file.path, kind: kind) ?? kind.defaultMime;
     final res = await _api.postMultipart(
       'discovery/feed',
       {if (caption != null && caption.trim().isNotEmpty) 'caption': caption.trim()},
@@ -330,6 +346,20 @@ class ProNetworxService {
           contentType: MediaType.parse(mime),
           filename: _multipartFilename(file.path, mime),
         ),
+        if (cover != null)
+          await http.MultipartFile.fromPath(
+            'cover',
+            cover.path,
+            contentType: MediaType.parse(
+              _inferMediaMime(cover.path, kind: FeedMediaKind.image) ??
+                  'image/jpeg',
+            ),
+            filename: _multipartFilename(
+              cover.path,
+              _inferMediaMime(cover.path, kind: FeedMediaKind.image) ??
+                  'image/jpeg',
+            ),
+          ),
       ],
     );
     if (res is Map<String, dynamic>) return ProFeedPost.fromJson(res);
@@ -629,21 +659,29 @@ class ProNetworxService {
     return (items: <ProFeedPost>[], nextCursor: null);
   }
 
-  String? _inferImageMime(String path) => _inferMediaMime(path);
+  String? _inferImageMime(String path) =>
+      _inferMediaMime(path, kind: FeedMediaKind.image);
 
-  String? _inferMediaMime(String path, {bool? isVideo}) {
+  String? _inferMediaMime(String path, {required FeedMediaKind kind}) {
     final lower = path.toLowerCase();
     if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
     if (lower.endsWith('.png')) return 'image/png';
     if (lower.endsWith('.webp')) return 'image/webp';
     if (lower.endsWith('.gif')) return 'image/gif';
-    if (lower.endsWith('.mp4') || lower.endsWith('.m4v')) return 'video/mp4';
+    if (lower.endsWith('.mp4') || lower.endsWith('.m4v')) {
+      // .mp4 is ambiguous: audio-only exports share the container.
+      return kind == FeedMediaKind.audio ? 'audio/mp4' : 'video/mp4';
+    }
     if (lower.endsWith('.webm')) return 'video/webm';
     if (lower.endsWith('.mov') || lower.endsWith('.qt')) {
       return 'video/quicktime';
     }
-    if (isVideo == true) return 'video/quicktime';
-    if (isVideo == false) return 'image/jpeg';
+    if (lower.endsWith('.mp3')) return 'audio/mpeg';
+    if (lower.endsWith('.m4a')) return 'audio/mp4';
+    if (lower.endsWith('.wav')) return 'audio/wav';
+    if (lower.endsWith('.aac')) return 'audio/aac';
+    if (lower.endsWith('.ogg') || lower.endsWith('.oga')) return 'audio/ogg';
+    if (lower.endsWith('.flac')) return 'audio/flac';
     return null;
   }
 
@@ -659,6 +697,12 @@ class ProNetworxService {
       'video/mp4' => 'mp4',
       'video/webm' => 'webm',
       'video/quicktime' => 'mov',
+      'audio/mpeg' => 'mp3',
+      'audio/mp4' => 'm4a',
+      'audio/wav' || 'audio/x-wav' => 'wav',
+      'audio/aac' => 'aac',
+      'audio/ogg' => 'ogg',
+      'audio/flac' => 'flac',
       _ => 'bin',
     };
     return '$base.$ext';

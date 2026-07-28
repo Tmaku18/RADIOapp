@@ -254,6 +254,16 @@ export function FeedPostCard({ post, onChange, onHidden, variant = 'feed' }: Fee
             unoptimized={shouldUnoptimize(post.imageUrl)}
           />
         )}
+        {post.mediaType === 'audio' && post.audioUrl && (
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+            <audio
+              src={post.audioUrl}
+              controls
+              preload="none"
+              className="w-full"
+            />
+          </div>
+        )}
       </div>
 
       <div className="p-3 space-y-2">
