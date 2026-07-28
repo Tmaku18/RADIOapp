@@ -252,12 +252,17 @@ async function startWhep(
   };
   whepSessions.set(overlayAudio, session);
 
+  // Audio ONLY. The booth mic input also negotiates a video m-line that never
+  // carries frames (trackless sender on the publisher); if that dead video
+  // track ends up in the element's MediaStream, Chrome waits forever for the
+  // first video frame and never starts AUDIO either (readyState stays 0,
+  // zero samples decoded) — listeners get ducked music and eternal silence.
   pc.addTransceiver('audio', { direction: 'recvonly' });
-  pc.addTransceiver('video', { direction: 'recvonly' });
 
   pc.ontrack = (event) => {
     if (session.disposed) return;
-    const stream = event.streams[0] ?? new MediaStream([event.track]);
+    if (event.track.kind !== 'audio') return;
+    const stream = new MediaStream([event.track]);
     if (overlayAudio.srcObject !== stream) {
       overlayAudio.srcObject = stream;
     }

@@ -42,7 +42,7 @@ function getViewerToken(): string {
 }
 
 /** Unmute after playback starts — radio is soft-paused on this page. */
-function unmuteLiveVideo(video: HTMLVideoElement) {
+function unmuteLiveVideo(video: HTMLMediaElement) {
   video.muted = false;
   video.volume = 1;
   void video.play().catch(() => undefined);
@@ -238,11 +238,13 @@ function WhepPlayer({
   onPermanentFailure?: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [status, setStatus] = useState<'connecting' | 'playing'>('connecting');
 
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    const audio = audioRef.current;
+    if (!video || !audio) return;
     let destroyed = false;
     let pc: RTCPeerConnection | null = null;
     let resourceUrl: string | null = null;
@@ -288,21 +290,31 @@ function WhepPlayer({
       peer.addTransceiver('audio', { direction: 'recvonly' });
       peer.ontrack = (event) => {
         if (destroyed) return;
-        const stream = event.streams[0] ?? new MediaStream([event.track]);
-        if (video.srcObject !== stream) {
-          video.srcObject = stream;
-        }
         setStatus('playing');
         failures = 0;
-        // Start muted for autoplay, then unmute so the live stream is audible
-        // (radio soft-pause runs on the watch page).
+        // Route each track to its own element. Audio-only phases (DJ with the
+        // camera off) negotiate a video track that never delivers frames; if
+        // that dead track shares the element's stream, Chrome waits for the
+        // first video frame and never starts the AUDIO either. A dedicated
+        // audio element plays voice immediately; the video element lights up
+        // whenever frames actually arrive.
+        if (event.track.kind === 'audio') {
+          audio.srcObject = new MediaStream([event.track]);
+          // Start muted for autoplay, then unmute (radio is soft-paused here).
+          audio.muted = true;
+          audio
+            .play()
+            .then(() => {
+              if (!destroyed) unmuteLiveVideo(audio);
+            })
+            .catch(() => undefined);
+          return;
+        }
+        video.srcObject = new MediaStream([event.track]);
+        // Keep the video element permanently muted — sound comes from the
+        // dedicated audio element.
         video.muted = true;
-        video
-          .play()
-          .then(() => {
-            if (!destroyed) unmuteLiveVideo(video);
-          })
-          .catch(() => undefined);
+        void video.play().catch(() => undefined);
       };
       peer.onconnectionstatechange = () => {
         if (
@@ -358,6 +370,7 @@ function WhepPlayer({
       if (retryTimer) clearTimeout(retryTimer);
       teardown();
       video.srcObject = null;
+      audio.srcObject = null;
     };
   }, [src, onPermanentFailure]);
 
@@ -371,6 +384,8 @@ function WhepPlayer({
         muted
         playsInline
       />
+      {/* Live audio plays here so a frameless video track can't block it. */}
+      <audio ref={audioRef} autoPlay className="hidden" />
       {status !== 'playing' && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <span className="rounded-full bg-black/70 px-3 py-1.5 text-xs text-white">
