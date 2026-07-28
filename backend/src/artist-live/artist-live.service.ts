@@ -1321,13 +1321,29 @@ export class ArtistLiveService {
     if (options?.after) {
       query = query.gt('created_at', options.after);
       query = query.order('created_at', { ascending: true }).limit(limit);
-      const { data, error } = await query;
+      const [{ data, error }, deleted] = await Promise.all([
+        query,
+        supabase
+          .from('stream_chat_messages')
+          .select('id')
+          .eq('session_id', sessionId)
+          .eq('is_deleted', true)
+          .gt('deleted_at', options.after)
+          .order('deleted_at', { ascending: true })
+          .limit(100),
+      ]);
       if (error) {
         throw new BadRequestException(
           `Failed to load chat: ${error.message}`,
         );
       }
-      return { messages: (data || []).map((r) => this.mapChatRow(r)) };
+      const deletedIds = (deleted.data || [])
+        .map((r) => (r as { id?: string }).id)
+        .filter((id): id is string => !!id);
+      return {
+        messages: (data || []).map((r) => this.mapChatRow(r)),
+        deletedIds,
+      };
     }
 
     // Initial load: newest `limit`, returned oldest→newest for display.
@@ -1338,7 +1354,7 @@ export class ArtistLiveService {
       throw new BadRequestException(`Failed to load chat: ${error.message}`);
     }
     const rows = (data || []).map((r) => this.mapChatRow(r)).reverse();
-    return { messages: rows };
+    return { messages: rows, deletedIds: [] as string[] };
   }
 
   /** Post a chat message to a live session (must be signed in, session live). */
@@ -1426,7 +1442,7 @@ export class ArtistLiveService {
 
     const { error } = await supabase
       .from('stream_chat_messages')
-      .update({ is_deleted: true })
+      .update({ is_deleted: true, deleted_at: new Date().toISOString() })
       .eq('id', messageId)
       .eq('session_id', sessionId);
     if (error) {
@@ -1434,6 +1450,24 @@ export class ArtistLiveService {
         `Failed to delete message: ${error.message}`,
       );
     }
-    return { deleted: true };
+
+    // Broadcast so every viewer drops the message immediately (same pattern
+    // as radio chat moderation). Poll tombstones cover missed broadcasts.
+    try {
+      const channel = supabase.channel(`stream-chat:${sessionId}`);
+      await channel.subscribe();
+      await channel.send({
+        type: 'broadcast',
+        event: 'message_deleted',
+        payload: { messageId, sessionId },
+      });
+      await supabase.removeChannel(channel);
+    } catch (e) {
+      this.logger.warn(
+        `Failed to broadcast stream chat deletion: ${(e as Error)?.message ?? e}`,
+      );
+    }
+
+    return { deleted: true, messageId };
   }
 }

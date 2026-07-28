@@ -983,14 +983,14 @@ export const artistLiveApi = {
   reportStream: (sessionId: string, reason: string) =>
     api.post(`/artist-live/${sessionId}/report`, { reason }),
   listChat: (sessionId: string, params?: { after?: string; limit?: number }) =>
-    api.get<{ messages: StreamChatMessage[] }>(
+    api.get<{ messages: StreamChatMessage[]; deletedIds?: string[] }>(
       `/artist-live/${sessionId}/chat`,
       { params },
     ),
   postChat: (sessionId: string, message: string) =>
     api.post<StreamChatMessage>(`/artist-live/${sessionId}/chat`, { message }),
   deleteChat: (sessionId: string, messageId: string) =>
-    api.post<{ deleted: boolean }>(
+    api.post<{ deleted: boolean; messageId?: string }>(
       `/artist-live/${sessionId}/chat/${messageId}/delete`,
     ),
   adminForceStop: (sessionId: string) =>

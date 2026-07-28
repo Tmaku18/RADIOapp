@@ -80,7 +80,11 @@ class LivestreamService {
 
   /// Recent live-chat messages. Pass [after] (ISO timestamp) to fetch only
   /// messages newer than the last one you've seen (polling).
-  Future<List<Map<String, dynamic>>> listChat(
+  ///
+  /// Also returns [deletedIds] for messages moderated since [after] so every
+  /// viewer can drop them (append-only polling cannot see soft-deletes).
+  Future<({List<Map<String, dynamic>> messages, List<String> deletedIds})>
+      listChat(
     String sessionId, {
     String? after,
     int? limit,
@@ -92,13 +96,18 @@ class LivestreamService {
     if (limit != null) params.add('limit=$limit');
     final query = params.isEmpty ? '' : '?${params.join('&')}';
     final data = await _api.get('artist-live/$sessionId/chat$query');
-    final messages = data is Map<String, dynamic> ? data['messages'] : null;
-    if (messages is List) {
-      return messages
-          .whereType<Map<String, dynamic>>()
-          .toList(growable: false);
+    if (data is! Map<String, dynamic>) {
+      return (messages: const <Map<String, dynamic>>[], deletedIds: const <String>[]);
     }
-    return const [];
+    final messages = data['messages'];
+    final deletedRaw = data['deletedIds'];
+    final list = messages is List
+        ? messages.whereType<Map<String, dynamic>>().toList(growable: false)
+        : const <Map<String, dynamic>>[];
+    final deletedIds = deletedRaw is List
+        ? deletedRaw.map((e) => e.toString()).where((e) => e.isNotEmpty).toList()
+        : const <String>[];
+    return (messages: list, deletedIds: deletedIds);
   }
 
   Future<Map<String, dynamic>?> postChat(

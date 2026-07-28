@@ -1,10 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import { artistLiveApi, type StreamChatMessage } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 type Props = {
   sessionId: string;
@@ -47,6 +51,13 @@ export function LiveChat({ sessionId, artistId, overlay = false }: Props) {
   const isLoggedIn = !!profile;
   const canModerate = profile?.role === 'admin' || profile?.id === artistId;
 
+  const removeMessages = useCallback((ids: string[]) => {
+    if (ids.length === 0) return;
+    const drop = new Set(ids);
+    for (const id of ids) seenIdsRef.current.delete(id);
+    setMessages((prev) => prev.filter((m) => !drop.has(m.id)));
+  }, []);
+
   const appendMessages = useCallback((incoming: StreamChatMessage[]) => {
     if (incoming.length === 0) return;
     setMessages((prev) => {
@@ -65,7 +76,7 @@ export function LiveChat({ sessionId, artistId, overlay = false }: Props) {
     });
   }, []);
 
-  // Initial load + polling.
+  // Initial load + polling (includes deletedIds tombstones for moderation).
   useEffect(() => {
     if (!sessionId) return;
     let cancelled = false;
@@ -77,7 +88,11 @@ export function LiveChat({ sessionId, artistId, overlay = false }: Props) {
           sessionId,
           lastTsRef.current ? { after: lastTsRef.current } : { limit: 50 },
         );
-        if (!cancelled && res.data?.messages) {
+        if (cancelled) return;
+        if (res.data?.deletedIds?.length) {
+          removeMessages(res.data.deletedIds);
+        }
+        if (res.data?.messages) {
           appendMessages(res.data.messages);
         }
       } catch {
@@ -92,7 +107,27 @@ export function LiveChat({ sessionId, artistId, overlay = false }: Props) {
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [sessionId, appendMessages]);
+  }, [sessionId, appendMessages, removeMessages]);
+
+  // Instant moderation: drop deleted messages for every viewer.
+  useEffect(() => {
+    if (!sessionId || !supabaseUrl || !supabaseAnonKey) return;
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const channel = supabase
+      .channel(`stream-chat:${sessionId}`)
+      .on('broadcast', { event: 'message_deleted' }, (payload) => {
+        const data = payload.payload as {
+          messageId?: string;
+          sessionId?: string;
+        };
+        if (data.sessionId && data.sessionId !== sessionId) return;
+        if (data.messageId) removeMessages([data.messageId]);
+      })
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [sessionId, removeMessages]);
 
   // Auto-scroll to newest unless the viewer scrolled up to read history.
   useEffect(() => {
@@ -132,7 +167,7 @@ export function LiveChat({ sessionId, artistId, overlay = false }: Props) {
   const handleDelete = async (id: string) => {
     try {
       await artistLiveApi.deleteChat(sessionId, id);
-      setMessages((prev) => prev.filter((m) => m.id !== id));
+      removeMessages([id]);
     } catch {
       // ignore
     }

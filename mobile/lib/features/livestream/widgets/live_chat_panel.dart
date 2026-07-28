@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/services/livestream_service.dart';
 
 /// Self-contained Twitch-style live chat panel for a stream session.
@@ -42,6 +43,7 @@ class _LiveChatPanelState extends State<LiveChatPanel> {
   final Set<String> _seenChatIds = {};
   String? _lastChatTs;
   Timer? _chatPoll;
+  RealtimeChannel? _deleteChannel;
   final TextEditingController _chatInput = TextEditingController();
   final ScrollController _chatScroll = ScrollController();
   bool _sending = false;
@@ -50,11 +52,13 @@ class _LiveChatPanelState extends State<LiveChatPanel> {
   void initState() {
     super.initState();
     _startPolling();
+    _subscribeDeletes();
   }
 
   @override
   void dispose() {
     _chatPoll?.cancel();
+    _unsubscribeDeletes();
     _chatInput.dispose();
     _chatScroll.dispose();
     super.dispose();
@@ -64,13 +68,17 @@ class _LiveChatPanelState extends State<LiveChatPanel> {
     _chatPoll?.cancel();
     Future<void> tick() async {
       try {
-        final messages = await _live.listChat(
+        final res = await _live.listChat(
           widget.sessionId,
           after: _lastChatTs,
           limit: 50,
         );
-        if (messages.isNotEmpty && mounted) {
-          _appendChat(messages);
+        if (!mounted) return;
+        if (res.deletedIds.isNotEmpty) {
+          _removeChat(res.deletedIds);
+        }
+        if (res.messages.isNotEmpty) {
+          _appendChat(res.messages);
         }
       } catch (_) {
         // Ignore; next poll resyncs.
@@ -79,6 +87,58 @@ class _LiveChatPanelState extends State<LiveChatPanel> {
 
     tick();
     _chatPoll = Timer.periodic(const Duration(seconds: 3), (_) => tick());
+  }
+
+  void _subscribeDeletes() {
+    try {
+      final client = Supabase.instance.client;
+      _deleteChannel = client
+          .channel('stream-chat:${widget.sessionId}')
+          .onBroadcast(
+            event: 'message_deleted',
+            callback: (payload) {
+              final data = _unwrapBroadcast(payload);
+              final sid = data['sessionId']?.toString();
+              if (sid != null && sid != widget.sessionId) return;
+              final id = (data['messageId'] ?? data['message_id'] ?? data['id'])
+                  ?.toString();
+              if (id != null && id.isNotEmpty && mounted) {
+                _removeChat([id]);
+              }
+            },
+          )
+        ..subscribe();
+    } catch (_) {
+      // Poll tombstones still cover moderation without realtime.
+    }
+  }
+
+  void _unsubscribeDeletes() {
+    final channel = _deleteChannel;
+    _deleteChannel = null;
+    if (channel == null) return;
+    try {
+      Supabase.instance.client.removeChannel(channel);
+    } catch (_) {}
+  }
+
+  Map<String, dynamic> _unwrapBroadcast(Map<String, dynamic> envelope) {
+    final inner = envelope['payload'];
+    if (inner is Map) {
+      return Map<String, dynamic>.from(inner);
+    }
+    return envelope;
+  }
+
+  void _removeChat(List<String> ids) {
+    if (ids.isEmpty) return;
+    final drop = ids.toSet();
+    for (final id in ids) {
+      _seenChatIds.remove(id);
+    }
+    final before = _chat.length;
+    _chat.removeWhere((m) => drop.contains(m['id']?.toString()));
+    if (_chat.length != before && mounted) setState(() {});
   }
 
   void _appendChat(List<Map<String, dynamic>> incoming) {
@@ -125,7 +185,7 @@ class _LiveChatPanelState extends State<LiveChatPanel> {
     try {
       final ok = await _live.deleteChat(widget.sessionId, id);
       if (ok && mounted) {
-        setState(() => _chat.removeWhere((m) => m['id']?.toString() == id));
+        _removeChat([id]);
       }
     } catch (_) {
       _snack('Could not remove message');

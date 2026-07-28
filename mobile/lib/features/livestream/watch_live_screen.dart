@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart' hide Card;
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/auth/auth_service.dart';
 import '../../core/services/audio_player_service.dart';
@@ -38,6 +39,7 @@ class _WatchLiveScreenState extends State<WatchLiveScreen> {
   final Set<String> _seenChatIds = {};
   String? _lastChatTs;
   Timer? _chatPoll;
+  RealtimeChannel? _chatDeleteChannel;
   final TextEditingController _chatInput = TextEditingController();
   final ScrollController _chatScroll = ScrollController();
   bool _sendingChat = false;
@@ -136,6 +138,7 @@ class _WatchLiveScreenState extends State<WatchLiveScreen> {
   void dispose() {
     _heartbeat?.cancel();
     _chatPoll?.cancel();
+    _unsubscribeChatDeletes();
     final sid = _joinedSessionId;
     final vid = _viewerId;
     if (sid != null && vid != null) {
@@ -204,12 +207,17 @@ class _WatchLiveScreenState extends State<WatchLiveScreen> {
 
   void _startChatPolling(String sessionId) {
     _chatPoll?.cancel();
+    _subscribeChatDeletes(sessionId);
     Future<void> tick() async {
       try {
-        final messages =
+        final res =
             await _live.listChat(sessionId, after: _lastChatTs, limit: 50);
-        if (messages.isNotEmpty && mounted) {
-          _appendChat(messages);
+        if (!mounted) return;
+        if (res.deletedIds.isNotEmpty) {
+          _removeChat(res.deletedIds);
+        }
+        if (res.messages.isNotEmpty) {
+          _appendChat(res.messages);
         }
       } catch (_) {
         // Ignore; next poll resyncs.
@@ -219,6 +227,57 @@ class _WatchLiveScreenState extends State<WatchLiveScreen> {
     tick();
     _chatPoll =
         Timer.periodic(const Duration(seconds: 3), (_) => tick());
+  }
+
+  void _subscribeChatDeletes(String sessionId) {
+    _unsubscribeChatDeletes();
+    try {
+      final client = Supabase.instance.client;
+      _chatDeleteChannel = client
+          .channel('stream-chat:$sessionId')
+          .onBroadcast(
+            event: 'message_deleted',
+            callback: (payload) {
+              final data = _unwrapChatBroadcast(payload);
+              final sid = data['sessionId']?.toString();
+              if (sid != null && sid != sessionId) return;
+              final id = (data['messageId'] ?? data['message_id'] ?? data['id'])
+                  ?.toString();
+              if (id != null && id.isNotEmpty && mounted) {
+                _removeChat([id]);
+              }
+            },
+          )
+        ..subscribe();
+    } catch (_) {}
+  }
+
+  void _unsubscribeChatDeletes() {
+    final channel = _chatDeleteChannel;
+    _chatDeleteChannel = null;
+    if (channel == null) return;
+    try {
+      Supabase.instance.client.removeChannel(channel);
+    } catch (_) {}
+  }
+
+  Map<String, dynamic> _unwrapChatBroadcast(Map<String, dynamic> envelope) {
+    final inner = envelope['payload'];
+    if (inner is Map) {
+      return Map<String, dynamic>.from(inner);
+    }
+    return envelope;
+  }
+
+  void _removeChat(List<String> ids) {
+    if (ids.isEmpty) return;
+    final drop = ids.toSet();
+    for (final id in ids) {
+      _seenChatIds.remove(id);
+    }
+    final before = _chat.length;
+    _chat.removeWhere((m) => drop.contains(m['id']?.toString()));
+    if (_chat.length != before && mounted) setState(() {});
   }
 
   void _appendChat(List<Map<String, dynamic>> incoming) {
