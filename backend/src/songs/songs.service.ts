@@ -3207,7 +3207,10 @@ export class SongsService {
     return { liked: !!existingLike };
   }
 
-  /** Star a song for radio alerts. Separate from 🔥 likes. */
+  /**
+   * Star a song for radio alerts. Separate from 🔥 likes.
+   * Does not notify the artist and does not write to `likes`.
+   */
   async favoriteSong(userId: string, songId: string) {
     const supabase = getSupabaseClient();
     const { data: existing, error: existingError } = await supabase
@@ -3231,6 +3234,8 @@ export class SongsService {
       if (insertError.code === '23505') return { favorited: true };
       throw new Error(`Failed to favorite song: ${insertError.message}`);
     }
+    // Intentionally no artist / fanout notification — starring only opts the
+    // listener into radio up-next / on-air alerts for this song.
     return { favorited: true };
   }
 

@@ -714,6 +714,8 @@ export class LeaderboardService {
     const supabase = getSupabaseClient();
     const safeReaction: LeaderboardReaction =
       reaction === 'shit' ? 'shit' : 'fire';
+    // Fire → Liked library (`likes`) only. Never write song_favorites (⭐);
+    // starring is explicit and is what drives radio alert fanout.
     const ensureSongLiked = async () => {
       const { data: existingLike } = await supabase
         .from('likes')

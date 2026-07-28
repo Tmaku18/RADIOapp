@@ -717,8 +717,8 @@ export class PushNotificationService {
   }
 
   /**
-   * Users who favorited this song (star / library like). Radio alerts are
-   * song-scoped so listeners only hear about tracks they starred.
+   * Users who starred this song (⭐ song_favorites). Fire/likes (🔥) never
+   * belong here — radio alerts must not notify every liker.
    */
   private async loadSongFavoriterIds(
     songId: string,
