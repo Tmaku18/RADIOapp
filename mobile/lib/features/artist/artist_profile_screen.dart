@@ -912,131 +912,173 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
                 ..._tracks.map((s) {
                   final active = _activeSongId == s.id;
                   final liked = _likedBySongId[s.id] == true;
+                  final accessLabel = _ownsSong(s)
+                      ? (_isOwnerProfile
+                            ? 'Your track · full play'
+                            : 'Purchased · full play')
+                      : 'Sample · 30s preview';
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: glass(
-                      child: Row(
+                      // Two rows so play/buy never crush the title into
+                      // mid-word wraps like "previe/w" or "View/likes".
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: SizedBox(
-                              width: 52,
-                              height: 52,
-                              child: (s.artworkUrl ?? '').isNotEmpty
-                                  ? CachedNetworkImage(
-                                      imageUrl: s.artworkUrl!,
-                                      fit: BoxFit.cover,
-                                      errorWidget: (context, url, error) =>
-                                          Container(
-                                            color: surfaces.elevated,
-                                            child: const Icon(Icons.music_note),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: SizedBox(
+                                  width: 52,
+                                  height: 52,
+                                  child: (s.artworkUrl ?? '').isNotEmpty
+                                      ? CachedNetworkImage(
+                                          imageUrl: s.artworkUrl!,
+                                          fit: BoxFit.cover,
+                                          errorWidget: (context, url, error) =>
+                                              Container(
+                                                color: surfaces.elevated,
+                                                child: const Icon(
+                                                  Icons.music_note,
+                                                ),
+                                              ),
+                                        )
+                                      : Container(
+                                          decoration: BoxDecoration(
+                                            gradient:
+                                                surfaces.signatureGradient,
                                           ),
-                                    )
-                                  : Container(
-                                      decoration: BoxDecoration(
-                                        gradient: surfaces.signatureGradient,
+                                          child: const Icon(Icons.music_note),
+                                        ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      s.title,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      softWrap: true,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        height: 1.25,
                                       ),
-                                      child: const Icon(Icons.music_note),
                                     ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  s.title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  '${s.likeCount} likes · ${s.listenCount ?? s.playCount} listens',
-                                  style: TextStyle(
-                                    color: surfaces.textMuted,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                                Text(
-                                  _ownsSong(s)
-                                      ? (_isOwnerProfile
-                                            ? 'Your track · full play'
-                                            : 'Purchased · full play')
-                                      : 'Sample · 30s preview',
-                                  style: TextStyle(
-                                    color: _ownsSong(s)
-                                        ? scheme.primary
-                                        : surfaces.textMuted,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                TextButton(
-                                  onPressed: () => _showLikesSheet(s),
-                                  style: TextButton.styleFrom(
-                                    minimumSize: Size.zero,
-                                    padding: EdgeInsets.zero,
-                                    tapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                  ),
-                                  child: const Text('View likes'),
-                                ),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: () => _toggleLike(s),
-                            icon: Icon(
-                              liked ? Icons.favorite : Icons.favorite_border,
-                              color: liked
-                                  ? scheme.primary
-                                  : surfaces.textSecondary,
-                            ),
-                          ),
-                          FilledButton(
-                            onPressed: () => _playSong(s),
-                            child: Icon(
-                              active && _isPlaying
-                                  ? Icons.pause
-                                  : Icons.play_arrow,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          if (_ownsSong(s))
-                            IconButton(
-                              tooltip: 'Download',
-                              onPressed: _downloadingId == s.id
-                                  ? null
-                                  : () => _downloadSong(s),
-                              icon: _downloadingId == s.id
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${s.likeCount} likes · ${s.listenCount ?? s.playCount} listens',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: surfaces.textMuted,
+                                        fontSize: 12,
                                       ),
-                                    )
-                                  : const Icon(Icons.download_outlined),
-                            )
-                          else if (s.forSale)
-                            OutlinedButton(
-                              onPressed: _buyingId == s.id
-                                  ? null
-                                  : () => _buySong(s),
-                              child: _buyingId == s.id
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
+                                    ),
+                                    Text(
+                                      accessLabel,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      softWrap: false,
+                                      style: TextStyle(
+                                        color: _ownsSong(s)
+                                            ? scheme.primary
+                                            : surfaces.textMuted,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
                                       ),
-                                    )
-                                  : Text('Buy ${_formatPrice(s.priceCents)}'),
-                            ),
+                                    ),
+                                    TextButton(
+                                      onPressed: () => _showLikesSheet(s),
+                                      style: TextButton.styleFrom(
+                                        minimumSize: Size.zero,
+                                        padding: const EdgeInsets.only(top: 2),
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                        alignment: Alignment.centerLeft,
+                                      ),
+                                      child: const Text('View likes'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(
+                                  minWidth: 40,
+                                  minHeight: 40,
+                                ),
+                                onPressed: () => _toggleLike(s),
+                                icon: Icon(
+                                  liked
+                                      ? Icons.favorite
+                                      : Icons.favorite_border,
+                                  color: liked
+                                      ? scheme.primary
+                                      : surfaces.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              FilledButton.icon(
+                                onPressed: () => _playSong(s),
+                                icon: Icon(
+                                  active && _isPlaying
+                                      ? Icons.pause
+                                      : Icons.play_arrow,
+                                  size: 20,
+                                ),
+                                label: Text(
+                                  active && _isPlaying ? 'Pause' : 'Play',
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              if (_ownsSong(s))
+                                OutlinedButton.icon(
+                                  onPressed: _downloadingId == s.id
+                                      ? null
+                                      : () => _downloadSong(s),
+                                  icon: _downloadingId == s.id
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Icon(
+                                          Icons.download_outlined,
+                                          size: 18,
+                                        ),
+                                  label: const Text('Download'),
+                                )
+                              else if (s.forSale)
+                                OutlinedButton(
+                                  onPressed: _buyingId == s.id
+                                      ? null
+                                      : () => _buySong(s),
+                                  child: _buyingId == s.id
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : Text(
+                                          'Buy ${_formatPrice(s.priceCents)}',
+                                        ),
+                                ),
+                            ],
+                          ),
                         ],
                       ),
                     ),
