@@ -369,6 +369,68 @@ class ProNetworxService {
     throw Exception('Failed to create post');
   }
 
+  /// Publish a video or audio post by streaming the media straight to storage,
+  /// then telling the API where it landed.
+  ///
+  /// The API used to buffer the whole clip in memory and re-upload it, paying
+  /// for the transfer twice. Images keep using [createFeedPost] so their bytes
+  /// still pass through server-side moderation.
+  Future<ProFeedPost> createFeedPostViaStorage(
+    File file, {
+    String? caption,
+    FeedMediaKind kind = FeedMediaKind.video,
+    File? cover,
+    void Function(int sent, int total)? onProgress,
+  }) async {
+    if (kind == FeedMediaKind.image) {
+      throw ArgumentError('Images must use createFeedPost for moderation.');
+    }
+    final mime = _inferMediaMime(file.path, kind: kind) ?? kind.defaultMime;
+
+    final ticket = await _api.post('discovery/feed/upload-url', {
+      'contentType': mime,
+      'filename': _multipartFilename(file.path, mime),
+    });
+    final signedUrl = ticket is Map ? '${ticket['signedUrl'] ?? ''}' : '';
+    final storagePath = ticket is Map ? '${ticket['path'] ?? ''}' : '';
+    if (signedUrl.isEmpty || storagePath.isEmpty) {
+      throw Exception('Failed to start upload');
+    }
+
+    await _api.putFileToSignedUrl(
+      signedUrl,
+      file,
+      contentType: mime,
+      onProgress: onProgress,
+    );
+
+    // Cover art still travels as multipart so it keeps its moderation pass.
+    final coverMime = cover == null
+        ? null
+        : _inferMediaMime(cover.path, kind: FeedMediaKind.image) ??
+            'image/jpeg';
+    final res = await _api.postMultipart(
+      'discovery/feed/from-upload',
+      {
+        'path': storagePath,
+        'mediaType': kind == FeedMediaKind.audio ? 'audio' : 'video',
+        if (caption != null && caption.trim().isNotEmpty)
+          'caption': caption.trim(),
+      },
+      [
+        if (cover != null && coverMime != null)
+          await http.MultipartFile.fromPath(
+            'cover',
+            cover.path,
+            contentType: MediaType.parse(coverMime),
+            filename: _multipartFilename(cover.path, coverMime),
+          ),
+      ],
+    );
+    if (res is Map<String, dynamic>) return ProFeedPost.fromJson(res);
+    throw Exception('Failed to create post');
+  }
+
   // ---------------------------------------------------------------------------
   // Services marketplace
   // ---------------------------------------------------------------------------

@@ -317,13 +317,22 @@ class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
     });
     try {
       final caption = _captionCtrl.text.trim();
-      final post = await _service.createFeedPost(
-        file,
-        caption: caption.isEmpty ? null : caption,
-        kind: _kind,
-        cover: _isAudio ? _cover : null,
-        onProgress: _onUploadProgress,
-      );
+      // Video and audio stream straight to storage; images stay on the API path
+      // so their bytes still pass server-side moderation.
+      final post = _kind == FeedMediaKind.image
+          ? await _service.createFeedPost(
+              file,
+              caption: caption.isEmpty ? null : caption,
+              kind: _kind,
+              onProgress: _onUploadProgress,
+            )
+          : await _service.createFeedPostViaStorage(
+              file,
+              caption: caption.isEmpty ? null : caption,
+              kind: _kind,
+              cover: _isAudio ? _cover : null,
+              onProgress: _onUploadProgress,
+            );
       if (!mounted) return;
       SocialFeedRefresh.request();
       ScaffoldMessenger.of(context).showSnackBar(

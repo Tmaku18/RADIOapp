@@ -608,6 +608,101 @@ export class DiscoveryController {
     });
   }
 
+  /**
+   * Hand back a signed URL so the client can push a video/audio file straight to
+   * storage. Keeps 1GB clips out of this container's memory and off its request
+   * timeout. Images are deliberately not offered here — they stay on the
+   * multipart route so nudity screening still inspects the bytes.
+   */
+  @Post('feed/upload-url')
+  @UseGuards(RolesGuard)
+  @Roles('listener', 'artist', 'service_provider', 'admin')
+  async createFeedUploadUrl(
+    @CurrentUser() user: FirebaseUser,
+    @Body() body: { contentType?: string; filename?: string },
+  ) {
+    const contentType = (body?.contentType ?? '').trim().toLowerCase();
+    const isAudio = this.allowedFeedAudioMimeTypes.includes(contentType);
+    const isVideo = contentType.startsWith('video/');
+    if (!isAudio && !isVideo) {
+      throw new BadRequestException(
+        'Direct upload is for video and audio only. Allowed: MP4, WEBM, MOV, MP3, WAV, M4A, AAC, OGG, FLAC.',
+      );
+    }
+    if (isVideo && !this.allowedFeedMimeTypes.includes(contentType)) {
+      throw new BadRequestException(
+        'Unsupported video type. Allowed: MP4, WEBM, MOV.',
+      );
+    }
+    const userId = await this.getUserId(user.uid);
+    return this.uploads.getSignedUploadUrl(
+      userId,
+      'feed',
+      (body?.filename ?? '').trim() || 'upload.bin',
+      contentType,
+    );
+  }
+
+  /**
+   * Publish a post whose media already went straight to storage.
+   *
+   * An optional `cover` still arrives as multipart so audio artwork keeps its
+   * moderation pass. Duration cannot be re-checked here because the bytes never
+   * reach this process — the client enforces the cap before requesting a URL.
+   */
+  @Post('feed/from-upload')
+  @UseGuards(RolesGuard)
+  @Roles('listener', 'artist', 'service_provider', 'admin')
+  @UseInterceptors(
+    FileFieldsInterceptor([{ name: 'cover', maxCount: 1 }], {
+      limits: { fileSize: 15 * 1024 * 1024 },
+    }),
+  )
+  async createFeedPostFromUpload(
+    @CurrentUser() user: FirebaseUser,
+    @UploadedFiles() files: { cover?: Express.Multer.File[] },
+    @Body() body: { path?: string; mediaType?: string; caption?: string },
+  ) {
+    const path = (body?.path ?? '').trim();
+    if (!path) {
+      throw new BadRequestException('Missing upload path.');
+    }
+    const mediaType = (body?.mediaType ?? '').trim();
+    if (mediaType !== 'video' && mediaType !== 'audio') {
+      throw new BadRequestException('mediaType must be "video" or "audio".');
+    }
+    const cover = files?.cover?.[0];
+    if (cover && !this.allowedFeedCoverMimeTypes.includes(cover.mimetype)) {
+      throw new BadRequestException(
+        'Unsupported cover image type. Allowed: JPG, PNG, WEBP.',
+      );
+    }
+
+    const userId = await this.getUserId(user.uid);
+    const mediaUrl = await this.uploads.resolveFeedUpload(userId, path);
+    const caption = body?.caption?.trim() || null;
+
+    if (mediaType === 'video') {
+      return this.discovery.createFeedPost({
+        authorUserId: userId,
+        imageUrl: mediaUrl,
+        mediaType,
+        caption,
+      });
+    }
+
+    const coverUrl = cover
+      ? await this.uploads.uploadFeedPostMedia(cover, userId)
+      : `${this.fallbackAudioCoverUrl}/images/networx-logo-cyan.png`;
+    return this.discovery.createFeedPost({
+      authorUserId: userId,
+      imageUrl: coverUrl,
+      audioUrl: mediaUrl,
+      mediaType,
+      caption,
+    });
+  }
+
   private async getUserId(firebaseUid: string): Promise<string> {
     const row = await this.getUserWithRole(firebaseUid);
     return row.id;

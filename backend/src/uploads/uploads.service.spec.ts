@@ -78,6 +78,8 @@ describe('UploadsService', () => {
       ['portfolio', 'demo.mp3', 'audio/mpeg'],
       ['portfolio', 'shot.mp4', 'video/mp4'],
       ['portfolio', 'shot.jpg', 'image/jpeg'],
+      ['feed', 'clip.mov', 'video/quicktime'],
+      ['feed', 'track.m4a', 'audio/mp4'],
     ] as const)(
       'accepts %s / %s (%s)',
       async (bucket, filename, contentType) => {
@@ -98,6 +100,56 @@ describe('UploadsService', () => {
         expect(result.expiresIn).toBe(60);
       },
     );
+  });
+
+  describe('resolveFeedUpload', () => {
+    const service = () =>
+      new UploadsService(configService as any, createImageModerationMock());
+
+    it('accepts an object under the caller own prefix', async () => {
+      await expect(
+        service().resolveFeedUpload('user-1', 'user-1/posts/clip.mp4'),
+      ).resolves.toContain('https://example.com');
+    });
+
+    it.each([
+      ['another user object', 'user-2/posts/clip.mp4'],
+      ['a traversal attempt', 'user-1/../user-2/posts/clip.mp4'],
+      ['an empty path', '   '],
+    ])('rejects %s', async (_label, path) => {
+      await expect(
+        service().resolveFeedUpload('user-1', path),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejects a path the bucket does not actually contain', async () => {
+      const client = createSupabaseMock();
+      (client.storage.from as jest.Mock).mockReturnValue({
+        list: jest.fn().mockResolvedValue({ data: [], error: null }),
+      });
+      (getSupabaseClient as jest.Mock).mockReturnValue(client);
+
+      await expect(
+        service().resolveFeedUpload('user-1', 'user-1/posts/ghost.mp4'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('rejects an object that exceeds the feed limit', async () => {
+      const client = createSupabaseMock();
+      (client.storage.from as jest.Mock).mockReturnValue({
+        list: jest.fn().mockResolvedValue({
+          data: [
+            { name: 'huge.mp4', metadata: { size: 2 * 1024 * 1024 * 1024 } },
+          ],
+          error: null,
+        }),
+      });
+      (getSupabaseClient as jest.Mock).mockReturnValue(client);
+
+      await expect(
+        service().resolveFeedUpload('user-1', 'user-1/posts/huge.mp4'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
   });
 
   describe('multipart validators', () => {

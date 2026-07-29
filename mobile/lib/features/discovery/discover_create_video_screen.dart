@@ -3,8 +3,6 @@ import 'dart:io';
 
 import 'package:audio_session/audio_session.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:http_parser/http_parser.dart' as http_parser;
 import 'package:image_picker/image_picker.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:video_player/video_player.dart';
@@ -14,6 +12,7 @@ import '../../core/navigation/home_tab_intent.dart';
 import '../../core/services/api_service.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/services/discover_audio_service.dart';
+import '../../core/services/pro_networx_service.dart';
 import '../../core/theme/dimension_tokens.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
@@ -45,7 +44,7 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
   static const int _cameraCountdownSec = 5;
   static const int _maxFileSizeBytes = 200 * 1024 * 1024;
 
-  final ApiService _api = ApiService();
+  final ProNetworxService _proNetworx = ProNetworxService();
   final DiscoverAudioService _discover = DiscoverAudioService();
   final AudioPlayer _clipPlayer = AudioPlayer();
   final _captionCtrl = TextEditingController();
@@ -317,22 +316,6 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
     await _recordWithClip();
   }
 
-  String _mimeForPath(String path) {
-    final ext = path.split('.').last.toLowerCase();
-    switch (ext) {
-      case 'mp4':
-        return 'video/mp4';
-      case 'mov':
-        return 'video/quicktime';
-      case 'webm':
-        return 'video/webm';
-      case '3gp':
-        return 'video/3gpp';
-      default:
-        return 'video/mp4';
-    }
-  }
-
   Future<void> _publish() async {
     if (_selected == null) {
       setState(() => _error = 'Pick a liked Discover clip first.');
@@ -349,25 +332,13 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
       _totalBytes = 0;
     });
     try {
-      final fields = <String, String>{};
       final caption = _captionCtrl.text.trim();
-      if (caption.isNotEmpty) fields['caption'] = caption;
-
-      final mime = _mimeForPath(_videoFile!.path);
-      final parts = mime.split('/');
-      final multipartFile = await http.MultipartFile.fromPath(
-        'file',
-        _videoFile!.path,
-        contentType: http_parser.MediaType(
-          parts.first,
-          parts.length > 1 ? parts[1] : 'mp4',
-        ),
-      );
-
-      await _api.postMultipart(
-        'discovery/feed',
-        fields,
-        [multipartFile],
+      // Streams straight to storage so a long take never has to be buffered in
+      // the API container.
+      await _proNetworx.createFeedPostViaStorage(
+        _videoFile!,
+        caption: caption.isEmpty ? null : caption,
+        kind: FeedMediaKind.video,
         onProgress: _onUploadProgress,
       );
       if (!mounted) return;

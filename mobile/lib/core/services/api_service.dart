@@ -68,6 +68,37 @@ class _ProgressMultipartRequest extends http.MultipartRequest {
   }
 }
 
+/// Streams a file from disk as a raw request body, reporting bytes as the socket
+/// consumes them. Keeps large uploads off the heap — the whole point of sending
+/// video straight to storage rather than through the API.
+class _FileStreamRequest extends http.BaseRequest {
+  _FileStreamRequest(super.method, super.url, {required this.file, this.onProgress});
+
+  final File file;
+  final void Function(int sent, int total)? onProgress;
+
+  @override
+  http.ByteStream finalize() {
+    super.finalize();
+    final report = onProgress;
+    final total = contentLength ?? 0;
+    var sent = 0;
+    final body = file.openRead();
+    if (report == null) return http.ByteStream(body);
+    return http.ByteStream(
+      body.transform(
+        StreamTransformer<List<int>, List<int>>.fromHandlers(
+          handleData: (chunk, sink) {
+            sent += chunk.length;
+            report(sent, total);
+            sink.add(chunk);
+          },
+        ),
+      ),
+    );
+  }
+}
+
 class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
@@ -387,41 +418,12 @@ class ApiService {
         total = request.contentLength;
         onProgress?.call(0, total);
 
-        // Own the client so a stalled upload can be torn down instead of
-        // holding the socket open behind an abandoned future.
-        final client = http.Client();
-        final stalled = Completer<http.Response>();
-        final watchdog = Timer.periodic(uploadWatchdogInterval, (timer) {
-          if (stalled.isCompleted) {
-            timer.cancel();
-            return;
-          }
-          // No progress is expected after the last byte, while the API stores
-          // the file, so allow a longer quiet period once sending is done.
-          final sending = total <= 0 || bytesSent < total;
-          final limit = sending ? uploadStallTimeout : uploadProcessingTimeout;
-          if (DateTime.now().difference(lastProgressAt) <= limit) return;
-          timer.cancel();
-          stalled.completeError(
-            TimeoutException(
-              bytesSent == 0
-                  ? 'Upload could not start. Check your connection and try again.'
-                  : sending
-                      ? 'Upload stalled. Check your connection and try again.'
-                      : 'The server took too long to finish saving your upload.',
-            ),
-          );
-        });
-
-        try {
-          final send = client
-              .send(request)
-              .then((streamed) => http.Response.fromStream(streamed));
-          return await Future.any([send, stalled.future]);
-        } finally {
-          watchdog.cancel();
-          client.close();
-        }
+        return _sendWatched(
+          request,
+          sent: () => bytesSent,
+          total: () => total,
+          lastProgressAt: () => lastProgressAt,
+        );
       },
       endpoint,
       'UPLOAD',
@@ -436,5 +438,103 @@ class ApiService {
         return _shouldTryNextBaseUrl(error);
       },
     );
+  }
+
+  /// Stream [file] straight to a storage signed URL, reporting progress.
+  ///
+  /// Deliberately bypasses [_withFallback]: the URL is absolute and already
+  /// carries its own token, so our Bearer header must not be attached and there
+  /// is no alternate host to fall back to. The body is streamed from disk so a
+  /// 1GB clip never lands in the phone's memory.
+  Future<void> putFileToSignedUrl(
+    String signedUrl,
+    File file, {
+    required String contentType,
+    void Function(int sent, int total)? onProgress,
+  }) async {
+    final length = await file.length();
+    var bytesSent = 0;
+    var lastProgressAt = DateTime.now();
+
+    final request = _FileStreamRequest(
+      'PUT',
+      Uri.parse(signedUrl),
+      file: file,
+      onProgress: (sent, total) {
+        bytesSent = sent;
+        lastProgressAt = DateTime.now();
+        onProgress?.call(sent, total);
+      },
+    );
+    request.contentLength = length;
+    request.headers['content-type'] = contentType;
+    onProgress?.call(0, length);
+
+    final response = await _sendWatched(
+      request,
+      sent: () => bytesSent,
+      total: () => length,
+      lastProgressAt: () => lastProgressAt,
+    ).timeout(_uploadTimeout);
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApiException(
+        statusCode: response.statusCode,
+        message: ApiException.messageFromBody(
+          response.body,
+          fallback: response.statusCode == 413
+              ? 'This file is over the storage upload limit.'
+              : 'Upload to storage failed',
+        ),
+        responseBody: response.body,
+      );
+    }
+  }
+
+  /// Send [request] while watching for a stalled body, so a dead connection
+  /// fails in seconds instead of hanging until the overall upload timeout.
+  Future<http.Response> _sendWatched(
+    http.BaseRequest request, {
+    required int Function() sent,
+    required int Function() total,
+    required DateTime Function() lastProgressAt,
+  }) async {
+    // Own the client so a stalled upload can be torn down instead of holding
+    // the socket open behind an abandoned future.
+    final client = http.Client();
+    final stalled = Completer<http.Response>();
+    final watchdog = Timer.periodic(uploadWatchdogInterval, (timer) {
+      if (stalled.isCompleted) {
+        timer.cancel();
+        return;
+      }
+      // No progress is expected after the last byte, while the server stores
+      // the file, so allow a longer quiet period once sending is done.
+      final bytes = sent();
+      final size = total();
+      final sending = size <= 0 || bytes < size;
+      final limit = sending ? uploadStallTimeout : uploadProcessingTimeout;
+      if (DateTime.now().difference(lastProgressAt()) <= limit) return;
+      timer.cancel();
+      stalled.completeError(
+        TimeoutException(
+          bytes == 0
+              ? 'Upload could not start. Check your connection and try again.'
+              : sending
+                  ? 'Upload stalled. Check your connection and try again.'
+                  : 'The server took too long to finish saving your upload.',
+        ),
+      );
+    });
+
+    try {
+      final send = client
+          .send(request)
+          .then((streamed) => http.Response.fromStream(streamed));
+      return await Future.any([send, stalled.future]);
+    } finally {
+      watchdog.cancel();
+      client.close();
+    }
   }
 }

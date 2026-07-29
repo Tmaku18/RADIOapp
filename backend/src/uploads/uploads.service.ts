@@ -537,6 +537,53 @@ export class UploadsService {
   }
 
   /**
+   * Confirm an object the client uploaded straight to storage via a signed URL,
+   * and return its public URL.
+   *
+   * The path is only ever trusted when it sits under the caller's own prefix —
+   * otherwise a client could claim any object in the bucket as its own post.
+   * Size is re-checked here because the client is no longer a trusted source of
+   * it once the bytes skip this container.
+   */
+  async resolveFeedUpload(userId: string, objectPath: string): Promise<string> {
+    const path = objectPath.trim().replace(/^\/+/, '');
+    if (!path || path.includes('..') || !path.startsWith(`${userId}/`)) {
+      throw new BadRequestException('Invalid upload path.');
+    }
+
+    const supabase = getSupabaseClient();
+    const slash = path.lastIndexOf('/');
+    const directory = path.slice(0, slash);
+    const name = path.slice(slash + 1);
+
+    const { data, error } = await supabase.storage
+      .from('feed')
+      .list(directory, { search: name, limit: 100 });
+    if (error) {
+      throw new BadRequestException(
+        `Could not verify your upload: ${error.message}`,
+      );
+    }
+    const object = data?.find((entry) => entry.name === name);
+    if (!object) {
+      throw new BadRequestException(
+        'Your upload was not found in storage. Please try again.',
+      );
+    }
+
+    const size = (object as { metadata?: { size?: number } })?.metadata?.size;
+    if (typeof size === 'number' && size > this.feedUploadMaxBytes) {
+      const limitMb = Math.round(this.feedUploadMaxBytes / (1024 * 1024));
+      throw new BadRequestException(
+        `This file is over the ${limitMb}MB upload limit.`,
+      );
+    }
+
+    const { data: urlData } = supabase.storage.from('feed').getPublicUrl(path);
+    return urlData.publicUrl;
+  }
+
+  /**
    * Upload a discover feed post media file (Discover tab).
    * Accepts images (JPEG/PNG/WebP), videos (MP4/WEBM/MOV), and audio tracks
    * (MP3/WAV/AAC/M4A/OGG/FLAC) up to 1GB.
@@ -642,12 +689,30 @@ export class UploadsService {
    */
   async getSignedUploadUrl(
     userId: string,
-    bucket: 'songs' | 'artwork' | 'portfolio',
+    bucket: 'songs' | 'artwork' | 'portfolio' | 'feed',
     filename: string,
     contentType: string,
   ): Promise<SignedUploadUrlResponse> {
     // Validate content type based on bucket
     const allowedTypes: Record<string, string[]> = {
+      // Feed videos/audio upload straight to storage so a 1GB clip never has to
+      // be buffered in this container. Images are excluded on purpose: they go
+      // through the multipart path so nudity screening still sees the bytes.
+      feed: [
+        'video/mp4',
+        'video/webm',
+        'video/quicktime',
+        'audio/mpeg',
+        'audio/mp3',
+        'audio/wav',
+        'audio/x-wav',
+        'audio/aac',
+        'audio/mp4',
+        'audio/x-m4a',
+        'audio/m4a',
+        'audio/ogg',
+        'audio/flac',
+      ],
       songs: [
         'audio/mpeg',
         'audio/mp3',
@@ -689,7 +754,9 @@ export class UploadsService {
 
     // Generate unique path
     const extension = filename.split('.').pop() || 'bin';
-    const path = `${userId}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
+    // Keep feed objects under posts/ so they match the multipart path layout.
+    const prefix = bucket === 'feed' ? `${userId}/posts` : userId;
+    const path = `${prefix}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
 
     // Generate signed upload URL (60 seconds expiry)
     const supabase = getSupabaseClient();
@@ -698,6 +765,9 @@ export class UploadsService {
     }
     if (bucket === 'portfolio') {
       await this.ensurePortfolioBucketLimit();
+    }
+    if (bucket === 'feed') {
+      await this.ensureImageBucketLimit('feed');
     }
     const attemptSignedUrl = async () =>
       supabase.storage.from(bucket).createSignedUploadUrl(path);

@@ -65,6 +65,12 @@ export const createSupabaseMock = () => {
       data: { path: _path },
       error: null,
     })),
+    // Default to "the searched object exists and is small", which is the happy
+    // path for verifying a direct-to-storage upload.
+    list: jest.fn(async (_prefix?: string, opts?: { search?: string }) => ({
+      data: opts?.search ? [{ name: opts.search, metadata: { size: 1024 } }] : [],
+      error: null,
+    })),
     remove: jest.fn().mockResolvedValue({ data: null, error: null }),
     getPublicUrl: jest.fn(() => ({
       data: { publicUrl: 'https://example.com/file' },
