@@ -647,8 +647,9 @@ export class DiscoveryController {
    * Publish a post whose media already went straight to storage.
    *
    * An optional `cover` still arrives as multipart so audio artwork keeps its
-   * moderation pass. Duration cannot be re-checked here because the bytes never
-   * reach this process — the client enforces the cap before requesting a URL.
+   * moderation pass. Length is re-checked against the stored object rather than
+   * trusting the client, and anything over the cap is deleted instead of being
+   * left in the bucket as an orphan.
    */
   @Post('feed/from-upload')
   @UseGuards(RolesGuard)
@@ -661,7 +662,14 @@ export class DiscoveryController {
   async createFeedPostFromUpload(
     @CurrentUser() user: FirebaseUser,
     @UploadedFiles() files: { cover?: Express.Multer.File[] },
-    @Body() body: { path?: string; mediaType?: string; caption?: string },
+    @Body()
+    body: {
+      path?: string;
+      mediaType?: string;
+      caption?: string;
+      /** Parser hint only — never used to authorize anything. */
+      contentType?: string;
+    },
   ) {
     const path = (body?.path ?? '').trim();
     if (!path) {
@@ -679,7 +687,28 @@ export class DiscoveryController {
     }
 
     const userId = await this.getUserId(user.uid);
-    const mediaUrl = await this.uploads.resolveFeedUpload(userId, path);
+    const { publicUrl: mediaUrl, sizeBytes } =
+      await this.uploads.resolveFeedUpload(userId, path);
+
+    // Re-check length server-side. "Unknown" is never treated as over the cap —
+    // phone exports often lack parseable metadata and those are valid takes.
+    const maxSeconds =
+      mediaType === 'audio'
+        ? this.maxFeedAudioDurationSeconds
+        : this.maxFeedVideoDurationSeconds;
+    const durationSeconds = await this.durationService.probeRemoteDurationSeconds(
+      mediaUrl,
+      { mimeType: body?.contentType?.trim() || undefined, sizeBytes: sizeBytes ?? undefined },
+    );
+    if (durationSeconds != null && durationSeconds > maxSeconds + 1) {
+      await this.uploads.removeFeedObject(path);
+      throw new BadRequestException(
+        mediaType === 'audio'
+          ? `Audio length must be ${Math.round(maxSeconds / 60)} minutes or less.`
+          : `Video length must be ${maxSeconds} seconds or less.`,
+      );
+    }
+
     const caption = body?.caption?.trim() || null;
 
     if (mediaType === 'video') {

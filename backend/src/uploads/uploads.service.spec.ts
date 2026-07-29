@@ -109,7 +109,10 @@ describe('UploadsService', () => {
     it('accepts an object under the caller own prefix', async () => {
       await expect(
         service().resolveFeedUpload('user-1', 'user-1/posts/clip.mp4'),
-      ).resolves.toContain('https://example.com');
+      ).resolves.toEqual({
+        publicUrl: expect.stringContaining('https://example.com'),
+        sizeBytes: 1024,
+      });
     });
 
     it.each([

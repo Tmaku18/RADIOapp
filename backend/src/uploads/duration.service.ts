@@ -57,6 +57,169 @@ export class DurationService {
   }
 
   /**
+   * Read the duration of an object already sitting in storage, without pulling
+   * the whole thing back into this container.
+   *
+   * Feed video/audio uploads go straight to storage, so the bytes never pass
+   * through here — but length still has to be enforced against something other
+   * than the client's word. For MP4-family containers this walks the top-level
+   * box table with range requests and downloads only `moov`, which matters
+   * because phone recordings put `moov` at the *end* of the file: a head slice
+   * would find nothing and streaming to it would pull the entire clip.
+   *
+   * Returns null when duration cannot be determined. Callers enforcing a cap
+   * must treat null as "unknown", never as "over".
+   */
+  async probeRemoteDurationSeconds(
+    url: string,
+    options: { mimeType?: string; sizeBytes?: number } = {},
+  ): Promise<number | null> {
+    const { mimeType, sizeBytes } = options;
+    try {
+      if (this.isMp4Container(mimeType)) {
+        const fromBoxes = await this.probeMp4Duration(url, sizeBytes);
+        if (fromBoxes != null) return fromBoxes;
+      }
+      // WAV/FLAC/OGG/WebM carry duration near the front, and MP3 can be
+      // estimated from a leading slice. Cap the read so this stays bounded.
+      const head = await this.fetchRange(
+        url,
+        0,
+        Math.min(sizeBytes ?? this.headProbeBytes, this.headProbeBytes) - 1,
+      );
+      if (!head || head.length === 0) return null;
+      return await this.extractDurationOrNull(head, mimeType);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Remote duration probe failed: ${message}`);
+      return null;
+    }
+  }
+
+  private readonly headProbeBytes = 8 * 1024 * 1024;
+  private readonly maxMoovBytes = 8 * 1024 * 1024;
+
+  private isMp4Container(mimeType?: string): boolean {
+    if (!mimeType) return false;
+    return [
+      'video/mp4',
+      'video/quicktime',
+      'audio/mp4',
+      'audio/x-m4a',
+      'audio/m4a',
+    ].includes(mimeType.toLowerCase());
+  }
+
+  /** Walk top-level boxes over HTTP ranges and parse only `moov`. */
+  private async probeMp4Duration(
+    url: string,
+    sizeBytes?: number,
+  ): Promise<number | null> {
+    let offset = 0;
+    // Plenty for ftyp/free/mdat/moov ordering; stops a malformed file looping.
+    for (let hops = 0; hops < 32; hops++) {
+      const header = await this.fetchRange(url, offset, offset + 15);
+      if (!header || header.length < 8) return null;
+
+      let boxSize = header.readUInt32BE(0);
+      const type = header.subarray(4, 8).toString('latin1');
+      let headerSize = 8;
+
+      if (boxSize === 1) {
+        // 64-bit size: real for >4GB `mdat`, which phone video can reach.
+        if (header.length < 16) return null;
+        const large = header.readBigUInt64BE(8);
+        if (large > BigInt(Number.MAX_SAFE_INTEGER)) return null;
+        boxSize = Number(large);
+        headerSize = 16;
+      } else if (boxSize === 0) {
+        // Box runs to end of file.
+        boxSize = sizeBytes != null ? sizeBytes - offset : 0;
+      }
+      if (boxSize < headerSize) return null;
+
+      if (type === 'moov') {
+        const moov = await this.fetchRange(
+          url,
+          offset,
+          offset + Math.min(boxSize, this.maxMoovBytes) - 1,
+        );
+        if (!moov) return null;
+        return this.durationFromMoov(moov);
+      }
+
+      offset += boxSize;
+      if (sizeBytes != null && offset >= sizeBytes) return null;
+    }
+    return null;
+  }
+
+  /** Pull timescale + duration out of `moov` → `mvhd`. */
+  private durationFromMoov(moov: Buffer): number | null {
+    let offset = 8;
+    while (offset + 8 <= moov.length) {
+      const boxSize = moov.readUInt32BE(offset);
+      const type = moov.subarray(offset + 4, offset + 8).toString('latin1');
+      if (boxSize < 8) return null;
+
+      if (type === 'mvhd') {
+        const body = offset + 8;
+        if (body >= moov.length) return null;
+        const version = moov[body];
+        let timescale: number;
+        let duration: number;
+        if (version === 1) {
+          if (body + 32 > moov.length) return null;
+          timescale = moov.readUInt32BE(body + 20);
+          duration = Number(moov.readBigUInt64BE(body + 24));
+        } else {
+          if (body + 20 > moov.length) return null;
+          timescale = moov.readUInt32BE(body + 12);
+          duration = moov.readUInt32BE(body + 16);
+        }
+        if (!timescale || duration <= 0) return null;
+        const seconds = Math.ceil(duration / timescale);
+        this.logger.log(`Probed remote duration: ${seconds}s`);
+        return seconds;
+      }
+      offset += boxSize;
+    }
+    return null;
+  }
+
+  /**
+   * Fetch a byte range. Bails out when the host ignores `Range` and offers the
+   * whole object instead, so a probe can never turn into a 1GB download.
+   */
+  private async fetchRange(
+    url: string,
+    start: number,
+    endInclusive: number,
+  ): Promise<Buffer | null> {
+    if (endInclusive < start) return null;
+    const wanted = endInclusive - start + 1;
+    const response = await fetch(url, {
+      headers: { Range: `bytes=${start}-${endInclusive}` },
+    });
+
+    if (response.status === 200) {
+      const length = Number(response.headers.get('content-length') ?? '0');
+      if (length > wanted + this.headProbeBytes) {
+        await response.body?.cancel();
+        this.logger.warn('Storage ignored Range; skipping duration probe.');
+        return null;
+      }
+      const full = Buffer.from(await response.arrayBuffer());
+      return full.subarray(start, endInclusive + 1);
+    }
+    if (response.status !== 206) {
+      await response.body?.cancel();
+      return null;
+    }
+    return Buffer.from(await response.arrayBuffer());
+  }
+
+  /**
    * Calculate credits required for a given duration.
    * Formula: ceil(duration_seconds / 5)
    *

@@ -545,7 +545,10 @@ export class UploadsService {
    * Size is re-checked here because the client is no longer a trusted source of
    * it once the bytes skip this container.
    */
-  async resolveFeedUpload(userId: string, objectPath: string): Promise<string> {
+  async resolveFeedUpload(
+    userId: string,
+    objectPath: string,
+  ): Promise<{ publicUrl: string; sizeBytes: number | null }> {
     const path = objectPath.trim().replace(/^\/+/, '');
     if (!path || path.includes('..') || !path.startsWith(`${userId}/`)) {
       throw new BadRequestException('Invalid upload path.');
@@ -580,7 +583,24 @@ export class UploadsService {
     }
 
     const { data: urlData } = supabase.storage.from('feed').getPublicUrl(path);
-    return urlData.publicUrl;
+    return {
+      publicUrl: urlData.publicUrl,
+      sizeBytes: typeof size === 'number' ? size : null,
+    };
+  }
+
+  /**
+   * Drop an object the client uploaded but that we then refused to publish, so
+   * rejected media does not accumulate in the bucket as orphans.
+   */
+  async removeFeedObject(objectPath: string): Promise<void> {
+    try {
+      const supabase = getSupabaseClient();
+      await supabase.storage.from('feed').remove([objectPath]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Could not remove rejected upload: ${message}`);
+    }
   }
 
   /**

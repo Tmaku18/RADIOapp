@@ -414,6 +414,8 @@ class ProNetworxService {
       {
         'path': storagePath,
         'mediaType': kind == FeedMediaKind.audio ? 'audio' : 'video',
+        // Lets the API pick the right parser when it re-checks length.
+        'contentType': mime,
         if (caption != null && caption.trim().isNotEmpty)
           'caption': caption.trim(),
       },
