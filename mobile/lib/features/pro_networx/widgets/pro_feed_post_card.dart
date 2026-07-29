@@ -340,65 +340,53 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
               ],
             ),
           ),
+          // Same square frame for image, video, and audio — clip hard so the
+          // iOS video texture cannot paint over the author header above.
           AspectRatio(
             aspectRatio: 1,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                if (post.mediaType == 'video')
-                  FeedPostVideo(url: post.imageUrl)
-                else if (post.mediaType == 'audio' &&
-                    (post.audioUrl?.isNotEmpty ?? false))
-                  FeedPostAudio(
-                    audioUrl: post.audioUrl!,
-                    coverUrl: post.imageUrl,
-                  )
-                else
-                  CachedNetworkImage(
-                    imageUrl: post.imageUrl,
-                    fit: BoxFit.cover,
-                    placeholder: (_, _) =>
-                        Container(color: cs.surfaceContainerHighest),
-                    errorWidget: (_, _, _) => Container(
-                      color: cs.surfaceContainerHighest,
-                      alignment: Alignment.center,
-                      child: const Icon(Icons.broken_image_outlined),
-                    ),
-                  ),
-                // Tall media often fills the screen with the header scrolled
-                // off, so keep the poster's name on the media itself.
-                if (post.mediaType == 'video' || post.mediaType == 'audio')
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    child: _AuthorChip(
-                      name: post.authorDisplayName ??
-                          (post.authorUsername ?? 'Creator'),
-                      avatarUrl: post.authorAvatarUrl,
-                      onTap: () => Navigator.of(context).pushNamed(
-                        AppRoutes.proProfile,
-                        arguments: post.authorUserId,
+            child: ClipRect(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (post.mediaType == 'video')
+                    FeedPostVideo(url: post.imageUrl)
+                  else if (post.mediaType == 'audio' &&
+                      (post.audioUrl?.isNotEmpty ?? false))
+                    FeedPostAudio(
+                      audioUrl: post.audioUrl!,
+                      coverUrl: post.imageUrl,
+                    )
+                  else
+                    CachedNetworkImage(
+                      imageUrl: post.imageUrl,
+                      fit: BoxFit.cover,
+                      placeholder: (_, _) =>
+                          Container(color: cs.surfaceContainerHighest),
+                      errorWidget: (_, _, _) => Container(
+                        color: cs.surfaceContainerHighest,
+                        alignment: Alignment.center,
+                        child: const Icon(Icons.broken_image_outlined),
                       ),
                     ),
-                  ),
-                if (canDelete)
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Material(
-                      color: Colors.black54,
-                      shape: const CircleBorder(),
-                      child: IconButton(
-                        icon: const Icon(Icons.delete_outline),
-                        color: Colors.white,
-                        tooltip: post.mediaType == 'video'
-                            ? 'Delete video'
-                            : 'Delete post',
-                        onPressed: _confirmDelete,
+                  if (canDelete)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Material(
+                        color: Colors.black54,
+                        shape: const CircleBorder(),
+                        child: IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          color: Colors.white,
+                          tooltip: post.mediaType == 'video'
+                              ? 'Delete video'
+                              : 'Delete post',
+                          onPressed: _confirmDelete,
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
           Padding(
@@ -512,59 +500,3 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
   }
 }
 
-/// Compact "posted by" badge shown over video and audio media.
-class _AuthorChip extends StatelessWidget {
-  const _AuthorChip({
-    required this.name,
-    required this.avatarUrl,
-    required this.onTap,
-  });
-
-  final String name;
-  final String? avatarUrl;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final hasAvatar = avatarUrl != null && avatarUrl!.isNotEmpty;
-    return Material(
-      color: Colors.black.withValues(alpha: 0.55),
-      borderRadius: BorderRadius.circular(20),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(4, 4, 12, 4),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircleAvatar(
-                radius: 12,
-                backgroundColor: Colors.white24,
-                backgroundImage:
-                    hasAvatar ? CachedNetworkImageProvider(avatarUrl!) : null,
-                child: hasAvatar
-                    ? null
-                    : const Icon(Icons.person, size: 14, color: Colors.white),
-              ),
-              const SizedBox(width: 8),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 180),
-                child: Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}

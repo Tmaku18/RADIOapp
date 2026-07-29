@@ -152,49 +152,54 @@ class _FeedPostVideoState extends State<FeedPostVideo> {
         child: const CircularProgressIndicator(color: Colors.white54),
       );
     }
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        FittedBox(
-          fit: BoxFit.cover,
-          child: SizedBox(
-            width: c.value.size.width,
-            height: c.value.size.height,
-            child: VideoPlayer(c),
+    // ClipRect keeps the platform video texture inside the same square frame
+    // picture posts use — without it, tall clips can paint over the card header.
+    return ClipRect(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          FittedBox(
+            fit: BoxFit.cover,
+            clipBehavior: Clip.hardEdge,
+            child: SizedBox(
+              width: c.value.size.width,
+              height: c.value.size.height,
+              child: VideoPlayer(c),
+            ),
           ),
-        ),
-        Positioned(
-          right: 8,
-          bottom: 8,
-          child: Row(
-            children: [
-              Material(
-                color: Colors.black54,
-                shape: const CircleBorder(),
-                child: IconButton(
-                  icon: Icon(
-                    c.value.isPlaying ? Icons.pause : Icons.play_arrow,
-                    color: Colors.white,
+          Positioned(
+            right: 8,
+            bottom: 8,
+            child: Row(
+              children: [
+                Material(
+                  color: Colors.black54,
+                  shape: const CircleBorder(),
+                  child: IconButton(
+                    icon: Icon(
+                      c.value.isPlaying ? Icons.pause : Icons.play_arrow,
+                      color: Colors.white,
+                    ),
+                    onPressed: _togglePlay,
                   ),
-                  onPressed: _togglePlay,
                 ),
-              ),
-              const SizedBox(width: 4),
-              Material(
-                color: Colors.black54,
-                shape: const CircleBorder(),
-                child: IconButton(
-                  icon: Icon(
-                    _muted ? Icons.volume_off : Icons.volume_up,
-                    color: Colors.white,
+                const SizedBox(width: 4),
+                Material(
+                  color: Colors.black54,
+                  shape: const CircleBorder(),
+                  child: IconButton(
+                    icon: Icon(
+                      _muted ? Icons.volume_off : Icons.volume_up,
+                      color: Colors.white,
+                    ),
+                    onPressed: _toggleMute,
                   ),
-                  onPressed: _toggleMute,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
