@@ -275,13 +275,13 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
               child: _hasArtistQuery
                   ? _buildArtistSearchBody(surfaces)
                   : TabBarView(
-          controller: _tabController,
-          children: [
-            DiscoverAudioTab(key: _swipeKey),
-            _LikedArtistsTab(key: _likedArtistsKey),
-            _LibraryTab(key: _libraryKey),
-          ],
-        ),
+                      controller: _tabController,
+                      children: [
+                        DiscoverAudioTab(key: _swipeKey),
+                        _LikedArtistsTab(key: _likedArtistsKey),
+                        _LibraryTab(key: _libraryKey),
+                      ],
+                    ),
             ),
           ],
         ),
@@ -552,9 +552,10 @@ class _LikedArtistsTabState extends State<_LikedArtistsTab> {
             )
           else
             ..._liked.map((artist) {
-              final name = (artist.displayName ?? 'Artist').trim().isEmpty
-                  ? 'Artist'
-                  : artist.displayName!.trim();
+              // Null displayName used to take the false branch of
+              // `(name ?? 'Artist').isEmpty ? … : name!` and crash the tab.
+              final rawName = (artist.displayName ?? '').trim();
+              final name = rawName.isEmpty ? 'Artist' : rawName;
               final handle = (artist.username ?? '').trim();
               final headline = (artist.headline ?? '').trim();
               final meta = [
@@ -564,6 +565,7 @@ class _LikedArtistsTabState extends State<_LikedArtistsTab> {
               final likedLine = artist.likedSongCount > 0
                   ? '${artist.likedSongCount} liked song${artist.likedSongCount == 1 ? '' : 's'}'
                   : null;
+              final avatar = (artist.avatarUrl ?? '').trim();
               return Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Card(
@@ -571,10 +573,9 @@ class _LikedArtistsTabState extends State<_LikedArtistsTab> {
                     onTap: () => _openLiked(artist),
                     leading: CircleAvatar(
                       backgroundColor: scheme.surfaceContainerHighest,
-                      backgroundImage: (artist.avatarUrl ?? '').isNotEmpty
-                          ? NetworkImage(artist.avatarUrl!)
-                          : null,
-                      child: (artist.avatarUrl ?? '').isEmpty
+                      backgroundImage:
+                          avatar.isNotEmpty ? NetworkImage(avatar) : null,
+                      child: avatar.isEmpty
                           ? const Icon(Icons.person_outline)
                           : null,
                     ),
