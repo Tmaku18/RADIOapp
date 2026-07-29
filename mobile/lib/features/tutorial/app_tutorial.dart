@@ -98,6 +98,14 @@ class AppTutorial {
       nav: TutorialNavTarget.proNetworx,
     ),
     TutorialStep(
+      title: 'Songs vs beats',
+      body:
+          'Songs are for radio and Discover — you hear a short sample, then can '
+          'buy the full track. Beats are instrumentals for sale in Pro-Networx: '
+          'you can play the whole beat before you buy. Same app, different product.',
+      nav: TutorialNavTarget.proNetworx,
+    ),
+    TutorialStep(
       title: 'You’re set',
       body: 'That’s the tour.\n\n$replayHint',
       nav: TutorialNavTarget.home,
@@ -141,31 +149,43 @@ class AppTutorial {
       nav: TutorialNavTarget.discover,
     ),
     TutorialStep(
-      title: 'Upload Music',
+      title: 'Songs vs beats',
       body:
-          'Upload is opening. Add your audio, title, city & state, pick '
-          'stations, and accept the full-song radio opt-in.',
+          'On Upload, pick Song or Beat. Songs go toward radio and Discover — '
+          'listeners get a short sample, then can buy the full track. Beats are '
+          'instrumentals for the Beat Marketplace: buyers hear the whole beat '
+          'before checkout, and they aren’t the same as a radio song upload.',
+      nav: TutorialNavTarget.upload,
+    ),
+    TutorialStep(
+      title: 'Upload a song',
+      body:
+          'For a Song: add your audio, title, city & state, pick stations, and '
+          'accept the full-song radio opt-in.',
       nav: TutorialNavTarget.upload,
     ),
     TutorialStep(
       title: 'Sample clip (required)',
       body:
-          'Tap “Set preview sample” and choose a 5–30 second window. That’s '
-          'what listeners hear as a preview before buying or streaming full.',
+          'For songs, tap “Set preview sample” and choose a 5–30 second window. '
+          'That’s what listeners hear as a preview before buying or streaming full. '
+          'Beats skip this — buyers already get a full listen.',
       nav: TutorialNavTarget.upload,
     ),
     TutorialStep(
       title: 'Discover clip (required)',
       body:
-          'Tap “Set Discover clip” and choose a 5–15 second window for the '
-          'Discover swipe deck. Both clips are required before you can submit.',
+          'For songs, tap “Set Discover clip” and choose a 5–15 second window for '
+          'the Discover swipe deck. Both clips are required before you can submit '
+          'a song.',
       nav: TutorialNavTarget.upload,
     ),
     TutorialStep(
       title: 'Submit & My Songs',
       body:
-          'Submit for review and rotation. Find uploads under My Songs → Tracks. '
-          'Liked and Favorites tabs are for songs you fire / star.',
+          'Submit songs for review and rotation, or list beats for sale. Find '
+          'uploads under My Songs → Tracks. Liked and Favorites are for songs '
+          'you fire / star.',
       nav: TutorialNavTarget.studio,
     ),
     TutorialStep(
