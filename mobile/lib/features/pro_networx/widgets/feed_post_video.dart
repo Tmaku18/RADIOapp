@@ -1,7 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../../core/services/audio_player_service.dart';
+
 /// Inline looping muted-by-default video for Social / Pro feed cards.
+///
+/// Radio keeps playing while the clip is muted (autoplay preview). As soon as
+/// the user turns sound on, live radio is soft-paused so the two never mix.
 class FeedPostVideo extends StatefulWidget {
   const FeedPostVideo({super.key, required this.url});
 
@@ -16,6 +23,7 @@ class _FeedPostVideoState extends State<FeedPostVideo> {
   bool _ready = false;
   bool _failed = false;
   bool _muted = true;
+  bool _didSoftPauseRadio = false;
 
   @override
   void initState() {
@@ -28,6 +36,8 @@ class _FeedPostVideoState extends State<FeedPostVideo> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.url != widget.url) {
       _disposeController();
+      unawaited(_softResumeRadioIfNeeded());
+      _muted = true;
       _init();
     }
   }
@@ -61,7 +71,39 @@ class _FeedPostVideoState extends State<FeedPostVideo> {
   @override
   void dispose() {
     _disposeController();
+    unawaited(_softResumeRadioIfNeeded());
     super.dispose();
+  }
+
+  Future<void> _softPauseRadio() async {
+    try {
+      final handler = AudioPlayerService.handler;
+      if (!handler.userPaused) {
+        await handler.setUserPaused(true);
+        _didSoftPauseRadio = true;
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _softResumeRadioIfNeeded() async {
+    if (!_didSoftPauseRadio) return;
+    _didSoftPauseRadio = false;
+    try {
+      await AudioPlayerService.handler.setUserPaused(false);
+    } catch (_) {}
+  }
+
+  /// Radio only yields when this clip is actually audible.
+  Future<void> _syncRadioWithAudiblePlayback({
+    required bool muted,
+    required bool playing,
+  }) async {
+    final audible = playing && !muted;
+    if (audible) {
+      await _softPauseRadio();
+    } else {
+      await _softResumeRadioIfNeeded();
+    }
   }
 
   Future<void> _toggleMute() async {
@@ -69,6 +111,10 @@ class _FeedPostVideoState extends State<FeedPostVideo> {
     if (c == null || !_ready) return;
     final nextMuted = !_muted;
     await c.setVolume(nextMuted ? 0 : 1);
+    await _syncRadioWithAudiblePlayback(
+      muted: nextMuted,
+      playing: c.value.isPlaying,
+    );
     if (!mounted) return;
     setState(() => _muted = nextMuted);
   }
@@ -76,11 +122,16 @@ class _FeedPostVideoState extends State<FeedPostVideo> {
   Future<void> _togglePlay() async {
     final c = _controller;
     if (c == null || !_ready) return;
-    if (c.value.isPlaying) {
-      await c.pause();
-    } else {
+    final willPlay = !c.value.isPlaying;
+    if (willPlay) {
       await c.play();
+    } else {
+      await c.pause();
     }
+    await _syncRadioWithAudiblePlayback(
+      muted: _muted,
+      playing: willPlay,
+    );
     if (mounted) setState(() {});
   }
 

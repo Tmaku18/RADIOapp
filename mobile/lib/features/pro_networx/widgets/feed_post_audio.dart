@@ -99,15 +99,20 @@ class _FeedPostAudioState extends State<FeedPostAudio> {
   }
 
   Future<void> _toggle() async {
-    final player = await _ensurePlayer();
-    if (player == null) return;
-    if (player.playing) {
-      await player.pause();
+    if (_playing) {
+      final player = _player;
+      if (player != null) await player.pause();
       await _softResumeRadioIfNeeded();
-    } else {
-      await _softPauseRadio();
-      unawaited(player.play());
+      return;
     }
+    // Silence radio before buffering so it never overlaps the feed track.
+    await _softPauseRadio();
+    final player = await _ensurePlayer();
+    if (player == null) {
+      await _softResumeRadioIfNeeded();
+      return;
+    }
+    unawaited(player.play());
   }
 
   static String _formatTime(Duration d) {
