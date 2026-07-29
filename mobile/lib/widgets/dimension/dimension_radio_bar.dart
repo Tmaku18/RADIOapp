@@ -70,15 +70,17 @@ class DimensionRadioBar extends StatelessWidget {
             final item = media is MediaItem ? media : null;
             if (item == null) return const SizedBox.shrink();
 
+            // Light frosted fill so the cyber backdrop reads through; blur
+            // (applied below in dark mode) keeps the transport controls legible.
             final bar = DecoratedBox(
               decoration: BoxDecoration(
                 color: DimensionTokens.isDark
-                    ? const Color(0xFF08080A).withValues(alpha: 0.92)
-                    : const Color(0xFFF8FAFC),
+                    ? const Color(0xFF08080A).withValues(alpha: 0.48)
+                    : const Color(0xFFF8FAFC).withValues(alpha: 0.72),
                 border: Border(
                   top: BorderSide(
                     color: DimensionTokens.neonCyan.withValues(
-                      alpha: DimensionTokens.isDark ? 0.15 : 0.28,
+                      alpha: DimensionTokens.isDark ? 0.22 : 0.28,
                     ),
                   ),
                 ),
