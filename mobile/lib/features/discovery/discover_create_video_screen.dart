@@ -379,16 +379,7 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      final raw = e is ApiException ? e.message : e.toString();
-      setState(() {
-        _error = e is TimeoutException
-            ? (e.message ?? 'Upload timed out. Please try again.')
-            : raw.contains('413')
-                ? 'Upload failed: file too large for the network path. Try a shorter take, or check your connection.'
-                : raw.contains('Video length')
-                    ? raw
-                    : 'Upload failed: $raw';
-      });
+      setState(() => _error = _publishErrorMessage(e));
     } finally {
       if (mounted) {
         setState(() {
@@ -398,6 +389,26 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
         });
       }
     }
+  }
+
+  /// The API already returns curated 4xx messages (length, type, size), so show
+  /// them as-is rather than collapsing them into a generic retry prompt.
+  String _publishErrorMessage(Object error) {
+    if (error is TimeoutException) {
+      return error.message ?? 'Upload timed out. Please try again.';
+    }
+    if (error is ApiException) {
+      if (error.statusCode == 413) {
+        return 'This file is too large for the network path. Try a shorter take.';
+      }
+      final message = error.message.trim();
+      if (error.statusCode >= 400 &&
+          error.statusCode < 500 &&
+          message.isNotEmpty) {
+        return message;
+      }
+    }
+    return 'Could not publish your video. Please try again.';
   }
 
   /// Chunk callbacks fire far more often than the bar can show, so only rebuild

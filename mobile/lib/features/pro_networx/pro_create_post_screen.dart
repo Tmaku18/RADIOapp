@@ -269,6 +269,27 @@ class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
     );
   }
 
+  /// The API already returns curated 4xx messages (length, type, size), so show
+  /// them as-is. Matching a whitelist of phrases is what previously reduced a
+  /// real "this file is over the upload limit" answer to "please try again".
+  String _publishErrorMessage(Object error) {
+    if (error is TimeoutException) {
+      return error.message ?? 'Upload timed out. Please try again.';
+    }
+    if (error is ApiException) {
+      if (error.statusCode == 413) {
+        return 'This file is too large for the network path. Try a shorter take.';
+      }
+      final message = error.message.trim();
+      if (error.statusCode >= 400 &&
+          error.statusCode < 500 &&
+          message.isNotEmpty) {
+        return message;
+      }
+    }
+    return 'Could not publish your post. Please try again.';
+  }
+
   /// Chunk callbacks fire far more often than the bar can show, so only rebuild
   /// on a whole-percent change or when the last byte lands.
   void _onUploadProgress(int sent, int total) {
@@ -311,24 +332,7 @@ class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
       Navigator.pop(context, post);
     } catch (e) {
       if (!mounted) return;
-      final raw = e is ApiException ? e.message : e.toString();
-      setState(() {
-        if (e is TimeoutException) {
-          _error = e.message ?? 'Upload timed out. Please try again.';
-        } else if (raw.contains('Video length') ||
-            raw.contains('Audio length') ||
-            raw.contains('Unsupported file') ||
-            raw.contains('Unsupported cover') ||
-            raw.contains('File size') ||
-            raw.contains('No file')) {
-          _error = raw;
-        } else if (raw.contains('413')) {
-          _error =
-              'Upload failed: file too large for the network path. Try a shorter take.';
-        } else {
-          _error = 'Could not publish your post. Please try again.';
-        }
-      });
+      setState(() => _error = _publishErrorMessage(e));
     } finally {
       if (mounted) {
         setState(() {

@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { getSupabaseClient } from '../config/supabase.config';
 import { ImageModerationService } from '../moderation/image-moderation.service';
@@ -33,7 +33,12 @@ interface UploadOptions {
 export class UploadsService {
   private readonly songBucketTargetBytes = 100 * 1024 * 1024;
   private readonly imageUploadMaxBytes = 15 * 1024 * 1024;
-  /** Discover feed posts (images, ≤5 min phone videos, audio tracks). */
+  /**
+   * Discover feed posts (images, ≤5 min phone videos, audio tracks).
+   * Raising this alone is not enough: Supabase also enforces a project-wide
+   * storage upload cap, set in Project Settings → Storage. If that cap is lower,
+   * uploads fail on size no matter what the bucket row says.
+   */
   private readonly feedUploadMaxBytes = 1024 * 1024 * 1024;
   private readonly feedUploadAllowedMimeTypes = [
     'image/jpeg',
@@ -87,6 +92,7 @@ export class UploadsService {
   ];
   private lastSongBucketEnsureAt = 0;
   private readonly lastImageBucketEnsureAt = new Map<string, number>();
+  private readonly logger = new Logger(UploadsService.name);
 
   constructor(
     private configService: ConfigService,
@@ -209,6 +215,42 @@ export class UploadsService {
       // Some environments use limited Supabase keys that cannot mutate bucket
       // metadata. Uploads should still proceed with existing bucket settings.
     }
+  }
+
+  private isStorageTooLargeError(error: { message?: string }): boolean {
+    const message = (error?.message ?? '').toLowerCase();
+    return (
+      message.includes('exceeded the maximum allowed size') ||
+      message.includes('entity too large') ||
+      message.includes('payload too large')
+    );
+  }
+
+  /**
+   * Storage rejects on size when the object exceeds the bucket limit *or* the
+   * project-wide upload cap. Those can disagree: raising `storage.buckets` by
+   * SQL bypasses the API's validation against the global cap, so the bucket can
+   * advertise 1GB while Storage still enforces the project default. Log the
+   * operational cause and give the user something they can act on.
+   */
+  private tooLargeMessage(
+    file: Express.Multer.File,
+    bucketName: string,
+    options: UploadOptions,
+  ): string {
+    const fileMb = Math.round(file.size / (1024 * 1024));
+    const configuredMb = Math.round(options.maxSizeBytes / (1024 * 1024));
+    this.logger.error(
+      `Storage rejected a ${fileMb}MB upload to "${bucketName}" on size, but ` +
+        `this app allows ${configuredMb}MB. The project-wide storage upload ` +
+        `limit is lower than the bucket limit — raise it in Supabase → ` +
+        `Project Settings → Storage → upload file size limit.`,
+    );
+    const label = options.errorPrefix.toLowerCase();
+    return (
+      `This ${label} is ${fileMb}MB, which is over the server's current upload ` +
+      `limit. Try a shorter clip or a lower recording quality.`
+    );
   }
 
   private async ensureImageBucketLimit(bucketName: string): Promise<void> {
@@ -406,6 +448,11 @@ export class UploadsService {
           bucketName !== bucketCandidates[bucketCandidates.length - 1]
         ) {
           continue;
+        }
+        if (this.isStorageTooLargeError(error)) {
+          throw new BadRequestException(
+            this.tooLargeMessage(file, bucketName, options),
+          );
         }
         throw new BadRequestException(
           `Failed to upload ${options.errorPrefix.toLowerCase()}: ${error.message}`,
