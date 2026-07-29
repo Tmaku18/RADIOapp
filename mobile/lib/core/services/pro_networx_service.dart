@@ -329,11 +329,13 @@ class ProNetworxService {
   /// without it we'd send `application/octet-stream` and the API rejects.
   /// [cover] is the optional picture shown behind an audio post; audio posts
   /// without one fall back to the Networx Radio logo server-side.
+  /// [onProgress] reports bytes sent / total for an upload progress bar.
   Future<ProFeedPost> createFeedPost(
     File file, {
     String? caption,
     FeedMediaKind kind = FeedMediaKind.image,
     File? cover,
+    void Function(int sent, int total)? onProgress,
   }) async {
     final mime = _inferMediaMime(file.path, kind: kind) ?? kind.defaultMime;
     final res = await _api.postMultipart(
@@ -361,6 +363,7 @@ class ProNetworxService {
             ),
           ),
       ],
+      onProgress: onProgress,
     );
     if (res is Map<String, dynamic>) return ProFeedPost.fromJson(res);
     throw Exception('Failed to create post');

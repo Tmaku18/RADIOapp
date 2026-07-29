@@ -59,6 +59,8 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
   bool _uploading = false;
   bool _recording = false;
   String? _error;
+  int _sentBytes = 0;
+  int _totalBytes = 0;
   /// True when this screen muted live radio so clip preview/recording is solo.
   bool _didSoftPauseRadio = false;
 
@@ -343,6 +345,8 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
     setState(() {
       _uploading = true;
       _error = null;
+      _sentBytes = 0;
+      _totalBytes = 0;
     });
     try {
       final fields = <String, String>{};
@@ -360,7 +364,12 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
         ),
       );
 
-      await _api.postMultipart('discovery/feed', fields, [multipartFile]);
+      await _api.postMultipart(
+        'discovery/feed',
+        fields,
+        [multipartFile],
+        onProgress: _onUploadProgress,
+      );
       if (!mounted) return;
       SocialFeedRefresh.request();
       HomeTabIntent.openFeed();
@@ -372,15 +381,55 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
       if (!mounted) return;
       final raw = e is ApiException ? e.message : e.toString();
       setState(() {
-        _error = raw.contains('413')
-            ? 'Upload failed: file too large for the network path. Try a shorter take, or check your connection.'
-            : raw.contains('Video length')
-                ? raw
-                : 'Upload failed: $raw';
+        _error = e is TimeoutException
+            ? (e.message ?? 'Upload timed out. Please try again.')
+            : raw.contains('413')
+                ? 'Upload failed: file too large for the network path. Try a shorter take, or check your connection.'
+                : raw.contains('Video length')
+                    ? raw
+                    : 'Upload failed: $raw';
       });
     } finally {
-      if (mounted) setState(() => _uploading = false);
+      if (mounted) {
+        setState(() {
+          _uploading = false;
+          _sentBytes = 0;
+          _totalBytes = 0;
+        });
+      }
     }
+  }
+
+  /// Chunk callbacks fire far more often than the bar can show, so only rebuild
+  /// on a whole-percent change or when the last byte lands.
+  void _onUploadProgress(int sent, int total) {
+    if (!mounted || !_uploading) return;
+    final wasPercent = _totalBytes > 0 ? (_sentBytes * 100) ~/ _totalBytes : -1;
+    final percent = total > 0 ? (sent * 100) ~/ total : -1;
+    if (percent == wasPercent && total == _totalBytes && sent < total) return;
+    setState(() {
+      _sentBytes = sent;
+      _totalBytes = total;
+    });
+  }
+
+  double? get _uploadFraction {
+    if (_totalBytes <= 0) return null;
+    return (_sentBytes / _totalBytes).clamp(0.0, 1.0);
+  }
+
+  /// Bytes are all sent but the API is still storing the file. Without this the
+  /// bar would sit at 100% and look stuck again.
+  bool get _savingUpload =>
+      _uploading && _totalBytes > 0 && _sentBytes >= _totalBytes;
+
+  static String _mb(int bytes) => (bytes / (1024 * 1024)).toStringAsFixed(1);
+
+  String get _uploadLabel {
+    if (_savingUpload) return 'Saving…';
+    final fraction = _uploadFraction;
+    if (fraction == null) return 'Uploading…';
+    return 'Uploading ${(fraction * 100).round()}%';
   }
 
   @override
@@ -717,17 +766,34 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
                       _uploading || _recording ? null : _pickFromGallery,
                   child: const Text('Use gallery video instead'),
                 ),
-              ] else
+              ] else ...[
                 FilledButton(
                   onPressed: _uploading || _recording ? null : _publish,
-                  child: _uploading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Publish'),
+                  child: Text(_uploading ? _uploadLabel : 'Publish'),
                 ),
+                if (_uploading) ...[
+                  const SizedBox(height: 10),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: LinearProgressIndicator(
+                      value: _savingUpload ? null : _uploadFraction,
+                      minHeight: 6,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    _savingUpload
+                        ? 'Upload complete — saving your post. Keep this screen open.'
+                        : _totalBytes <= 0
+                            ? 'Preparing your upload…'
+                            : '${_mb(_sentBytes)} of ${_mb(_totalBytes)} MB sent',
+                    style: TextStyle(
+                      color: surfaces.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ],
             ],
           ),
         ),

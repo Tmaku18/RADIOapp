@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -46,8 +47,22 @@ class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
   bool _uploading = false;
   bool _picking = false;
   String? _error;
+  int _sentBytes = 0;
+  int _totalBytes = 0;
 
   bool get _isAudio => _kind == FeedMediaKind.audio;
+
+  double? get _uploadFraction {
+    if (_totalBytes <= 0) return null;
+    return (_sentBytes / _totalBytes).clamp(0.0, 1.0);
+  }
+
+  /// Bytes are all sent but the API is still storing the file. Without this the
+  /// bar would sit at 100% and look stuck again.
+  bool get _savingUpload =>
+      _uploading && _totalBytes > 0 && _sentBytes >= _totalBytes;
+
+  static String _mb(int bytes) => (bytes / (1024 * 1024)).toStringAsFixed(1);
 
   @override
   void dispose() {
@@ -254,6 +269,19 @@ class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
     );
   }
 
+  /// Chunk callbacks fire far more often than the bar can show, so only rebuild
+  /// on a whole-percent change or when the last byte lands.
+  void _onUploadProgress(int sent, int total) {
+    if (!mounted || !_uploading) return;
+    final wasPercent = _totalBytes > 0 ? (_sentBytes * 100) ~/ _totalBytes : -1;
+    final percent = total > 0 ? (sent * 100) ~/ total : -1;
+    if (percent == wasPercent && total == _totalBytes && sent < total) return;
+    setState(() {
+      _sentBytes = sent;
+      _totalBytes = total;
+    });
+  }
+
   Future<void> _publish() async {
     final file = _file;
     if (file == null) {
@@ -263,6 +291,8 @@ class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
     setState(() {
       _uploading = true;
       _error = null;
+      _sentBytes = 0;
+      _totalBytes = 0;
     });
     try {
       final caption = _captionCtrl.text.trim();
@@ -271,6 +301,7 @@ class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
         caption: caption.isEmpty ? null : caption,
         kind: _kind,
         cover: _isAudio ? _cover : null,
+        onProgress: _onUploadProgress,
       );
       if (!mounted) return;
       SocialFeedRefresh.request();
@@ -282,7 +313,9 @@ class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
       if (!mounted) return;
       final raw = e is ApiException ? e.message : e.toString();
       setState(() {
-        if (raw.contains('Video length') ||
+        if (e is TimeoutException) {
+          _error = e.message ?? 'Upload timed out. Please try again.';
+        } else if (raw.contains('Video length') ||
             raw.contains('Audio length') ||
             raw.contains('Unsupported file') ||
             raw.contains('Unsupported cover') ||
@@ -297,7 +330,13 @@ class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
         }
       });
     } finally {
-      if (mounted) setState(() => _uploading = false);
+      if (mounted) {
+        setState(() {
+          _uploading = false;
+          _sentBytes = 0;
+          _totalBytes = 0;
+        });
+      }
     }
   }
 
@@ -487,16 +526,36 @@ class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
           const SizedBox(height: 16),
           FilledButton(
             onPressed: _uploading || _picking || file == null ? null : _publish,
-            child: _uploading
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Publish'),
+            child: Text(_uploading ? _uploadLabel : 'Publish'),
           ),
+          if (_uploading) ...[
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: _savingUpload ? null : _uploadFraction,
+                minHeight: 6,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _savingUpload
+                  ? 'Upload complete — saving your post. Keep this screen open.'
+                  : _totalBytes <= 0
+                      ? 'Preparing your upload…'
+                      : '${_mb(_sentBytes)} of ${_mb(_totalBytes)} MB sent',
+              style: TextStyle(color: surfaces.textSecondary, fontSize: 12),
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  String get _uploadLabel {
+    if (_savingUpload) return 'Saving…';
+    final fraction = _uploadFraction;
+    if (fraction == null) return 'Uploading…';
+    return 'Uploading ${(fraction * 100).round()}%';
   }
 }

@@ -40,19 +40,67 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
+/// Multipart request that reports bytes as the socket consumes them, so uploads
+/// can show real progress instead of an indeterminate spinner.
+class _ProgressMultipartRequest extends http.MultipartRequest {
+  _ProgressMultipartRequest(super.method, super.url, {this.onProgress});
+
+  final void Function(int sent, int total)? onProgress;
+
+  @override
+  http.ByteStream finalize() {
+    final body = super.finalize();
+    final report = onProgress;
+    if (report == null) return body;
+    final total = contentLength;
+    var sent = 0;
+    return http.ByteStream(
+      body.transform(
+        StreamTransformer<List<int>, List<int>>.fromHandlers(
+          handleData: (chunk, sink) {
+            sent += chunk.length;
+            report(sent, total);
+            sink.add(chunk);
+          },
+        ),
+      ),
+    );
+  }
+}
+
 class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
   ApiService._internal();
   static const Duration _requestTimeout = Duration(seconds: 15);
   /// Feed media can reach 1GB, which outlasts any short request timeout on a
-  /// cellular connection.
-  static const Duration _uploadTimeout = Duration(minutes: 30);
+  /// cellular connection. The stall watchdog below is what actually catches a
+  /// dead upload — this is only a backstop.
+  static const Duration _uploadTimeout = Duration(minutes: 45);
+
+  /// Bytes stopped moving for this long mid-send: the connection is dead, so
+  /// fail now instead of spinning until the overall timeout.
+  static const Duration _uploadStallTimeout = Duration(seconds: 60);
+
+  /// Once the last byte is sent the API still has to store the file, which
+  /// reports no progress. Allow for that before calling it stalled.
+  static const Duration _uploadProcessingTimeout = Duration(minutes: 10);
   /// Direct Nest/Railway host — Vercel (networxradio.com) rejects large
   /// multipart bodies with 413 before the Nest feed upload limit applies.
   static const String _directBackendFallback =
       'https://backend-production-17cc.up.railway.app';
   String? _resolvedBaseUrl;
+
+  /// Test seams: pin the host and shorten the upload watchdog so upload tests
+  /// run against a local server in milliseconds instead of the real backend.
+  @visibleForTesting
+  List<String>? debugBaseUrls;
+  @visibleForTesting
+  Duration uploadStallTimeout = _uploadStallTimeout;
+  @visibleForTesting
+  Duration uploadProcessingTimeout = _uploadProcessingTimeout;
+  @visibleForTesting
+  Duration uploadWatchdogInterval = const Duration(seconds: 5);
 
   String get baseUrl => env('API_BASE_URL') ?? 'https://www.networxradio.com';
   String? _authToken;
@@ -112,6 +160,8 @@ class ApiService {
   }
 
   List<String> _baseUrlCandidates({bool preferDirectBackend = false}) {
+    final pinned = debugBaseUrls;
+    if (pinned != null) return pinned;
     final urls = <String>[];
 
     void add(String? raw) {
@@ -160,6 +210,7 @@ class ApiService {
     String method, {
     bool preferDirectBackend = false,
     Duration? timeout,
+    bool Function(Object error)? shouldFallback,
   }) async {
     final candidates = _baseUrlCandidates(
       preferDirectBackend: preferDirectBackend,
@@ -205,7 +256,7 @@ class ApiService {
           responseBody: response.body,
         );
       } catch (error) {
-        if (!_shouldTryNextBaseUrl(error)) {
+        if (!(shouldFallback ?? _shouldTryNextBaseUrl)(error)) {
           rethrow;
         }
         lastError = error;
@@ -300,16 +351,32 @@ class ApiService {
   /// Multipart POST request for file uploads - returns dynamic.
   /// Prefers the direct Railway/Nest host so large videos are not rejected
   /// with HTTP 413 by the Vercel web proxy.
+  ///
+  /// [onProgress] reports bytes sent / total so callers can show a real
+  /// progress bar. A send that goes quiet for [_uploadStallTimeout] is failed
+  /// immediately rather than left hanging until the overall timeout.
   Future<dynamic> postMultipart(
     String endpoint,
     Map<String, String> fields,
-    List<http.MultipartFile> files,
-  ) async {
+    List<http.MultipartFile> files, {
+    void Function(int sent, int total)? onProgress,
+  }) async {
+    var bytesSent = 0;
     return _withFallback(
       (base, headers) async {
-        final request = http.MultipartRequest(
+        bytesSent = 0;
+        var lastProgressAt = DateTime.now();
+        var total = 0;
+
+        final request = _ProgressMultipartRequest(
           'POST',
           Uri.parse('$base/api/$endpoint'),
+          onProgress: (sent, size) {
+            bytesSent = sent;
+            total = size;
+            lastProgressAt = DateTime.now();
+            onProgress?.call(sent, size);
+          },
         );
         request.headers.addAll({
           if (headers['Authorization'] != null)
@@ -317,13 +384,57 @@ class ApiService {
         });
         request.fields.addAll(fields);
         request.files.addAll(files);
-        final streamedResponse = await request.send();
-        return http.Response.fromStream(streamedResponse);
+        total = request.contentLength;
+        onProgress?.call(0, total);
+
+        // Own the client so a stalled upload can be torn down instead of
+        // holding the socket open behind an abandoned future.
+        final client = http.Client();
+        final stalled = Completer<http.Response>();
+        final watchdog = Timer.periodic(uploadWatchdogInterval, (timer) {
+          if (stalled.isCompleted) {
+            timer.cancel();
+            return;
+          }
+          // No progress is expected after the last byte, while the API stores
+          // the file, so allow a longer quiet period once sending is done.
+          final sending = total <= 0 || bytesSent < total;
+          final limit = sending ? uploadStallTimeout : uploadProcessingTimeout;
+          if (DateTime.now().difference(lastProgressAt) <= limit) return;
+          timer.cancel();
+          stalled.completeError(
+            TimeoutException(
+              bytesSent == 0
+                  ? 'Upload could not start. Check your connection and try again.'
+                  : sending
+                      ? 'Upload stalled. Check your connection and try again.'
+                      : 'The server took too long to finish saving your upload.',
+            ),
+          );
+        });
+
+        try {
+          final send = client
+              .send(request)
+              .then((streamed) => http.Response.fromStream(streamed));
+          return await Future.any([send, stalled.future]);
+        } finally {
+          watchdog.cancel();
+          client.close();
+        }
       },
       endpoint,
       'UPLOAD',
       preferDirectBackend: true,
       timeout: _uploadTimeout,
+      shouldFallback: (error) {
+        // 413 means this host will never accept the body, so the next one is
+        // worth a try. Anything else once bytes were flowing would re-send the
+        // whole file and most likely stall again — surface it instead.
+        if (error is ApiException && error.statusCode == 413) return true;
+        if (bytesSent > 0) return false;
+        return _shouldTryNextBaseUrl(error);
+      },
     );
   }
 }
