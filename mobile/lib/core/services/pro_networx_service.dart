@@ -625,6 +625,11 @@ class ProNetworxService {
     throw Exception('Failed to upload cover image');
   }
 
+  /// Clears the shared Radio / Pro-Networx cover banner.
+  Future<void> clearCover() async {
+    await _api.delete('service-providers/me/cover');
+  }
+
   // ---------------------------------------------------------------------------
   // Service-provider portfolio (Featured work: image / audio / video)
   // ---------------------------------------------------------------------------

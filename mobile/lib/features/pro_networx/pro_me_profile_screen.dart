@@ -13,6 +13,7 @@ import '../../core/services/api_service.dart';
 import '../../core/services/pro_networx_service.dart';
 import '../../core/services/users_service.dart';
 import '../../core/theme/networx_extensions.dart';
+import '../../core/utils/image_crop_picker.dart';
 
 class ProNetworxMeProfileScreen extends StatefulWidget {
   const ProNetworxMeProfileScreen({super.key});
@@ -217,13 +218,20 @@ class _ProNetworxMeProfileScreenState extends State<ProNetworxMeProfileScreen> {
   }
 
   Future<void> _pickCover() async {
-    final picked = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
-    if (picked == null) return;
+    final file = await ImageCropPicker.pickAndCrop(
+      context: context,
+      aspectRatio: ImageCropPicker.coverAspect,
+      title: 'Crop cover photo',
+    );
+    if (file == null) return;
     setState(() => _uploadingMedia = true);
     try {
-      final url = await _service.uploadCover(File(picked.path));
+      final url = await _service.uploadCover(file);
       if (!mounted) return;
       setState(() => _heroImageUrl = url);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cover photo updated.')),
+      );
     } catch (e) {
       if (!mounted) return;
       final message = e is ApiException
@@ -231,6 +239,29 @@ class _ProNetworxMeProfileScreenState extends State<ProNetworxMeProfileScreen> {
           : e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Cover upload failed: $message')),
+      );
+    } finally {
+      if (mounted) setState(() => _uploadingMedia = false);
+    }
+  }
+
+  Future<void> _removeCover() async {
+    if (_uploadingMedia || _heroImageUrl == null) return;
+    setState(() => _uploadingMedia = true);
+    try {
+      await _service.clearCover();
+      if (!mounted) return;
+      setState(() => _heroImageUrl = null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cover photo removed.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      final message = e is ApiException
+          ? e.message
+          : e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to remove cover: $message')),
       );
     } finally {
       if (mounted) setState(() => _uploadingMedia = false);
@@ -515,12 +546,35 @@ class _ProNetworxMeProfileScreenState extends State<ProNetworxMeProfileScreen> {
                           if (_heroImageUrl != null)
                             ClipRRect(
                               borderRadius: BorderRadius.circular(12),
-                              child: Image.network(_heroImageUrl!, height: 120, width: double.infinity, fit: BoxFit.cover),
+                              child: AspectRatio(
+                                aspectRatio: 16 / 6,
+                                child: Image.network(
+                                  _heroImageUrl!,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
                             ),
-                          OutlinedButton.icon(
-                            onPressed: _uploadingMedia ? null : _pickCover,
-                            icon: const Icon(Icons.image_outlined, size: 18),
-                            label: Text(_heroImageUrl == null ? 'Add cover image' : 'Change cover'),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              OutlinedButton.icon(
+                                onPressed: _uploadingMedia ? null : _pickCover,
+                                icon: const Icon(Icons.crop_original_outlined, size: 18),
+                                label: Text(
+                                  _heroImageUrl == null
+                                      ? 'Add cover photo'
+                                      : 'Change cover',
+                                ),
+                              ),
+                              if (_heroImageUrl != null)
+                                TextButton(
+                                  onPressed:
+                                      _uploadingMedia ? null : _removeCover,
+                                  child: const Text('Remove cover'),
+                                ),
+                            ],
                           ),
                           const SizedBox(height: 8),
                           if (_resumeFilename != null)

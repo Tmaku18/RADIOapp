@@ -116,6 +116,15 @@ export class ServiceProvidersController {
     return this.service.setHeroImageUrl(userId, heroImageUrl);
   }
 
+  /** Clear the Pro-Networx / Radio profile cover banner. */
+  @Delete('me/cover')
+  @UseGuards(RolesGuard)
+  @Roles('artist', 'service_provider', 'admin')
+  async clearCover(@CurrentUser() user: FirebaseUser) {
+    const userId = await this.getUserId(user.uid);
+    return this.service.setHeroImageUrl(userId, null);
+  }
+
   @Post('me/listings')
   @UseGuards(RolesGuard)
   @Roles('service_provider', 'admin')

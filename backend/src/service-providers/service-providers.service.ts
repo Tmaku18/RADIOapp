@@ -175,8 +175,8 @@ export class ServiceProvidersService {
    */
   async setHeroImageUrl(
     userId: string,
-    heroImageUrl: string,
-  ): Promise<{ heroImageUrl: string }> {
+    heroImageUrl: string | null,
+  ): Promise<{ heroImageUrl: string | null }> {
     const supabase = getSupabaseClient();
     const provider = await this.getOrCreateProviderByUserId(userId);
     const { error } = await supabase

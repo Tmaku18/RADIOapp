@@ -120,6 +120,7 @@ dependencies:
   flutter_map: ^8.3.1
   latlong2: ^0.10.1
   camera: ^0.12.0+2
+  image_cropper: ^12.2.1
 
 # Vendored three_js renderer: forces flutter_angle's device-native GLES path
 # (useAngle:false) so 3D renders on physical Android, not just emulators.

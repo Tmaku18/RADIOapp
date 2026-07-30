@@ -15,6 +15,7 @@ import '../../core/services/api_service.dart';
 import '../../core/services/pro_networx_service.dart';
 import '../../core/services/users_service.dart';
 import '../../core/navigation/home_tab_intent.dart';
+import '../../core/utils/image_crop_picker.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -29,15 +30,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoading = true;
   bool _isSigningOut = false;
   bool _isUploadingAvatar = false;
+  bool _isUploadingCover = false;
   bool _isUpdatingProfile = false;
   bool _isLoadingFollowStats = false;
   int _followersCount = 0;
   int _followingCount = 0;
   int _friendsCount = 0;
+  String? _heroImageUrl;
   final UsersService _usersService = UsersService();
   final ProNetworxService _feedService = ProNetworxService();
   List<ProFeedPost> _myPosts = const [];
   bool _loadingPosts = false;
+
+  bool get _canEditCover => hasArtistCapability(_user?.role);
 
   @override
   void didChangeDependencies() {
@@ -69,7 +74,80 @@ class _ProfileScreenState extends State<ProfileScreen> {
       await Future.wait([
         _loadFollowCounts(dbUserId),
         _loadMyPosts(dbUserId),
+        if (hasArtistCapability(user?.role)) _loadCover(),
       ]);
+    }
+  }
+
+  Future<void> _loadCover() async {
+    try {
+      final pro = await _feedService.getMeProfile();
+      if (!mounted) return;
+      setState(() => _heroImageUrl = pro.heroImageUrl);
+    } catch (_) {
+      // Cover is optional; profile still works without it.
+    }
+  }
+
+  Future<void> _pickAndUploadCover() async {
+    if (_isUploadingCover || !_canEditCover) return;
+    final file = await ImageCropPicker.pickAndCrop(
+      context: context,
+      aspectRatio: ImageCropPicker.coverAspect,
+      title: 'Crop cover photo',
+    );
+    if (file == null) return;
+
+    final sizeBytes = await file.length();
+    if (sizeBytes > 15 * 1024 * 1024) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cover image must be 15MB or smaller.')),
+      );
+      return;
+    }
+
+    setState(() => _isUploadingCover = true);
+    try {
+      final url = await _feedService.uploadCover(file);
+      if (!mounted) return;
+      setState(() => _heroImageUrl = url);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cover photo updated.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      final message = e is ApiException
+          ? e.message
+          : e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Cover upload failed: $message')),
+      );
+    } finally {
+      if (mounted) setState(() => _isUploadingCover = false);
+    }
+  }
+
+  Future<void> _removeCover() async {
+    if (_isUploadingCover || _heroImageUrl == null) return;
+    setState(() => _isUploadingCover = true);
+    try {
+      await _feedService.clearCover();
+      if (!mounted) return;
+      setState(() => _heroImageUrl = null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cover photo removed.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      final message = e is ApiException
+          ? e.message
+          : e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to remove cover: $message')),
+      );
+    } finally {
+      if (mounted) setState(() => _isUploadingCover = false);
     }
   }
 
@@ -918,6 +996,96 @@ class _ProfileScreenState extends State<ProfileScreen> {
               : ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
+                    if (_canEditCover) ...[
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: AspectRatio(
+                          aspectRatio: 16 / 6,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              if (_heroImageUrl != null &&
+                                  _heroImageUrl!.isNotEmpty)
+                                CachedNetworkImage(
+                                  imageUrl: _heroImageUrl!,
+                                  fit: BoxFit.cover,
+                                  errorWidget: (context, url, error) => Container(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .surfaceContainerHighest,
+                                    alignment: Alignment.center,
+                                    child: Icon(
+                                      Icons.image_outlined,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurfaceVariant,
+                                    ),
+                                  ),
+                                )
+                              else
+                                Container(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .surfaceContainerHighest,
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    'Cover photo',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant,
+                                        ),
+                                  ),
+                                ),
+                              if (_isUploadingCover)
+                                Container(
+                                  color: Colors.black38,
+                                  alignment: Alignment.center,
+                                  child: const SizedBox(
+                                    width: 28,
+                                    height: 28,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.5,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Center(
+                        child: Wrap(
+                          spacing: 12,
+                          runSpacing: 8,
+                          alignment: WrapAlignment.center,
+                          children: [
+                            OutlinedButton.icon(
+                              onPressed: _isUploadingCover
+                                  ? null
+                                  : _pickAndUploadCover,
+                              icon: const Icon(Icons.crop_original_outlined),
+                              label: Text(
+                                _heroImageUrl == null
+                                    ? 'Add cover photo'
+                                    : 'Change cover',
+                              ),
+                            ),
+                            if (_heroImageUrl != null)
+                              TextButton(
+                                onPressed:
+                                    _isUploadingCover ? null : _removeCover,
+                                child: const Text('Remove cover'),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
                     Center(
                       child: CircleAvatar(
                         radius: 60,

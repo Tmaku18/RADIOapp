@@ -16,6 +16,7 @@ import '../../core/services/songs_service.dart';
 import '../../core/services/payments_service.dart';
 import '../../core/services/livestream_service.dart';
 import '../../core/services/audio_player_service.dart';
+import '../../core/services/pro_networx_service.dart';
 import '../../core/services/users_service.dart';
 import '../../core/brand/brand_assets.dart';
 import '../../core/theme/networx_extensions.dart';
@@ -44,12 +45,14 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
   final AudioPlayer _player = AudioPlayerService().player;
   final LivestreamService _live = LivestreamService();
   final UsersService _users = UsersService();
+  final ProNetworxService _pro = ProNetworxService();
   final ScrollController _scrollController = ScrollController();
   final Map<String, GlobalKey> _songKeys = <String, GlobalKey>{};
 
   bool _loading = true;
   String? _error;
   app_user.User? _artist;
+  String? _heroImageUrl;
   List<Song> _tracks = const [];
   String? _activeSongId;
   bool _isPlaying = false;
@@ -169,6 +172,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
         _artist = artist;
         _tracks = tracks;
       });
+      unawaited(_loadCover());
       if (!isOwner && me != null) {
         await _loadPurchases();
         await _loadFollowFavoriteState();
@@ -190,6 +194,18 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
           unawaited(_scrollToFocusedSong());
         });
       }
+    }
+  }
+
+  Future<void> _loadCover() async {
+    try {
+      final pro = await _pro.getProfileByUserId(widget.artistId);
+      final url =
+          (pro['heroImageUrl'] ?? pro['hero_image_url'] ?? '').toString().trim();
+      if (!mounted) return;
+      setState(() => _heroImageUrl = url.isEmpty ? null : url);
+    } catch (_) {
+      // Cover is optional on public artist profiles.
     }
   }
 
@@ -838,6 +854,24 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
             controller: _scrollController,
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 110),
             children: [
+              if (_heroImageUrl != null) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: AspectRatio(
+                    aspectRatio: 16 / 6,
+                    child: CachedNetworkImage(
+                      imageUrl: _heroImageUrl!,
+                      fit: BoxFit.cover,
+                      errorWidget: (context, url, error) => Container(
+                        decoration: BoxDecoration(
+                          gradient: surfaces.signatureGradient,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               glass(
                 child: Row(
                   children: [
