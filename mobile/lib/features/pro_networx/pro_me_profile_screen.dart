@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../../core/auth/auth_service.dart';
 import '../../core/models/pro_networx_models.dart';
 import '../../core/models/user.dart' as app_user;
+import '../../core/services/api_service.dart';
 import '../../core/services/pro_networx_service.dart';
 import '../../core/services/users_service.dart';
 import '../../core/theme/networx_extensions.dart';
@@ -225,8 +226,11 @@ class _ProNetworxMeProfileScreenState extends State<ProNetworxMeProfileScreen> {
       setState(() => _heroImageUrl = url);
     } catch (e) {
       if (!mounted) return;
+      final message = e is ApiException
+          ? e.message
+          : e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Cover upload failed: $e')),
+        SnackBar(content: Text('Cover upload failed: $message')),
       );
     } finally {
       if (mounted) setState(() => _uploadingMedia = false);

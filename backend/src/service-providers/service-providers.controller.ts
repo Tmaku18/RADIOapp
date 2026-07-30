@@ -87,10 +87,13 @@ export class ServiceProvidersController {
 
   /**
    * Upload cover/background image for ProNetworx profile. JPEG, PNG, WebP up to 15MB.
+   * Artists use the same Pro-Networx editor as Catalysts, so they need this too —
+   * locking it to service_provider alone returned 403 and the phone showed a
+   * misleading "connection reset" while the multipart body was still in flight.
    */
   @Post('me/cover')
   @UseGuards(RolesGuard)
-  @Roles('service_provider', 'admin')
+  @Roles('artist', 'service_provider', 'admin')
   @UseInterceptors(
     FileInterceptor('file', {
       limits: { fileSize: 15 * 1024 * 1024 }, // 15MB
