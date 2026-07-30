@@ -110,7 +110,10 @@ export class ServiceProvidersController {
     }
     const userId = await this.getUserId(user.uid);
     const heroImageUrl = await this.uploads.uploadHeroImage(file, userId);
-    return this.service.upsertMyProviderProfile(userId, { heroImageUrl });
+    // Artists are allowed to set a cover but are not Catalysts — returning the
+    // full provider profile here used to 404 with "Service provider not found"
+    // after a successful upload.
+    return this.service.setHeroImageUrl(userId, heroImageUrl);
   }
 
   @Post('me/listings')

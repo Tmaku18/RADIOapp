@@ -167,6 +167,31 @@ export class ServiceProvidersService {
     };
   }
 
+  /**
+   * Persist a Pro-Networx cover for any role that can edit that profile.
+   * Artists share the cover field via `service_providers.hero_image_url` but are
+   * not Catalysts — so this must not go through {@link getMyProviderProfile},
+   * which 404s unless `users.role === 'service_provider'`.
+   */
+  async setHeroImageUrl(
+    userId: string,
+    heroImageUrl: string,
+  ): Promise<{ heroImageUrl: string }> {
+    const supabase = getSupabaseClient();
+    const provider = await this.getOrCreateProviderByUserId(userId);
+    const { error } = await supabase
+      .from('service_providers')
+      .update({
+        hero_image_url: heroImageUrl,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', provider.id);
+    if (error) {
+      throw new Error(`Failed to update cover image: ${error.message}`);
+    }
+    return { heroImageUrl };
+  }
+
   async upsertMyProviderProfile(
     userId: string,
     dto: UpdateServiceProviderProfileDto,
