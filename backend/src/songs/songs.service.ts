@@ -703,11 +703,14 @@ export class SongsService {
     const q = (options?.q ?? '').trim();
     const artistId = (options?.artistId ?? '').trim();
 
+    // listen_count is not a songs column — unique listens come from
+    // get_song_listen_count (see getListenCountBySongId).
+    const beatSelect =
+      'id, title, artist_name, artist_id, artwork_url, audio_url, sample_url, duration_seconds, like_count, play_count, price_cents, is_for_sale, product_kind, status, created_at';
+
     let query = supabase
       .from('songs')
-      .select(
-        'id, title, artist_name, artist_id, artwork_url, audio_url, sample_url, duration_seconds, like_count, play_count, listen_count, price_cents, is_for_sale, product_kind, status, created_at',
-      )
+      .select(beatSelect)
       .eq('product_kind', 'beat')
       .eq('is_for_sale', true)
       .in('status', ['approved', 'active'])
@@ -730,9 +733,7 @@ export class SongsService {
     if (error && this.isMissingColumnError(error, 'deleted_at')) {
       let retry = supabase
         .from('songs')
-        .select(
-          'id, title, artist_name, artist_id, artwork_url, audio_url, sample_url, duration_seconds, like_count, play_count, listen_count, price_cents, is_for_sale, product_kind, status, created_at',
-        )
+        .select(beatSelect)
         .eq('product_kind', 'beat')
         .eq('is_for_sale', true)
         .in('status', ['approved', 'active'])
@@ -749,6 +750,9 @@ export class SongsService {
     }
 
     const rows = data ?? [];
+    const listensBySongId = await this.getListenCountBySongId(
+      rows.map((s) => s.id as string),
+    );
     return Promise.all(
       rows.map(async (song) => ({
         id: song.id,
@@ -759,7 +763,8 @@ export class SongsService {
         durationSeconds: song.duration_seconds,
         likeCount: song.like_count ?? 0,
         playCount: song.play_count ?? 0,
-        listenCount: song.listen_count ?? song.play_count ?? 0,
+        listenCount:
+          listensBySongId.get(song.id) ?? song.play_count ?? 0,
         priceCents: song.price_cents ?? 999,
         forSale: song.is_for_sale !== false,
         productKind: 'beat' as const,
