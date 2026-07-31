@@ -12,26 +12,40 @@ class RadioService {
     return '$endpoint${separator}radio=$encoded';
   }
 
+  /// Parse a radio payload, stamping the arrival time and round trip so the
+  /// sync layer can project [Track.positionSeconds] forward to "now". Without
+  /// this, a slow reply makes us seek to a stale position and the song jumps
+  /// backwards.
+  TrackFetchResult _parseTrackResponse(dynamic response, Stopwatch timer) {
+    if (response == null) return const TrackFetchResult(track: null);
+    if (response is Map<String, dynamic>) {
+      if (response['no_content'] == true) {
+        return TrackFetchResult.noContent(
+          (response['message'] ?? 'No songs are currently available.')
+              .toString(),
+        );
+      }
+      final track = Track.fromJson(response).copyWith(
+        receivedAt: DateTime.now(),
+        rttMs: timer.elapsedMilliseconds,
+      );
+      return TrackFetchResult(track: track);
+    }
+    return const TrackFetchResult(track: null);
+  }
+
   Future<TrackFetchResult> getCurrentTrack({
     String radioId = defaultRadioId,
   }) async {
+    final timer = Stopwatch()..start();
     try {
       final response = await _apiService.get(
         _withRadio('radio/current', radioId),
       );
-      if (response == null) return const TrackFetchResult(track: null);
-      if (response is Map<String, dynamic>) {
-        if (response['no_content'] == true) {
-          return TrackFetchResult.noContent(
-            (response['message'] ?? 'No songs are currently available.')
-                .toString(),
-          );
-        }
-        return TrackFetchResult(track: Track.fromJson(response));
-      }
-      return const TrackFetchResult(track: null);
+      timer.stop();
+      return _parseTrackResponse(response, timer);
     } catch (e) {
-      return TrackFetchResult.noContent(
+      return TrackFetchResult.networkError(
         'Unable to reach radio service. Please try again.',
       );
     }
@@ -41,25 +55,17 @@ class RadioService {
     String radioId = defaultRadioId,
     bool force = false,
   }) async {
+    final timer = Stopwatch()..start();
     try {
       var endpoint = _withRadio('radio/next', radioId);
       if (force) {
         endpoint = '$endpoint&force=true';
       }
       final response = await _apiService.get(endpoint);
-      if (response == null) return const TrackFetchResult(track: null);
-      if (response is Map<String, dynamic>) {
-        if (response['no_content'] == true) {
-          return TrackFetchResult.noContent(
-            (response['message'] ?? 'No songs are currently available.')
-                .toString(),
-          );
-        }
-        return TrackFetchResult(track: Track.fromJson(response));
-      }
-      return const TrackFetchResult(track: null);
+      timer.stop();
+      return _parseTrackResponse(response, timer);
     } catch (e) {
-      return TrackFetchResult.noContent(
+      return TrackFetchResult.networkError(
         'Unable to reach radio service. Please try again.',
       );
     }
@@ -68,20 +74,13 @@ class RadioService {
   Future<TrackFetchResult> peekNextTrack({
     String radioId = defaultRadioId,
   }) async {
+    final timer = Stopwatch()..start();
     try {
       final response = await _apiService.get(_withRadio('radio/peek', radioId));
-      if (response == null) return const TrackFetchResult(track: null);
-      if (response is Map<String, dynamic>) {
-        if (response['no_content'] == true) {
-          return TrackFetchResult.noContent(
-            (response['message'] ?? 'No upcoming track available.').toString(),
-          );
-        }
-        return TrackFetchResult(track: Track.fromJson(response));
-      }
-      return const TrackFetchResult(track: null);
+      timer.stop();
+      return _parseTrackResponse(response, timer);
     } catch (e) {
-      return TrackFetchResult.noContent(
+      return TrackFetchResult.networkError(
         'Unable to reach radio service. Please try again.',
       );
     }

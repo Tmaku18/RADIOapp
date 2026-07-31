@@ -13,6 +13,7 @@ import '../../core/auth/auth_service.dart';
 import '../../core/models/user.dart' as app_user;
 import '../../core/models/track.dart';
 import '../../core/models/track_fetch_result.dart';
+import '../../core/radio/radio_sync.dart';
 import '../../core/services/api_service.dart';
 import '../../core/services/radio_service.dart';
 import '../../core/services/songs_service.dart';
@@ -21,6 +22,7 @@ import '../../core/services/audio_player_service.dart';
 import '../../core/services/chat_service.dart';
 import '../../core/services/venue_ads_service.dart';
 import '../../core/services/radio_background_sync_service.dart';
+import '../../core/services/radio_connection_monitor.dart';
 import '../../core/services/radio_presence_service.dart';
 import '../../core/services/station_events_service.dart';
 import '../../core/navigation/app_routes.dart';
@@ -204,6 +206,22 @@ class _PlayerScreenState extends State<PlayerScreen>
     });
     _startTrackStatsTimer();
     _startTrackSyncTimer();
+    // Catch up the moment service returns instead of waiting out the poll.
+    RadioConnectionMonitor.instance.addRestoreListener(_onConnectionRestored);
+    RadioConnectionMonitor.instance.state.addListener(_onConnectionStateChanged);
+  }
+
+  /// Playing from the buffer but no longer able to vouch for being in sync.
+  bool get _connectionImpaired =>
+      RadioConnectionMonitor.instance.current.isImpaired;
+
+  Future<void> _onConnectionRestored() async {
+    if (!mounted) return;
+    await _syncCurrentTrack();
+  }
+
+  void _onConnectionStateChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -416,7 +434,12 @@ class _PlayerScreenState extends State<PlayerScreen>
     });
 
     final res = await _radioService.getCurrentTrack(radioId: _radioId);
+    RadioConnectionMonitor.instance.reportRequestResult(
+      networkError: res.networkError,
+    );
     if (!mounted) return;
+    // Nothing is playing yet on a cold start, so showing the retry card is
+    // correct here even for a network failure.
     if (res.noContent) {
       setState(() {
         _isLoading = false;
@@ -442,6 +465,9 @@ class _PlayerScreenState extends State<PlayerScreen>
   }) async {
     final audio = AudioPlayerService();
     Object? lastError;
+    // Start where the song is *now*. On a slow link the server's snapshot is
+    // already seconds old by the time it reaches us.
+    final startAt = liveTargetSeconds(track);
     for (var attempt = 0; attempt < 3; attempt++) {
       try {
         await audio.loadSource(
@@ -459,9 +485,7 @@ class _PlayerScreenState extends State<PlayerScreen>
               },
             ),
           ),
-          initialPosition: track.positionSeconds > 0
-              ? Duration(seconds: track.positionSeconds)
-              : null,
+          initialPosition: startAt > 0 ? Duration(seconds: startAt) : null,
         );
         lastError = null;
         break;
@@ -490,6 +514,9 @@ class _PlayerScreenState extends State<PlayerScreen>
       });
       return;
     }
+    // A stale rate from an interrupted catch-up must not carry into the new
+    // song.
+    if (_audioPlayer.speed != 1.0) await _audioPlayer.setSpeed(1.0);
     await _applyMainVolumeForTrack(track);
     if (AudioPlayerService.handler.userPaused) {
       // Muted: keep the stream live & advancing (silent) so this device stays
@@ -753,8 +780,15 @@ class _PlayerScreenState extends State<PlayerScreen>
       var res = await _radioService.getNextTrack(
         radioId: _radioId,
       );
+      RadioConnectionMonitor.instance.reportRequestResult(
+        networkError: res.networkError,
+      );
       if (!mounted) return;
       if (_nonRadioOwnsPlayer) return;
+
+      // Couldn't reach the service to advance — keep the ended track on screen
+      // rather than blanking the station; the monitor will resync on recovery.
+      if (res.networkError) return;
 
       if (res.noContent) {
         setState(() {
@@ -849,9 +883,18 @@ class _PlayerScreenState extends State<PlayerScreen>
     _trackSyncInFlight = true;
     try {
       final res = await _radioService.getCurrentTrack(radioId: _radioId);
+      RadioConnectionMonitor.instance.reportRequestResult(
+        networkError: res.networkError,
+      );
       if (!mounted) return;
       // Profile may have taken over while we awaited the server.
       if (!force && _nonRadioOwnsPlayer) return;
+
+      // A dropped request is not an empty station. Tearing down the now-playing
+      // UI on a weak connection wrongly showed "Station Offline" while audio was
+      // still playing — leave everything as-is and let the connection banner
+      // explain it.
+      if (res.networkError) return;
 
       if (res.noContent) {
         setState(() {
@@ -904,16 +947,7 @@ class _PlayerScreenState extends State<PlayerScreen>
 
       if (!_hasLiveRadioSource) return;
 
-      final localSeconds = _audioPlayer.position.inSeconds;
-      final serverSeconds = serverTrack.positionSeconds;
-      final drift = (localSeconds - serverSeconds).abs();
-      final now = DateTime.now();
-      final cooldownOk =
-          now.difference(_lastSyncSeekAt).inSeconds >= 30;
-      if (drift >= 8 && cooldownOk) {
-        _lastSyncSeekAt = now;
-        await _audioPlayer.seek(Duration(seconds: serverSeconds));
-      }
+      await _applyLiveSync(serverTrack);
       setState(() {
         _currentTrack = localTrack.copyWith(
           listenerCount: serverTrack.listenerCount,
@@ -933,6 +967,37 @@ class _PlayerScreenState extends State<PlayerScreen>
       // Keep current playback state on transient sync failures.
     } finally {
       _trackSyncInFlight = false;
+    }
+  }
+
+  /// Reconcile local playback with the live timeline without glitching.
+  ///
+  /// A seek drops the buffer and restarts buffering, which on a weak link makes
+  /// things worse and loops. [decideRadioSync] therefore prefers a small rate
+  /// nudge and never seeks backwards mid-song.
+  Future<void> _applyLiveSync(Track serverTrack) async {
+    final decision = decideRadioSync(
+      localSeconds: _audioPlayer.position.inSeconds,
+      targetSeconds: liveTargetSeconds(serverTrack),
+      durationSeconds:
+          _audioPlayer.duration?.inSeconds ?? serverTrack.durationSeconds,
+      isBuffering:
+          _audioPlayer.processingState == ProcessingState.buffering,
+      connectionDegraded: RadioConnectionMonitor.instance.current.isImpaired,
+      currentSpeed: _audioPlayer.speed,
+    );
+
+    switch (decision.action) {
+      case RadioSyncAction.none:
+        return;
+      case RadioSyncAction.nudge:
+        await _audioPlayer.setSpeed(decision.speed);
+      case RadioSyncAction.seek:
+        final now = DateTime.now();
+        if (now.difference(_lastSyncSeekAt).inSeconds < 30) return;
+        _lastSyncSeekAt = now;
+        if (_audioPlayer.speed != 1.0) await _audioPlayer.setSpeed(1.0);
+        await _audioPlayer.seek(Duration(seconds: decision.targetSeconds!));
     }
   }
 
@@ -1115,6 +1180,10 @@ class _PlayerScreenState extends State<PlayerScreen>
     if (_activeInstances == 0) {
       RadioBackgroundSyncService.instance.playerScreenActive = false;
     }
+    RadioConnectionMonitor.instance.removeRestoreListener(_onConnectionRestored);
+    RadioConnectionMonitor.instance.state.removeListener(
+      _onConnectionStateChanged,
+    );
     _playerStateSub?.cancel();
     _risingStarSub?.cancel();
     _djBoothSub?.cancel();
@@ -1194,7 +1263,12 @@ class _PlayerScreenState extends State<PlayerScreen>
                   : null,
               title: Row(
                 children: [
-                  const LiveDot(label: 'ON AIR'),
+                  LiveDot(
+                    label: _connectionImpaired ? 'RECONNECTING' : 'ON AIR',
+                    color: _connectionImpaired
+                        ? DimensionTokens.neonYellow
+                        : null,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(

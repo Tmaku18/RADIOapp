@@ -122,6 +122,10 @@ dependencies:
   camera: ^0.12.0+2
   image_cropper: ^12.2.1
 
+  # Radio sync needs to tell "weak/no network" apart from "station has nothing
+  # to play" so it can pause drift correction and notify the listener.
+  connectivity_plus: ^7.3.1
+
 # Vendored three_js renderer: forces flutter_angle's device-native GLES path
 # (useAngle:false) so 3D renders on physical Android, not just emulators.
 dependency_overrides:

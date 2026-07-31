@@ -6,6 +6,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/services/audio_player_service.dart';
+import '../../core/services/radio_connection_monitor.dart';
 import '../../core/services/radio_service.dart';
 
 /// Flutter port of web [useDimensionPlayer.ts] — read-only mapping to bar UI.
@@ -51,6 +52,13 @@ class DimensionPlayerController extends ChangeNotifier {
   }
 
   bool get showLiveBadge => hasTrack && isPlaying;
+
+  RadioConnectionState get connectionState =>
+      RadioConnectionMonitor.instance.current;
+
+  /// True when the badge should read "reconnecting" rather than "live" — we are
+  /// still playing buffered audio but can no longer vouch for being in sync.
+  bool get isReconnecting => connectionState.isImpaired;
 
   double get progress {
     final dur = _player.duration;
@@ -109,6 +117,7 @@ class DimensionPlayerController extends ChangeNotifier {
     });
     _pausedListener = _onPausedChanged;
     AudioPlayerService.handler.userPausedNotifier.addListener(_onPausedChanged);
+    RadioConnectionMonitor.instance.state.addListener(_onPausedChanged);
     _tempTimer = Timer.periodic(const Duration(seconds: 7), (_) {
       unawaited(_refreshTemperature());
     });
@@ -163,6 +172,12 @@ class DimensionPlayerController extends ChangeNotifier {
   Future<void> _refreshTemperature() async {
     try {
       final res = await _radio.getCurrentTrack(radioId: _radioId);
+      RadioConnectionMonitor.instance.reportRequestResult(
+        networkError: res.networkError,
+      );
+      // A dropped request tells us nothing about the crowd's reaction — keep
+      // the last reading rather than blanking the gauge on a weak connection.
+      if (res.networkError) return;
       final track = res.track;
       if (track == null) {
         _temperature = null;
@@ -271,6 +286,7 @@ class DimensionPlayerController extends ChangeNotifier {
     if (_pausedListener != null) {
       AudioPlayerService.handler.userPausedNotifier
           .removeListener(_pausedListener!);
+      RadioConnectionMonitor.instance.state.removeListener(_pausedListener!);
     }
     _tempTimer?.cancel();
     super.dispose();

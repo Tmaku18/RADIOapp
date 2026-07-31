@@ -28,6 +28,10 @@ class AudioPlayerService {
   /// The primary content player (radio + previews).
   AudioPlayer get player => handler.music;
 
+  /// True while a source swap is in flight. The player legitimately passes
+  /// through `idle` during a load, so failure detection must ignore that window.
+  static bool get isLoadingSource => _sourceLoadGate != null;
+
   /// The shared audio handler (use for DJ voice-over overlays).
   static NetworxAudioHandler get handler {
     final h = _handler;

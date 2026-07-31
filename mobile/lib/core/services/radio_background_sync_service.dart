@@ -11,6 +11,7 @@ import '../models/track.dart';
 import '../models/track_fetch_result.dart';
 import '../radio/radio_sync.dart';
 import 'audio_player_service.dart';
+import 'radio_connection_monitor.dart';
 import 'radio_presence_service.dart';
 import 'radio_service.dart';
 import 'station_events_service.dart';
@@ -97,6 +98,9 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
       RadioPresenceService.instance.configure(radioId: radioId);
 
       final res = await _radio.getCurrentTrack(radioId: radioId);
+      RadioConnectionMonitor.instance.reportRequestResult(
+        networkError: res.networkError,
+      );
       if (res.noContent || res.track == null) {
         _bootstrapAttempted = false;
         return;
@@ -125,8 +129,47 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _playerSub = _player.playerStateStream.listen(_onPlayerState);
     _boothSub = StationEventsService().djBoothStream.listen(_onDjBoothEvent);
+    RadioConnectionMonitor.instance.addRestoreListener(_onConnectionRestored);
+    AudioPlayerService.handler.onMusicPlaybackFailure = _recoverPlayback;
     unawaited(_bootstrapLiveRadioIfIdle());
     _schedulePoll();
+  }
+
+  /// Rebuild playback after the stream died mid-song.
+  ///
+  /// Always re-fetches from `/radio/current` rather than reusing the old URL:
+  /// signed song URLs expire after an hour, so a stale one would just 403
+  /// again. Retries with backoff because the failure is usually a network drop
+  /// that needs a moment to clear.
+  Future<void> _recoverPlayback() async {
+    if (!_hasRadioSource) return;
+    if (AudioPlayerService.handler.userPaused) return;
+    final radioId = _radioId;
+    if (radioId == null) return;
+
+    for (var attempt = 0; attempt < 3; attempt++) {
+      await Future<void>.delayed(Duration(seconds: 2 * (attempt + 1)));
+      if (!_hasRadioSource || AudioPlayerService.handler.userPaused) return;
+
+      final res = await _radio.getCurrentTrack(radioId: radioId);
+      RadioConnectionMonitor.instance.reportRequestResult(
+        networkError: res.networkError,
+      );
+      final track = res.track;
+      if (res.noContent || track == null || track.audioUrl.trim().isEmpty) {
+        continue;
+      }
+
+      await _loadTrack(track, res, reportPlay: false, radioId: radioId);
+      if (_player.processingState != ProcessingState.idle) return;
+    }
+  }
+
+  /// Service came back: re-read the live position immediately instead of
+  /// waiting out the poll interval, so the catch-up starts right away.
+  Future<void> _onConnectionRestored() async {
+    if (playerScreenActive || !_hasRadioSource) return;
+    await _syncCurrentTrack();
   }
 
   @override
@@ -236,6 +279,9 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
     final endedId = _currentTrackId;
     try {
       var res = await _radio.getNextTrack(radioId: radioId);
+      RadioConnectionMonitor.instance.reportRequestResult(
+        networkError: res.networkError,
+      );
       if (res.noContent || res.track == null) return;
 
       if (endedId != null && res.track!.id == endedId) {
@@ -266,6 +312,9 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
       RadioPresenceService.instance.configure(radioId: radioId);
 
       final res = await _radio.getCurrentTrack(radioId: radioId);
+      RadioConnectionMonitor.instance.reportRequestResult(
+        networkError: res.networkError,
+      );
       if (res.noContent || res.track == null) return;
       final serverTrack = res.track!;
       if (serverTrack.audioUrl.trim().isEmpty) return;
@@ -300,25 +349,38 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
 
       await _applyDjOverlay(serverTrack);
 
-      final localSeconds = _player.position.inSeconds;
-      final serverSeconds = serverTrack.positionSeconds;
-      final forwardDrift = localSeconds - serverSeconds;
-      final backwardDrift = serverSeconds - localSeconds;
-      final remaining = (durationOr(serverTrack) - localSeconds).clamp(0, 999999);
-      final now = DateTime.now();
-      final cooldownOk = now.difference(_lastSyncSeekAt).inSeconds >= 30;
-
-      if (cooldownOk) {
-        if (forwardDrift >= 8 && remaining > 12) {
-          _lastSyncSeekAt = now;
-          await _player.seek(Duration(seconds: serverSeconds));
-        } else if (backwardDrift >= 12) {
-          _lastSyncSeekAt = now;
-          await _player.seek(Duration(seconds: serverSeconds));
-        }
-      }
+      await _applyLiveSync(serverTrack);
     } finally {
       _syncInFlight = false;
+    }
+  }
+
+  /// Reconcile local playback with the live timeline without glitching.
+  ///
+  /// Seeks are the audible failure mode on weak links — they drop the buffer
+  /// and restart buffering — so [decideRadioSync] prefers a rate nudge and
+  /// never seeks backwards mid-song.
+  Future<void> _applyLiveSync(Track serverTrack) async {
+    final decision = decideRadioSync(
+      localSeconds: _player.position.inSeconds,
+      targetSeconds: liveTargetSeconds(serverTrack),
+      durationSeconds: durationOr(serverTrack),
+      isBuffering: _player.processingState == ProcessingState.buffering,
+      connectionDegraded: RadioConnectionMonitor.instance.current.isImpaired,
+      currentSpeed: _player.speed,
+    );
+
+    switch (decision.action) {
+      case RadioSyncAction.none:
+        return;
+      case RadioSyncAction.nudge:
+        await _player.setSpeed(decision.speed);
+      case RadioSyncAction.seek:
+        final now = DateTime.now();
+        if (now.difference(_lastSyncSeekAt).inSeconds < 30) return;
+        _lastSyncSeekAt = now;
+        if (_player.speed != 1.0) await _player.setSpeed(1.0);
+        await _player.seek(Duration(seconds: decision.targetSeconds!));
     }
   }
 
@@ -334,6 +396,9 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
   }) async {
     final effectiveRadioId =
         radioId ?? _radioId ?? env('RADIO_STATION_ID') ?? _defaultBootstrapStationId;
+    // Start where the song is *now*, not where it was when the server replied —
+    // on a slow link those differ by seconds.
+    final startAt = liveTargetSeconds(track);
     try {
       await AudioPlayerService().loadSource(
         AudioSource.uri(
@@ -350,13 +415,14 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
             },
           ),
         ),
-        initialPosition: track.positionSeconds > 0
-            ? Duration(seconds: track.positionSeconds)
-            : null,
+        initialPosition: startAt > 0 ? Duration(seconds: startAt) : null,
       );
     } catch (_) {
       return;
     }
+    // A stale rate from an interrupted catch-up must not carry into the new
+    // song.
+    if (_player.speed != 1.0) await _player.setSpeed(1.0);
     final handler = AudioPlayerService.handler;
     // Never hardcode volume to 1 — that blasts after temporary mutes/ducks.
     await handler.applyOutputVolume();

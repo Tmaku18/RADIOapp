@@ -10,6 +10,8 @@ import 'core/env.dart';
 import 'core/services/audio_player_service.dart';
 import 'core/services/radio_presence_service.dart';
 import 'core/services/radio_background_sync_service.dart';
+import 'core/services/radio_connection_monitor.dart';
+import 'core/app_messenger.dart';
 import 'core/auth/auth_service.dart';
 import 'core/services/push_notification_service.dart';
 import 'core/services/app_update_service.dart';
@@ -69,6 +71,9 @@ void main() async {
     debugPrint('Warning: SUPABASE_URL / SUPABASE_ANON_KEY missing in .env');
   }
 
+  // Must start before the sync service so the first poll already knows whether
+  // the link is healthy.
+  RadioConnectionMonitor.instance.start();
   RadioPresenceService.instance.start();
   RadioBackgroundSyncService.instance.start();
 
@@ -200,6 +205,7 @@ class _MyAppState extends State<MyApp> {
           const brand = NetworxBrand.artist;
           return MaterialApp(
             navigatorKey: widget.navigatorKey,
+            scaffoldMessengerKey: appMessengerKey,
             title: 'NETWORX',
             theme: buildNetworxTheme(brightness: Brightness.light, brand: brand),
             darkTheme:

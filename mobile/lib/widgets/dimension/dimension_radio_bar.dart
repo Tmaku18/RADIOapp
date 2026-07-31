@@ -146,8 +146,14 @@ class DimensionRadioBar extends StatelessWidget {
                                                       MainAxisSize.min,
                                                   children: [
                                                     if (ctrl.showLiveBadge)
-                                                      const LiveDot(
-                                                        label: 'LIVE',
+                                                      LiveDot(
+                                                        label: ctrl.isReconnecting
+                                                            ? 'RECONNECTING'
+                                                            : 'LIVE',
+                                                        color: ctrl.isReconnecting
+                                                            ? DimensionTokens
+                                                                  .neonYellow
+                                                            : null,
                                                       ),
                                                     Text(
                                                       item.title,

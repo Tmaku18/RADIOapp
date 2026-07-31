@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../brand/brand_assets.dart';
+import 'audio_player_service.dart';
 import 'webrtc_audio_session.dart';
 import 'whep_player.dart';
 
@@ -27,6 +28,7 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
     // the music could be perceived as quiet (notably quieter than web).
     music.setVolume(1.0);
     _wireMusicToNotification();
+    _wireMusicFailureDetection();
     _wireVoiceAutoRestore();
     // If the WHEP mic connection dies for good (DJ vanished without mic_off),
     // restore the music instead of leaving it ducked with no voice.
@@ -91,6 +93,20 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
 
   final ValueNotifier<bool> userPausedNotifier = ValueNotifier(false);
 
+  /// Invoked when the music player dies mid-playback — a dropped transfer, or
+  /// an expired signed URL returning 403. The handler deliberately does not
+  /// know how to recover (that needs a fresh URL from the radio API), so
+  /// [RadioBackgroundSyncService] installs the recovery routine here.
+  Future<void> Function()? onMusicPlaybackFailure;
+
+  /// Guards against a burst of events firing several recoveries at once.
+  bool _recoveringMusic = false;
+
+  /// Set while the listener deliberately stops playback (e.g. swiping away the
+  /// media notification). That also lands the player in `idle`, and restarting
+  /// radio there would override an explicit stop.
+  bool _stoppedByUser = false;
+
   MediaItem _withBrandArtwork(MediaItem item) {
     final uri = item.artUri?.toString();
     if (uri != null && !BrandAssets.isDeprecatedArtwork(uri)) {
@@ -127,6 +143,44 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
         );
       }
     });
+  }
+
+  /// Detect a music stream that has died rather than ended.
+  ///
+  /// Radio songs are progressive HTTPS transfers, so a network drop or an
+  /// expired signed URL kills playback with no recovery of its own. Two signals
+  /// matter: an error on the playback event stream, and an unexpected fall to
+  /// `idle` while we believed we were playing. `completed` is excluded — that is
+  /// a normal end of song and the sync services rotate the queue for it.
+  void _wireMusicFailureDetection() {
+    music.playbackEventStream.listen(
+      (_) {},
+      onError: (Object _, StackTrace _) => _handleMusicFailure(),
+    );
+    music.processingStateStream.listen((state) {
+      // Any progress past idle means a new source took hold, so an earlier
+      // deliberate stop is no longer in effect.
+      if (state != ProcessingState.idle) {
+        _stoppedByUser = false;
+        return;
+      }
+      // A source swap passes through idle on its way to loading.
+      if (AudioPlayerService.isLoadingSource) return;
+      // Nothing loaded yet (cold start) is not a failure.
+      if (music.audioSource == null) return;
+      _handleMusicFailure();
+    });
+  }
+
+  void _handleMusicFailure() {
+    final recover = onMusicPlaybackFailure;
+    if (recover == null || _recoveringMusic || _stoppedByUser) return;
+    _recoveringMusic = true;
+    unawaited(
+      recover().whenComplete(() {
+        _recoveringMusic = false;
+      }),
+    );
   }
 
   /// Safety net: if the DJ voice player stops, completes, or errors out (e.g. a
@@ -266,6 +320,7 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
 
   @override
   Future<void> stop() async {
+    _stoppedByUser = true;
     await stopVoiceOverlay();
     await music.stop();
     await super.stop();

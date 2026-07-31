@@ -21,7 +21,24 @@ class Track {
   final bool trialByFireActive;
 
   /// Server-reported position (seconds) if provided.
+  ///
+  /// This is a snapshot taken when the server built the response — it is
+  /// already stale by the time it reaches us. Use `liveTargetSeconds` in
+  /// `core/radio/radio_sync.dart` for anything that seeks or loads.
   final int positionSeconds;
+
+  /// Server clock when the payload was built (`server_time`).
+  final DateTime? serverTime;
+
+  /// When the current song started on the server timeline (`started_at`).
+  final DateTime? startedAt;
+
+  /// Client wall clock when the response finished arriving. Combined with
+  /// [rttMs] this lets us project [positionSeconds] forward to "now".
+  final DateTime? receivedAt;
+
+  /// Round-trip time of the request that produced this track, in ms.
+  final int rttMs;
 
   /// Live listener count reported by the radio backend.
   final int listenerCount;
@@ -57,6 +74,10 @@ class Track {
     this.isLiveBroadcast = false,
     this.trialByFireActive = false,
     this.positionSeconds = 0,
+    this.serverTime,
+    this.startedAt,
+    this.receivedAt,
+    this.rttMs = 0,
     this.listenerCount = 0,
     this.timeRemainingMs = 0,
     this.fireVotes = 0,
@@ -80,6 +101,12 @@ class Track {
           );
         }
       }
+    }
+
+    DateTime? parseUtc(Object? raw) {
+      final text = raw?.toString().trim();
+      if (text == null || text.isEmpty) return null;
+      return DateTime.tryParse(text)?.toUtc();
     }
 
     DjOverlay? djOverlay;
@@ -119,6 +146,8 @@ class Track {
                       .toString(),
                 ) ??
                 0,
+      serverTime: parseUtc(json['server_time'] ?? json['serverTime']),
+      startedAt: parseUtc(json['started_at'] ?? json['startedAt']),
       listenerCount:
           (json['listener_count'] ?? json['listenerCount'] ?? 0) is int
           ? (json['listener_count'] ?? json['listenerCount'] ?? 0) as int
@@ -178,6 +207,10 @@ class Track {
     bool? isLiveBroadcast,
     bool? trialByFireActive,
     int? positionSeconds,
+    DateTime? serverTime,
+    DateTime? startedAt,
+    DateTime? receivedAt,
+    int? rttMs,
     int? listenerCount,
     int? timeRemainingMs,
     int? fireVotes,
@@ -199,6 +232,10 @@ class Track {
       isLiveBroadcast: isLiveBroadcast ?? this.isLiveBroadcast,
       trialByFireActive: trialByFireActive ?? this.trialByFireActive,
       positionSeconds: positionSeconds ?? this.positionSeconds,
+      serverTime: serverTime ?? this.serverTime,
+      startedAt: startedAt ?? this.startedAt,
+      receivedAt: receivedAt ?? this.receivedAt,
+      rttMs: rttMs ?? this.rttMs,
       listenerCount: listenerCount ?? this.listenerCount,
       timeRemainingMs: timeRemainingMs ?? this.timeRemainingMs,
       fireVotes: fireVotes ?? this.fireVotes,

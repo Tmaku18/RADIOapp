@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import '../../core/theme/dimension_tokens.dart';
 
 /// Web: `.live-dot` — pulsing pink live indicator.
+///
+/// [color] overrides the pink for non-live states, e.g. the amber shown while
+/// the radio is reconnecting.
 class LiveDot extends StatefulWidget {
-  const LiveDot({super.key, this.size = 8, this.label});
+  const LiveDot({super.key, this.size = 8, this.label, this.color});
 
   final double size;
   final String? label;
+  final Color? color;
 
   @override
   State<LiveDot> createState() => _LiveDotState();
@@ -32,6 +36,7 @@ class _LiveDotState extends State<LiveDot> with SingleTickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    final color = widget.color ?? DimensionTokens.neonPink;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -44,10 +49,10 @@ class _LiveDotState extends State<LiveDot> with SingleTickerProviderStateMixin {
               height: widget.size * scale,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: DimensionTokens.neonPink,
+                color: color,
                 boxShadow: [
                   BoxShadow(
-                    color: DimensionTokens.neonPink.withValues(alpha: 0.7),
+                    color: color.withValues(alpha: 0.7),
                     blurRadius: 8,
                     spreadRadius: 1,
                   ),
@@ -61,7 +66,7 @@ class _LiveDotState extends State<LiveDot> with SingleTickerProviderStateMixin {
           Text(
             widget.label!,
             style: TextStyle(
-              color: DimensionTokens.neonPink,
+              color: color,
               fontSize: 10,
               fontWeight: FontWeight.w700,
               letterSpacing: 2,
