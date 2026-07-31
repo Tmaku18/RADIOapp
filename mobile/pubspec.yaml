@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.55+82
+version: 1.0.56+83
 
 environment:
   sdk: ^3.10.0
@@ -120,7 +120,7 @@ dependencies:
   flutter_map: ^8.3.1
   latlong2: ^0.10.1
   camera: ^0.12.0+2
-  image_cropper: ^12.2.1
+  image_cropper: ^11.0.0
 
   # Radio sync needs to tell "weak/no network" apart from "station has nothing
   # to play" so it can pause drift correction and notify the listener.
