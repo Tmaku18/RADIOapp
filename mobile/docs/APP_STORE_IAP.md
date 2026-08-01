@@ -8,8 +8,17 @@ On **iOS** and **Android**, every digital purchase goes through the platform sto
 | Song plays / placements | App Store consumable | Play consumable | Stripe |
 | Pro-Networx subscription | App Store auto-renewable | Play subscription | Stripe |
 | Livestream tips | App Store consumable tiers | Play consumable tiers | Stripe |
+| Song / beat purchases | App Store consumable tiers | Play consumable tiers | Stripe |
 
 Stripe Connect artist **payout** onboarding stays Stripe (not consumer IAP).
+
+The app ships **worldwide**, so there are no external web-checkout links anywhere
+in the mobile UI. Apple only allows link-outs on the US storefront, and Google
+Play requires enrolling in its external content links program — neither covers a
+worldwide release.
+
+Refinery submissions and the Creator Network subscription have **no store SKU**,
+so their Stripe routes are web-only and rejected on mobile.
 
 ## Product IDs (create in both consoles)
 
@@ -33,37 +42,83 @@ Stripe Connect artist **payout** onboarding stays Stripe (not consumer IAP).
 
 Mobile tip UI only offers these presets (no custom dollar amount on device).
 
+### Song / beat purchases (consumable)
+
+Artists set a price, but stores can only sell pre-registered products at fixed
+prices. Prices are therefore snapped onto a fixed ladder, and each tier has one
+SKU that is **reused across every song at that price**:
+
+| Product ID | Price |
+|------------|-------|
+| `nwx_song_099` | $0.99 |
+| `nwx_song_199` | $1.99 |
+| `nwx_song_299` | $2.99 |
+| `nwx_song_499` | $4.99 |
+| `nwx_song_999` | $9.99 |
+| `nwx_song_1999` | $19.99 |
+| `nwx_song_2999` | $29.99 |
+| `nwx_song_4999` | $49.99 |
+
+**These must be consumables, not non-consumables.** A non-consumable could only
+be purchased once per account, which would block buying a second song at the
+same price. Ownership lives server-side in `song_purchases` (unique per
+buyer+song), so "restore" is inherent to the account and needs no restore flow.
+
+The backend rejects the purchase unless the SKU's amount equals the song's
+listed price, so a $0.99 SKU cannot unlock a $49.99 beat.
+
+Ladder source of truth: `backend/src/payments/song-price-tiers.ts` and
+`mobile/lib/core/constants/song_price_tiers.dart`. Changing it requires new
+console products and a migration — `songs.price_cents` has a CHECK constraint
+pinned to these values.
+
+**Payouts:** store purchases carry no Stripe Connect destination charge, so the
+platform collects and the artist is owed a manual payout. These rows land as
+`song_purchases.payout_status = 'pending'`, which the existing admin payout
+queue already lists.
+
 ## App Store Connect checklist
 
 1. Enable **In-App Purchase** on App ID `com.tmaktechnologies.networxradio`.
-2. Create consumables above (credits, song plays, tips).
+2. Create consumables above (credits, song plays, tips, song/beat tiers).
 3. Create subscription group + `nwx_pro_networx_monthly` with intro offer.
 4. App Store Server Notifications V2 →  
    `POST https://<API_HOST>/payments/app-store/notifications`
 5. In-App Purchase API key (Issuer ID, Key ID, `.p8`) for backend verification.
 
+For the eight `nwx_song_*` tiers: type **Consumable**, price point matching the
+table above, and one localization each (display name + description) or StoreKit
+returns zero products. A generic name like "Song purchase — $4.99" works, since
+the SKU is shared across every song at that price.
+
 ## Google Play Console checklist
 
 1. Confirm credit/play product IDs match App Store.
 2. Create subscription `nwx_pro_networx_monthly` + tip consumables.
-3. Real-time developer notifications (RTDN) → Pub/Sub push to  
+3. Create the eight `nwx_song_*` tiers as **in-app products** (consumable) at the
+   same prices as App Store Connect.
+4. Real-time developer notifications (RTDN) → Pub/Sub push to  
    `POST https://<API_HOST>/payments/google-play/rtdn`
-4. Service account with Android Publisher access for backend verify/acknowledge.
+5. Service account with Android Publisher access for backend verify/acknowledge.
 
 ## Code (repo)
 
-- Mobile: `PlayBillingService` (consumables + subscriptions + tip IDs).
+- Mobile: `PlayBillingService` (consumables + subscriptions + tip/song IDs).
 - Mobile paywall: `ProNetworkPaywallSheet` → StoreKit / Play Billing + Restore.
 - Mobile tips: `watch_live_screen.dart` store consumables on iOS/Android.
+- Mobile song/beat buys: `SongPurchaseFlow` — shared by the player, artist
+  profile, and beat marketplace. Store consumable on iOS/Android, Stripe on web.
 - Credits / plays: store-only on mobile; missing SKU → clear error (no Stripe fallback).
-- API header: `x-client-platform: ios|android|web` — backend rejects Stripe intents for digital goods on mobile.
+- API header: `x-client-platform: ios|android|web` — backend rejects Stripe intents for digital goods on mobile via `assertStripeAllowedForDigitalGoods` (`backend/src/payments/store-billing-policy.ts`).
 - Backend:  
-  - `POST /payments/app-store/complete` (+ tips via `sessionId`)  
+  - `POST /payments/app-store/complete` (+ tips via `sessionId`, song buys via `songId`)  
   - `POST /payments/google-play/complete`  
   - `POST /payments/app-store/complete-subscription`  
   - `POST /payments/google-play/complete-subscription`  
   - ASSN V2 + Play RTDN handlers above  
-- DB: `pro_network_subscriptions.store` + Apple/Play id columns (migration `109_pro_network_store_billing.sql`).
+- DB: `pro_network_subscriptions.store` + Apple/Play id columns (migration `109_pro_network_store_billing.sql`);
+  `songs.price_cents` tier constraint (`117_song_price_tiers.sql`);
+  `song_purchases.store` + `store_transaction_id` (`118_song_purchases_store_billing.sql`).
 
 ## Backend env
 
@@ -91,6 +146,9 @@ IOS_APP_STORE_PRO_NETWORX_MONTHLY_PRODUCT_ID=nwx_pro_networx_monthly
 ANDROID_PLAY_PRO_NETWORX_MONTHLY_PRODUCT_ID=nwx_pro_networx_monthly
 IOS_APP_STORE_TIP_199_PRODUCT_ID=nwx_tip_199
 # ... same pattern for 499 / 999 / 2499
+IOS_APP_STORE_SONG_PURCHASE_499_PRODUCT_ID=nwx_song_499
+ANDROID_PLAY_SONG_PURCHASE_499_PRODUCT_ID=nwx_song_499
+# ... same pattern for 099 / 199 / 299 / 999 / 1999 / 2999 / 4999
 ```
 
 ## Verify
@@ -98,7 +156,13 @@ IOS_APP_STORE_TIP_199_PRODUCT_ID=nwx_tip_199
 1. iOS Sandbox + Android license tester: credits, plays, tips — store UI only; grants land.
 2. Subscribe Pro-Networx on each store → `getAccess()` true; Restore works; expire/revoke clears access.
 3. No Stripe PaymentSheet on iOS/Android for those flows.
-4. Web Stripe checkout / tips still work.
+4. Buy a song from the player, an artist profile, and the beat marketplace →
+   store sheet opens (never a browser), track unlocks, and `song_purchases` gets
+   `store = app_store|google_play` with `payout_status = 'pending'`.
+5. Re-send the same store receipt → second call returns `alreadyProcessed`, no
+   duplicate row.
+6. No "Open web checkout instead" button in Buy Plays on device.
+7. Web Stripe checkout / tips / song buys still work.
 
 ## Troubleshooting: `StoreKit: Failed to get response from platform`
 

@@ -28,6 +28,8 @@ import {
   PRO_NETWORX_MONTHLY_PRODUCT_ID,
   type IapCatalogEntry,
 } from './iap-product-catalog';
+import { isSongPriceTier, snapToSongPriceTier } from './song-price-tiers';
+import { assertStripeAllowedForDigitalGoods as assertStripeAllowed } from './store-billing-policy';
 
 /**
  * A Discovery Placement is the unit artists buy to promote a track. Per the
@@ -69,12 +71,7 @@ export class PaymentsService {
 
   /** Digital goods on iOS/Android must use store IAP — never Stripe. */
   assertStripeAllowedForDigitalGoods(platform?: string | null): void {
-    const p = (platform ?? '').trim().toLowerCase();
-    if (p === 'ios' || p === 'android') {
-      throw new BadRequestException(
-        'Digital purchases on mobile must use the App Store or Google Play. Stripe is web-only for these products.',
-      );
-    }
+    assertStripeAllowed(platform);
   }
 
   private getIapCatalog(storeLabel: 'Google Play' | 'App Store'): Record<
@@ -129,10 +126,19 @@ export class PaymentsService {
       );
     }
     if (
+      product.type === 'song_purchase' &&
+      !isSongPriceTier(product.amountCents)
+    ) {
+      throw new Error(
+        `Invalid song price tier for ${storeLabel} product: ${productId}`,
+      );
+    }
+    if (
       product.type !== 'credits' &&
       product.type !== 'song_plays' &&
       product.type !== 'tip' &&
-      product.type !== 'pro_networx_subscription'
+      product.type !== 'pro_networx_subscription' &&
+      product.type !== 'song_purchase'
     ) {
       throw new Error(
         `Unsupported ${storeLabel} product type for ${productId}: ${product.type}`,
@@ -239,6 +245,115 @@ export class PaymentsService {
     return { donationId: donationRow.id, alreadyProcessed: false };
   }
 
+  /**
+   * Grant a song/beat purchase paid for with a store consumable.
+   *
+   * Unlike the Stripe path there is no Connect destination charge — the store
+   * collected the money on the platform's behalf — so the artist is always owed
+   * a manual payout (`payout_status = 'pending'`, surfaced by the admin payout
+   * queue).
+   */
+  private async grantSongPurchase(params: {
+    userId: string;
+    songId: string;
+    amountCents: number;
+    paymentMethod: 'app_store' | 'google_play';
+    storeChargeId: string;
+  }) {
+    const supabase = getSupabaseClient();
+
+    // Replayed receipt: the same store transaction must never grant twice.
+    const { data: replay } = await supabase
+      .from('song_purchases')
+      .select('id, status')
+      .eq('store_transaction_id', params.storeChargeId)
+      .maybeSingle();
+    if (replay?.status === 'completed') {
+      return {
+        purchaseId: replay.id,
+        songId: params.songId,
+        alreadyProcessed: true,
+      };
+    }
+
+    const { data: song } = await supabase
+      .from('songs')
+      .select('id, title, artist_id, price_cents, is_for_sale')
+      .eq('id', params.songId)
+      .single();
+    if (!song) throw new BadRequestException('Song not found');
+    if ((song as { is_for_sale?: boolean }).is_for_sale === false) {
+      throw new BadRequestException('This song is not for sale');
+    }
+    if (song.artist_id === params.userId) {
+      throw new BadRequestException('You already own your own song');
+    }
+
+    // The SKU decides what the buyer was charged, so it must match the song's
+    // listed price — otherwise a $0.99 SKU could unlock a $49.99 beat.
+    const expectedCents = snapToSongPriceTier(
+      Number((song as { price_cents?: number }).price_cents) ||
+        this.stripeService.getDefaultSongPriceCents(),
+    );
+    if (expectedCents !== params.amountCents) {
+      throw new BadRequestException(
+        `Store product amount mismatch for song ${params.songId}. ` +
+          `Expected ${expectedCents} cents, got ${params.amountCents}.`,
+      );
+    }
+
+    const { data: existing } = await supabase
+      .from('song_purchases')
+      .select('id, status')
+      .eq('user_id', params.userId)
+      .eq('song_id', params.songId)
+      .maybeSingle();
+    if (existing?.status === 'completed') {
+      return {
+        purchaseId: existing.id,
+        songId: params.songId,
+        alreadyProcessed: true,
+      };
+    }
+
+    const feeBps = this.stripeService.getSongSaleFeeBps();
+    const platformFeeCents = Math.min(
+      params.amountCents,
+      Math.round((params.amountCents * feeBps) / 10000),
+    );
+
+    const { data: purchase, error } = await supabase
+      .from('song_purchases')
+      .upsert(
+        {
+          user_id: params.userId,
+          song_id: song.id,
+          artist_id: song.artist_id,
+          amount_cents: params.amountCents,
+          platform_fee_cents: platformFeeCents,
+          artist_amount_cents: params.amountCents - platformFeeCents,
+          currency: 'usd',
+          status: 'completed',
+          payout_status: 'pending',
+          store: params.paymentMethod,
+          store_transaction_id: params.storeChargeId,
+        },
+        { onConflict: 'user_id,song_id' },
+      )
+      .select('id')
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to record song purchase: ${error.message}`);
+    }
+
+    return {
+      purchaseId: purchase.id,
+      songId: song.id,
+      alreadyProcessed: false,
+    };
+  }
+
   async completeGooglePlayPurchase(
     userId: string,
     dto: CompleteGooglePlayPurchaseDto,
@@ -276,6 +391,27 @@ export class PaymentsService {
         orderId,
         amountCents: product.amountCents,
         type: 'tip' as const,
+      };
+    }
+
+    if (product.type === 'song_purchase') {
+      if (!dto.songId) {
+        throw new BadRequestException(
+          'songId is required for Google Play song purchases',
+        );
+      }
+      const purchase = await this.grantSongPurchase({
+        userId,
+        songId: dto.songId,
+        amountCents: product.amountCents,
+        paymentMethod: 'google_play',
+        storeChargeId: orderId,
+      });
+      return {
+        ...purchase,
+        orderId,
+        amountCents: product.amountCents,
+        type: 'song_purchase' as const,
       };
     }
 
@@ -397,6 +533,28 @@ export class PaymentsService {
         orderId,
         amountCents: product.amountCents,
         type: 'tip' as const,
+        environment: verification.environment,
+      };
+    }
+
+    if (product.type === 'song_purchase') {
+      if (!dto.songId) {
+        throw new BadRequestException(
+          'songId is required for App Store song purchases',
+        );
+      }
+      const purchase = await this.grantSongPurchase({
+        userId,
+        songId: dto.songId,
+        amountCents: product.amountCents,
+        paymentMethod: 'app_store',
+        storeChargeId: orderId,
+      });
+      return {
+        ...purchase,
+        orderId,
+        amountCents: product.amountCents,
+        type: 'song_purchase' as const,
         environment: verification.environment,
       };
     }
@@ -1748,8 +1906,9 @@ export class PaymentsService {
     // manual payout (tracked via song_purchases.payout_status = 'pending').
     const artistCanReceiveDirectly = !!destinationAccountId && chargesEnabled;
 
-    const amountCents = Math.max(
-      50,
+    // Snap so the Stripe amount always matches a store tier SKU, otherwise the
+    // same song would cost different amounts on web and mobile.
+    const amountCents = snapToSongPriceTier(
       Number((song as { price_cents?: number }).price_cents) ||
         this.stripeService.getDefaultSongPriceCents(),
     );

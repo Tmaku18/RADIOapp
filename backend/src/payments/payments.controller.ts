@@ -178,7 +178,9 @@ export class PaymentsController {
   async createCheckoutSessionSongPlays(
     @CurrentUser() user: FirebaseUser,
     @Body() dto: BuySongPlaysDto,
+    @Headers('x-client-platform') platform?: string,
   ) {
+    this.paymentsService.assertStripeAllowedForDigitalGoods(platform);
     const supabase = getSupabaseClient();
     const { data: userData } = await supabase
       .from('users')
@@ -203,7 +205,9 @@ export class PaymentsController {
   async quickAddMinutes(
     @CurrentUser() user: FirebaseUser,
     @Body() body: { songId: string },
+    @Headers('x-client-platform') platform?: string,
   ) {
+    this.paymentsService.assertStripeAllowedForDigitalGoods(platform);
     if (!body?.songId) {
       throw new Error('songId is required');
     }
@@ -256,7 +260,9 @@ export class PaymentsController {
   async createCheckoutSession(
     @CurrentUser() user: FirebaseUser,
     @Body() dto: CreateCheckoutSessionDto,
+    @Headers('x-client-platform') platform?: string,
   ) {
+    this.paymentsService.assertStripeAllowedForDigitalGoods(platform);
     const supabase = getSupabaseClient();
     const { data: userData } = await supabase
       .from('users')
@@ -280,7 +286,9 @@ export class PaymentsController {
   async createCreatorNetworkCheckoutSession(
     @CurrentUser() user: FirebaseUser,
     @Body() body: { successUrl?: string; cancelUrl?: string },
+    @Headers('x-client-platform') platform?: string,
   ) {
+    this.paymentsService.assertStripeAllowedForDigitalGoods(platform);
     const supabase = getSupabaseClient();
     const { data: userData } = await supabase
       .from('users')
@@ -309,7 +317,9 @@ export class PaymentsController {
   async createProNetworxCheckoutSession(
     @CurrentUser() user: FirebaseUser,
     @Body() body: { successUrl?: string; cancelUrl?: string },
+    @Headers('x-client-platform') platform?: string,
   ) {
+    this.paymentsService.assertStripeAllowedForDigitalGoods(platform);
     const supabase = getSupabaseClient();
     const { data: userData } = await supabase
       .from('users')
@@ -408,7 +418,10 @@ export class PaymentsController {
     @CurrentUser() user: FirebaseUser,
     @Param('songId') songId: string,
     @Body() body: { successUrl?: string; cancelUrl?: string },
+    @Headers('x-client-platform') platform?: string,
   ) {
+    // Mobile buys songs with a store consumable — see grantSongPurchase.
+    this.paymentsService.assertStripeAllowedForDigitalGoods(platform);
     const userId = await this.resolveUserId(user.uid);
     return this.paymentsService.createSongPurchaseCheckout(userId, songId, {
       successUrl: body?.successUrl,

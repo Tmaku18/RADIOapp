@@ -7,6 +7,11 @@ import {
 } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 import { CreateSongDto } from './dto/create-song.dto';
+import {
+  DEFAULT_BEAT_PRICE_CENTS,
+  DEFAULT_SONG_PRICE_CENTS,
+  snapToSongPriceTier,
+} from '../payments/song-price-tiers';
 import { CopyrightService } from '../copyright/copyright.service';
 import { LyricsService } from '../lyrics/lyrics.service';
 import { PushNotificationService } from '../push-notifications/push-notification.service';
@@ -1425,12 +1430,14 @@ export class SongsService {
 
     const statusFields = this.uploadStatusFields();
     const priceCentsRaw = createSongDto.priceCents;
+    const defaultPriceCents = isBeat
+      ? DEFAULT_BEAT_PRICE_CENTS
+      : DEFAULT_SONG_PRICE_CENTS;
+    // Prices must land on a store-sellable tier — see song-price-tiers.ts.
     const priceCents =
       priceCentsRaw != null && Number.isFinite(Number(priceCentsRaw))
-        ? Math.max(0, Math.round(Number(priceCentsRaw)))
-        : isBeat
-          ? 999
-          : 99;
+        ? snapToSongPriceTier(priceCentsRaw, defaultPriceCents)
+        : defaultPriceCents;
     const forSale =
       createSongDto.forSale !== undefined
         ? createSongDto.forSale === true

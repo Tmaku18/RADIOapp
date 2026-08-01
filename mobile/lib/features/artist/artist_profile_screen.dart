@@ -13,7 +13,7 @@ import '../../core/models/user.dart' as app_user;
 import '../../core/models/song.dart';
 import '../../core/services/api_service.dart';
 import '../../core/services/songs_service.dart';
-import '../../core/services/payments_service.dart';
+import '../../core/services/song_purchase_flow.dart';
 import '../../core/services/livestream_service.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/services/pro_networx_service.dart';
@@ -41,7 +41,6 @@ class ArtistProfileScreen extends StatefulWidget {
 
 class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
   final SongsService _songs = SongsService();
-  final PaymentsService _payments = PaymentsService();
   final AudioPlayer _player = AudioPlayerService().player;
   final LivestreamService _live = LivestreamService();
   final UsersService _users = UsersService();
@@ -483,20 +482,15 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
     }
     setState(() => _buyingId = s.id);
     try {
-      final res = await _payments.buySong(songId: s.id);
-      final url = (res['url'] ?? res['checkoutUrl'])?.toString();
-      if (url == null || url.isEmpty) {
-        throw Exception('Could not start checkout.');
-      }
-      await _openExternalUrl(url);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Complete your purchase in the browser, then tap refresh.',
-          ),
-        ),
+      final outcome = await SongPurchaseFlow.buy(
+        songId: s.id,
+        priceCents: s.priceCents,
       );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(outcome.message)));
+      if (outcome.unlocked) await _load();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(

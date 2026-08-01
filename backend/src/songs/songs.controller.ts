@@ -35,6 +35,11 @@ import { getFirebaseAuth } from '../config/firebase.config';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { STATION_IDS } from '../radio/station.constants';
+import {
+  DEFAULT_BEAT_PRICE_CENTS,
+  DEFAULT_SONG_PRICE_CENTS,
+  snapToSongPriceTier,
+} from '../payments/song-price-tiers';
 import { AdminService } from '../admin/admin.service';
 import { ImageModerationService } from '../moderation/image-moderation.service';
 import { LyricsService } from '../lyrics/lyrics.service';
@@ -1534,7 +1539,13 @@ export class SongsController {
       }
     }
     if (body.priceCents !== undefined) {
-      updateData.price_cents = Math.max(0, Math.round(Number(body.priceCents)));
+      // Prices must land on a store-sellable tier — see song-price-tiers.ts.
+      updateData.price_cents = snapToSongPriceTier(
+        body.priceCents,
+        body.productKind === 'beat'
+          ? DEFAULT_BEAT_PRICE_CENTS
+          : DEFAULT_SONG_PRICE_CENTS,
+      );
     }
     if (body.forSale !== undefined) {
       updateData.is_for_sale = body.forSale === true;

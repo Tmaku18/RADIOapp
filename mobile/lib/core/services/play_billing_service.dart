@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
+import '../constants/song_price_tiers.dart';
 import '../env.dart';
 
 class PlayPurchaseResult {
@@ -75,6 +76,8 @@ class PlayBillingService {
         tipProductIdForCents(499)!,
         tipProductIdForCents(999)!,
         tipProductIdForCents(2499)!,
+        for (final cents in kSongPriceTiersCents)
+          songPurchaseProductIdForCents(cents),
       };
 
   String? _envOrDefault(String key, String fallback) {
@@ -160,6 +163,24 @@ class PlayBillingService {
         env('ANDROID_PLAY_PRO_NETWORX_MONTHLY_PRODUCT_ID') ??
             defaultProNetworxMonthly,
       )!;
+
+  /// Consumable SKU that sells a song or beat priced at [priceCents].
+  ///
+  /// One SKU is shared by every song at that price, so it must be a consumable
+  /// — a non-consumable could only be bought once per account. Ownership is
+  /// tracked server-side in `song_purchases`. [priceCents] is snapped onto
+  /// [kSongPriceTiersCents] first so any artist price resolves to a registered
+  /// product.
+  String songPurchaseProductIdForCents(int priceCents) {
+    final suffix = snapToSongPriceTier(
+      priceCents,
+    ).toString().padLeft(3, '0');
+    return _envOrDefault(
+      'IOS_APP_STORE_SONG_PURCHASE_${suffix}_PRODUCT_ID',
+      env('ANDROID_PLAY_SONG_PURCHASE_${suffix}_PRODUCT_ID') ??
+          'nwx_song_$suffix',
+    )!;
+  }
 
   String? tipProductIdForCents(int amountCents) {
     switch (amountCents) {

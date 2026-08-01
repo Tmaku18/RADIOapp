@@ -245,7 +245,9 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
     }
   }
 
+  /// Web only — see the button guard in [build].
   Future<void> _checkoutFallback() async {
+    if (isMobileStorePlatform) return;
     if (_selectedPlays == null || _submitting) return;
     setState(() => _submitting = true);
     try {
@@ -449,14 +451,20 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
                                     : const Text('Continue to payment'),
                               ),
                             ),
-                            const SizedBox(height: 10),
-                            SizedBox(
-                              width: double.infinity,
-                              child: OutlinedButton(
-                                onPressed: _submitting ? null : _checkoutFallback,
-                                child: const Text('Open web checkout instead'),
+                            // No web-checkout escape hatch on iOS/Android:
+                            // linking out for digital goods breaks App Store
+                            // and Play policy. Store billing only.
+                            if (!isMobileStorePlatform) ...[
+                              const SizedBox(height: 10),
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton(
+                                  onPressed:
+                                      _submitting ? null : _checkoutFallback,
+                                  child: const Text('Open web checkout instead'),
+                                ),
                               ),
-                            ),
+                            ],
                           ],
                         ],
                       ),

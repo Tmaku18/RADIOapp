@@ -4,12 +4,11 @@ import 'package:audio_service/audio_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/brand/brand_assets.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/services/audio_player_service.dart';
-import '../../core/services/payments_service.dart';
+import '../../core/services/song_purchase_flow.dart';
 import '../../core/services/songs_service.dart';
 import '../../core/theme/dimension_tokens.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
@@ -25,7 +24,6 @@ class ProBeatsMarketplaceScreen extends StatefulWidget {
 
 class _ProBeatsMarketplaceScreenState extends State<ProBeatsMarketplaceScreen> {
   final SongsService _songs = SongsService();
-  final PaymentsService _payments = PaymentsService();
   final TextEditingController _search = TextEditingController();
   final AudioPlayer _player = AudioPlayerService().player;
 
@@ -147,18 +145,15 @@ class _ProBeatsMarketplaceScreenState extends State<ProBeatsMarketplaceScreen> {
   Future<void> _buy(MarketplaceBeat beat) async {
     setState(() => _buyingId = beat.id);
     try {
-      final res = await _payments.buySong(songId: beat.id);
-      final url = (res['url'] ?? res['checkoutUrl'])?.toString();
-      if (url == null || url.isEmpty) {
-        throw Exception('Could not start checkout.');
-      }
-      final uri = Uri.parse(url);
-      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      if (!ok && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open checkout.')),
-        );
-      }
+      final outcome = await SongPurchaseFlow.buy(
+        songId: beat.id,
+        priceCents: beat.priceCents,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(outcome.message)));
+      if (outcome.unlocked) await _load();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

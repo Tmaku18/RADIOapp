@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:just_audio/just_audio.dart';
 
+import '../../core/constants/song_price_tiers.dart';
 import '../../core/data/station_towers.dart';
 import '../../core/services/api_service.dart' show ApiException, ApiService;
 import '../../core/legal/full_song_radio_opt_in.dart';
@@ -27,7 +28,8 @@ class _UploadScreenState extends State<UploadScreen> {
   final _artistNameController = TextEditingController();
   final _cityController = TextEditingController();
   final _lyricsController = TextEditingController();
-  final _priceController = TextEditingController(text: '9.99');
+  /// Constrained to [kSongPriceTiersCents] so every price maps to a store SKU.
+  int _priceCents = kDefaultBeatPriceCents;
   final ApiService _apiService = ApiService();
   File? _audioFile;
   File? _artworkFile;
@@ -438,14 +440,6 @@ class _UploadScreenState extends State<UploadScreen> {
         );
         return;
       }
-    } else {
-      final price = double.tryParse(_priceController.text.trim());
-      if (price == null || price < 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Enter a valid sale price.')),
-        );
-        return;
-      }
     }
 
     setState(() {
@@ -485,8 +479,7 @@ class _UploadScreenState extends State<UploadScreen> {
       final stations = _stationIds.toList();
       // Hit Nest/Railway directly — Vercel’s /api/songs proxy can time out or
       // strip useful 400 bodies while the server creates the song record.
-      final priceDollars = double.tryParse(_priceController.text.trim()) ?? 9.99;
-      final priceCents = (priceDollars * 100).round();
+      final priceCents = _priceCents;
       await _apiService.post(
         'songs',
         {
@@ -550,7 +543,6 @@ class _UploadScreenState extends State<UploadScreen> {
     _artistNameController.dispose();
     _cityController.dispose();
     _lyricsController.dispose();
-    _priceController.dispose();
     super.dispose();
   }
 
@@ -685,22 +677,23 @@ class _UploadScreenState extends State<UploadScreen> {
                   ),
                   if (_isBeat) ...[
                     const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _priceController,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
+                    DropdownButtonFormField<int>(
+                      initialValue: _priceCents,
                       decoration: const InputDecoration(
                         labelText: 'Sale price (USD) *',
-                        hintText: '9.99',
-                        prefixText: '\$ ',
                         helperText:
                             'Buyers can listen to the full beat before checkout',
                       ),
-                      validator: (value) {
-                        final n = double.tryParse((value ?? '').trim());
-                        if (n == null || n < 0) return 'Enter a valid price';
-                        return null;
+                      items: [
+                        for (final cents in kSongPriceTiersCents)
+                          DropdownMenuItem(
+                            value: cents,
+                            child: Text(formatSongPrice(cents)),
+                          ),
+                      ],
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setState(() => _priceCents = value);
                       },
                     ),
                     SwitchListTile(

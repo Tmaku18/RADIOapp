@@ -17,7 +17,7 @@ import '../../core/radio/radio_sync.dart';
 import '../../core/services/api_service.dart';
 import '../../core/services/radio_service.dart';
 import '../../core/services/songs_service.dart';
-import '../../core/services/payments_service.dart';
+import '../../core/services/song_purchase_flow.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/services/chat_service.dart';
 import '../../core/services/venue_ads_service.dart';
@@ -111,7 +111,6 @@ class _PlayerScreenState extends State<PlayerScreen>
   final RadioService _radioService = RadioService();
   final VenueAdsService _venueAds = VenueAdsService();
   final SongsService _songs = SongsService();
-  final PaymentsService _payments = PaymentsService();
   Track? _currentTrack;
   SongAccess? _songAccess;
   bool _isBuying = false;
@@ -627,23 +626,20 @@ class _PlayerScreenState extends State<PlayerScreen>
     }
     setState(() => _isBuying = true);
     try {
-      final res = await _payments.buySong(songId: track.id);
-      final url = (res['url'] ?? res['checkoutUrl'])?.toString();
-      if (url == null || url.isEmpty) {
-        throw Exception('Could not start checkout.');
+      // The store path needs the price up front to pick the right tier SKU.
+      final access = _songAccess ?? await _songs.getAccess(track.id);
+      if (access == null) {
+        throw Exception('Could not load the price for this song.');
       }
-      final uri = Uri.tryParse(url);
-      if (uri != null && await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Complete your purchase in the browser. Your song unlocks once payment finishes.',
-          ),
-        ),
+      final outcome = await SongPurchaseFlow.buy(
+        songId: track.id,
+        priceCents: access.priceCents,
       );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(outcome.message)));
+      if (outcome.unlocked) await _loadSongAccess(track.id);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(

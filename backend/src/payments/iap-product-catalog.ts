@@ -3,14 +3,39 @@
  * Env JSON (APPLE_IAP_PRODUCT_CATALOG_JSON / GOOGLE_PLAY_PRODUCT_CATALOG_JSON)
  * merges on top of these defaults.
  */
+import {
+  SONG_PRICE_TIERS_CENTS,
+  songPurchaseProductIdForTier,
+} from './song-price-tiers';
+
 export type IapCatalogEntry = {
-  type: 'credits' | 'song_plays' | 'tip' | 'pro_networx_subscription';
+  type:
+    | 'credits'
+    | 'song_plays'
+    | 'tip'
+    | 'pro_networx_subscription'
+    | 'song_purchase';
   amountCents: number;
   credits?: number;
   plays?: number;
 };
 
+/**
+ * One consumable per price tier, reused across every song at that price.
+ * They must be consumables: a non-consumable could only ever be bought once
+ * per account, which would block buying a second song at the same price.
+ * Ownership lives server-side in `song_purchases`.
+ */
+const SONG_PURCHASE_CATALOG: Record<string, IapCatalogEntry> =
+  Object.fromEntries(
+    SONG_PRICE_TIERS_CENTS.map((cents) => [
+      songPurchaseProductIdForTier(cents),
+      { type: 'song_purchase' as const, amountCents: cents },
+    ]),
+  );
+
 export const DEFAULT_IAP_PRODUCT_CATALOG: Record<string, IapCatalogEntry> = {
+  ...SONG_PURCHASE_CATALOG,
   nwx_credits_10: { type: 'credits', amountCents: 999, credits: 10 },
   nwx_credits_25: { type: 'credits', amountCents: 1999, credits: 25 },
   nwx_credits_50: { type: 'credits', amountCents: 3499, credits: 50 },

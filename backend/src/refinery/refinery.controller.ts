@@ -2,12 +2,14 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   Param,
   Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { assertStripeAllowedForDigitalGoods } from '../payments/store-billing-policy';
 import { FirebaseAuthGuard } from '../auth/guards/firebase-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -61,7 +63,11 @@ export class RefineryController {
     @CurrentUser() user: FirebaseUser,
     @Param('id') songId: string,
     @Body() body: SubmitRefineryDto,
+    @Headers('x-client-platform') platform?: string,
   ) {
+    // Web-only: there is no store SKU for Refinery submissions yet, so mobile
+    // must not be able to reach this Stripe checkout.
+    assertStripeAllowedForDigitalGoods(platform);
     return this.refineryService.createSubmissionCheckoutSession(
       user.uid,
       songId,
