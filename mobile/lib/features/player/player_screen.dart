@@ -273,6 +273,15 @@ class _PlayerScreenState extends State<PlayerScreen>
         unawaited(_syncCurrentTrack());
         return;
       }
+      // Cold-start bootstrap may already have live radio playing. Adopt it and
+      // let the sync pass reconcile instead of loading a second copy over it —
+      // reloading here restarted the audio and, if a song boundary fell between
+      // the two fetches, dropped the listener onto a different track.
+      if (_hasLiveRadioSource) {
+        setState(() => _isLoading = false);
+        unawaited(_syncCurrentTrack());
+        return;
+      }
       await _loadAndPlay(track, res);
     } catch (e) {
       if (!mounted) return;

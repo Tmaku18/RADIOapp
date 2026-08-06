@@ -83,17 +83,26 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
     return env('RADIO_STATION_ID') ?? _defaultBootstrapStationId;
   }
 
+  /// Someone else already owns the shared player, so the cold-start bootstrap
+  /// must stand down rather than load a second track over theirs.
+  bool get _bootstrapPreempted => playerScreenActive || _hasRadioSource;
+
   /// Cold-start bootstrap: load and play live radio when the app opens, before
   /// any screen mounts (mirrors web RadioBackgroundSync bar bootstrap).
   Future<void> _bootstrapLiveRadioIfIdle() async {
     if (_bootstrapAttempted || _bootstrapInFlight) return;
-    if (_hasRadioSource) return;
+    if (_bootstrapPreempted) return;
     if (AudioPlayerService.handler.userPaused) return;
 
     _bootstrapInFlight = true;
     _bootstrapAttempted = true;
     try {
       final radioId = await _resolveBootstrapStationId();
+      // Ownership can flip during any of these awaits: this runs from main()
+      // while the UI is still starting, so PlayerScreen may mount and begin its
+      // own load. Two loads into the shared player is what made the first
+      // seconds after launch jump between songs.
+      if (_bootstrapPreempted) return;
       await StationEventsService().switchStation(radioId);
       RadioPresenceService.instance.configure(radioId: radioId);
 
@@ -110,6 +119,7 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
         _bootstrapAttempted = false;
         return;
       }
+      if (_bootstrapPreempted) return;
 
       await _loadTrack(track, res, reportPlay: true, radioId: radioId);
       if (track.transportPaused && _player.playing) {
