@@ -285,7 +285,11 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
       if (res.noContent || res.track == null) return;
 
       if (endedId != null && res.track!.id == endedId) {
-        final forced = await _radio.getNextTrack(radioId: radioId, force: true);
+        final forced = await _radio.getNextTrack(
+          radioId: radioId,
+          force: true,
+          after: endedId,
+        );
         if (!forced.noContent && forced.track != null) {
           res = forced;
         }
@@ -337,6 +341,17 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
               userPaused: AudioPlayerService.handler.userPaused,
               currentTimeSeconds: position,
               durationSeconds: duration,
+            )) {
+          return;
+        }
+        // Seconds from the end: the boundary handler is about to make this same
+        // switch, so don't discard the buffer for a track that's finishing.
+        final localDuration = _player.duration?.inSeconds;
+        if (localId != null &&
+            localDuration != null &&
+            shouldDeferTrackSwitchToBoundary(
+              localSeconds: position,
+              durationSeconds: localDuration,
             )) {
           return;
         }

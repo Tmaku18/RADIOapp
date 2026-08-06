@@ -764,8 +764,9 @@ class _PlayerScreenState extends State<PlayerScreen>
   /// one), keeping every device in sync without each one independently
   /// skipping. If the server still reports the song that JUST ended (its clock
   /// lags because the encoded audio is shorter than the catalog duration),
-  /// nudge it once with a force-advance. The server debounces concurrent nudges
-  /// so synced devices converge on one song instead of skipping ahead.
+  /// nudge it once with a force-advance, naming the song we finished. The server
+  /// only honours that nudge while the queue is still on that song, so a device
+  /// arriving late can't skip a track for everyone else.
   Future<void> _handleTrackEnded() async {
     if (!mounted || _trackAdvanceInFlight || _trackSyncInFlight) return;
     if (_nonRadioOwnsPlayer) return;
@@ -798,12 +799,13 @@ class _PlayerScreenState extends State<PlayerScreen>
       }
 
       // Server still on the song that just ended (its clock lags a short audio
-      // file). Nudge the shared queue forward; the server debounces concurrent
-      // nudges so all synced devices converge on the same next song.
+      // file). Nudge the shared queue forward, naming the song we finished so a
+      // nudge that arrives after someone else's advance is ignored.
       if (endedId != null && res.track != null && res.track!.id == endedId) {
         final forced = await _radioService.getNextTrack(
           radioId: _radioId,
           force: true,
+          after: endedId,
         );
         if (!mounted) return;
         if (_nonRadioOwnsPlayer) return;
@@ -918,6 +920,20 @@ class _PlayerScreenState extends State<PlayerScreen>
       final playerOnRadio = _hasLiveRadioSource;
       final trackChanged =
           localTrack == null || localTrack.id != serverTrack.id;
+
+      // Our song is seconds from the end: let the boundary handler do the
+      // handoff rather than tearing down a buffer we're about to finish with.
+      if (trackChanged &&
+          !force &&
+          playerOnRadio &&
+          localTrack != null &&
+          shouldDeferTrackSwitchToBoundary(
+            localSeconds: _audioPlayer.position.inSeconds,
+            durationSeconds:
+                _audioPlayer.duration?.inSeconds ?? localTrack.durationSeconds,
+          )) {
+        return;
+      }
 
       if ((force && !playerOnRadio) || trackChanged) {
         if (!force && _nonRadioOwnsPlayer) return;

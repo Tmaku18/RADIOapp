@@ -112,14 +112,18 @@ export class RadioController {
   async getNextTrack(
     @Query('radio') radioId?: string,
     @Query('force') force?: string,
+    @Query('after') after?: string,
   ) {
     const id = radioId?.trim() || DEFAULT_RADIO_ID;
     const forceAdvance = ['1', 'true', 'yes'].includes(
       (force ?? '').trim().toLowerCase(),
     );
+    // Song the caller just finished. Lets the service reject a duplicate
+    // advance from a device that is already a track behind.
+    const afterSongId = after?.trim() || null;
     try {
       return await this.withTimeout(
-        this.radioService.getNextTrack(id, forceAdvance),
+        this.radioService.getNextTrack(id, forceAdvance, afterSongId),
         `getNextTrack(${id})`,
       );
     } catch (err) {

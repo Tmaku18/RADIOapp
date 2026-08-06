@@ -4,6 +4,7 @@ import { RadioService } from './radio.service';
 import { RadioStateService } from './radio-state.service';
 import { ProspectorController } from './prospector.controller';
 import { ProspectorYieldService } from './prospector-yield.service';
+import { StationRealtimeService } from './station-realtime.service';
 import { PushNotificationModule } from '../push-notifications/push-notification.module';
 import { ChatModule } from '../chat/chat.module';
 
@@ -13,7 +14,17 @@ import { ChatModule } from '../chat/chat.module';
     forwardRef(() => ChatModule),
   ],
   controllers: [RadioController, ProspectorController],
-  providers: [RadioService, RadioStateService, ProspectorYieldService],
-  exports: [RadioService, RadioStateService, ProspectorYieldService],
+  providers: [
+    RadioService,
+    RadioStateService,
+    ProspectorYieldService,
+    StationRealtimeService,
+  ],
+  exports: [
+    RadioService,
+    RadioStateService,
+    ProspectorYieldService,
+    StationRealtimeService,
+  ],
 })
 export class RadioModule {}

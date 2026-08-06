@@ -173,4 +173,43 @@ void main() {
       expect(decision.action, RadioSyncAction.none);
     });
   });
+
+  group('shouldDeferTrackSwitchToBoundary', () {
+    test('defers while the local track is inside the handoff window', () {
+      expect(
+        shouldDeferTrackSwitchToBoundary(
+          localSeconds: 177,
+          durationSeconds: 180,
+        ),
+        isTrue,
+      );
+    });
+
+    test('reloads mid-song so a device cannot drift onto another track', () {
+      expect(
+        shouldDeferTrackSwitchToBoundary(
+          localSeconds: 90,
+          durationSeconds: 180,
+        ),
+        isFalse,
+      );
+    });
+
+    test('reloads once the track is over, so a stalled decoder recovers', () {
+      expect(
+        shouldDeferTrackSwitchToBoundary(
+          localSeconds: 180,
+          durationSeconds: 180,
+        ),
+        isFalse,
+      );
+    });
+
+    test('reloads when the duration is unknown', () {
+      expect(
+        shouldDeferTrackSwitchToBoundary(localSeconds: 10, durationSeconds: 0),
+        isFalse,
+      );
+    });
+  });
 }

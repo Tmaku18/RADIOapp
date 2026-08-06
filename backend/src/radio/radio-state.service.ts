@@ -28,6 +28,7 @@ function redisKeys(radioId: string) {
     TRANSPORT: prefix + 'transport',
     BOOTH: prefix + 'booth',
     HISTORY: prefix + 'history',
+    LAST_ADVANCE_AT: prefix + 'last_advance_at',
   };
 }
 
@@ -56,6 +57,9 @@ export interface RadioHistoryEntry {
 
 const HISTORY_MAX = 20;
 const DEFAULT_DUCK_VOLUME = 0.25;
+
+/** Headroom added on top of a song's duration for the current-state TTL. */
+const STATE_TTL_GRACE_SECONDS = 300;
 
 // Checkpoint frequency for saving to Supabase
 const CHECKPOINT_INTERVAL = parseInt(
@@ -155,6 +159,28 @@ export class RadioStateService implements OnModuleInit {
       await redis.del(keys.CURRENT_STATE);
     }
     await this.clearStateInDatabase(radioId);
+  }
+
+  /**
+   * When the queue last advanced, in epoch ms. Kept in Redis (not process
+   * memory) so the debounce still holds after a deploy or restart, which is
+   * exactly when a burst of end-of-song requests arrives.
+   */
+  async getLastAdvanceAt(radioId: string = DEFAULT_RADIO_ID): Promise<number> {
+    if (!this.redisAvailable) return 0;
+    const redis = getRedisClient();
+    const raw = await redis.get(redisKeys(radioId).LAST_ADVANCE_AT);
+    const parsed = raw ? parseInt(raw, 10) : 0;
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  async setLastAdvanceAt(
+    at: number,
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<void> {
+    if (!this.redisAvailable) return;
+    const redis = getRedisClient();
+    await redis.setex(redisKeys(radioId).LAST_ADVANCE_AT, 3600, String(at));
   }
 
   /**
@@ -893,11 +919,14 @@ export class RadioStateService implements OnModuleInit {
   ): Promise<void> {
     const redis = getRedisClient();
     const keys = redisKeys(radioId);
-    await redis.setex(
-      keys.CURRENT_STATE,
-      600, // 10 minutes TTL
-      JSON.stringify(state),
+    // TTL must outlive the song itself, otherwise a long track (DJ mix,
+    // podcast, audiobook) loses its state mid-play and every listener gets
+    // bounced onto a freshly-started song.
+    const ttlSeconds = Math.max(
+      600,
+      Math.ceil(state.durationMs / 1000) + STATE_TTL_GRACE_SECONDS,
     );
+    await redis.setex(keys.CURRENT_STATE, ttlSeconds, JSON.stringify(state));
   }
 
   // === Private Database Methods (Fallback) ===

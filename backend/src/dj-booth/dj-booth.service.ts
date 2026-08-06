@@ -12,7 +12,7 @@ import {
 } from '../radio/radio-state.service';
 import { normalizeSongStationId } from '../radio/station.constants';
 import { CloudflareStreamService } from '../streaming/cloudflare-stream.service';
-import { DjBoothRealtimeService } from './dj-booth-realtime.service';
+import { StationRealtimeService } from '../radio/station-realtime.service';
 
 @Injectable()
 export class DjBoothService {
@@ -22,7 +22,7 @@ export class DjBoothService {
     private readonly radioService: RadioService,
     private readonly radioStateService: RadioStateService,
     private readonly cloudflareStream: CloudflareStreamService,
-    private readonly realtime: DjBoothRealtimeService,
+    private readonly realtime: StationRealtimeService,
   ) {}
 
   private normalizeStationId(stationId: string): string {

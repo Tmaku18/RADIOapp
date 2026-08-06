@@ -34,6 +34,27 @@ bool isServerAheadMidSong({
   return false;
 }
 
+/// How close to the end of a song we stop reloading and wait for the boundary.
+const int kRadioBoundaryHandoffSeconds = 5;
+
+/// Whether to leave local playback alone when the server has already moved to
+/// the next song but ours is about to finish anyway.
+///
+/// Swapping the audio source throws away the buffer and restarts buffering,
+/// which listeners hear as a hiccup. Inside the handoff window the end-of-song
+/// handler is about to make the same transition cleanly, so the reload costs a
+/// glitch and buys nothing. Once the track is actually over ([remaining] <= 0)
+/// we stop deferring, so a stalled decoder still recovers on the next poll.
+bool shouldDeferTrackSwitchToBoundary({
+  required int localSeconds,
+  required int durationSeconds,
+  int thresholdSeconds = kRadioBoundaryHandoffSeconds,
+}) {
+  if (durationSeconds <= 0) return false;
+  final remaining = durationSeconds - localSeconds;
+  return remaining > 0 && remaining <= thresholdSeconds;
+}
+
 bool isStaleRadioServerTrack(
   String? serverTrackId,
   RecentlyAdvancedFrom? recentlyAdvancedFrom,

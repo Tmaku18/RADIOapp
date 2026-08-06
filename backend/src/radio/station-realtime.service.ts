@@ -7,7 +7,13 @@ import {
 import { getSupabaseClient } from '../config/supabase.config';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
-export type DjBoothEvent =
+/**
+ * Events pushed to listeners of a station. The wire format stays
+ * `dj_booth_event` on channel `dj-booth:{stationId}` because installed app
+ * builds subscribe to those names — see `StationEventsService` (mobile) and
+ * `dj-booth-listener.ts` (web).
+ */
+export type StationRealtimeEvent =
   | { type: 'transport_pause'; positionSeconds: number }
   | { type: 'transport_play'; positionSeconds: number }
   | {
@@ -28,8 +34,8 @@ export type DjBoothEvent =
   | { type: 'queue_updated' };
 
 @Injectable()
-export class DjBoothRealtimeService implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(DjBoothRealtimeService.name);
+export class StationRealtimeService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(StationRealtimeService.name);
   private readonly channels = new Map<string, RealtimeChannel>();
   private readonly channelReady = new Map<string, boolean>();
   private readonly channelReadyPromises = new Map<string, Promise<void>>();
@@ -104,7 +110,7 @@ export class DjBoothRealtimeService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async broadcast(stationId: string, event: DjBoothEvent): Promise<void> {
+  async broadcast(stationId: string, event: StationRealtimeEvent): Promise<void> {
     const key = stationId.trim();
     const ready = await this.waitForChannel(key);
     if (!ready) {

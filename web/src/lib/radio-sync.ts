@@ -58,6 +58,7 @@ export async function resolveNextTrackAfterEnd(args: {
   getNextTrack: (params: {
     radio: string;
     force?: boolean;
+    after?: string;
   }) => Promise<{ data: RadioTrackApiPayload }>;
 }): Promise<RadioTrackApiPayload | null> {
   const firstResp = await args.getNextTrack({ radio: args.radioId });
@@ -73,9 +74,13 @@ export async function resolveNextTrackAfterEnd(args: {
     (!!returnedId && args.isStaleRadioServerTrack(returnedId));
 
   if (needsForce) {
+    // Send the song we finished so the server ignores this nudge if another
+    // listener already moved the queue on — otherwise we'd skip a track for
+    // everyone tuned in.
     const forcedResp = await args.getNextTrack({
       radio: args.radioId,
       force: true,
+      ...(args.endedTrackId ? { after: args.endedTrackId } : {}),
     });
     trackData = forcedResp.data ?? trackData;
   }
@@ -85,18 +90,28 @@ export async function resolveNextTrackAfterEnd(args: {
   if (finalId && args.isStaleRadioServerTrack(finalId)) {
     return null;
   }
-  // After local `ended`, never reload the same song — that restarts it from
-  // position 0 and looks like a repeat (common when the server clock lags).
-  if (
-    finalId &&
-    args.endedTrackId &&
-    finalId === args.endedTrackId
-  ) {
-    return null;
+  // Same song we just finished. Usually that means the server clock lags and
+  // reloading would audibly repeat the outro — but on a station with a single
+  // track it's a genuine repeat, and the server restarting it from the top is
+  // how we tell the two apart.
+  if (finalId && args.endedTrackId && finalId === args.endedTrackId) {
+    if (!isFreshlyStartedRadioTrack(trackData)) return null;
   }
 
   return trackData ?? null;
 }
+
+/** True when a payload describes a song the server has just (re)started. */
+export function isFreshlyStartedRadioTrack(
+  payload: RadioTrackApiPayload | null | undefined,
+): boolean {
+  if (!payload) return false;
+  const position = Number(payload.position_seconds);
+  return Number.isFinite(position) && position <= RESTART_POSITION_TOLERANCE;
+}
+
+/** How far into a song still counts as "just started". */
+const RESTART_POSITION_TOLERANCE = 5;
 
 /** Pick a resume offset that never jumps backward (avoids background tab repeats). */
 export function resolveRadioResumePosition(args: {

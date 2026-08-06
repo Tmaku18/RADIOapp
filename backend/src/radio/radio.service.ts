@@ -11,6 +11,7 @@ import { getSupabaseClient } from '../config/supabase.config';
 import { directQuery, getDirectPool } from '../config/postgres.config';
 import { PushNotificationService } from '../push-notifications/push-notification.service';
 import { EmojiService } from '../chat/emoji.service';
+import { StationRealtimeService } from './station-realtime.service';
 import {
   RadioStateService,
   RadioState,
@@ -218,6 +219,20 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     process.env.RADIO_BACKGROUND_POLL_MS || '45000',
     10,
   );
+  // One timer per station, armed for that station's song boundary. This is what
+  // keeps a station rotating on time with nobody listening, so the snapshot is
+  // already warm when someone tunes in instead of their first poll paying for a
+  // full (slow) selection pass at the boundary.
+  private readonly stationTimers = new Map<
+    string,
+    ReturnType<typeof setTimeout>
+  >();
+  /// Fire just after the boundary so the song is definitely over.
+  private readonly schedulerTrailMs = 250;
+  private readonly schedulerMinDelayMs = 1000;
+  private readonly schedulerMaxDelayMs = 15 * 60 * 1000;
+  private readonly schedulerRetryMs = 30 * 1000;
+  private schedulerStopped = false;
   private cachedRadioIds: string[] | null = null;
   private cachedRadioIdsAt = 0;
   private readonly radioIdsCacheTtlMs = 5 * 60 * 1000;
@@ -226,11 +241,9 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   private emptyStations = new Map<string, number>();
   private readonly emptyStationRecheckMs = 10 * 60 * 1000;
   private readonly advanceLocks = new Map<string, Promise<any>>();
-  // Timestamp of the last queue advance per radio. Used to debounce force
-  // advances so that when synced devices all hit end-of-song together (e.g. a
-  // track whose encoded audio is shorter than its catalog duration), only the
-  // first advance moves the queue — the rest converge on that same next song
-  // instead of each skipping ahead and landing everyone on different tracks.
+  // Timestamp of the last queue advance per radio, mirroring Redis so the
+  // debounce still works when Redis is down. Only used for clients that don't
+  // report which song they finished; see shouldHonourForceAdvance.
   private readonly lastAdvanceAt = new Map<string, number>();
   private readonly advanceDebounceMs = 8000;
   // Coalesces concurrent getCurrentTrack passes per radio. At each song boundary
@@ -687,6 +700,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     @Inject(forwardRef(() => EmojiService))
     private readonly emojiService: EmojiService,
     private readonly radioStateService: RadioStateService,
+    private readonly stationRealtime: StationRealtimeService,
   ) {}
 
   onModuleInit() {
@@ -697,6 +711,9 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
+    // Safety net only. Per-station timers do the real work; this sweep re-arms
+    // stations whose timer was lost (restart, thrown tick) and picks up radios
+    // that were added after boot.
     this.backgroundRotationTimer = setInterval(() => {
       this.runBackgroundRotationTick().catch((e) =>
         this.logger.warn(`Background radio tick failed: ${e?.message ?? e}`),
@@ -706,14 +723,141 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     // Prime playback on startup so radio advances even before first listener request.
     void this.runBackgroundRotationTick();
     this.logger.log(
-      `Background radio rotation enabled (${this.backgroundPollMs}ms interval)`,
+      `Background radio rotation enabled (safety sweep every ${this.backgroundPollMs}ms)`,
     );
   }
 
   onModuleDestroy() {
+    this.schedulerStopped = true;
     if (this.backgroundRotationTimer) {
       clearInterval(this.backgroundRotationTimer);
       this.backgroundRotationTimer = null;
+    }
+    for (const timer of this.stationTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.stationTimers.clear();
+  }
+
+  /**
+   * Arm (or re-arm) the automatic advance for one station.
+   *
+   * Only ever one timer per station: the newest schedule wins, so a listener
+   * request that advances the queue simply replaces the pending boundary.
+   */
+  private scheduleStationAdvance(radioId: string, delayMs: number): void {
+    if (this.schedulerStopped) return;
+
+    const existing = this.stationTimers.get(radioId);
+    if (existing) clearTimeout(existing);
+
+    const safeDelay = Math.min(
+      Math.max(
+        Number.isFinite(delayMs) ? delayMs : this.schedulerRetryMs,
+        this.schedulerMinDelayMs,
+      ),
+      this.schedulerMaxDelayMs,
+    );
+
+    const timer = setTimeout(() => {
+      this.stationTimers.delete(radioId);
+      void this.runStationTick(radioId);
+    }, safeDelay);
+    // Never hold the process open just for a rotation timer.
+    if (typeof timer.unref === 'function') timer.unref();
+    this.stationTimers.set(radioId, timer);
+  }
+
+  /**
+   * A station reached its song boundary: advance it and re-arm.
+   *
+   * Uses a non-forced advance so this can never skip a track — if a listener
+   * request already moved the queue on, the call just returns the current song
+   * and we re-arm for its boundary instead.
+   */
+  private async runStationTick(radioId: string): Promise<void> {
+    if (this.schedulerStopped) return;
+
+    try {
+      const state = await this.getQueueState(radioId);
+      const now = Date.now();
+
+      if (state?.startedAt && state.durationMs) {
+        const remainingMs = state.startedAt + state.durationMs - now;
+        if (remainingMs > SONG_END_BUFFER_MS) {
+          // Not due yet (someone advanced it while we were waiting).
+          this.scheduleStationAdvance(radioId, remainingMs + this.schedulerTrailMs);
+          return;
+        }
+      }
+
+      const result = await this.getNextTrack(radioId);
+
+      if (result?.no_content) {
+        this.emptyStations.set(radioId, now);
+        this.logger.log(
+          `Station "${radioId}" has no content, rechecking in ${Math.round(this.emptyStationRecheckMs / 60000)}min`,
+        );
+        this.scheduleStationAdvance(radioId, this.emptyStationRecheckMs);
+        return;
+      }
+
+      this.emptyStations.delete(radioId);
+      // setCurrentSong already re-armed the timer and notified listeners when a
+      // new song actually started; this covers the case where the advance
+      // returned the song that was already playing.
+      if (!this.stationTimers.has(radioId)) {
+        this.scheduleStationAdvance(
+          radioId,
+          this.remainingMsForPayload(result) + this.schedulerTrailMs,
+        );
+      }
+    } catch (e) {
+      this.logger.warn(
+        `Station rotation tick failed for "${radioId}": ${(e as Error)?.message ?? e}`,
+      );
+      this.scheduleStationAdvance(radioId, this.schedulerRetryMs);
+    }
+  }
+
+  /** How long the track in a `/radio/current`-shaped payload has left. */
+  private remainingMsForPayload(payload: any): number {
+    const remaining = Number(payload?.time_remaining_ms);
+    if (Number.isFinite(remaining) && remaining > 0) return remaining;
+    const durationSeconds = Number(payload?.duration_seconds);
+    if (Number.isFinite(durationSeconds) && durationSeconds > 0) {
+      return durationSeconds * 1000;
+    }
+    return DEFAULT_DURATION_SECONDS * 1000;
+  }
+
+  /**
+   * A new song just went live on a station.
+   *
+   * Re-arms the boundary timer and tells every listener to resync, so devices
+   * switch together on the server's clock instead of each one waiting to notice
+   * its own decoder finish (which is what let them drift onto different songs).
+   */
+  private onStationSongStarted(
+    radioId: string,
+    durationSeconds: number,
+    positionSeconds = 0,
+  ): void {
+    const remainingSeconds = Math.max(durationSeconds - positionSeconds, 1);
+    this.scheduleStationAdvance(
+      radioId,
+      remainingSeconds * 1000 + this.schedulerTrailMs,
+    );
+    void this.broadcastQueueUpdated(radioId);
+  }
+
+  private async broadcastQueueUpdated(radioId: string): Promise<void> {
+    try {
+      await this.stationRealtime.broadcast(radioId, { type: 'queue_updated' });
+    } catch (e) {
+      this.logger.warn(
+        `Failed to notify listeners of queue change on "${radioId}": ${(e as Error)?.message ?? e}`,
+      );
     }
   }
 
@@ -776,39 +920,38 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     try {
       const radioIds = await this.getBackgroundRadioIds();
       const now = Date.now();
-      // Stations with a snapshot newer than this don't need a refresh tick --
-      // listeners are still being served from cache, so skip the DB hit.
-      const backgroundRefreshSkipMs = 90 * 1000;
       for (const radioId of radioIds) {
+        // Already armed for its own boundary — the timer owns this station.
+        if (this.stationTimers.has(radioId)) continue;
+
         const emptyAt = this.emptyStations.get(radioId);
         if (emptyAt && now - emptyAt < this.emptyStationRecheckMs) {
           continue;
         }
 
-        const snapshot = this.lastKnownTrackByRadio.get(radioId);
-        if (snapshot && now - snapshot.updatedAt < backgroundRefreshSkipMs) {
-          // Fresh enough; don't poke the DB.
-          continue;
-        }
-
         attemptedAny = true;
         try {
-          const result = await this.getCurrentTrack(radioId);
-          allFailed = false;
-          if (result?.no_content) {
-            this.emptyStations.set(radioId, now);
-            this.logger.log(
-              `Station "${radioId}" has no content, skipping for ${Math.round(this.emptyStationRecheckMs / 60000)}min`,
+          const state = await this.getQueueState(radioId);
+          const remainingMs =
+            state?.startedAt && state.durationMs
+              ? state.startedAt + state.durationMs - now
+              : 0;
+          if (remainingMs > SONG_END_BUFFER_MS) {
+            // Mid-song: just arm the boundary, no selection work needed.
+            this.scheduleStationAdvance(
+              radioId,
+              remainingMs + this.schedulerTrailMs,
             );
           } else {
-            this.emptyStations.delete(radioId);
+            await this.runStationTick(radioId);
           }
+          allFailed = false;
         } catch (e) {
           this.logger.warn(
             `Background rotation failed for radio "${radioId}": ${e?.message ?? e}`,
           );
         }
-        // Spread load: brief gap so we don't fire 24 station refreshes back-to-back.
+        // Spread load: brief gap so we don't fire 24 stations back-to-back.
         await new Promise((r) => setTimeout(r, 250));
       }
       if (!attemptedAny) {
@@ -969,6 +1112,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     };
 
     await this.radioStateService.setCurrentState(state, radioId);
+    this.onStationSongStarted(radioId, durationSeconds);
   }
 
   /** Global pause for all listeners on a station. */
@@ -1025,6 +1169,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       playedAt: new Date(now - entry.positionSeconds * 1000).toISOString(),
     };
     await this.radioStateService.setCurrentState(state, radioId);
+    this.onStationSongStarted(radioId, durationSeconds, entry.positionSeconds);
     return this.getCurrentTrack(radioId);
   }
 
@@ -2313,9 +2458,68 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
    * 4. Handle playlist switch if needed (save/restore positions)
    * 5. Play from appropriate playlist with checkpointing
    */
+  /**
+   * Decide whether a caller's forced advance should actually rotate the queue.
+   *
+   * The caller tells us which song it just finished (`afterSongId`). If the
+   * queue has already moved past that song, someone else advanced first and
+   * this request is a duplicate — honouring it would skip a track for every
+   * listener on the station. That is the bug where a device lagging behind
+   * rotates the queue a second time.
+   *
+   * Older clients send no song id; those fall back to a short time debounce,
+   * which is weaker (it can't tell a duplicate from a genuine advance) but is
+   * all we can do without knowing what the caller was playing.
+   */
+  private async shouldHonourForceAdvance(
+    radioId: string,
+    currentState: RadioState | null,
+    afterSongId: string | null,
+    now: number,
+  ): Promise<boolean> {
+    if (afterSongId) {
+      const currentId = currentState?.songId?.replace(/^admin:|^song:/, '');
+      if (currentId && currentId !== afterSongId) {
+        this.logger.log(
+          `Ignoring stale force advance for radio ${radioId}: caller finished ${afterSongId}, queue is on ${currentId}`,
+        );
+        return false;
+      }
+      return true;
+    }
+
+    const lastAdvancedAt = await this.getLastAdvanceAt(radioId);
+    return now - lastAdvancedAt >= this.advanceDebounceMs;
+  }
+
+  /** Last advance time, preferring Redis so it survives a restart. */
+  private async getLastAdvanceAt(radioId: string): Promise<number> {
+    try {
+      const stored = await this.radioStateService.getLastAdvanceAt(radioId);
+      if (stored > 0) return stored;
+    } catch (e) {
+      this.logger.warn(
+        `Failed to read last advance time for ${radioId}: ${(e as Error)?.message ?? e}`,
+      );
+    }
+    return this.lastAdvanceAt.get(radioId) ?? 0;
+  }
+
+  private async recordAdvance(radioId: string, at: number): Promise<void> {
+    this.lastAdvanceAt.set(radioId, at);
+    try {
+      await this.radioStateService.setLastAdvanceAt(at, radioId);
+    } catch (e) {
+      this.logger.warn(
+        `Failed to persist last advance time for ${radioId}: ${(e as Error)?.message ?? e}`,
+      );
+    }
+  }
+
   async getNextTrack(
     radioId: string = DEFAULT_RADIO_ID,
     forceAdvance: boolean = false,
+    afterSongId: string | null = null,
   ): Promise<any> {
     // Serialise concurrent advances per radio to prevent double-popping the
     // queue when getCurrentTrack and an explicit /next call race.
@@ -2323,7 +2527,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     if (inflight) {
       return inflight;
     }
-    const promise = this.doGetNextTrack(radioId, forceAdvance);
+    const promise = this.doGetNextTrack(radioId, forceAdvance, afterSongId);
     this.advanceLocks.set(radioId, promise);
     try {
       return await promise;
@@ -2335,26 +2539,25 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   private async doGetNextTrack(
     radioId: string,
     forceAdvance: boolean,
+    afterSongId: string | null = null,
   ): Promise<any> {
     const supabase = getSupabaseClient();
     const now = Date.now();
     const trial = isTrialByFireActiveAt(new Date(now));
 
-    // Debounce force advances: if the queue advanced moments ago, a forced
-    // advance from another synced device hitting end-of-song at the same time
-    // should NOT skip again — fall back to non-force so it returns the song the
-    // queue just moved to, keeping every listener on the same track.
-    if (forceAdvance) {
-      const lastAdv = this.lastAdvanceAt.get(radioId) ?? 0;
-      if (now - lastAdv < this.advanceDebounceMs) {
-        forceAdvance = false;
-      }
-    }
-
     const [isLive, currentState] = await Promise.all([
       this.withTimeoutFallback(this.isLiveBroadcastActive(), false, 4000, 'isLiveBroadcastActive'),
       this.getQueueState(radioId),
     ]);
+
+    if (forceAdvance) {
+      forceAdvance = await this.shouldHonourForceAdvance(
+        radioId,
+        currentState,
+        afterSongId,
+        now,
+      );
+    }
 
     if (!forceAdvance) {
       const transport = await this.radioStateService.getTransportState(radioId);
@@ -2459,7 +2662,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
 
     // Past the "current song still playing" early return — we are committing to
     // an advance. Record it so near-simultaneous force advances are debounced.
-    this.lastAdvanceAt.set(radioId, now);
+    await this.recordAdvance(radioId, now);
 
     const currentSongId = currentState?.songId;
     this.nextSongNotified5MinFor.delete(radioId);
@@ -3058,6 +3261,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       },
       radioId,
     );
+    this.onStationSongStarted(radioId, durationSeconds);
 
     const listenerCount =
       await this.radioStateService.getListenerCount(radioId);

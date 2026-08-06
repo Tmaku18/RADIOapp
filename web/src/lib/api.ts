@@ -234,7 +234,9 @@ export const radioApi = {
       params: radioId ? { radio: radioId } : undefined,
       timeout: RADIO_API_TIMEOUT_MS,
     }),
-  getNextTrack: (radioIdOrParams?: string | { radio?: string; force?: boolean }) => {
+  getNextTrack: (
+    radioIdOrParams?: string | { radio?: string; force?: boolean; after?: string },
+  ) => {
     const params =
       typeof radioIdOrParams === 'string'
         ? { radio: radioIdOrParams }

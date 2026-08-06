@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../models/track.dart';
 import '../models/track_fetch_result.dart';
 import 'api_service.dart';
@@ -6,10 +8,32 @@ class RadioService {
   final ApiService _apiService = ApiService();
   static const String defaultRadioId = 'global';
 
-  String _withRadio(String endpoint, String radioId) {
+  static String _withRadio(String endpoint, String radioId) {
     final separator = endpoint.contains('?') ? '&' : '?';
     final encoded = Uri.encodeQueryComponent(radioId.trim());
     return '$endpoint${separator}radio=$encoded';
+  }
+
+  /// Build the `/radio/next` request path.
+  ///
+  /// Split out from [getNextTrack] so the `after` guard — the thing standing
+  /// between a lagging device and skipping a song for the whole station — is
+  /// covered without an HTTP round trip.
+  @visibleForTesting
+  static String buildNextEndpoint({
+    String radioId = defaultRadioId,
+    bool force = false,
+    String? after,
+  }) {
+    var endpoint = _withRadio('radio/next', radioId);
+    if (force) {
+      endpoint = '$endpoint&force=true';
+    }
+    final afterId = after?.trim();
+    if (afterId != null && afterId.isNotEmpty) {
+      endpoint = '$endpoint&after=${Uri.encodeQueryComponent(afterId)}';
+    }
+    return endpoint;
   }
 
   /// Parse a radio payload, stamping the arrival time and round trip so the
@@ -51,17 +75,21 @@ class RadioService {
     }
   }
 
+  /// Advance the shared queue.
+  ///
+  /// [after] is the song this device just finished. The server only honours a
+  /// forced advance while the queue is still on that song, so a device that
+  /// fell behind can no longer skip a track for everyone else.
   Future<TrackFetchResult> getNextTrack({
     String radioId = defaultRadioId,
     bool force = false,
+    String? after,
   }) async {
     final timer = Stopwatch()..start();
     try {
-      var endpoint = _withRadio('radio/next', radioId);
-      if (force) {
-        endpoint = '$endpoint&force=true';
-      }
-      final response = await _apiService.get(endpoint);
+      final response = await _apiService.get(
+        buildNextEndpoint(radioId: radioId, force: force, after: after),
+      );
       timer.stop();
       return _parseTrackResponse(response, timer);
     } catch (e) {

@@ -50,8 +50,10 @@ class RadioConnectionMonitor {
   static const int _failureThreshold = 2;
 
   /// How long the decoder may sit in `buffering` before we treat it as a stall
-  /// rather than normal rebuffering.
-  static const Duration _bufferingStallThreshold = Duration(seconds: 6);
+  /// rather than normal rebuffering. Song boundaries and cellular handoffs
+  /// routinely take several seconds, and calling those a weak connection just
+  /// trains listeners to ignore the warning.
+  static const Duration _bufferingStallThreshold = Duration(seconds: 12);
 
   /// Minimum spacing between notices. A flapping link would otherwise bury the
   /// screen in snackbars.
