@@ -37,6 +37,7 @@ import {
   Flame,
   Headphones,
   Library,
+  ListMusic,
   Megaphone,
   Mic2,
   Music,
@@ -80,6 +81,7 @@ type MainNavItem = { name: string; href: string; icon: LucideIcon; external?: bo
 
 const listenerNavigation: MainNavItem[] = [
   { name: 'Radio', href: '/listen', icon: Music },
+  { name: 'Pro-Radio', href: '/pro-radio', icon: ListMusic },
   { name: 'Live DJ', href: '/dj', icon: Headphones },
   { name: 'Live Performances', href: '/performances', icon: Mic2 },
   { name: 'Library', href: '/browse/saved', icon: Library },
@@ -93,6 +95,7 @@ const listenerNavigation: MainNavItem[] = [
 
 const artistNavigation: MainNavItem[] = [
   { name: 'Radio', href: '/listen', icon: Music },
+  { name: 'Pro-Radio', href: '/pro-radio', icon: ListMusic },
   { name: 'Live DJ', href: '/dj', icon: Headphones },
   { name: 'Live Performances', href: '/performances', icon: Mic2 },
   { name: 'Library', href: '/browse/saved', icon: Library },
@@ -162,6 +165,7 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith('/messages')) return 'Messages';
   if (pathname.startsWith('/dashboard')) return 'Dashboard';
   if (pathname.startsWith('/listen')) return 'Radio';
+  if (pathname.startsWith('/pro-radio')) return 'Pro-Radio';
   if (pathname.startsWith('/dj')) return 'Live DJ';
   if (pathname.startsWith('/performances')) return 'Live Performances';
   if (pathname.startsWith('/yield')) return 'Rewards';

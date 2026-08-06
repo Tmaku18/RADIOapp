@@ -169,7 +169,17 @@ export class PlaylistsService {
       .order('position', { ascending: true });
     if (error) throw new BadRequestException(error.message);
 
-    const tracks = [];
+    const tracks: Array<{
+      id: string;
+      position: number;
+      songId: string;
+      title: string;
+      artistName: string | null;
+      artistId: string | null;
+      artworkUrl: string | null;
+      durationSeconds: number;
+      streamUrl: string | null;
+    }> = [];
     for (const row of rows ?? []) {
       const song = (row as any).songs;
       if (!song) continue;
@@ -179,14 +189,14 @@ export class PlaylistsService {
           ? await signSongAudioUrl(song.audio_url ?? null)
           : null;
       tracks.push({
-        id: (row as any).id,
-        position: (row as any).position,
-        songId: song.id,
-        title: song.title,
-        artistName: song.artist_name,
-        artistId: song.artist_id,
-        artworkUrl: song.artwork_url,
-        durationSeconds: song.duration_seconds ?? 0,
+        id: String((row as any).id),
+        position: Number((row as any).position ?? 0),
+        songId: String(song.id),
+        title: String(song.title ?? 'Track'),
+        artistName: song.artist_name ?? null,
+        artistId: song.artist_id ?? null,
+        artworkUrl: song.artwork_url ?? null,
+        durationSeconds: Number(song.duration_seconds ?? 0),
         streamUrl,
       });
     }
