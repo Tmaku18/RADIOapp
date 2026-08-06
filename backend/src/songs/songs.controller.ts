@@ -1266,12 +1266,12 @@ export class SongsController {
     @CurrentUser() user: FirebaseUser,
     @Param('id') songId: string,
   ) {
-    const { id } = await this.resolveUserIdAndRole(user.uid);
+    const { id, role } = await this.resolveUserIdAndRole(user.uid);
     const supabase = getSupabaseClient();
     const { data: song } = await supabase
       .from('songs')
       .select(
-        'id, artist_id, price_cents, is_for_sale, sample_url, product_kind, audio_url, status',
+        'id, artist_id, price_cents, is_for_sale, sample_url, product_kind, audio_url, status, opt_in_pro_radio',
       )
       .eq('id', songId)
       .single();
@@ -1282,12 +1282,24 @@ export class SongsController {
       (song as { product_kind?: string }).product_kind === 'beat'
         ? 'beat'
         : 'song';
+    const proRadioEligible =
+      productKind === 'song' &&
+      (song as { opt_in_pro_radio?: boolean }).opt_in_pro_radio === true &&
+      ((song as { status?: string }).status === 'approved' ||
+        (song as { status?: string }).status === 'active');
+    const streamEntitled = await this.songsService.hasSongEntitlement(
+      id,
+      role,
+      song,
+    );
     const fullPreviewAllowed =
       productKind === 'beat' && song.is_for_sale !== false;
     return {
       songId: song.id,
       owned,
       isOwner,
+      streamEntitled: streamEntitled || owned || isOwner,
+      proRadioEligible,
       priceCents: song.price_cents ?? (productKind === 'beat' ? 999 : 99),
       forSale: song.is_for_sale !== false,
       productKind,
@@ -1494,6 +1506,11 @@ export class SongsController {
     }
     if (body.optInFullSongRadio !== undefined) {
       updateData.opt_in_full_song_radio = body.optInFullSongRadio;
+      // All-rights acceptance also authorizes Pro-Radio on-demand streaming.
+      updateData.opt_in_pro_radio = body.optInFullSongRadio === true;
+      if (body.optInFullSongRadio === true) {
+        updateData.opt_in_dj_livestreams = true;
+      }
     }
     if (body.optInDjLivestreams !== undefined) {
       updateData.opt_in_dj_livestreams = body.optInDjLivestreams;

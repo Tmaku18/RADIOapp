@@ -32,6 +32,8 @@ import { VenueAdsModule } from './venue-ads/venue-ads.module';
 import { RefineryModule } from './refinery/refinery.module';
 import { ProNetworxModule } from './pro-networx/pro-networx.module';
 import { ProNetworkSubscriptionModule } from './pro-network-subscription/pro-network-subscription.module';
+import { ProRadioSubscriptionModule } from './pro-radio-subscription/pro-radio-subscription.module';
+import { PlaylistsModule } from './playlists/playlists.module';
 import { YieldModule } from './yield/yield.module';
 import { ArtistLiveModule } from './artist-live/artist-live.module';
 import { DjBoothModule } from './dj-booth/dj-booth.module';
@@ -75,6 +77,8 @@ import { RequestIdMiddleware } from './common/middleware';
     RefineryModule,
     ProNetworxModule,
     ProNetworkSubscriptionModule,
+    ProRadioSubscriptionModule,
+    PlaylistsModule,
     YieldModule,
     ArtistLiveModule,
     StreamingModule,

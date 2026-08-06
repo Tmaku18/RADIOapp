@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { usePlayback } from '@/components/playback';
 import type { PlaybackTrack } from '@/components/playback';
+import { songsApi } from '@/lib/api';
 import { ArtworkImage } from '@/components/common/ArtworkImage';
 
 export type DiscographyTrack = {
@@ -24,6 +25,8 @@ export type DiscographyTrack = {
   priceCents?: number | null;
   forSale?: boolean;
   owned?: boolean;
+  streamEntitled?: boolean;
+  proRadioEligible?: boolean;
 };
 
 function formatPrice(cents?: number | null): string {
@@ -58,6 +61,7 @@ type Props = {
   onRecordListen?: (trackId: string) => Promise<void> | void;
   onBuy?: (trackId: string) => Promise<void> | void;
   onDownload?: (trackId: string) => Promise<void> | void;
+  onProRadioPaywall?: () => void;
 };
 
 function toPlaybackTrack(t: DiscographyTrack): PlaybackTrack {
@@ -72,12 +76,20 @@ function toPlaybackTrack(t: DiscographyTrack): PlaybackTrack {
   };
 }
 
-export function DiscographyPlayer({ tracks, onToggleLike, onRecordListen, onBuy, onDownload }: Props) {
+export function DiscographyPlayer({
+  tracks,
+  onToggleLike,
+  onRecordListen,
+  onBuy,
+  onDownload,
+  onProRadioPaywall,
+}: Props) {
   const { state, actions } = usePlayback();
   const [seeking, setSeeking] = useState(false);
   const recordedForTrackRef = useRef<Set<string>>(new Set());
 
-  const isDiscographyActive = state.source === 'discography' && !!state.track;
+  const isDiscographyActive =
+    (state.source === 'discography' || state.source === 'proRadio') && !!state.track;
   const activeId = isDiscographyActive ? state.track!.id : null;
   const activeIndex = useMemo(() => tracks.findIndex((t) => t.id === activeId), [tracks, activeId]);
   const activeTrack = useMemo(() => (activeIndex >= 0 ? tracks[activeIndex] : null), [tracks, activeIndex]);
@@ -92,11 +104,46 @@ export function DiscographyPlayer({ tracks, onToggleLike, onRecordListen, onBuy,
   const playIndex = useCallback(
     async (index: number, autoPlay = false) => {
       const t = tracks[index];
-      if (!t || !playableUrl(t)) return;
+      if (!t) return;
+
+      const streamEntitled =
+        t.streamEntitled === true || t.owned === true;
+      if (t.proRadioEligible && !streamEntitled) {
+        onProRadioPaywall?.();
+        return;
+      }
+
+      if (streamEntitled && !t.owned) {
+        try {
+          const res = await songsApi.getStreamUrl(t.id);
+          const url = res.data?.url;
+          if (!url) return;
+          actions.playProRadioQueue(
+            [
+              {
+                id: t.id,
+                title: t.title,
+                artistName: t.artistName,
+                artistId: t.artistId,
+                artworkUrl: t.artworkUrl ?? null,
+                audioUrl: url,
+                durationSeconds: t.durationSeconds ?? 0,
+              },
+            ],
+            0,
+          );
+          if (autoPlay) await actions.play();
+          return;
+        } catch {
+          return;
+        }
+      }
+
+      if (!playableUrl(t)) return;
       actions.loadTrack(toPlaybackTrack(t), 'discography');
       if (autoPlay) await actions.play();
     },
-    [actions, tracks],
+    [actions, onProRadioPaywall, tracks],
   );
 
   const togglePlay = useCallback(async () => {

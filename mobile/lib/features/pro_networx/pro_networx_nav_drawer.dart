@@ -154,6 +154,13 @@ class ProNetworxNavDrawer extends StatelessWidget {
                     onTap: () => _backToRadio(context),
                   ),
                   _ProNavRow(
+                    icon: Icons.queue_music_outlined,
+                    label: 'Pro-Radio hub',
+                    active: false,
+                    muted: true,
+                    onTap: () => _openRoute(context, AppRoutes.proRadio),
+                  ),
+                  _ProNavRow(
                     icon: Icons.info_outline,
                     label: 'About Pro',
                     active: false,

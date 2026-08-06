@@ -17,7 +17,10 @@ import '../../core/services/song_purchase_flow.dart';
 import '../../core/services/livestream_service.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/services/pro_networx_service.dart';
+import '../../core/services/pro_radio_queue_service.dart';
 import '../../core/services/users_service.dart';
+import '../../core/models/pro_radio_models.dart';
+import '../../features/pro_radio/widgets/pro_radio_paywall_sheet.dart';
 import '../../core/brand/brand_assets.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
@@ -45,7 +48,9 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
   final LivestreamService _live = LivestreamService();
   final UsersService _users = UsersService();
   final ProNetworxService _pro = ProNetworxService();
+  final ProRadioQueueService _proRadioQueue = ProRadioQueueService.instance;
   final ScrollController _scrollController = ScrollController();
+
   final Map<String, GlobalKey> _songKeys = <String, GlobalKey>{};
 
   bool _loading = true;
@@ -80,6 +85,16 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
     _load();
     _player.playerStateStream.listen((s) {
       if (!mounted) return;
+      if (_isProRadioActive) {
+        final id = _proRadioQueue.current?.songId;
+        if (id != null && id != _activeSongId) {
+          setState(() => _activeSongId = id);
+        }
+        final handler = AudioPlayerService.handler;
+        final audible = s.playing && !handler.userPaused;
+        if (_isPlaying != audible) setState(() => _isPlaying = audible);
+        return;
+      }
       if (!_isOurSourceActive) {
         if (_isPlaying) setState(() => _isPlaying = false);
         return;
@@ -90,7 +105,9 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
     });
     _player.processingStateStream.listen((st) {
       if (!mounted) return;
-      if (st == ProcessingState.completed && _isOurSourceActive) {
+      if (st == ProcessingState.completed &&
+          _isOurSourceActive &&
+          !_isProRadioActive) {
         _playNext();
       }
     });
@@ -105,6 +122,26 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
     final id = _activeSongId;
     if (id == null) return false;
     return tag.id == id;
+  }
+
+  bool get _isProRadioActive {
+    final tag = _player.sequenceState.currentSource?.tag;
+    if (tag is! MediaItem) return false;
+    return tag.extras?['source']?.toString() == 'pro_radio';
+  }
+
+  Future<List<Song>> _loadArtistProfileTracks() async {
+    final api = ApiService();
+    final raw = await api.get('users/${widget.artistId}/artist-profile');
+    if (raw is! Map) return const [];
+    final list = raw['librarySongs'];
+    if (list is! List) return const [];
+    return list
+        .whereType<Map>()
+        .map(
+          (e) => Song.fromJson(e.map((k, v) => MapEntry(k.toString(), v))),
+        )
+        .toList();
   }
 
   @override
@@ -164,7 +201,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
           : null;
       final tracks = isOwner
           ? await _songs.getMine()
-          : await _songs.listApprovedByArtist(widget.artistId, limit: 100);
+          : await _loadArtistProfileTracks();
       if (!mounted) return;
       setState(() {
         _isOwnerProfile = isOwner;
@@ -351,7 +388,90 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
     return _tracks.indexWhere((t) => t.id == id);
   }
 
+  bool _canStreamFull(Song s) {
+    if (s.isBeat) return false;
+    return _ownsSong(s) || s.streamEntitled;
+  }
+
+  Future<void> _playViaProRadio(Song s, {bool toggle = true}) async {
+    final same = _proRadioQueue.current?.songId == s.id && _isProRadioActive;
+    if (same && toggle) {
+      await _toggleProRadioPlayPause();
+      return;
+    }
+
+    _listenTimer?.cancel();
+    _sampleStopTimer?.cancel();
+    if (mounted) {
+      setState(() {
+        _activeSongId = s.id;
+        _isPlaying = true;
+      });
+    }
+
+    final items = <ProRadioQueueItem>[];
+    for (final t in _tracks) {
+      if (t.isBeat || !_canStreamFull(t)) continue;
+      final url = t.streamEntitled && t.audioUrl.isNotEmpty
+          ? t.audioUrl
+          : await _songs.getStreamUrl(t.id);
+      if (url == null || url.isEmpty) continue;
+      items.add(
+        ProRadioQueueItem(
+          songId: t.id,
+          title: t.title,
+          artistName: t.artistName,
+          artworkUrl: t.artworkUrl,
+          audioUrl: url,
+        ),
+      );
+    }
+    if (items.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _activeSongId = null;
+        _isPlaying = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not start Pro-Radio playback.')),
+      );
+      return;
+    }
+    final startAt = items.indexWhere((e) => e.songId == s.id);
+    await _proRadioQueue.playItems(items, startAt: startAt < 0 ? 0 : startAt);
+    _scheduleListenRecord(s.id);
+  }
+
+  Future<void> _toggleProRadioPlayPause() async {
+    final handler = AudioPlayerService.handler;
+    if (_player.playing && !handler.userPaused && _player.volume > 0) {
+      await _player.pause();
+    } else {
+      await handler.setUserPaused(false);
+      await handler.applyOutputVolume();
+      await _player.play();
+    }
+    if (mounted) {
+      setState(
+        () => _isPlaying = _player.playing && !handler.userPaused,
+      );
+    }
+  }
+
   Future<void> _playSong(Song s, {bool toggle = true}) async {
+    final owns = _ownsSong(s);
+    final isBeat = s.isBeat;
+
+    if (!isBeat && s.proRadioEligible && !s.streamEntitled && !owns) {
+      await ProRadioPaywallSheet.show(context);
+      return;
+    }
+
+    if (!isBeat && _canStreamFull(s)) {
+      await _playViaProRadio(s, toggle: toggle);
+      return;
+    }
+
     final same = _activeSongId == s.id && _isOurSourceActive;
     if (same && toggle) {
       final handler = AudioPlayerService.handler;
@@ -378,9 +498,6 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
       });
     }
 
-    final owns = _ownsSong(s);
-    // Beats: full listen-before-buy via stream. Songs: 30s sample only.
-    final isBeat = s.isBeat;
     String? playUrl;
     if (owns || isBeat) {
       playUrl = (await _songs.getStreamUrl(s.id)) ?? s.audioUrl;
@@ -538,6 +655,13 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
   }
 
   Future<void> _playNext() async {
+    if (_isProRadioActive) {
+      await _proRadioQueue.skipNext();
+      if (mounted) {
+        setState(() => _activeSongId = _proRadioQueue.current?.songId);
+      }
+      return;
+    }
     // Only auto-advance while this profile still owns the shared player.
     if (_activeSongId == null) return;
     final tag = _player.sequenceState.currentSource?.tag;
@@ -556,6 +680,13 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
   }
 
   Future<void> _playPrev() async {
+    if (_isProRadioActive) {
+      await _proRadioQueue.skipPrevious();
+      if (mounted) {
+        setState(() => _activeSongId = _proRadioQueue.current?.songId);
+      }
+      return;
+    }
     final idx = _activeIndex;
     if (idx <= 0) return;
     await _playSong(_tracks[idx - 1], toggle: false);
@@ -1184,17 +1315,21 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
                   final active = _activeSongId == s.id;
                   final liked = _likedBySongId[s.id] == true;
                   final favorited = _favoritedBySongId[s.id] == true;
-                  final accessLabel = _ownsSong(s)
+                  final accessLabel = _canStreamFull(s)
                       ? (_isOwnerProfile
                             ? (s.isBeat
                                 ? 'Your beat · full play'
                                 : 'Your track · full play')
-                            : 'Purchased · full play')
+                            : (_ownsSong(s)
+                                ? 'Purchased · full play'
+                                : 'Pro-Radio · full play'))
                       : (s.isBeat
                           ? (s.forSale
                               ? 'BEAT FOR SALE · full preview'
                               : 'Beat · full preview')
-                          : 'Song · 30s sample only');
+                          : (s.proRadioEligible
+                              ? 'Pro-Radio · subscribe for full play'
+                              : 'Song · 30s sample only'));
                   final focused = _highlightedSongId == s.id;
                   return Padding(
                     key: _keyForSong(s.id),
@@ -1400,7 +1535,13 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
                                 label: Text(
                                   active && _isPlaying
                                       ? 'Pause'
-                                      : (s.isBeat ? 'Play full beat' : 'Play sample'),
+                                      : (s.isBeat
+                                          ? 'Play full beat'
+                                          : (_canStreamFull(s)
+                                              ? 'Play full song'
+                                              : (s.proRadioEligible
+                                                  ? 'Play with Pro-Radio'
+                                                  : 'Play sample'))),
                                 ),
                               ),
                               const SizedBox(width: 8),

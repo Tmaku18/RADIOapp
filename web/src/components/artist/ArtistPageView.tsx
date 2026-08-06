@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { DiscographyPlayer, type DiscographyTrack } from '@/components/player/DiscographyPlayer';
 import { usePlayback } from '@/components/playback';
+import { ProRadioPaywallCard } from '@/components/pro-radio/ProRadioPaywallCard';
 import { SongLikesDialog } from '@/components/songs/SongLikesDialog';
 
 type ArtistSong = {
@@ -24,6 +25,8 @@ type ArtistSong = {
   forSale?: boolean;
   owned?: boolean;
   locked?: boolean;
+  streamEntitled?: boolean;
+  proRadioEligible?: boolean;
   artworkUrl: string | null;
   durationSeconds: number;
   playCount: number;
@@ -117,6 +120,8 @@ function toDiscographyTrack(
     priceCents: song.priceCents ?? 99,
     forSale: song.forSale !== false,
     owned,
+    streamEntitled: song.streamEntitled === true || owned,
+    proRadioEligible: song.proRadioEligible === true,
     artworkUrl: song.artworkUrl,
     durationSeconds: song.durationSeconds,
     likeCount: song.likeCount,
@@ -147,6 +152,7 @@ export function ArtistPageView({
   const [likesDialogSongTitle, setLikesDialogSongTitle] = useState('');
   const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set());
   const [buyingId, setBuyingId] = useState<string | null>(null);
+  const [proRadioPaywallOpen, setProRadioPaywallOpen] = useState(false);
 
   const refreshFollowState = async (targetUserId: string) => {
     const canRelate = !!profile?.id && profile.id !== targetUserId;
@@ -419,6 +425,42 @@ export function ArtistPageView({
 
   const handlePlayPopular = async (song: ArtistSong) => {
     const owned = !!song.owned || ownedIds.has(song.id);
+    const streamEntitled = song.streamEntitled === true || owned;
+    const proRadioEligible = song.proRadioEligible === true;
+
+    if (proRadioEligible && !streamEntitled) {
+      setProRadioPaywallOpen(true);
+      return;
+    }
+
+    if (streamEntitled && !owned) {
+      try {
+        const res = await songsApi.getStreamUrl(song.id);
+        const url = res.data?.url;
+        if (!url) return;
+        actions.playProRadioQueue(
+          [
+            {
+              id: song.id,
+              title: song.title,
+              artistName: song.artistName,
+              artistId: song.artistId,
+              artworkUrl: song.artworkUrl,
+              audioUrl: url,
+              durationSeconds: song.durationSeconds,
+            },
+          ],
+          0,
+        );
+        await actions.play();
+        void handleRecordListen(song.id);
+        return;
+      } catch {
+        setError('Could not play the full song.');
+        return;
+      }
+    }
+
     const url = owned
       ? song.audioUrl ?? song.sampleUrl ?? song.previewUrl ?? null
       : song.sampleUrl ?? song.previewUrl ?? null;
@@ -433,7 +475,7 @@ export function ArtistPageView({
         audioUrl: url,
         durationSeconds: owned ? song.durationSeconds : 30,
       },
-      'discography',
+      owned ? 'discography' : 'discography',
     );
     await actions.play();
   };
@@ -775,6 +817,7 @@ export function ArtistPageView({
               onRecordListen={handleRecordListen}
               onBuy={handleBuy}
               onDownload={handleDownload}
+              onProRadioPaywall={() => setProRadioPaywallOpen(true)}
             />
           )}
         </CardContent>
@@ -786,6 +829,15 @@ export function ArtistPageView({
         songId={likesDialogSongId}
         songTitle={likesDialogSongTitle}
       />
+
+      {proRadioPaywallOpen && (
+        <div className="space-y-2">
+          <ProRadioPaywallCard successPath={`/artist/${artistId}`} />
+          <Button variant="ghost" type="button" onClick={() => setProRadioPaywallOpen(false)}>
+            Close
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

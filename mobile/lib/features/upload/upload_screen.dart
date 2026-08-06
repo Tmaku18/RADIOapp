@@ -947,7 +947,7 @@ class _UploadScreenState extends State<UploadScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Required to submit for NETWORX Radio rotation.',
+                    'Required. Covers live radio, Pro-Radio on-demand streaming, and DJ livestreams.',
                     style: TextStyle(color: surfaces.textMuted, fontSize: 12),
                   ),
                   CheckboxListTile(
@@ -956,26 +956,16 @@ class _UploadScreenState extends State<UploadScreen> {
                     value: _optInFullSongRadio,
                     onChanged: _isUploading
                         ? null
-                        : (value) =>
-                            setState(() => _optInFullSongRadio = value ?? false),
+                        : (value) {
+                            final accepted = value ?? false;
+                            setState(() {
+                              _optInFullSongRadio = accepted;
+                              // All-rights acceptance includes DJ livestreams.
+                              if (accepted) _optInDjLivestreams = true;
+                            });
+                          },
                     title: Text(
                       FullSongRadioOptIn.primaryAuthorization,
-                      style: TextStyle(
-                        color: surfaces.textSecondary,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                  CheckboxListTile(
-                    contentPadding: EdgeInsets.zero,
-                    controlAffinity: ListTileControlAffinity.leading,
-                    value: _optInDjLivestreams,
-                    onChanged: _isUploading
-                        ? null
-                        : (value) =>
-                            setState(() => _optInDjLivestreams = value ?? false),
-                    title: Text(
-                      FullSongRadioOptIn.djLivestreams,
                       style: TextStyle(
                         color: surfaces.textSecondary,
                         fontSize: 13,

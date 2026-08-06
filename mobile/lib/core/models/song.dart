@@ -31,6 +31,10 @@ class Song {
   final bool discoverEnabled;
   final double? discoverClipStartSeconds;
   final double? discoverClipEndSeconds;
+  /// Full stream via purchase or Pro-Radio (from artist profile API).
+  final bool streamEntitled;
+  final bool proRadioEligible;
+  final bool locked;
 
   Song({
     required this.id,
@@ -60,6 +64,9 @@ class Song {
     this.discoverEnabled = false,
     this.discoverClipStartSeconds,
     this.discoverClipEndSeconds,
+    this.streamEntitled = false,
+    this.proRadioEligible = false,
+    this.locked = true,
   });
 
   factory Song.fromJson(Map<String, dynamic> json) {
@@ -127,6 +134,11 @@ class Song {
       discoverClipEndSeconds: parseDoubleOrNull(
         json['discover_clip_end_seconds'] ?? json['discoverClipEndSeconds'],
       ),
+      streamEntitled:
+          json['streamEntitled'] == true || json['stream_entitled'] == true,
+      proRadioEligible: json['proRadioEligible'] == true ||
+          json['pro_radio_eligible'] == true,
+      locked: json['locked'] == true,
       createdAt: DateTime.parse(
         (json['created_at'] ?? json['createdAt']).toString(),
       ),
@@ -163,6 +175,9 @@ class Song {
       'discover_enabled': discoverEnabled,
       'discover_clip_start_seconds': discoverClipStartSeconds,
       'discover_clip_end_seconds': discoverClipEndSeconds,
+      'stream_entitled': streamEntitled,
+      'pro_radio_eligible': proRadioEligible,
+      'locked': locked,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };

@@ -12,6 +12,7 @@ import {
   DEFAULT_SONG_PRICE_CENTS,
   snapToSongPriceTier,
 } from '../payments/song-price-tiers';
+import { ProRadioSubscriptionService } from '../pro-radio-subscription/pro-radio-subscription.service';
 import { CopyrightService } from '../copyright/copyright.service';
 import { LyricsService } from '../lyrics/lyrics.service';
 import { PushNotificationService } from '../push-notifications/push-notification.service';
@@ -92,6 +93,7 @@ export class SongsService {
     private readonly lyricsService: LyricsService,
     private readonly pushNotificationService: PushNotificationService,
     private readonly emailService: EmailService,
+    private readonly proRadioSub: ProRadioSubscriptionService,
   ) {
     const configuredPath = (process.env.FFMPEG_PATH || '').trim();
     const bundledPath = typeof ffmpegStatic === 'string' ? ffmpegStatic : '';
@@ -628,19 +630,37 @@ export class SongsService {
     return !!data;
   }
 
-  /** True when the user owns, is admin, or has purchased the song. */
+  /**
+   * True when the user owns, is admin, has purchased the song, or (for
+   * streaming only) has an active Pro-Radio sub and the song opted in.
+   */
   async hasSongEntitlement(
     userId: string,
     userRole: string | null | undefined,
-    song: { id: string; artist_id?: string | null },
+    song: {
+      id: string;
+      artist_id?: string | null;
+      opt_in_pro_radio?: boolean | null;
+      product_kind?: string | null;
+      status?: string | null;
+    },
+    options?: { download?: boolean },
   ): Promise<boolean> {
     if (userRole === 'admin') return true;
-    return this.isSongOwnedByUser(userId, song);
+    if (await this.isSongOwnedByUser(userId, song)) return true;
+    // Downloads require ownership — Pro-Radio is stream-only.
+    if (options?.download) return false;
+    if ((song.product_kind ?? 'song') === 'beat') return false;
+    if (song.opt_in_pro_radio !== true) return false;
+    const status = (song.status ?? '').toLowerCase();
+    if (status && status !== 'approved' && status !== 'active') return false;
+    const access = await this.proRadioSub.getAccess(userId);
+    return access.hasAccess;
   }
 
   /**
    * Resolve a signed, playable URL for the FULL track if the user is entitled
-   * (owner/admin/purchaser). Otherwise throws Forbidden.
+   * (owner/admin/purchaser/Pro-Radio stream). Otherwise throws Forbidden.
    */
   async getEntitledFullUrl(
     userId: string,
@@ -652,13 +672,15 @@ export class SongsService {
     const { data: song, error } = await supabase
       .from('songs')
       .select(
-        'id, artist_id, title, artist_name, audio_url, product_kind, is_for_sale, status',
+        'id, artist_id, title, artist_name, audio_url, product_kind, is_for_sale, status, opt_in_pro_radio',
       )
       .eq('id', songId)
       .single();
     if (error || !song) throw new NotFoundException('Song not found');
 
-    const entitled = await this.hasSongEntitlement(userId, userRole, song);
+    const entitled = await this.hasSongEntitlement(userId, userRole, song, {
+      download: options?.download,
+    });
     const isBeatPreview =
       !options?.download &&
       (song as { product_kind?: string }).product_kind === 'beat' &&
@@ -669,7 +691,9 @@ export class SongsService {
       throw new ForbiddenException('Purchase this track to download it');
     }
     if (!entitled && !isBeatPreview) {
-      throw new ForbiddenException('Purchase this song to play or download it');
+      throw new ForbiddenException(
+        'Purchase this song or subscribe to Pro-Radio to play it',
+      );
     }
     const downloadName = options?.download
       ? `${(song.artist_name ?? 'track').trim()} - ${(song.title ?? 'track').trim()}.mp3`.replace(
@@ -1463,9 +1487,14 @@ export class SongsService {
       opt_in_full_song_radio: isBeat
         ? false
         : createSongDto.optInFullSongRadio === true,
+      // All-rights upload checkbox also authorizes Pro-Radio on-demand streaming.
+      opt_in_pro_radio: isBeat
+        ? false
+        : createSongDto.optInFullSongRadio === true,
       opt_in_dj_livestreams: isBeat
         ? false
-        : createSongDto.optInDjLivestreams === true,
+        : createSongDto.optInDjLivestreams === true ||
+          createSongDto.optInFullSongRadio === true,
       opt_in_dj_archived_mixes: isBeat
         ? false
         : createSongDto.optInDjArchivedMixes === true,
@@ -1475,7 +1504,13 @@ export class SongsService {
       ...statusFields,
       // Beats stay off radio rotation; buyers browse the marketplace.
       // Applied after statusFields so beta auto-approve cannot force public.
-      ...(isBeat ? { is_public: false, opt_in_full_song_radio: false } : {}),
+      ...(isBeat
+        ? {
+            is_public: false,
+            opt_in_full_song_radio: false,
+            opt_in_pro_radio: false,
+          }
+        : {}),
     };
     const legacyBaseInsertPayload = {
       artist_id: userId,
@@ -1538,6 +1573,20 @@ export class SongsService {
       .insert(discoverInsertPayload)
       .select()
       .single();
+
+    if (
+      insertRes.error &&
+      this.isMissingColumnError(insertRes.error, 'opt_in_pro_radio')
+    ) {
+      const { opt_in_pro_radio: _opr, ...withoutProRadio } =
+        discoverInsertPayload as Record<string, unknown>;
+      void _opr;
+      insertRes = await supabase
+        .from('songs')
+        .insert(withoutProRadio)
+        .select()
+        .single();
+    }
 
     if (
       insertRes.error &&

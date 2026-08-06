@@ -1,10 +1,10 @@
 /**
  * Unified playback types for global PlaybackProvider.
- * Single audio session: only one source (radio | discography | refinery) plays at a time.
+ * Single audio session: only one source (radio | discography | refinery | proRadio) plays at a time.
  * Radio soft-pauses when other page media (discover clips, samples, etc.) starts.
  */
 
-export type PlaybackSource = 'radio' | 'discography' | 'refinery' | null;
+export type PlaybackSource = 'radio' | 'discography' | 'refinery' | 'proRadio' | null;
 
 export interface PlaybackTrack {
   id: string;
@@ -43,6 +43,8 @@ export interface PlaybackState {
   isMuted: boolean;
   /** Radio: synced to live */
   isLive: boolean;
+  /** Pro-Radio: shuffle mode for on-demand queue */
+  proRadioShuffle: boolean;
 }
 
 export const initialPlaybackState: PlaybackState = {
@@ -58,4 +60,5 @@ export const initialPlaybackState: PlaybackState = {
   pausedAt: null,
   isMuted: false,
   isLive: true,
+  proRadioShuffle: false,
 };

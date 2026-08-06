@@ -17,6 +17,9 @@ const mockUploadsService = { uploadProfileImage: jest.fn() };
 const mockConfigService = { get: jest.fn().mockReturnValue(undefined) };
 const mockImageModeration = { assertImageUrlAllowed: jest.fn() };
 const mockPushNotification = { sendPushNotification: jest.fn() };
+const mockProRadioSub = {
+  getAccess: jest.fn().mockResolvedValue({ hasAccess: false, status: null }),
+};
 
 describe('UsersService', () => {
   it('returns existing user if already present', async () => {
@@ -25,6 +28,7 @@ describe('UsersService', () => {
       mockConfigService as any,
       mockImageModeration as any,
       mockPushNotification as any,
+      mockProRadioSub as any,
     );
     const usersBuilder = createBuilder();
     const supabase = {
@@ -61,6 +65,7 @@ describe('UsersService', () => {
       mockConfigService as any,
       mockImageModeration as any,
       mockPushNotification as any,
+      mockProRadioSub as any,
     );
     const usersBuilder = createBuilder();
     const insertChain = {
@@ -111,6 +116,7 @@ describe('UsersService', () => {
       configWithAdmin as any,
       mockImageModeration as any,
       mockPushNotification as any,
+      mockProRadioSub as any,
     );
     const usersBuilder = createBuilder();
     const insertChain = {

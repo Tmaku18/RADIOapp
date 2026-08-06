@@ -45,6 +45,7 @@ class PlayBillingService {
   static const String _defaultSongPlays100 = 'nwx_song_plays_100';
 
   static const String defaultProNetworxMonthly = 'nwx_pro_networx_monthly';
+  static const String defaultProRadioMonthly = 'nwx_pro_radio_monthly';
   static const String _defaultTip199 = 'nwx_tip_199';
   static const String _defaultTip499 = 'nwx_tip_499';
   static const String _defaultTip999 = 'nwx_tip_999';
@@ -72,6 +73,7 @@ class PlayBillingService {
         songPlaysProductIdFor(50)!,
         songPlaysProductIdFor(100)!,
         proNetworxMonthlyProductId,
+        proRadioMonthlyProductId,
         tipProductIdForCents(199)!,
         tipProductIdForCents(499)!,
         tipProductIdForCents(999)!,
@@ -162,6 +164,13 @@ class PlayBillingService {
         'IOS_APP_STORE_PRO_NETWORX_MONTHLY_PRODUCT_ID',
         env('ANDROID_PLAY_PRO_NETWORX_MONTHLY_PRODUCT_ID') ??
             defaultProNetworxMonthly,
+      )!;
+
+  String get proRadioMonthlyProductId =>
+      _envOrDefault(
+        'IOS_APP_STORE_PRO_RADIO_MONTHLY_PRODUCT_ID',
+        env('ANDROID_PLAY_PRO_RADIO_MONTHLY_PRODUCT_ID') ??
+            defaultProRadioMonthly,
       )!;
 
   /// Consumable SKU that sells a song or beat priced at [priceCents].

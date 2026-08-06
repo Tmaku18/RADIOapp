@@ -107,6 +107,11 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
         routeArgs: 3,
       ),
       const _NavSpec(
+        icon: Icons.queue_music_outlined,
+        label: 'Pro-Radio',
+        route: AppRoutes.proRadio,
+      ),
+      const _NavSpec(
         icon: Icons.people_alt_outlined,
         label: 'Feed',
         tabIndex: 2,

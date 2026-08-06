@@ -7,6 +7,7 @@ On **iOS** and **Android**, every digital purchase goes through the platform sto
 | Artist credits | App Store consumable | Play consumable | Stripe |
 | Song plays / placements | App Store consumable | Play consumable | Stripe |
 | Pro-Networx subscription | App Store auto-renewable | Play subscription | Stripe |
+| Pro-Radio subscription | App Store auto-renewable | Play subscription | Stripe |
 | Livestream tips | App Store consumable tiers | Play consumable tiers | Stripe |
 | Song / beat purchases | App Store consumable tiers | Play consumable tiers | Stripe |
 
@@ -33,6 +34,13 @@ so their Stripe routes are web-only and rejected on mobile.
 - Price: **$9.99/mo**, introductory first month **$4.99**
 - App Store Connect: subscription group “Pro-Networx”, auto-renewable
 - Play Console: subscription + base plan $9.99/mo + intro/offer $4.99 first period
+
+### Pro-Radio (subscription)
+- Product ID: `nwx_pro_radio_monthly`
+- Price: **$9.99/mo**, introductory first month **$4.99**
+- App Store Connect: subscription group “Pro-Radio”, auto-renewable
+- Play Console: subscription + base plan $9.99/mo + intro/offer $4.99 first period
+- Unlocks on-demand full streams for opted-in songs (separate from live Networks Radio)
 
 ### Livestream tips (consumable)
 - `nwx_tip_199` ($1.99)
@@ -82,7 +90,8 @@ queue already lists.
 1. Enable **In-App Purchase** on App ID `com.tmaktechnologies.networxradio`.
 2. Create consumables above (credits, song plays, tips, song/beat tiers).
 3. Create subscription group + `nwx_pro_networx_monthly` with intro offer.
-4. App Store Server Notifications V2 →  
+4. Create subscription group + `nwx_pro_radio_monthly` with intro offer ($4.99 first month).
+5. App Store Server Notifications V2 →  
    `POST https://<API_HOST>/payments/app-store/notifications`
 5. In-App Purchase API key (Issuer ID, Key ID, `.p8`) for backend verification.
 
@@ -95,7 +104,8 @@ the SKU is shared across every song at that price.
 
 1. Confirm credit/play product IDs match App Store.
 2. Create subscription `nwx_pro_networx_monthly` + tip consumables.
-3. Create the eight `nwx_song_*` tiers as **in-app products** (consumable) at the
+3. Create subscription `nwx_pro_radio_monthly` with matching intro pricing.
+4. Create the eight `nwx_song_*` tiers as **in-app products** (consumable) at the
    same prices as App Store Connect.
 4. Real-time developer notifications (RTDN) → Pub/Sub push to  
    `POST https://<API_HOST>/payments/google-play/rtdn`
@@ -105,6 +115,7 @@ the SKU is shared across every song at that price.
 
 - Mobile: `PlayBillingService` (consumables + subscriptions + tip/song IDs).
 - Mobile paywall: `ProNetworkPaywallSheet` → StoreKit / Play Billing + Restore.
+- Pro-Radio paywall: `ProRadioPaywallSheet` → same store flow for `nwx_pro_radio_monthly`.
 - Mobile tips: `watch_live_screen.dart` store consumables on iOS/Android.
 - Mobile song/beat buys: `SongPurchaseFlow` — shared by the player, artist
   profile, and beat marketplace. Store consumable on iOS/Android, Stripe on web.
@@ -144,6 +155,8 @@ GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=...
 ```env
 IOS_APP_STORE_PRO_NETWORX_MONTHLY_PRODUCT_ID=nwx_pro_networx_monthly
 ANDROID_PLAY_PRO_NETWORX_MONTHLY_PRODUCT_ID=nwx_pro_networx_monthly
+IOS_APP_STORE_PRO_RADIO_MONTHLY_PRODUCT_ID=nwx_pro_radio_monthly
+ANDROID_PLAY_PRO_RADIO_MONTHLY_PRODUCT_ID=nwx_pro_radio_monthly
 IOS_APP_STORE_TIP_199_PRODUCT_ID=nwx_tip_199
 # ... same pattern for 499 / 999 / 2499
 IOS_APP_STORE_SONG_PURCHASE_499_PRODUCT_ID=nwx_song_499

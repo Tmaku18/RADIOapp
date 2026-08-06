@@ -262,6 +262,111 @@ export class StripeService {
   }
 
   // ---------------------------------------------------------------------------
+  // Pro-Radio subscription (separate product from Pro-Networx)
+  // ---------------------------------------------------------------------------
+
+  getProRadioPriceId(): string | null {
+    return this.configService.get<string>('STRIPE_PRO_RADIO_PRICE_ID') ?? null;
+  }
+
+  getProRadioIntroCouponId(): string | null {
+    return (
+      this.configService.get<string>('STRIPE_PRO_RADIO_INTRO_COUPON_ID') ?? null
+    );
+  }
+
+  async createProRadioCheckoutSession(args: {
+    userId: string;
+    successUrl: string;
+    cancelUrl: string;
+    applyIntroCoupon: boolean;
+  }): Promise<Stripe.Checkout.Session> {
+    const priceId = this.getProRadioPriceId();
+    if (!priceId) {
+      throw new Error('STRIPE_PRO_RADIO_PRICE_ID is not configured');
+    }
+    const couponId = this.getProRadioIntroCouponId();
+    const params: Stripe.Checkout.SessionCreateParams = {
+      payment_method_types: ['card'],
+      mode: 'subscription',
+      line_items: [{ price: priceId, quantity: 1 }],
+      client_reference_id: args.userId,
+      success_url: args.successUrl,
+      cancel_url: args.cancelUrl,
+      allow_promotion_codes: false,
+    };
+    if (args.applyIntroCoupon && couponId) {
+      params.discounts = [{ coupon: couponId }];
+    }
+    return this.stripe.checkout.sessions.create(params);
+  }
+
+  async createProRadioPaymentSheet(args: {
+    userId: string;
+    customerEmail?: string | null;
+    applyIntroCoupon: boolean;
+  }): Promise<{
+    customerId: string;
+    ephemeralKeySecret: string;
+    setupIntentClientSecret: string;
+    publishableKey: string | null;
+    priceId: string;
+    couponId: string | null;
+  }> {
+    const priceId = this.getProRadioPriceId();
+    if (!priceId) {
+      throw new Error('STRIPE_PRO_RADIO_PRICE_ID is not configured');
+    }
+    const couponId = this.getProRadioIntroCouponId();
+
+    const customer = await this.stripe.customers.create({
+      email: args.customerEmail ?? undefined,
+      metadata: { userId: args.userId },
+    });
+    const ephemeralKey = await this.stripe.ephemeralKeys.create(
+      { customer: customer.id },
+      { apiVersion: '2025-02-24.acacia' as unknown as string },
+    );
+    const setupIntent = await this.stripe.setupIntents.create({
+      customer: customer.id,
+      usage: 'off_session',
+      metadata: {
+        userId: args.userId,
+        productKey: 'pro_radio_subscription',
+        priceId,
+        couponId: args.applyIntroCoupon && couponId ? couponId : '',
+      },
+    });
+    return {
+      customerId: customer.id,
+      ephemeralKeySecret: ephemeralKey.secret ?? '',
+      setupIntentClientSecret: setupIntent.client_secret ?? '',
+      publishableKey:
+        this.configService.get<string>('STRIPE_PUBLISHABLE_KEY') ?? null,
+      priceId,
+      couponId: args.applyIntroCoupon && couponId ? couponId : null,
+    };
+  }
+
+  async createProRadioSubscriptionOnCustomer(args: {
+    customerId: string;
+    priceId: string;
+    couponId?: string | null;
+  }): Promise<Stripe.Subscription> {
+    const params: Stripe.SubscriptionCreateParams = {
+      customer: args.customerId,
+      items: [{ price: args.priceId }],
+      payment_behavior: 'default_incomplete',
+      payment_settings: { save_default_payment_method: 'on_subscription' },
+      expand: ['latest_invoice.payment_intent'],
+    };
+    if (args.couponId) {
+      params.discounts = [{ coupon: args.couponId }];
+    }
+    return this.stripe.subscriptions.create(params);
+  }
+
+  // ---------------------------------------------------------------------------
   // Stripe Connect (Express) — artist payouts for song sales
   // ---------------------------------------------------------------------------
 

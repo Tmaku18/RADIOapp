@@ -60,6 +60,8 @@ class AppRoutes {
   static const proNetworxExploreDetail = '/pro-networx/explore-detail';
   static const proNetworxServiceDetail = '/pro-networx/service-detail';
   static const proNetworxMyServices = '/pro-networx/my-services';
+  /// Pro-Radio on-demand hub (subscription, playlists, queue controls).
+  static const proRadio = '/pro-radio';
   static const savedPosts = '/saved-posts';
   static const likedPosts = '/liked-posts';
   static const nearbyPeople = '/nearby-people';

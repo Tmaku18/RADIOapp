@@ -638,9 +638,12 @@ export const songsApi = {
       songId: string;
       owned: boolean;
       isOwner: boolean;
+      streamEntitled?: boolean;
+      proRadioEligible?: boolean;
       priceCents: number;
       forSale: boolean;
       sampleUrl: string | null;
+      productKind?: string;
     }>(`/songs/${id}/access`),
   getStreamUrl: (id: string) =>
     api.get<{ url: string; title: string; artistName: string | null }>(
@@ -1586,6 +1589,53 @@ export const proNetworkSubscriptionApi = {
     api.get<ProNetworkAccess>('/pro-network-subscription/access'),
 };
 
+export type ProRadioAccess = {
+  hasAccess: boolean;
+  status: string | null;
+  currentPeriodEnd?: string | null;
+  pricing?: { regularCents: number; introCents: number };
+};
+
+export const proRadioSubscriptionApi = {
+  getAccess: () => api.get<ProRadioAccess>('/pro-radio-subscription/access'),
+};
+
+export type ProRadioPlaylist = {
+  id: string;
+  title: string;
+  description?: string | null;
+  trackCount?: number;
+  createdAt?: string;
+};
+
+export type ProRadioPlaylistTrack = {
+  songId: string;
+  title: string;
+  artistName?: string | null;
+  artistId?: string | null;
+  artworkUrl?: string | null;
+  durationSeconds?: number;
+  streamUrl?: string | null;
+};
+
+export const proRadioPlaylistsApi = {
+  listMine: () =>
+    api.get<{ playlists: ProRadioPlaylist[] }>('/playlists/mine'),
+  create: (data: { title: string; description?: string }) =>
+    api.post<ProRadioPlaylist>('/playlists', data),
+  update: (id: string, data: { title?: string; description?: string }) =>
+    api.patch<ProRadioPlaylist>(`/playlists/${id}`, data),
+  remove: (id: string) => api.delete<{ ok: true }>(`/playlists/${id}`),
+  getTracks: (id: string) =>
+    api.get<{ tracks: ProRadioPlaylistTrack[] }>(`/playlists/${id}/tracks`),
+  addTrack: (id: string, songId: string) =>
+    api.post(`/playlists/${id}/tracks`, { songId }),
+  removeTrack: (id: string, songId: string) =>
+    api.delete(`/playlists/${id}/tracks/${songId}`),
+  reorder: (id: string, songIds: string[]) =>
+    api.post(`/playlists/${id}/reorder`, { songIds }),
+};
+
 export const browseApi = {
   getFeed: (params?: { limit?: number; cursor?: string; seed?: string }) =>
     api.get('/browse/feed', { params }),
@@ -1628,6 +1678,11 @@ export const paymentsApi = {
   createProNetworxCheckoutSession: (data?: { successUrl?: string; cancelUrl?: string }) =>
     api.post<{ url: string; sessionId: string; introCouponApplied: boolean }>(
       '/payments/create-pro-networx-checkout-session',
+      data ?? {},
+    ),
+  createProRadioCheckoutSession: (data?: { successUrl?: string; cancelUrl?: string }) =>
+    api.post<{ url: string; sessionId: string; introCouponApplied: boolean }>(
+      '/payments/create-pro-radio-checkout-session',
       data ?? {},
     ),
   getTransactions: () => api.get('/payments/transactions'),

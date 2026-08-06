@@ -318,6 +318,8 @@ class SongAccess {
   final String? sampleUrl;
   final String productKind;
   final bool fullPreviewAllowed;
+  final bool streamEntitled;
+  final bool proRadioEligible;
 
   const SongAccess({
     required this.owned,
@@ -327,6 +329,8 @@ class SongAccess {
     required this.sampleUrl,
     this.productKind = 'song',
     this.fullPreviewAllowed = false,
+    this.streamEntitled = false,
+    this.proRadioEligible = false,
   });
 
   bool get isBeat => productKind == 'beat';
@@ -351,6 +355,10 @@ class SongAccess {
       sampleUrl: json['sampleUrl']?.toString(),
       productKind: kind == 'beat' ? 'beat' : 'song',
       fullPreviewAllowed: json['fullPreviewAllowed'] == true || kind == 'beat',
+      streamEntitled:
+          json['streamEntitled'] == true || json['stream_entitled'] == true,
+      proRadioEligible: json['proRadioEligible'] == true ||
+          json['pro_radio_eligible'] == true,
     );
   }
 }

@@ -23,6 +23,7 @@ import '../../features/pro_networx/pro_explore_detail_screen.dart';
 import '../../features/pro_networx/pro_me_profile_screen.dart';
 import '../../features/pro_networx/pro_my_services_screen.dart';
 import '../../features/pro_networx/pro_networx_landing_screen.dart';
+import '../../features/pro_radio/pro_radio_hub_screen.dart';
 import '../../features/pro_networx/pro_networx_shell_screen.dart';
 import '../../features/pro_networx/pro_profile_screen.dart';
 import '../../features/pro_networx/pro_service_detail_screen.dart';
@@ -134,6 +135,8 @@ class AppRouter {
         );
       case AppRoutes.proNetworxMyServices:
         return _route(const ProMyServicesScreen(), settings);
+      case AppRoutes.proRadio:
+        return _route(const ProRadioHubScreen(), settings);
       case AppRoutes.savedPosts:
         return _route(const SavedLikedPostsScreen(mode: 'saved'), settings);
       case AppRoutes.likedPosts:

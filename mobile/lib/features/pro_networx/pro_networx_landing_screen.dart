@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/pro_networx_pricing.dart';
+import '../../core/constants/pro_radio_pricing.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/theme/dimension_tokens.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
@@ -111,6 +112,32 @@ class ProNetworxLandingScreen extends StatelessWidget {
               ),
               const SizedBox(height: 28),
               _PricingCard(),
+              const SizedBox(height: 16),
+              GlassCard(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Pro-Radio',
+                      style: DimensionTypography.cardTitle(fontSize: 20),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'On-demand full tracks and personal playlists on Networks Radio '
+                      '($proRadioIntroDisplay first month, then $proRadioRegularDisplay/mo).',
+                      style: DimensionTypography.bodyMuted(),
+                    ),
+                    const SizedBox(height: 14),
+                    DimensionCtaButton(
+                      label: 'Open Pro-Radio hub',
+                      variant: DimensionCtaVariant.secondary,
+                      onPressed: () => Navigator.of(context)
+                          .pushNamed(AppRoutes.proRadio),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 24),
               Text(
                 'LinkedIn is a trademark of LinkedIn Corporation. Pro-Networx is not '

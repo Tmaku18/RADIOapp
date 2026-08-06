@@ -450,7 +450,7 @@ export default function UploadPage() {
           isExplicit,
           lyricsPlainText: lyricsPlainText.trim() || undefined,
           optInFullSongRadio,
-          optInDjLivestreams,
+          optInDjLivestreams: optInDjLivestreams || optInFullSongRadio,
           optInDjArchivedMixes,
         });
       } catch (dbErr) {
@@ -838,7 +838,7 @@ export default function UploadPage() {
               <div>
                 <h3 className="font-medium text-foreground">{FULL_SONG_RADIO_OPT_IN.title}</h3>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Required to submit for NETWORX Radio rotation.{' '}
+                  Required. Covers live radio, Pro-Radio on-demand streaming, and DJ livestreams.{' '}
                   <Link
                     href={FULL_SONG_RADIO_OPT_IN.href}
                     className="text-primary hover:underline"
@@ -853,24 +853,16 @@ export default function UploadPage() {
                 <input
                   type="checkbox"
                   checked={optInFullSongRadio}
-                  onChange={(e) => setOptInFullSongRadio(e.target.checked)}
+                  onChange={(e) => {
+                    const accepted = e.target.checked;
+                    setOptInFullSongRadio(accepted);
+                    if (accepted) setOptInDjLivestreams(true);
+                  }}
                   className="mt-1 h-4 w-4 shrink-0"
                   required
                 />
                 <span className="text-sm text-muted-foreground">
                   {FULL_SONG_RADIO_OPT_IN.primaryAuthorization}
-                </span>
-              </label>
-
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={optInDjLivestreams}
-                  onChange={(e) => setOptInDjLivestreams(e.target.checked)}
-                  className="mt-1 h-4 w-4 shrink-0"
-                />
-                <span className="text-sm text-muted-foreground">
-                  {FULL_SONG_RADIO_OPT_IN.djLivestreams}
                 </span>
               </label>
 

@@ -78,6 +78,13 @@ type PlaybackActions = {
   needsJumpToLive: () => boolean;
   /** Stop and clear current track */
   stop: () => void;
+  /** Pro-Radio: start or replace the on-demand queue */
+  playProRadioQueue: (tracks: PlaybackTrack[], startIndex?: number) => void;
+  skipNext: () => void;
+  skipPrevious: () => void;
+  toggleShuffle: () => void;
+  addToQueue: (track: PlaybackTrack) => void;
+  playNext: (track: PlaybackTrack) => void;
   /** Apply global DJ booth transport + mic overlay from server */
   applyServerBoothState: (opts: {
     transportPaused?: boolean;
@@ -181,6 +188,10 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   const radioPlayerUiCountRef = useRef(0);
   const [radioPlayerUiActive, setRadioPlayerUiActive] = useState(false);
   const endedAdvanceTrackIdRef = useRef<string | null>(null);
+  const proRadioQueueRef = useRef<PlaybackTrack[]>([]);
+  const proRadioIndexRef = useRef(-1);
+  const proRadioShuffleRef = useRef(false);
+  const advanceProRadioRef = useRef<(delta: number) => void>(() => undefined);
   const barsRef = useRef(createAnalyserBarsBuffer(ANALYSER_BARS));
   const bassRef = useRef(0);
   const rawAnalyserDataRef = useRef(new Uint8Array(ANALYSER_BARS * 4));
@@ -817,6 +828,13 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       };
       const onEnded = () => {
         if (handoffIncomingSlotRef.current !== null) return;
+        if (
+          sourceRef.current === 'proRadio' &&
+          activeSlotRef.current === slot
+        ) {
+          advanceProRadioRef.current(1);
+          return;
+        }
         if (sourceRef.current === 'radio' && activeSlotRef.current === slot && onRadioTrackEndedRef.current) {
           onRadioTrackEndedRef.current();
         }
@@ -1631,8 +1649,110 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     clearAudioSlot('a');
     clearAudioSlot('b');
     activeSlotRef.current = 'a';
+    proRadioQueueRef.current = [];
+    proRadioIndexRef.current = -1;
     setState(initialPlaybackState);
   }, [resetHandoffState, clearAudioSlot]);
+
+  const playProRadioTrackAt = useCallback(
+    (index: number, autoPlay = true) => {
+      const queue = proRadioQueueRef.current;
+      if (!queue.length || index < 0 || index >= queue.length) return;
+      proRadioIndexRef.current = index;
+      const track = queue[index];
+      loadTrackImmediate(track, 'proRadio', autoPlay, null);
+    },
+    [loadTrackImmediate],
+  );
+
+  const advanceProRadio = useCallback(
+    (delta: number) => {
+      const queue = proRadioQueueRef.current;
+      if (!queue.length) return;
+      const next = proRadioIndexRef.current + delta;
+      if (next >= queue.length) {
+        return;
+      }
+      if (next < 0) {
+        return;
+      }
+      playProRadioTrackAt(next, true);
+    },
+    [playProRadioTrackAt],
+  );
+
+  advanceProRadioRef.current = advanceProRadio;
+
+  const playProRadioQueue = useCallback(
+    (tracks: PlaybackTrack[], startIndex = 0) => {
+      const list = tracks.filter(
+        (t) => typeof t.audioUrl === 'string' && t.audioUrl.trim().length > 0,
+      );
+      if (!list.length) return;
+      proRadioQueueRef.current = list;
+      const idx = Math.min(Math.max(0, startIndex), list.length - 1);
+      setState((s) => ({
+        ...s,
+        proRadioShuffle: proRadioShuffleRef.current,
+      }));
+      playProRadioTrackAt(idx, true);
+    },
+    [playProRadioTrackAt],
+  );
+
+  const skipNext = useCallback(() => {
+    if (sourceRef.current !== 'proRadio') return;
+    advanceProRadio(1);
+  }, [advanceProRadio]);
+
+  const skipPrevious = useCallback(() => {
+    if (sourceRef.current !== 'proRadio') return;
+    advanceProRadio(-1);
+  }, [advanceProRadio]);
+
+  const toggleShuffle = useCallback(() => {
+    proRadioShuffleRef.current = !proRadioShuffleRef.current;
+    if (proRadioShuffleRef.current && proRadioQueueRef.current.length > 1) {
+      const current = proRadioQueueRef.current[proRadioIndexRef.current];
+      const rest = proRadioQueueRef.current.filter(
+        (t) => t.id !== current?.id,
+      );
+      for (let i = rest.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [rest[i], rest[j]] = [rest[j], rest[i]];
+      }
+      proRadioQueueRef.current = current ? [current, ...rest] : rest;
+      proRadioIndexRef.current = 0;
+    }
+    setState((s) => ({ ...s, proRadioShuffle: proRadioShuffleRef.current }));
+  }, []);
+
+  const addToQueue = useCallback(
+    (track: PlaybackTrack) => {
+      proRadioQueueRef.current = [...proRadioQueueRef.current, track];
+      if (sourceRef.current !== 'proRadio' || proRadioIndexRef.current < 0) {
+        playProRadioQueue([track], 0);
+      }
+    },
+    [playProRadioQueue],
+  );
+
+  const playNext = useCallback(
+    (track: PlaybackTrack) => {
+      const queue = proRadioQueueRef.current;
+      if (!queue.length || proRadioIndexRef.current < 0) {
+        playProRadioQueue([track], 0);
+        return;
+      }
+      const insertAt = proRadioIndexRef.current + 1;
+      proRadioQueueRef.current = [
+        ...queue.slice(0, insertAt),
+        track,
+        ...queue.slice(insertAt),
+      ];
+    },
+    [playProRadioQueue],
+  );
 
   const actions = useMemo(
     (): PlaybackActions => ({
@@ -1649,6 +1769,12 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       jumpToLive,
       needsJumpToLive,
       stop,
+      playProRadioQueue,
+      skipNext,
+      skipPrevious,
+      toggleShuffle,
+      addToQueue,
+      playNext,
       applyServerBoothState,
       handleDjBoothEvent,
     }),
@@ -1666,6 +1792,12 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       jumpToLive,
       needsJumpToLive,
       stop,
+      playProRadioQueue,
+      skipNext,
+      skipPrevious,
+      toggleShuffle,
+      addToQueue,
+      playNext,
       applyServerBoothState,
       handleDjBoothEvent,
     ],

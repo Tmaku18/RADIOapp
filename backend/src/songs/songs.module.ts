@@ -7,6 +7,7 @@ import { CopyrightModule } from '../copyright/copyright.module';
 import { LyricsModule } from '../lyrics/lyrics.module';
 import { PushNotificationModule } from '../push-notifications/push-notification.module';
 import { EmailModule } from '../email/email.module';
+import { ProRadioSubscriptionModule } from '../pro-radio-subscription/pro-radio-subscription.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { EmailModule } from '../email/email.module';
     LyricsModule,
     PushNotificationModule,
     EmailModule,
+    ProRadioSubscriptionModule,
   ],
   controllers: [SongsController],
   providers: [SongsService],

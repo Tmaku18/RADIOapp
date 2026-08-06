@@ -41,12 +41,19 @@ const createEmailServiceMock = () =>
     sendAdminNewSongUploadEmail: jest.fn().mockResolvedValue(true),
   }) as unknown as EmailService;
 
+const createProRadioSubMock = () =>
+  ({
+    getAccess: jest.fn().mockResolvedValue({ hasAccess: false, status: null }),
+    hasNeverSubscribed: jest.fn().mockResolvedValue(true),
+    setSubscription: jest.fn(),
+  }) as unknown as import('../pro-radio-subscription/pro-radio-subscription.service').ProRadioSubscriptionService;
+
 const createSongsService = (
   copyright = createCopyrightServiceMock(),
   lyrics = createLyricsServiceMock(),
   push = createPushServiceMock(),
   email = createEmailServiceMock(),
-) => new SongsService(copyright, lyrics, push, email);
+) => new SongsService(copyright, lyrics, push, email, createProRadioSubMock());
 
 const baseSongDto = {
   title: 'Test Song',

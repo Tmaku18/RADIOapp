@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArtworkImage } from '@/components/common/ArtworkImage';
 import { LyricsPlayerDialog } from '@/components/songs/LyricsPlayer';
+import { ProRadioPaywallCard } from '@/components/pro-radio/ProRadioPaywallCard';
 
 type LibrarySong = {
   id: string;
@@ -44,6 +45,8 @@ type LibrarySong = {
   fireVotes: number;
   shitVotes: number;
   temperaturePercent: number;
+  streamEntitled?: boolean;
+  proRadioEligible?: boolean;
   likedAt: string;
 };
 
@@ -202,6 +205,7 @@ export default function BrowseSavedPage() {
   };
 
   const [buyingId, setBuyingId] = useState<string | null>(null);
+  const [proRadioPaywallOpen, setProRadioPaywallOpen] = useState(false);
 
   const loadAndPlay = async (
     song: LibrarySong,
@@ -227,7 +231,53 @@ export default function BrowseSavedPage() {
     }
   };
 
-  const playSample = (song: LibrarySong) => {
+  const playFullProRadio = async (song: LibrarySong) => {
+    try {
+      const res = await songsApi.getStreamUrl(song.id);
+      const url = res.data?.url;
+      if (!url) {
+        toast.error('Could not play the full song.');
+        return;
+      }
+      actions.playProRadioQueue(
+        [
+          {
+            id: song.id,
+            title: song.title,
+            artistName: song.artistName,
+            artistId: song.artistId,
+            artworkUrl: song.artworkUrl,
+            audioUrl: url,
+            durationSeconds: song.durationSeconds,
+          },
+        ],
+        0,
+      );
+      await actions.play();
+    } catch {
+      toast.error('Could not play the full song.');
+    }
+  };
+
+  const playSample = async (song: LibrarySong) => {
+    if (song.owned) {
+      await playFull(song);
+      return;
+    }
+    try {
+      const accessRes = await songsApi.getAccess(song.id);
+      const access = accessRes.data;
+      if (access?.proRadioEligible && !access?.streamEntitled && !access?.owned) {
+        setProRadioPaywallOpen(true);
+        return;
+      }
+      if (access?.streamEntitled) {
+        await playFullProRadio(song);
+        return;
+      }
+    } catch {
+      // Fall through to sample.
+    }
     const url = song.sampleUrl ?? song.audioUrl;
     if (!url) {
       toast.error('No sample available for this song yet.');
@@ -252,7 +302,11 @@ export default function BrowseSavedPage() {
         toast.error('Could not play the full song.');
         return;
       }
-      await loadAndPlay(song, url, '');
+      if (song.owned) {
+        await loadAndPlay(song, url, '');
+        return;
+      }
+      await playFullProRadio(song);
     } catch {
       toast.error('Could not play the full song.');
     }
@@ -626,6 +680,15 @@ export default function BrowseSavedPage() {
         }
         onClose={() => setLyricsPlayerSong(null)}
       />
+
+      {proRadioPaywallOpen && (
+        <div className="space-y-2">
+          <ProRadioPaywallCard successPath="/browse/saved" />
+          <Button variant="ghost" type="button" onClick={() => setProRadioPaywallOpen(false)}>
+            Close
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

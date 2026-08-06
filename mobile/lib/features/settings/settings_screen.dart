@@ -757,6 +757,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     subtitle: 'Payment methods, billing',
                     onTap: () => Navigator.pushNamed(context, AppRoutes.payment),
                   ),
+                  _navTile(
+                    context,
+                    icon: Icons.queue_music_outlined,
+                    title: 'Pro-Radio',
+                    subtitle: 'On-demand full tracks & playlists',
+                    onTap: () => Navigator.pushNamed(context, AppRoutes.proRadio),
+                  ),
                 ]),
 
                 if (isArtist)

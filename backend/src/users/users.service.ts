@@ -17,6 +17,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateArtistLikeNotificationSettingsDto } from './dto/update-artist-like-notification-settings.dto';
 import { geocodeCityZip } from '../common/geocode.util';
 import { PushNotificationService } from '../push-notifications/push-notification.service';
+import { ProRadioSubscriptionService } from '../pro-radio-subscription/pro-radio-subscription.service';
 
 // Transform snake_case DB response to camelCase for frontend
 export interface UserResponse {
@@ -130,6 +131,7 @@ export class UsersService {
     private readonly configService: ConfigService,
     private readonly imageModeration: ImageModerationService,
     private readonly pushNotification: PushNotificationService,
+    private readonly proRadioSub: ProRadioSubscriptionService,
   ) {}
 
   /** Admin emails from env (comma-separated); login with one of these gets role admin. */
@@ -1121,6 +1123,8 @@ export class UsersService {
       'sample_end_seconds',
       'price_cents',
       'is_for_sale',
+      'opt_in_pro_radio',
+      'product_kind',
     ];
     let songsQuery = supabase
       .from('songs')
@@ -1337,6 +1341,11 @@ export class UsersService {
       }
     }
 
+    const viewerHasProRadio =
+      !!viewerUserId &&
+      !requestingOwnProfile &&
+      (await this.proRadioSub.getAccess(viewerUserId)).hasAccess;
+
     const mappedSongs = await Promise.all(
       songRows.map(async (song) => {
         const playCount =
@@ -1352,12 +1361,15 @@ export class UsersService {
         const popularityScore = listenCount + likeCount * 3 + playCount;
         const owned =
           requestingOwnProfile || purchasedSongIds.has(song.id);
+        const proRadioEligible =
+          (song.product_kind ?? 'song') !== 'beat' &&
+          song.opt_in_pro_radio === true;
+        const streamEntitled =
+          owned || (viewerHasProRadio && proRadioEligible);
         // The full track lives in a private bucket. Preview = signed 30s sample
-        // for everyone; the full file is only signed for owners/buyers. We also
-        // back-fill `audioUrl` with the sample for non-owners so legacy clients
-        // that still read `audioUrl` only ever get the 30-second preview.
+        // for everyone; the full file is signed for owners/buyers/Pro-Radio.
         const sampleUrl = (await signSongAudioUrl(song.sample_url ?? null)) ?? null;
-        const fullUrl = owned
+        const fullUrl = streamEntitled
           ? (await signSongAudioUrl(song.audio_url ?? null)) ?? null
           : null;
         return {
@@ -1371,7 +1383,9 @@ export class UsersService {
           priceCents: song.price_cents ?? 99,
           forSale: song.is_for_sale !== false,
           owned,
-          locked: !owned,
+          streamEntitled,
+          proRadioEligible,
+          locked: !streamEntitled,
           artworkUrl: song.artwork_url,
           durationSeconds: song.duration_seconds || 0,
           playCount,

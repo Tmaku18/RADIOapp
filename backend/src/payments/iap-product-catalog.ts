@@ -14,6 +14,7 @@ export type IapCatalogEntry = {
     | 'song_plays'
     | 'tip'
     | 'pro_networx_subscription'
+    | 'pro_radio_subscription'
     | 'song_purchase';
   amountCents: number;
   credits?: number;
@@ -55,9 +56,14 @@ export const DEFAULT_IAP_PRODUCT_CATALOG: Record<string, IapCatalogEntry> = {
     type: 'pro_networx_subscription',
     amountCents: 999,
   },
+  nwx_pro_radio_monthly: {
+    type: 'pro_radio_subscription',
+    amountCents: 999,
+  },
 };
 
 export const PRO_NETWORX_MONTHLY_PRODUCT_ID = 'nwx_pro_networx_monthly';
+export const PRO_RADIO_MONTHLY_PRODUCT_ID = 'nwx_pro_radio_monthly';
 
 export const TIP_PRODUCT_IDS_BY_CENTS: Record<number, string> = {
   199: 'nwx_tip_199',

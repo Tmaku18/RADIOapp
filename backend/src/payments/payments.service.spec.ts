@@ -15,10 +15,26 @@ describe('PaymentsService', () => {
       }),
     };
     const configService = { get: jest.fn() };
+    const creatorNetwork = {};
+    const proNetworkSub = {};
+    const proRadioSub = {
+      getAccess: jest.fn(),
+      hasNeverSubscribed: jest.fn(),
+      setSubscription: jest.fn(),
+    };
+    const googlePlayBillingService = {};
+    const appStoreBillingService = {};
+    const refineryService = {};
 
     const service = new PaymentsService(
       stripeService as any,
       configService as any,
+      creatorNetwork as any,
+      proNetworkSub as any,
+      proRadioSub as any,
+      googlePlayBillingService as any,
+      appStoreBillingService as any,
+      refineryService as any,
     );
     const supabase = createSupabaseMock();
 
