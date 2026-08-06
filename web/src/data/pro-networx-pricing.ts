@@ -20,3 +20,7 @@ export const PRO_NETWORX_REGULAR_DISPLAY = formatProNetworxPriceUsd(
 export const PRO_NETWORX_INTRO_DISPLAY = formatProNetworxPriceUsd(
   PRO_NETWORX_INTRO_CENTS,
 );
+
+/** Soft promo shown while messaging is free during beta. */
+export const PRO_NETWORX_MESSAGING_BETA_PROMO =
+  `Messaging is free during beta. Pro-Networx is ${PRO_NETWORX_INTRO_DISPLAY} first month, then ${PRO_NETWORX_REGULAR_DISPLAY}/mo — unlock resumes, contact info, and more.`;

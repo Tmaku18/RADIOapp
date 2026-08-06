@@ -20,6 +20,11 @@ type Props = {
   className?: string;
   /** Optional caption shown beneath the title to localize the prompt. */
   caption?: string;
+  /**
+   * Soft promo mode: messaging (or the feature) is already unlocked, but we
+   * still promote the subscription price. Used during beta free messaging.
+   */
+  softPromo?: boolean;
   /** Where to redirect after a successful checkout. Defaults to current page. */
   successPath?: string;
   cancelPath?: string;
@@ -30,6 +35,7 @@ export function PaywallCard({
   variant = 'dm',
   className,
   caption,
+  softPromo = false,
   successPath,
   cancelPath,
   onAccessKnown,
@@ -87,10 +93,14 @@ export function PaywallCard({
     }
   };
 
-  const title =
-    variant === 'dm' ? 'Subscribe to send messages' : 'Subscribe to view contact info';
-  const defaultCaption =
-    variant === 'dm'
+  const title = softPromo
+    ? 'Messaging is free during beta'
+    : variant === 'dm'
+      ? 'Subscribe to send messages'
+      : 'Subscribe to view contact info';
+  const defaultCaption = softPromo
+    ? `Pro-Networx is ${formatProNetworxPriceUsd(intro)} first month, then ${formatProNetworxPriceUsd(regular)}/mo — unlock resumes, contact info, and more.`
+    : variant === 'dm'
       ? 'Direct messaging unlocks with a Pro-Networx subscription. Cancel anytime.'
       : 'See email, phone, and direct booking links from any creator.';
 
@@ -98,7 +108,11 @@ export function PaywallCard({
     <Card className={`p-5 sm:p-6 border-primary/30 bg-primary/[0.04] ${className ?? ''}`}>
       <div className="flex items-start gap-3">
         <div className="rounded-full bg-primary/15 p-2 shrink-0">
-          <Lock className="h-5 w-5 text-primary" />
+          {softPromo ? (
+            <Sparkles className="h-5 w-5 text-primary" />
+          ) : (
+            <Lock className="h-5 w-5 text-primary" />
+          )}
         </div>
         <div className="min-w-0 flex-1">
           <h3 className="text-base sm:text-lg font-semibold text-foreground">{title}</h3>
@@ -114,12 +128,20 @@ export function PaywallCard({
           </div>
           <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
             <Sparkles className="h-3.5 w-3.5 text-primary" />
-            <span>Includes DMs, contact info reveal, posting, and Networks Radio.</span>
+            <span>
+              {softPromo
+                ? 'Subscribe anytime to keep access after beta and unlock the full membership.'
+                : 'Includes DMs, contact info reveal, posting, and Networks Radio.'}
+            </span>
           </div>
           {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
           <div className="mt-4 flex flex-wrap gap-2">
             <Button onClick={handleCheckout} disabled={submitting || loading}>
-              {submitting ? 'Redirecting…' : 'Subscribe'}
+              {submitting
+                ? 'Redirecting…'
+                : softPromo
+                  ? `See membership — ${formatProNetworxPriceUsd(intro)} first month`
+                  : 'Subscribe'}
             </Button>
             <Button variant="outline" asChild>
               <a href="/pro-networx">Learn more</a>

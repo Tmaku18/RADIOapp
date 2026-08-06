@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
+import { isProNetworxMessagingBetaFree } from './pro-network-subscription.constants';
 
 /**
  * Status as stored in pro_network_subscriptions.status. Mirrors the Stripe
@@ -19,6 +20,10 @@ export type ProNetworkAccess = {
   hasAccess: boolean;
   status: ProNetworkSubStatus | null;
   currentPeriodEnd: string | null;
+  /** True while beta free-messaging is on. Clients should still promote price. */
+  messagingBetaFree: boolean;
+  /** True when the user may send Pro-Networx DMs (subscribed, admin path, or beta). */
+  canMessage: boolean;
 };
 
 @Injectable()
@@ -28,8 +33,23 @@ export class ProNetworkSubscriptionService {
    * yet passed its current_period_end. Used to gate DMs and to reveal contact
    * info on Services listings.
    */
+  isMessagingBetaFree(): boolean {
+    return isProNetworxMessagingBetaFree();
+  }
+
+  /**
+   * Whether this user may send Pro-Networx DMs. During beta this is always
+   * true; otherwise it requires an active/trialing subscription.
+   */
+  async canSendMessages(userId: string): Promise<boolean> {
+    if (this.isMessagingBetaFree()) return true;
+    const access = await this.getAccess(userId);
+    return access.hasAccess;
+  }
+
   async getAccess(userId: string): Promise<ProNetworkAccess> {
     const supabase = getSupabaseClient();
+    const messagingBetaFree = this.isMessagingBetaFree();
     const { data, error } = await supabase
       .from('pro_network_subscriptions')
       .select('status, current_period_end')
@@ -37,7 +57,13 @@ export class ProNetworkSubscriptionService {
       .maybeSingle();
 
     if (error || !data) {
-      return { hasAccess: false, status: null, currentPeriodEnd: null };
+      return {
+        hasAccess: false,
+        status: null,
+        currentPeriodEnd: null,
+        messagingBetaFree,
+        canMessage: messagingBetaFree,
+      };
     }
 
     const status = data.status as ProNetworkSubStatus;
@@ -45,10 +71,13 @@ export class ProNetworkSubscriptionService {
     const periodOk =
       !data.current_period_end ||
       new Date(data.current_period_end as string) > new Date();
+    const hasAccess = isActiveStatus && periodOk;
     return {
-      hasAccess: isActiveStatus && periodOk,
+      hasAccess,
       status,
       currentPeriodEnd: (data.current_period_end as string | null) ?? null,
+      messagingBetaFree,
+      canMessage: messagingBetaFree || hasAccess,
     };
   }
 

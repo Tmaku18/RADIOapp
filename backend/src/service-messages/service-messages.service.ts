@@ -314,12 +314,10 @@ export class ServiceMessagesService {
 
     const userMap = new Map((users || []).map((u: any) => [u.id, u]));
 
-    // The DM gate is now subscription-based: anyone with an active Pro
-    // Networks subscription can DM anyone else. Conversations always show as
-    // dm-able for the viewer when they have access. Prior versions used a
-    // follow-graph here.
-    const access = await this.proNetworkSubscription.getAccess(userId);
-    const canDmGlobally = access.hasAccess;
+    // The DM gate is subscription-based, with a beta free-messaging override.
+    // Conversations always show as dm-able for the viewer when they can message.
+    const canDmGlobally =
+      await this.proNetworkSubscription.canSendMessages(userId);
 
     const { data: readRows, error: readError } = await supabase
       .from('message_reads')
@@ -561,11 +559,13 @@ export class ServiceMessagesService {
       }
     }
 
-    // DM gate: Pro Networks subscription is normally required. Exception:
-    // sharing a post to a friend (mutual follower) is always allowed so the
-    // social share-to-friends flow works without a subscription.
-    const access = await this.proNetworkSubscription.getAccess(input.senderId);
-    if (!access.hasAccess) {
+    // DM gate: Pro Networks subscription is normally required. During beta,
+    // messaging is free (still promoted in the UI). Exception: sharing a post
+    // to a friend (mutual follower) is always allowed.
+    const canMessage = await this.proNetworkSubscription.canSendMessages(
+      input.senderId,
+    );
+    if (!canMessage) {
       const sharingToFriend =
         messageType === 'post_share' &&
         (await this.areMutualFollowers(input.senderId, input.recipientId));
@@ -948,7 +948,6 @@ export class ServiceMessagesService {
    */
   async canSendDm(senderId: string, _recipientId: string): Promise<boolean> {
     void _recipientId;
-    const access = await this.proNetworkSubscription.getAccess(senderId);
-    return access.hasAccess;
+    return this.proNetworkSubscription.canSendMessages(senderId);
   }
 }

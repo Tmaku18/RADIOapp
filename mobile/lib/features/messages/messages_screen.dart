@@ -6,6 +6,7 @@ import '../../core/models/messages_models.dart';
 import '../../core/models/user.dart' as app_user;
 import '../../core/services/api_service.dart';
 import '../../core/services/messages_service.dart';
+import '../../core/constants/pro_networx_pricing.dart';
 import '../../core/services/pro_networx_service.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
@@ -159,6 +160,8 @@ class _ThreadScreenState extends State<ThreadScreen> {
   bool _sending = false;
   bool _paywallShown = false;
   bool? _hasAccess;
+  bool _canMessage = true;
+  bool _messagingBetaFree = true;
   List<MessageRow> _messages = const [];
   late String _myUserId;
 
@@ -192,18 +195,33 @@ class _ThreadScreenState extends State<ThreadScreen> {
     try {
       final access = await _proNetworx.getAccess();
       if (!mounted) return;
-      setState(() => _hasAccess = access.hasAccess);
+      setState(() {
+        _hasAccess = access.hasAccess;
+        _canMessage = access.canMessage;
+        _messagingBetaFree = access.messagingBetaFree;
+      });
     } catch (_) {
-      if (mounted) setState(() => _hasAccess = false);
+      // Fail open for beta messaging so a transient access check can't
+      // block sending when the backend already allows it.
+      if (mounted) {
+        setState(() {
+          _hasAccess = false;
+          _canMessage = true;
+          _messagingBetaFree = true;
+        });
+      }
     }
   }
 
   Future<void> _openSubscribe() async {
     final ok = await ProNetworkPaywallSheet.show(
       context,
-      title: 'Subscribe to send messages',
-      description:
-          'Direct messaging unlocks with a Pro-Networx subscription. Cancel anytime.',
+      title: _messagingBetaFree
+          ? 'Unlock the full Pro-Networx membership'
+          : 'Subscribe to send messages',
+      description: _messagingBetaFree
+          ? proNetworxMessagingBetaPromo
+          : 'Direct messaging unlocks with a Pro-Networx subscription. Cancel anytime.',
     );
     if (ok == true) {
       await _loadAccess();
@@ -229,7 +247,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
   Future<void> _send() async {
     final body = _draft.text.trim();
     if (body.isEmpty || _sending) return;
-    if (_hasAccess == false) {
+    if (!_canMessage) {
       await _openSubscribe();
       return;
     }
@@ -674,7 +692,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
       ],
       body: Column(
         children: [
-          if (_paywallShown || _hasAccess == false)
+          if (_paywallShown || !_canMessage || (_messagingBetaFree && _hasAccess != true))
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
@@ -688,12 +706,16 @@ class _ThreadScreenState extends State<ThreadScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Pro-Networx subscription',
+                    _messagingBetaFree && _canMessage
+                        ? 'Messaging is free during beta'
+                        : 'Pro-Networx subscription',
                     style: DimensionTypography.cardTitle(fontSize: 14),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Direct messaging unlocks with a subscription. You can still read this thread.',
+                    _messagingBetaFree && _canMessage
+                        ? proNetworxMessagingBetaPromo
+                        : 'Direct messaging unlocks with a subscription. You can still read this thread.',
                     style: Theme.of(context)
                         .textTheme
                         .bodySmall
@@ -702,7 +724,11 @@ class _ThreadScreenState extends State<ThreadScreen> {
                   const SizedBox(height: 8),
                   OutlinedButton(
                     onPressed: _openSubscribe,
-                    child: const Text('Subscribe to message'),
+                    child: Text(
+                      _messagingBetaFree && _canMessage
+                          ? 'See membership — $proNetworxIntroDisplay first month'
+                          : 'Subscribe to message',
+                    ),
                   ),
                 ],
               ),
@@ -740,7 +766,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
                 FilledButton(
                   onPressed: _sending
                       ? null
-                      : (_hasAccess == false ? _openSubscribe : _send),
+                      : (!_canMessage ? _openSubscribe : _send),
                   child: _sending
                       ? const SizedBox(
                           width: 16,

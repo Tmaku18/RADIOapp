@@ -118,9 +118,14 @@ export default function JobBoardPage() {
     (async () => {
       try {
         const res = await proNetworkSubscriptionApi.getAccess();
-        if (alive) setHasSubscription(!!res.data?.hasAccess);
+        if (!alive) return;
+        // Apply/message unlocks with canMessage (beta free or subscribed).
+        setHasSubscription(
+          !!(res.data?.canMessage ?? res.data?.hasAccess ?? res.data?.messagingBetaFree),
+        );
       } catch {
-        if (alive) setHasSubscription(false);
+        // Fail open during beta messaging.
+        if (alive) setHasSubscription(true);
       }
     })();
     return () => {
@@ -389,7 +394,7 @@ export default function JobBoardPage() {
                         <PaywallCard
                           variant="dm"
                           className="mt-2"
-                          caption="Applying and messaging creators on the Pro-Network unlocks with a subscription. Browsing is always free."
+                          caption="Applying and messaging creators on the Pro-Network unlocks with a subscription after beta. Browsing is always free."
                         />
                       ) : (
                         <Button

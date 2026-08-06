@@ -555,12 +555,20 @@ class ProNetworkAccess {
   final int regularCents;
   final int introCents;
 
+  /// Backend beta flag: DMs are free without a subscription.
+  final bool messagingBetaFree;
+
+  /// True when the user may send Pro-Networx DMs (subscribed or beta free).
+  final bool canMessage;
+
   const ProNetworkAccess({
     required this.hasAccess,
     required this.status,
     required this.currentPeriodEnd,
     required this.regularCents,
     required this.introCents,
+    this.messagingBetaFree = false,
+    this.canMessage = false,
   });
 
   factory ProNetworkAccess.fromJson(Map<String, dynamic> json) {
@@ -575,12 +583,19 @@ class ProNetworkAccess {
           ? pricing['introCents'] as int
           : int.tryParse((pricing['introCents'] ?? '499').toString()) ?? 499;
     }
+    final hasAccess = json['hasAccess'] == true;
+    final messagingBetaFree = json['messagingBetaFree'] == true;
+    final canMessage = json['canMessage'] == true ||
+        messagingBetaFree ||
+        hasAccess;
     return ProNetworkAccess(
-      hasAccess: json['hasAccess'] == true,
+      hasAccess: hasAccess,
       status: (json['status'])?.toString(),
       currentPeriodEnd: (json['currentPeriodEnd'])?.toString(),
       regularCents: regular,
       introCents: intro,
+      messagingBetaFree: messagingBetaFree,
+      canMessage: canMessage,
     );
   }
 }

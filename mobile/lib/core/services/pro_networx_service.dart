@@ -151,6 +151,8 @@ class ProNetworxService {
       currentPeriodEnd: null,
       regularCents: 999,
       introCents: 499,
+      messagingBetaFree: true,
+      canMessage: true,
     );
   }
 

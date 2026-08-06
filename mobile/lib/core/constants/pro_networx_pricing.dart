@@ -13,3 +13,9 @@ final String proNetworxRegularDisplay =
     formatProNetworxPriceUsd(proNetworxRegularCents);
 final String proNetworxIntroDisplay =
     formatProNetworxPriceUsd(proNetworxIntroCents);
+
+/// Soft promo shown while messaging is free during beta.
+final String proNetworxMessagingBetaPromo =
+    'Messaging is free during beta. Pro-Networx is $proNetworxIntroDisplay '
+    'first month, then $proNetworxRegularDisplay/mo — unlock resumes, '
+    'contact info, and more.';

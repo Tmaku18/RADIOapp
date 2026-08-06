@@ -383,8 +383,8 @@ export function ProNetworxLanding({
               <span className="text-glow-cyan text-cyan-300">+ contact info.</span>
             </h2>
             <p className="text-white/60 mt-4 max-w-xl mx-auto">
-              Browse, post and build your profile for free. Subscribe to send DMs
-              and view contact info on services listings.
+              Browse, post, and message for free during beta. Subscribe to keep
+              messaging after beta and unlock contact info on services listings.
             </p>
           </div>
         </Reveal>

@@ -1575,6 +1575,10 @@ export interface ProNetworkAccess {
     | null;
   currentPeriodEnd: string | null;
   pricing: { regularCents: number; introCents: number };
+  /** True while beta free-messaging is on. Clients should still promote price. */
+  messagingBetaFree?: boolean;
+  /** True when the user may send Pro-Networx DMs (subscribed or beta). */
+  canMessage?: boolean;
 }
 
 export const proNetworkSubscriptionApi = {

@@ -282,9 +282,12 @@ export class ProNetworxService {
       }
     }
 
-    const messagingLocked = !(await this.hasSubscriberOrAdminAccess(
-      viewerUserId,
-    ));
+    // Messaging is free during beta; otherwise it requires a subscription
+    // (admins always pass via hasSubscriberOrAdminAccess).
+    const messagingLocked = !(
+      this.subscriptions.isMessagingBetaFree() ||
+      (await this.hasSubscriberOrAdminAccess(viewerUserId))
+    );
 
     return {
       userId,

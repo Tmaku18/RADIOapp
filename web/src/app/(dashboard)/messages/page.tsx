@@ -12,6 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { DmPaywallCard } from '@/components/pro-networx/PaywallCard';
+import { PRO_NETWORX_MESSAGING_BETA_PROMO } from '@/data/pro-networx-pricing';
 
 interface ConversationSummary {
   otherUserId: string;
@@ -90,6 +91,8 @@ export default function MessagesPage() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [canDm, setCanDm] = useState<boolean | null>(null);
+  const [hasSubscription, setHasSubscription] = useState(false);
+  const [messagingBetaFree, setMessagingBetaFree] = useState(true);
   const threadEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -163,6 +166,7 @@ export default function MessagesPage() {
   useEffect(() => {
     if (!myId) {
       setCanDm(false);
+      setHasSubscription(false);
       return;
     }
     let alive = true;
@@ -170,10 +174,21 @@ export default function MessagesPage() {
       .getAccess()
       .then((res) => {
         if (!alive) return;
-        setCanDm(!!res.data?.hasAccess);
+        const access = res.data;
+        const betaFree = access?.messagingBetaFree !== false;
+        const subscribed = !!access?.hasAccess;
+        setMessagingBetaFree(betaFree);
+        setHasSubscription(subscribed);
+        // Prefer canMessage; fall open during beta if the field is missing.
+        setCanDm(access?.canMessage ?? (subscribed || betaFree));
       })
       .catch(() => {
-        if (alive) setCanDm(false);
+        if (!alive) return;
+        // Fail open for beta messaging so a transient access check can't
+        // block sending when the backend already allows it.
+        setMessagingBetaFree(true);
+        setHasSubscription(false);
+        setCanDm(true);
       });
     return () => {
       alive = false;
@@ -559,6 +574,17 @@ export default function MessagesPage() {
                 {canDm === false && selectedOther?.userId !== myId && (
                   <div className="mx-4 mt-2">
                     <DmPaywallCard caption="Direct messaging unlocks with a Pro-Networx subscription. You can still read this thread." />
+                  </div>
+                )}
+                {canDm === true &&
+                  messagingBetaFree &&
+                  !hasSubscription &&
+                  selectedOther?.userId !== myId && (
+                  <div className="mx-4 mt-2">
+                    <DmPaywallCard
+                      softPromo
+                      caption={PRO_NETWORX_MESSAGING_BETA_PROMO}
+                    />
                   </div>
                 )}
 

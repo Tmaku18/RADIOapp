@@ -12,6 +12,8 @@ describe('ProNetworkSubscriptionController', () => {
       getAccess: jest.fn().mockResolvedValue({
         hasAccess: false,
         status: 'none',
+        messagingBetaFree: true,
+        canMessage: true,
       }),
     };
     const controller = new ProNetworkSubscriptionController(sub as any);

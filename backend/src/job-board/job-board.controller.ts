@@ -129,10 +129,12 @@ export class JobBoardController {
     @Body() body: { message?: string | null },
   ) {
     const userId = await this.getUserId(user.uid);
-    // Browsing requests is open to everyone, but reaching out to the poster
-    // (applying / messaging) requires a Pro-Networx subscription.
-    const access = await this.proNetworkSubscription.getAccess(userId);
-    if (!access.hasAccess) {
+    // Browsing requests is open to everyone. Reaching out (apply / message)
+    // normally requires a Pro-Networx subscription; messaging is free during
+    // beta so apply is unlocked with it.
+    const canMessage =
+      await this.proNetworkSubscription.canSendMessages(userId);
+    if (!canMessage) {
       throw new ForbiddenException(PRO_NETWORK_PAYWALL_PAYLOAD);
     }
     return this.jobBoard.apply(requestId, userId, body?.message ?? null);
