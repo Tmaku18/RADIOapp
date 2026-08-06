@@ -93,7 +93,7 @@ queue already lists.
 4. Create subscription group + `nwx_pro_radio_monthly` with intro offer ($4.99 first month).
 5. App Store Server Notifications V2 →  
    `POST https://<API_HOST>/payments/app-store/notifications`
-5. In-App Purchase API key (Issuer ID, Key ID, `.p8`) for backend verification.
+6. In-App Purchase API key (Issuer ID, Key ID, `.p8`) for backend verification.
 
 For the eight `nwx_song_*` tiers: type **Consumable**, price point matching the
 table above, and one localization each (display name + description) or StoreKit
@@ -107,9 +107,9 @@ the SKU is shared across every song at that price.
 3. Create subscription `nwx_pro_radio_monthly` with matching intro pricing.
 4. Create the eight `nwx_song_*` tiers as **in-app products** (consumable) at the
    same prices as App Store Connect.
-4. Real-time developer notifications (RTDN) → Pub/Sub push to  
+5. Real-time developer notifications (RTDN) → Pub/Sub push to  
    `POST https://<API_HOST>/payments/google-play/rtdn`
-5. Service account with Android Publisher access for backend verify/acknowledge.
+6. Service account with Android Publisher access for backend verify/acknowledge.
 
 ## Code (repo)
 
