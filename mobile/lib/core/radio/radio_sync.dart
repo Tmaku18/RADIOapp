@@ -43,13 +43,18 @@ const int kRadioBoundaryHandoffSeconds = 5;
 /// Swapping the audio source throws away the buffer and restarts buffering,
 /// which listeners hear as a hiccup. Inside the handoff window the end-of-song
 /// handler is about to make the same transition cleanly, so the reload costs a
-/// glitch and buys nothing. Once the track is actually over ([remaining] <= 0)
-/// we stop deferring, so a stalled decoder still recovers on the next poll.
+/// glitch and buys nothing.
+///
+/// Only defers while playback is actually moving. A paused or stalled decoder
+/// never reaches the boundary handler, so deferring to it would park the device
+/// on a finished song while the station plays on without it.
 bool shouldDeferTrackSwitchToBoundary({
   required int localSeconds,
   required int durationSeconds,
+  required bool isPlaying,
   int thresholdSeconds = kRadioBoundaryHandoffSeconds,
 }) {
+  if (!isPlaying) return false;
   if (durationSeconds <= 0) return false;
   final remaining = durationSeconds - localSeconds;
   return remaining > 0 && remaining <= thresholdSeconds;

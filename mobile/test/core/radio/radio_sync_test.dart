@@ -180,6 +180,7 @@ void main() {
         shouldDeferTrackSwitchToBoundary(
           localSeconds: 177,
           durationSeconds: 180,
+          isPlaying: true,
         ),
         isTrue,
       );
@@ -190,6 +191,7 @@ void main() {
         shouldDeferTrackSwitchToBoundary(
           localSeconds: 90,
           durationSeconds: 180,
+          isPlaying: true,
         ),
         isFalse,
       );
@@ -200,6 +202,7 @@ void main() {
         shouldDeferTrackSwitchToBoundary(
           localSeconds: 180,
           durationSeconds: 180,
+          isPlaying: true,
         ),
         isFalse,
       );
@@ -207,7 +210,24 @@ void main() {
 
     test('reloads when the duration is unknown', () {
       expect(
-        shouldDeferTrackSwitchToBoundary(localSeconds: 10, durationSeconds: 0),
+        shouldDeferTrackSwitchToBoundary(
+          localSeconds: 10,
+          durationSeconds: 0,
+          isPlaying: true,
+        ),
+        isFalse,
+      );
+    });
+
+    test('never parks a stalled decoder on a song it will never finish', () {
+      // Position frozen 3s from the end: without the isPlaying check this
+      // deferred forever and the device fell off the station.
+      expect(
+        shouldDeferTrackSwitchToBoundary(
+          localSeconds: 177,
+          durationSeconds: 180,
+          isPlaying: false,
+        ),
         isFalse,
       );
     });

@@ -312,8 +312,7 @@ class _PlayerScreenState extends State<PlayerScreen>
       final prefs = await SharedPreferences.getInstance();
       final stored = prefs.getString(_selectedStationPrefKey)?.trim();
       if (stored != null && stored.isNotEmpty) {
-        // New School Rap was emptied; migrate saved selection to Ready Now.
-        _radioId = stored == 'us-rap' ? 'us-ready-now-rap' : stored;
+        _radioId = stored;
       }
     } catch (_) {
       // Ignore storage failures and keep env/default station.
@@ -931,6 +930,7 @@ class _PlayerScreenState extends State<PlayerScreen>
             localSeconds: _audioPlayer.position.inSeconds,
             durationSeconds:
                 _audioPlayer.duration?.inSeconds ?? localTrack.durationSeconds,
+            isPlaying: _audioPlayer.playing,
           )) {
         return;
       }

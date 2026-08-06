@@ -75,7 +75,7 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
       final prefs = await SharedPreferences.getInstance();
       final stored = prefs.getString(_selectedStationPrefKey)?.trim();
       if (stored != null && stored.isNotEmpty) {
-        return stored == 'us-rap' ? 'us-ready-now-rap' : stored;
+        return stored;
       }
     } catch (_) {
       // Fall through to env/default station.
@@ -352,6 +352,7 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
             shouldDeferTrackSwitchToBoundary(
               localSeconds: position,
               durationSeconds: localDuration,
+              isPlaying: _player.playing,
             )) {
           return;
         }
