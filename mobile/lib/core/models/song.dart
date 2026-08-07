@@ -35,6 +35,9 @@ class Song {
   final bool streamEntitled;
   final bool proRadioEligible;
   final bool locked;
+  final String? albumId;
+  final int? trackNumber;
+  final String? albumTitle;
 
   Song({
     required this.id,
@@ -67,6 +70,9 @@ class Song {
     this.streamEntitled = false,
     this.proRadioEligible = false,
     this.locked = true,
+    this.albumId,
+    this.trackNumber,
+    this.albumTitle,
   });
 
   factory Song.fromJson(Map<String, dynamic> json) {
@@ -139,6 +145,23 @@ class Song {
       proRadioEligible: json['proRadioEligible'] == true ||
           json['pro_radio_eligible'] == true,
       locked: json['locked'] == true,
+      albumId: () {
+        final v = json['albumId'] ?? json['album_id'];
+        final s = v?.toString().trim();
+        return (s == null || s.isEmpty) ? null : s;
+      }(),
+      trackNumber: () {
+        final v = json['trackNumber'] ?? json['track_number'];
+        if (v == null) return null;
+        if (v is int) return v;
+        if (v is num) return v.toInt();
+        return int.tryParse(v.toString());
+      }(),
+      albumTitle: () {
+        final v = json['albumTitle'] ?? json['album_title'];
+        final s = v?.toString().trim();
+        return (s == null || s.isEmpty) ? null : s;
+      }(),
       // Artist-profile (and other lean payloads) often omit updated_at.
       // `DateTime.parse((null).toString())` becomes parse("null") and crashes
       // the Artist screen with FormatException: Invalid date format / null.
@@ -186,6 +209,9 @@ class Song {
       'stream_entitled': streamEntitled,
       'pro_radio_eligible': proRadioEligible,
       'locked': locked,
+      'album_id': albumId,
+      'track_number': trackNumber,
+      'album_title': albumTitle,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };

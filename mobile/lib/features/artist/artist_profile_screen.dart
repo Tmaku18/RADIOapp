@@ -23,8 +23,26 @@ import '../../core/models/pro_radio_models.dart';
 import '../../features/pro_radio/widgets/pro_radio_paywall_sheet.dart';
 import '../../features/pro_radio/widgets/add_to_playlist_sheet.dart';
 import '../../core/brand/brand_assets.dart';
+import '../../core/services/albums_service.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
+import 'manage_albums_sheet.dart';
+
+class _AlbumGroup {
+  const _AlbumGroup({
+    required this.id,
+    required this.title,
+    required this.releaseType,
+    this.artworkUrl,
+    required this.tracks,
+  });
+
+  final String id;
+  final String title;
+  final String releaseType;
+  final String? artworkUrl;
+  final List<Song> tracks;
+}
 
 class ArtistProfileScreen extends StatefulWidget {
   final String artistId;
@@ -45,6 +63,7 @@ class ArtistProfileScreen extends StatefulWidget {
 
 class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
   final SongsService _songs = SongsService();
+  final AlbumsService _albumsApi = AlbumsService();
   final AudioPlayer _player = AudioPlayerService().player;
   final LivestreamService _live = LivestreamService();
   final UsersService _users = UsersService();
@@ -59,6 +78,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
   app_user.User? _artist;
   String? _heroImageUrl;
   List<Song> _tracks = const [];
+  List<_AlbumGroup> _albumGroups = const [];
   String? _activeSongId;
   bool _isPlaying = false;
   final Map<String, bool> _likedBySongId = <String, bool>{};
@@ -131,18 +151,82 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
     return tag.extras?['source']?.toString() == 'pro_radio';
   }
 
-  Future<List<Song>> _loadArtistProfileTracks() async {
+  Future<({List<Song> tracks, List<_AlbumGroup> albums})>
+      _loadArtistProfileBundle() async {
     final api = ApiService();
     final raw = await api.get('users/${widget.artistId}/artist-profile');
-    if (raw is! Map) return const [];
+    if (raw is! Map) {
+      return (tracks: const <Song>[], albums: const <_AlbumGroup>[]);
+    }
     final list = raw['librarySongs'];
-    if (list is! List) return const [];
-    return list
-        .whereType<Map>()
-        .map(
-          (e) => Song.fromJson(e.map((k, v) => MapEntry(k.toString(), v))),
-        )
-        .toList();
+    final tracks = list is List
+        ? list
+            .whereType<Map>()
+            .map(
+              (e) => Song.fromJson(e.map((k, v) => MapEntry(k.toString(), v))),
+            )
+            .toList()
+        : <Song>[];
+    final albumsRaw = raw['albums'];
+    final albums = <_AlbumGroup>[];
+    if (albumsRaw is List) {
+      for (final row in albumsRaw.whereType<Map>()) {
+        final map = row.map((k, v) => MapEntry(k.toString(), v));
+        final trackList = map['tracks'];
+        final albumTracks = trackList is List
+            ? trackList
+                .whereType<Map>()
+                .map(
+                  (e) =>
+                      Song.fromJson(e.map((k, v) => MapEntry(k.toString(), v))),
+                )
+                .toList()
+            : <Song>[];
+        albums.add(
+          _AlbumGroup(
+            id: map['id']?.toString() ?? '',
+            title: map['title']?.toString() ?? 'Album',
+            releaseType: map['releaseType']?.toString() ?? 'album',
+            artworkUrl: map['artworkUrl']?.toString(),
+            tracks: albumTracks,
+          ),
+        );
+      }
+    }
+    return (tracks: tracks, albums: albums);
+  }
+
+  List<_AlbumGroup> _groupTracksIntoAlbums(
+    List<Song> tracks,
+    List<ArtistAlbum> albums,
+  ) {
+    final byId = <String, List<Song>>{};
+    for (final t in tracks) {
+      final id = t.albumId;
+      if (id == null || id.isEmpty) continue;
+      byId.putIfAbsent(id, () => []).add(t);
+    }
+    final groups = <_AlbumGroup>[];
+    for (final album in albums) {
+      final albumTracks = [...(byId[album.id] ?? [])];
+      albumTracks.sort((a, b) {
+        final an = a.trackNumber ?? 9999;
+        final bn = b.trackNumber ?? 9999;
+        if (an != bn) return an.compareTo(bn);
+        return a.createdAt.compareTo(b.createdAt);
+      });
+      if (albumTracks.isEmpty) continue;
+      groups.add(
+        _AlbumGroup(
+          id: album.id,
+          title: album.title,
+          releaseType: album.releaseType,
+          artworkUrl: album.artworkUrl ?? albumTracks.first.artworkUrl,
+          tracks: albumTracks,
+        ),
+      );
+    }
+    return groups;
   }
 
   @override
@@ -200,14 +284,23 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
       final artist = (artistRaw is Map<String, dynamic>)
           ? app_user.User.fromJson(artistRaw)
           : null;
-      final tracks = isOwner
-          ? await _songs.getMine()
-          : await _loadArtistProfileTracks();
+      late final List<Song> tracks;
+      late final List<_AlbumGroup> albumGroups;
+      if (isOwner) {
+        tracks = await _songs.getMine();
+        final albums = await _albumsApi.listMine();
+        albumGroups = _groupTracksIntoAlbums(tracks, albums);
+      } else {
+        final bundle = await _loadArtistProfileBundle();
+        tracks = bundle.tracks;
+        albumGroups = bundle.albums;
+      }
       if (!mounted) return;
       setState(() {
         _isOwnerProfile = isOwner;
         _artist = artist;
         _tracks = tracks;
+        _albumGroups = albumGroups;
       });
       unawaited(_loadCover());
       if (!isOwner && me != null) {
@@ -1280,9 +1373,27 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
     }
 
     widgets.add(
-      Text(
-        'Songs',
-        style: DimensionTypography.cardTitle(fontSize: 20),
+      Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Songs',
+              style: DimensionTypography.cardTitle(fontSize: 20),
+            ),
+          ),
+          if (_isOwnerProfile)
+            TextButton.icon(
+              onPressed: () async {
+                final changed = await showManageAlbumsSheet(
+                  context,
+                  songs: _tracks,
+                );
+                if (changed == true && mounted) await _load();
+              },
+              icon: const Icon(Icons.album_outlined, size: 18),
+              label: const Text('Albums'),
+            ),
+        ],
       ),
     );
     widgets.add(const SizedBox(height: 8));
@@ -1300,9 +1411,75 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
         ),
       );
     } else {
-      widgets.addAll(
-        songs.map((s) => _buildTrackCard(s, surfaces, scheme, glass)),
-      );
+      final inAlbum = <String>{};
+      for (final album in _albumGroups) {
+        inAlbum.addAll(album.tracks.map((t) => t.id));
+        widgets.add(
+          Row(
+            children: [
+              if ((album.artworkUrl ?? '').isNotEmpty)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: CachedNetworkImage(
+                    imageUrl: album.artworkUrl!,
+                    width: 44,
+                    height: 44,
+                    fit: BoxFit.cover,
+                  ),
+                )
+              else
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(Icons.album, color: surfaces.textSecondary),
+                ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      album.title,
+                      style: DimensionTypography.cardTitle(fontSize: 17),
+                    ),
+                    Text(
+                      '${album.releaseType} · ${album.tracks.length} tracks',
+                      style: TextStyle(
+                        color: surfaces.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+        widgets.add(const SizedBox(height: 8));
+        widgets.addAll(
+          album.tracks.map((s) => _buildTrackCard(s, surfaces, scheme, glass)),
+        );
+        widgets.add(const SizedBox(height: 16));
+      }
+      final singles = songs.where((s) => !inAlbum.contains(s.id)).toList();
+      if (singles.isNotEmpty) {
+        if (_albumGroups.isNotEmpty) {
+          widgets.add(
+            Text(
+              'Singles',
+              style: DimensionTypography.cardTitle(fontSize: 17),
+            ),
+          );
+          widgets.add(const SizedBox(height: 8));
+        }
+        widgets.addAll(
+          singles.map((s) => _buildTrackCard(s, surfaces, scheme, glass)),
+        );
+      }
     }
     return widgets;
   }

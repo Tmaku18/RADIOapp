@@ -95,4 +95,13 @@ export class UpdateSongDto {
   @IsBoolean()
   @IsOptional()
   forSale?: boolean;
+
+  /** Set to assign; empty string or null clears album membership. */
+  @IsOptional()
+  albumId?: string | null;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(1)
+  trackNumber?: number;
 }

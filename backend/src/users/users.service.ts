@@ -1121,6 +1121,8 @@ export class UsersService {
       'is_for_sale',
       'opt_in_pro_radio',
       'product_kind',
+      'album_id',
+      'track_number',
     ];
     let songsQuery = supabase
       .from('songs')
@@ -1392,6 +1394,9 @@ export class UsersService {
           createdAt: song.created_at,
           updatedAt: song.updated_at ?? song.created_at,
           featuredArtists: featuredBySongId.get(song.id) ?? [],
+          productKind: (song.product_kind ?? 'song') === 'beat' ? 'beat' : 'song',
+          albumId: song.album_id ?? null,
+          trackNumber: song.track_number ?? null,
         };
       }),
     );
@@ -1399,6 +1404,54 @@ export class UsersService {
     const popularSongs = [...mappedSongs]
       .sort((a, b) => b.popularityScore - a.popularityScore)
       .slice(0, 10);
+
+    // Albums for discography grouping (published grouping only — songs already
+    // filtered by approval for visitors).
+    const albumIds = [
+      ...new Set(
+        mappedSongs
+          .map((s) => s.albumId)
+          .filter((id): id is string => typeof id === 'string' && !!id),
+      ),
+    ];
+    let albums: Array<{
+      id: string;
+      title: string;
+      releaseType: string;
+      artworkUrl: string | null;
+      releaseDate: string | null;
+      trackCount: number;
+      tracks: typeof mappedSongs;
+    }> = [];
+    if (albumIds.length > 0) {
+      const { data: albumRows } = await supabase
+        .from('albums')
+        .select(
+          'id, title, release_type, artwork_url, release_date, created_at',
+        )
+        .eq('artist_id', resolvedUserId)
+        .in('id', albumIds)
+        .order('created_at', { ascending: false });
+      albums = (albumRows ?? []).map((row) => {
+        const tracks = mappedSongs
+          .filter((s) => s.albumId === row.id)
+          .sort((a, b) => {
+            const an = a.trackNumber ?? 9999;
+            const bn = b.trackNumber ?? 9999;
+            if (an !== bn) return an - bn;
+            return String(a.createdAt).localeCompare(String(b.createdAt));
+          });
+        return {
+          id: row.id,
+          title: row.title,
+          releaseType: row.release_type,
+          artworkUrl: row.artwork_url ?? tracks[0]?.artworkUrl ?? null,
+          releaseDate: row.release_date,
+          trackCount: tracks.length,
+          tracks,
+        };
+      });
+    }
 
     const { count: followerCount, error: followerCountError } = await supabase
       .from('user_follows')
@@ -1493,6 +1546,7 @@ export class UsersService {
       },
       popularSongs,
       librarySongs: mappedSongs,
+      albums,
     };
   }
 

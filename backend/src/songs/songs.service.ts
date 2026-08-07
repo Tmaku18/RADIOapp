@@ -1469,6 +1469,34 @@ export class SongsService {
           ? true
           : true;
 
+    const albumId =
+      typeof createSongDto.albumId === 'string' && createSongDto.albumId.trim()
+        ? createSongDto.albumId.trim()
+        : null;
+    if (albumId) {
+      const { data: albumRow, error: albumError } = await supabase
+        .from('albums')
+        .select('id')
+        .eq('id', albumId)
+        .eq('artist_id', userId)
+        .maybeSingle();
+      if (albumError || !albumRow) {
+        throw new BadRequestException('Album not found');
+      }
+    }
+    let trackNumber =
+      createSongDto.trackNumber != null &&
+      Number.isFinite(Number(createSongDto.trackNumber))
+        ? Math.max(1, Math.floor(Number(createSongDto.trackNumber)))
+        : null;
+    if (albumId && trackNumber == null) {
+      const { count } = await supabase
+        .from('songs')
+        .select('id', { count: 'exact', head: true })
+        .eq('album_id', albumId);
+      trackNumber = (count ?? 0) + 1;
+    }
+
     const baseInsertPayload = {
       artist_id: userId,
       title: createSongDto.title,
@@ -1501,6 +1529,8 @@ export class SongsService {
       product_kind: productKind,
       price_cents: priceCents,
       is_for_sale: forSale,
+      album_id: albumId,
+      track_number: albumId ? trackNumber : null,
       ...statusFields,
       // Beats stay off radio rotation; buyers browse the marketplace.
       // Applied after statusFields so beta auto-approve cannot force public.

@@ -35,11 +35,24 @@ type ArtistSong = {
   likeCount: number;
   popularityScore: number;
   createdAt: string;
+  albumId?: string | null;
+  trackNumber?: number | null;
+  productKind?: 'song' | 'beat';
   featuredArtists?: Array<{
     id: string;
     displayName: string | null;
     avatarUrl: string | null;
   }>;
+};
+
+type ArtistAlbumGroup = {
+  id: string;
+  title: string;
+  releaseType: string;
+  artworkUrl: string | null;
+  releaseDate: string | null;
+  trackCount: number;
+  tracks: ArtistSong[];
 };
 
 type ArtistProfileResponse = {
@@ -73,6 +86,7 @@ type ArtistProfileResponse = {
   };
   popularSongs: ArtistSong[];
   librarySongs: ArtistSong[];
+  albums?: ArtistAlbumGroup[];
 };
 
 type LegacyUserResponse = {
@@ -379,6 +393,15 @@ export function ArtistPageView({
       ),
     [data?.librarySongs, likedBySongId, ownedIds],
   );
+
+  const albumGroups = useMemo(() => data?.albums ?? [], [data?.albums]);
+
+  const singles = useMemo(() => {
+    const inAlbum = new Set(
+      albumGroups.flatMap((a) => a.tracks.map((t) => t.id)),
+    );
+    return (data?.librarySongs ?? []).filter((s) => !inAlbum.has(s.id));
+  }, [albumGroups, data?.librarySongs]);
 
   const handleBuy = async (songId: string) => {
     if (buyingId) return;
@@ -806,19 +829,70 @@ export function ArtistPageView({
       </Card>
 
       <Card>
-        <CardContent className="pt-6">
-          <h2 className="font-semibold text-xl mb-4">Discography</h2>
+        <CardContent className="pt-6 space-y-8">
+          <h2 className="font-semibold text-xl">Discography</h2>
           {tracks.length === 0 ? (
             <p className="text-sm text-muted-foreground">No approved songs yet.</p>
           ) : (
-            <DiscographyPlayer
-              tracks={tracks}
-              onToggleLike={handleToggleLike}
-              onRecordListen={handleRecordListen}
-              onBuy={handleBuy}
-              onDownload={handleDownload}
-              onProRadioPaywall={() => setProRadioPaywallOpen(true)}
-            />
+            <>
+              {albumGroups.map((album) => (
+                <div key={album.id} className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    {album.artworkUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={album.artworkUrl}
+                        alt=""
+                        className="h-14 w-14 rounded-md object-cover"
+                      />
+                    ) : (
+                      <div className="h-14 w-14 rounded-md bg-muted" />
+                    )}
+                    <div>
+                      <h3 className="font-semibold text-lg leading-tight">
+                        {album.title}
+                      </h3>
+                      <p className="text-xs text-muted-foreground capitalize">
+                        {album.releaseType}
+                        {album.trackCount
+                          ? ` · ${album.trackCount} track${album.trackCount === 1 ? '' : 's'}`
+                          : ''}
+                        {album.releaseDate
+                          ? ` · ${new Date(album.releaseDate).getFullYear()}`
+                          : ''}
+                      </p>
+                    </div>
+                  </div>
+                  <DiscographyPlayer
+                    tracks={album.tracks.map((song) =>
+                      toDiscographyTrack(song, likedBySongId, ownedIds),
+                    )}
+                    onToggleLike={handleToggleLike}
+                    onRecordListen={handleRecordListen}
+                    onBuy={handleBuy}
+                    onDownload={handleDownload}
+                    onProRadioPaywall={() => setProRadioPaywallOpen(true)}
+                  />
+                </div>
+              ))}
+              {singles.length > 0 && (
+                <div className="space-y-3">
+                  {albumGroups.length > 0 && (
+                    <h3 className="font-semibold text-lg">Singles</h3>
+                  )}
+                  <DiscographyPlayer
+                    tracks={singles.map((song) =>
+                      toDiscographyTrack(song, likedBySongId, ownedIds),
+                    )}
+                    onToggleLike={handleToggleLike}
+                    onRecordListen={handleRecordListen}
+                    onBuy={handleBuy}
+                    onDownload={handleDownload}
+                    onProRadioPaywall={() => setProRadioPaywallOpen(true)}
+                  />
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

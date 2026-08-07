@@ -34,6 +34,7 @@ import { ProNetworxModule } from './pro-networx/pro-networx.module';
 import { ProNetworkSubscriptionModule } from './pro-network-subscription/pro-network-subscription.module';
 import { ProRadioSubscriptionModule } from './pro-radio-subscription/pro-radio-subscription.module';
 import { PlaylistsModule } from './playlists/playlists.module';
+import { AlbumsModule } from './albums/albums.module';
 import { YieldModule } from './yield/yield.module';
 import { ArtistLiveModule } from './artist-live/artist-live.module';
 import { DjBoothModule } from './dj-booth/dj-booth.module';
@@ -79,6 +80,7 @@ import { RequestIdMiddleware } from './common/middleware';
     ProNetworkSubscriptionModule,
     ProRadioSubscriptionModule,
     PlaylistsModule,
+    AlbumsModule,
     YieldModule,
     ArtistLiveModule,
     StreamingModule,

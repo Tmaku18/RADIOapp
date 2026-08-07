@@ -675,6 +675,8 @@ export class SongsController {
       productKind: dto.productKind === 'beat' ? 'beat' : 'song',
       priceCents: dto.priceCents,
       forSale: dto.forSale,
+      albumId: dto.albumId,
+      trackNumber: dto.trackNumber,
     };
     if (
       createSongDto.discoverClipStartSeconds != null &&
@@ -1229,6 +1231,8 @@ export class SongsController {
       createdAt: song.created_at,
       updatedAt: song.updated_at,
       featuredArtists: featuredBySongId.get(song.id) ?? [],
+      albumId: (song as { album_id?: string | null }).album_id ?? null,
+      trackNumber: (song as { track_number?: number | null }).track_number ?? null,
       })),
     );
   }
@@ -1628,6 +1632,44 @@ export class SongsController {
     }
     if (body.forSale !== undefined) {
       updateData.is_for_sale = body.forSale === true;
+    }
+    if (body.albumId !== undefined) {
+      const nextAlbumId =
+        body.albumId == null || String(body.albumId).trim() === ''
+          ? null
+          : String(body.albumId).trim();
+      if (nextAlbumId) {
+        const { data: albumRow, error: albumError } = await supabase
+          .from('albums')
+          .select('id')
+          .eq('id', nextAlbumId)
+          .eq('artist_id', song.artist_id)
+          .maybeSingle();
+        if (albumError || !albumRow) {
+          throw new BadRequestException('Album not found');
+        }
+        updateData.album_id = nextAlbumId;
+        if (body.trackNumber !== undefined) {
+          updateData.track_number = Math.max(
+            1,
+            Math.floor(Number(body.trackNumber)),
+          );
+        } else {
+          const { count } = await supabase
+            .from('songs')
+            .select('id', { count: 'exact', head: true })
+            .eq('album_id', nextAlbumId);
+          updateData.track_number = (count ?? 0) + 1;
+        }
+      } else {
+        updateData.album_id = null;
+        updateData.track_number = null;
+      }
+    } else if (body.trackNumber !== undefined) {
+      updateData.track_number = Math.max(
+        1,
+        Math.floor(Number(body.trackNumber)),
+      );
     }
     if (
       updateData.discover_clip_start_seconds != null &&

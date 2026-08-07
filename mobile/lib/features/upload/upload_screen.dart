@@ -8,6 +8,7 @@ import 'package:just_audio/just_audio.dart';
 
 import '../../core/constants/song_price_tiers.dart';
 import '../../core/data/station_towers.dart';
+import '../../core/services/albums_service.dart';
 import '../../core/services/api_service.dart' show ApiException, ApiService;
 import '../../core/legal/full_song_radio_opt_in.dart';
 import '../../core/theme/networx_extensions.dart';
@@ -31,6 +32,9 @@ class _UploadScreenState extends State<UploadScreen> {
   /// Constrained to [kSongPriceTiersCents] so every price maps to a store SKU.
   int _priceCents = kDefaultBeatPriceCents;
   final ApiService _apiService = ApiService();
+  final AlbumsService _albumsService = AlbumsService();
+  List<ArtistAlbum> _albums = const [];
+  String? _albumId;
   File? _audioFile;
   File? _artworkFile;
   File? _discoverBackgroundFile;
@@ -65,6 +69,22 @@ class _UploadScreenState extends State<UploadScreen> {
   static const int _kSampleMax = 30;
   static const int _kMaxAudioBytes = 100 * 1024 * 1024;
   static const int _kMaxImageBytes = 15 * 1024 * 1024;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAlbums();
+  }
+
+  Future<void> _loadAlbums() async {
+    try {
+      final albums = await _albumsService.listMine();
+      if (!mounted) return;
+      setState(() => _albums = albums);
+    } catch (_) {
+      // Non-fatal: upload still works as a single.
+    }
+  }
 
   @override
   void didChangeDependencies() {
@@ -509,6 +529,7 @@ class _UploadScreenState extends State<UploadScreen> {
           'optInFullSongRadio': _isBeat ? false : _optInFullSongRadio,
           'optInDjLivestreams': _isBeat ? false : _optInDjLivestreams,
           'optInDjArchivedMixes': _isBeat ? false : _optInDjArchivedMixes,
+          if (!_isBeat) 'albumId': ?_albumId,
         },
         preferDirectBackend: true,
         timeout: const Duration(seconds: 90),
@@ -767,6 +788,32 @@ class _UploadScreenState extends State<UploadScreen> {
                         ..addAll(next);
                     }),
                   ),
+                  if (!_isBeat) ...[
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String?>(
+                      initialValue: _albumId,
+                      decoration: const InputDecoration(
+                        labelText: 'Album (optional)',
+                        helperText:
+                            'Create albums on your artist page, then assign here.',
+                      ),
+                      items: [
+                        const DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text('Single (no album)'),
+                        ),
+                        ..._albums.map(
+                          (a) => DropdownMenuItem<String?>(
+                            value: a.id,
+                            child: Text(a.title),
+                          ),
+                        ),
+                      ],
+                      onChanged: _isUploading
+                          ? null
+                          : (v) => setState(() => _albumId = v),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   OutlinedButton.icon(
                     onPressed: _isUploading ? null : _pickAudioFile,

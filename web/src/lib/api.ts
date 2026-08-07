@@ -562,6 +562,8 @@ export const songsApi = {
     optInFullSongRadio?: boolean;
     optInDjLivestreams?: boolean;
     optInDjArchivedMixes?: boolean;
+    albumId?: string;
+    trackNumber?: number;
   }) => 
     api.post<{ id?: string }>('/songs', data),
   like: (id: string) => api.post(`/songs/${id}/like`),
@@ -599,6 +601,8 @@ export const songsApi = {
       featuredArtistIds?: string[];
       isExplicit?: boolean;
       isPublic?: boolean;
+      albumId?: string | null;
+      trackNumber?: number;
     },
   ) => api.patch(`/songs/${id}`, data),
   updateVisibility: (id: string, isPublic: boolean) =>
@@ -1640,6 +1644,45 @@ export const proRadioPlaylistsApi = {
     api.delete(`/playlists/${id}/tracks/${songId}`),
   reorder: (id: string, songIds: string[]) =>
     api.post(`/playlists/${id}/reorder`, { songIds }),
+};
+
+export type ArtistAlbum = {
+  id: string;
+  title: string;
+  releaseType: string;
+  artworkUrl?: string | null;
+  releaseDate?: string | null;
+  trackCount: number;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export const albumsApi = {
+  listMine: () => api.get<{ albums: ArtistAlbum[] }>('/albums/mine'),
+  create: (data: {
+    title: string;
+    releaseType?: string;
+    artworkUrl?: string | null;
+    releaseDate?: string | null;
+  }) => api.post<ArtistAlbum>('/albums', data),
+  update: (
+    id: string,
+    data: {
+      title?: string;
+      releaseType?: string;
+      artworkUrl?: string | null;
+      releaseDate?: string | null;
+    },
+  ) => api.patch<ArtistAlbum>(`/albums/${id}`, data),
+  remove: (id: string) => api.delete<{ ok: true }>(`/albums/${id}`),
+  setTracks: (id: string, songIds: string[]) =>
+    api.put<{ ok: true; trackCount: number }>(`/albums/${id}/tracks`, {
+      songIds,
+    }),
+  addTrack: (id: string, songId: string) =>
+    api.post(`/albums/${id}/tracks`, { songId }),
+  removeTrack: (id: string, songId: string) =>
+    api.delete(`/albums/${id}/tracks/${songId}`),
 };
 
 export const browseApi = {

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { songsApi, refineryApi } from '@/lib/api';
+import { AlbumsManageCard } from '@/components/artist/AlbumsManageCard';
 import { usePlayback } from '@/components/playback';
 import { LyricsPlayerDialog } from '@/components/songs/LyricsPlayer';
 import { Button } from '@/components/ui/button';
@@ -82,6 +83,9 @@ interface Song {
   sampleStartSeconds?: number | null;
   sampleEndSeconds?: number | null;
   priceCents?: number | null;
+  albumId?: string | null;
+  trackNumber?: number | null;
+  productKind?: string;
 }
 
 function parseTimeToSeconds(value: string): number | null {
@@ -661,6 +665,10 @@ export default function MySongsPage() {
             </Button>
           </div>
         </Alert>
+      )}
+
+      {!error && (
+        <AlbumsManageCard songs={songs} onChanged={() => void loadSongs()} />
       )}
 
       {!error && songs.length === 0 ? (

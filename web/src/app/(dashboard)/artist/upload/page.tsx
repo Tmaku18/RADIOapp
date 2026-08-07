@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { songsApi, usersApi } from '@/lib/api';
+import { albumsApi, songsApi, usersApi, type ArtistAlbum } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { hasArtistCapability } from '@/lib/roles';
 import { FULL_SONG_RADIO_OPT_IN } from '@/lib/legal/full-song-radio-opt-in';
@@ -110,6 +110,23 @@ export default function UploadPage() {
   const [optInFullSongRadio, setOptInFullSongRadio] = useState(false);
   const [optInDjLivestreams, setOptInDjLivestreams] = useState(false);
   const [optInDjArchivedMixes, setOptInDjArchivedMixes] = useState(false);
+  const [albums, setAlbums] = useState<ArtistAlbum[]>([]);
+  const [albumId, setAlbumId] = useState('');
+
+  useEffect(() => {
+    let ignore = false;
+    (async () => {
+      try {
+        const res = await albumsApi.listMine();
+        if (!ignore) setAlbums(res.data.albums ?? []);
+      } catch {
+        if (!ignore) setAlbums([]);
+      }
+    })();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!audioFile) {
@@ -452,6 +469,7 @@ export default function UploadPage() {
           optInFullSongRadio,
           optInDjLivestreams: optInDjLivestreams || optInFullSongRadio,
           optInDjArchivedMixes,
+          albumId: albumId || undefined,
         });
       } catch (dbErr) {
         throw new Error(
@@ -798,6 +816,27 @@ export default function UploadPage() {
                 value={stationIds}
                 onChange={setStationIds}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="albumId">Album (optional)</Label>
+              <select
+                id="albumId"
+                value={albumId}
+                onChange={(e) => setAlbumId(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Single (no album)</option>
+                {albums.map((album) => (
+                  <option key={album.id} value={album.id}>
+                    {album.title}
+                    {album.releaseType ? ` (${album.releaseType})` : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Create albums under My Songs, then assign tracks here or later.
+              </p>
             </div>
 
             <div className="space-y-2">

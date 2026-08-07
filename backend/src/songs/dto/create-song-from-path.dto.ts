@@ -123,4 +123,14 @@ export class CreateSongFromPathDto {
   @IsBoolean()
   @IsOptional()
   forSale?: boolean;
+
+  /** Optional album grouping on the artist page. */
+  @IsString()
+  @IsOptional()
+  albumId?: string;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(1)
+  trackNumber?: number;
 }
