@@ -7,6 +7,7 @@ import '../../core/models/pro_radio_models.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/services/pro_radio_queue_service.dart';
 import '../../core/services/pro_radio_service.dart';
+import 'pro_radio_playlist_screen.dart';
 import 'widgets/pro_radio_paywall_sheet.dart';
 
 /// Pro-Radio hub: subscribe CTA, playlists, and on-demand player controls.
@@ -136,6 +137,15 @@ class _ProRadioHubScreenState extends State<ProRadioHubScreen> {
   }
 
   Future<void> _openPlaylist(ProRadioPlaylist playlist) async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => ProRadioPlaylistScreen(playlist: playlist),
+      ),
+    );
+    if (changed == true && mounted) await _load();
+  }
+
+  Future<void> _playPlaylist(ProRadioPlaylist playlist) async {
     try {
       final tracks = await _service.getPlaylistTracks(playlist.id);
       final items = tracks
@@ -309,8 +319,15 @@ class _ProRadioHubScreenState extends State<ProRadioHubScreen> {
                       (p) => ListTile(
                         leading: const Icon(Icons.queue_music),
                         title: Text(p.title),
-                        subtitle: Text('${p.trackCount} tracks'),
+                        subtitle: Text(
+                          '${p.trackCount} track${p.trackCount == 1 ? '' : 's'} · tap to manage',
+                        ),
                         onTap: () => _openPlaylist(p),
+                        trailing: IconButton(
+                          tooltip: 'Play playlist',
+                          icon: const Icon(Icons.play_arrow),
+                          onPressed: () => _playPlaylist(p),
+                        ),
                       ),
                     ),
                   if (_queue.queue.isNotEmpty) ...[

@@ -26,6 +26,10 @@ export default function ProRadioPage() {
   const [hasAccess, setHasAccess] = useState<boolean | null>(null);
   const [playlists, setPlaylists] = useState<ProRadioPlaylist[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedPlaylistId, setExpandedPlaylistId] = useState<string | null>(null);
+  const [playlistTracks, setPlaylistTracks] = useState<ProRadioPlaylistTrack[]>([]);
+  const [tracksLoading, setTracksLoading] = useState(false);
+  const [removingSongId, setRemovingSongId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!user?.uid) {
@@ -83,7 +87,51 @@ export default function ProRadioPage() {
     }
   };
 
-  const playPlaylist = async (playlistId: string) => {
+  const loadPlaylistTracks = async (playlistId: string) => {
+    setTracksLoading(true);
+    try {
+      const res = await proRadioPlaylistsApi.getTracks(playlistId);
+      setPlaylistTracks((res.data?.tracks ?? []) as ProRadioPlaylistTrack[]);
+    } catch {
+      setPlaylistTracks([]);
+      toast.error('Could not load playlist tracks.');
+    } finally {
+      setTracksLoading(false);
+    }
+  };
+
+  const toggleManagePlaylist = async (playlistId: string) => {
+    if (expandedPlaylistId === playlistId) {
+      setExpandedPlaylistId(null);
+      setPlaylistTracks([]);
+      return;
+    }
+    setExpandedPlaylistId(playlistId);
+    await loadPlaylistTracks(playlistId);
+  };
+
+  const removeTrack = async (playlistId: string, songId: string, title: string) => {
+    if (!window.confirm(`Remove "${title}" from this playlist?`)) return;
+    setRemovingSongId(songId);
+    try {
+      await proRadioPlaylistsApi.removeTrack(playlistId, songId);
+      setPlaylistTracks((prev) => prev.filter((t) => t.songId !== songId));
+      setPlaylists((prev) =>
+        prev.map((pl) =>
+          pl.id === playlistId && pl.trackCount != null
+            ? { ...pl, trackCount: Math.max(0, pl.trackCount - 1) }
+            : pl,
+        ),
+      );
+      toast.success(`Removed "${title}"`);
+    } catch {
+      toast.error('Could not remove song.');
+    } finally {
+      setRemovingSongId(null);
+    }
+  };
+
+  const playPlaylist = async (playlistId: string, startSongId?: string) => {
     try {
       const res = await proRadioPlaylistsApi.getTracks(playlistId);
       const tracks = (res.data?.tracks ?? []) as ProRadioPlaylistTrack[];
@@ -102,7 +150,12 @@ export default function ProRadioPage() {
         toast.error('No playable tracks in this playlist yet.');
         return;
       }
-      actions.playProRadioQueue(queue, 0);
+      let startIndex = 0;
+      if (startSongId) {
+        const idx = queue.findIndex((t) => t.id === startSongId);
+        if (idx >= 0) startIndex = idx;
+      }
+      actions.playProRadioQueue(queue, startIndex);
       await actions.play();
     } catch {
       toast.error('Could not play playlist.');
@@ -184,23 +237,90 @@ export default function ProRadioPage() {
             <p className="text-muted-foreground text-sm">No playlists yet. Create one to get started.</p>
           ) : (
             <ul className="space-y-2">
-              {playlists.map((pl) => (
-                <li key={pl.id}>
-                  <Card>
-                    <CardContent className="py-3 flex items-center justify-between gap-3">
-                      <div>
-                        <p className="font-medium">{pl.title}</p>
-                        {pl.trackCount != null && (
-                          <p className="text-xs text-muted-foreground">{pl.trackCount} tracks</p>
+              {playlists.map((pl) => {
+                const expanded = expandedPlaylistId === pl.id;
+                return (
+                  <li key={pl.id}>
+                    <Card>
+                      <CardContent className="py-3 space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="font-medium">{pl.title}</p>
+                            {pl.trackCount != null && (
+                              <p className="text-xs text-muted-foreground">
+                                {pl.trackCount} track{pl.trackCount === 1 ? '' : 's'}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => void toggleManagePlaylist(pl.id)}
+                            >
+                              {expanded ? 'Hide' : 'Manage'}
+                            </Button>
+                            <Button type="button" size="sm" onClick={() => void playPlaylist(pl.id)}>
+                              Play
+                            </Button>
+                          </div>
+                        </div>
+                        {expanded && (
+                          <div className="border-t pt-3 space-y-2">
+                            {tracksLoading ? (
+                              <p className="text-sm text-muted-foreground">Loading tracks…</p>
+                            ) : playlistTracks.length === 0 ? (
+                              <p className="text-sm text-muted-foreground">
+                                No songs yet. Add some from artist pages or radio.
+                              </p>
+                            ) : (
+                              <ul className="space-y-2">
+                                {playlistTracks.map((t) => (
+                                  <li
+                                    key={t.songId}
+                                    className="flex items-center justify-between gap-2 text-sm"
+                                  >
+                                    <div className="min-w-0">
+                                      <p className="font-medium truncate">{t.title}</p>
+                                      <p className="text-xs text-muted-foreground truncate">
+                                        {t.artistName ?? 'Artist'}
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      {(t.streamUrl ?? '').trim() && (
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => void playPlaylist(pl.id, t.songId)}
+                                        >
+                                          Play
+                                        </Button>
+                                      )}
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        disabled={removingSongId === t.songId}
+                                        onClick={() =>
+                                          void removeTrack(pl.id, t.songId, t.title)
+                                        }
+                                      >
+                                        Remove
+                                      </Button>
+                                    </div>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
                         )}
-                      </div>
-                      <Button type="button" size="sm" onClick={() => void playPlaylist(pl.id)}>
-                        Play
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </li>
-              ))}
+                      </CardContent>
+                    </Card>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </>
