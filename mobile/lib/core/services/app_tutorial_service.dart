@@ -8,7 +8,9 @@ class AppTutorialService {
   AppTutorialService._();
   static final AppTutorialService instance = AppTutorialService._();
 
-  static const _completedKey = 'app_tutorial_completed';
+  /// Bump the suffix when tour copy/steps change so returning users see the
+  /// updated walkthrough once (Settings → Help → App tour still replays anytime).
+  static const _completedKey = 'app_tutorial_completed_v2';
 
   /// Bumped from Settings so [HomeScreen] can present the tour.
   final ValueNotifier<int> requestShow = ValueNotifier<int>(0);

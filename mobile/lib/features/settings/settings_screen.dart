@@ -801,7 +801,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     icon: Icons.tour_outlined,
                     title: 'App tour',
                     subtitle:
-                        'Walk through Radio, Discover, Upload, and Pro-Networx',
+                        'Walk through Radio, Pro-Radio, Discover, Nearby, and more',
                     onTap: () async {
                       // Pop Settings first so the tour overlays Home, not this page.
                       Navigator.of(context).popUntil((route) => route.isFirst);

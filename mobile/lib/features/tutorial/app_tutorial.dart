@@ -16,6 +16,8 @@ enum TutorialNavTarget {
   upload,
   studio,
   proNetworx,
+  proRadio,
+  nearby,
   none,
 }
 
@@ -51,23 +53,31 @@ class AppTutorial {
       title: 'Welcome to Networx',
       body:
           'This is your home. Tap the menu (☰) anytime to open Radio, Feed, '
-          'Discover, Vote, Upload, and more.',
+          'Discover, Vote, Pro-Radio, Nearby, and more.',
       nav: TutorialNavTarget.home,
     ),
     TutorialStep(
       title: 'Radio',
       body:
-          'Listen to live stations. Switch stations from Radio and keep the '
-          'mini player going while you browse.',
+          'Listen to live stations with everyone else in sync. Switch stations '
+          'from Radio and keep the mini player going while you browse.',
       nav: TutorialNavTarget.radio,
     ),
     TutorialStep(
       title: 'Fire vs star',
       body:
-          'On the radio bar: 🔥 likes a song (My Songs → Liked). '
-          '⭐ favorites it for play alerts (My Songs → Favorites). '
+          'On the radio bar: 🔥 likes a song (Library → Liked). '
+          '⭐ favorites it for play alerts (Library → Favorites). '
           'Only stars trigger on-air / up-next notifications.',
       nav: TutorialNavTarget.radio,
+    ),
+    TutorialStep(
+      title: 'Pro-Radio',
+      body:
+          'Want on-demand listening? Open Pro-Radio for full tracks, personal '
+          'playlists, and your own queue. During beta, Pro-Radio and other '
+          'subscriptions are unlocked for free so you can try everything.',
+      nav: TutorialNavTarget.proRadio,
     ),
     TutorialStep(
       title: 'Feed',
@@ -91,18 +101,27 @@ class AppTutorial {
       nav: TutorialNavTarget.voteOrPro,
     ),
     TutorialStep(
+      title: 'Nearby People',
+      body:
+          'Find creators near you on the map. Add your ZIP in Profile — the '
+          'map shows an approximate area only, never your exact address.',
+      nav: TutorialNavTarget.nearby,
+    ),
+    TutorialStep(
       title: 'Pro-Networx',
       body:
-          'Browse creators and services. Offering your own services needs a '
-          'creator account — upgrade when you’re ready, then finish your Pro profile.',
+          'Browse creators, services, jobs, and messages. Offering your own '
+          'services needs a creator account — upgrade when you’re ready, then '
+          'finish your Pro profile. Messaging and Pro features are free during beta.',
       nav: TutorialNavTarget.proNetworx,
     ),
     TutorialStep(
       title: 'Songs vs beats',
       body:
           'Songs are for radio and Discover — you hear a short sample, then can '
-          'buy the full track. Beats are instrumentals for sale in Pro-Networx: '
-          'you can play the whole beat before you buy. Same app, different product.',
+          'buy the full track (or stream it with Pro-Radio when the artist opted in). '
+          'Beats are instrumentals for sale in Pro-Networx: you can play the whole '
+          'beat before you buy.',
       nav: TutorialNavTarget.proNetworx,
     ),
     TutorialStep(
@@ -117,7 +136,7 @@ class AppTutorial {
       title: 'Welcome, creator',
       body:
           'Home is your dashboard. Open the menu (☰) for Upload, My Songs, '
-          'Pro-Networx, Analytics, and more.',
+          'Pro-Radio, Pro-Networx, Analytics, and more.',
       nav: TutorialNavTarget.home,
     ),
     TutorialStep(
@@ -133,6 +152,14 @@ class AppTutorial {
           '🔥 = likes (Liked). ⭐ = Favorites + radio alerts. Use the star so '
           'listeners get notified when a track is about to play.',
       nav: TutorialNavTarget.radio,
+    ),
+    TutorialStep(
+      title: 'Pro-Radio',
+      body:
+          'Listeners use Pro-Radio for on-demand play of songs you’ve opted in. '
+          'During beta it’s free for everyone — opt your tracks into Pro-Radio '
+          'on upload or song settings when you’re ready.',
+      nav: TutorialNavTarget.proRadio,
     ),
     TutorialStep(
       title: 'Feed',
@@ -152,16 +179,17 @@ class AppTutorial {
       title: 'Songs vs beats',
       body:
           'On Upload, pick Song or Beat. Songs go toward radio and Discover — '
-          'listeners get a short sample, then can buy the full track. Beats are '
-          'instrumentals for the Beat Marketplace: buyers hear the whole beat '
-          'before checkout, and they aren’t the same as a radio song upload.',
+          'listeners get a short sample, then can buy the full track or stream '
+          'with Pro-Radio if you opt in. Beats are instrumentals for the Beat '
+          'Marketplace: buyers hear the whole beat before checkout.',
       nav: TutorialNavTarget.upload,
     ),
     TutorialStep(
       title: 'Upload a song',
       body:
           'For a Song: add your audio, title, city & state, pick stations, and '
-          'accept the full-song radio opt-in.',
+          'accept the full-song radio opt-in. Add your ZIP in Profile for '
+          'Nearby — map areas stay approximate, never a street address.',
       nav: TutorialNavTarget.upload,
     ),
     TutorialStep(
@@ -189,10 +217,18 @@ class AppTutorial {
       nav: TutorialNavTarget.studio,
     ),
     TutorialStep(
+      title: 'Nearby People',
+      body:
+          'Show up near other creators. Set your ZIP in Profile — the map uses '
+          'an approximate area only, not your exact address.',
+      nav: TutorialNavTarget.nearby,
+    ),
+    TutorialStep(
       title: 'Pro-Networx setup',
       body:
           'Open Pro-Networx and finish your profile — headline, skills, and '
-          'availability — so you show in Explore and can offer services.',
+          'availability — so you show in Explore and can offer services. '
+          'Pro features are free during beta.',
       nav: TutorialNavTarget.proNetworx,
     ),
     TutorialStep(
@@ -272,6 +308,8 @@ class _TutorialOverlayState extends State<_TutorialOverlay> {
   int _index = 0;
   bool _busy = false;
   bool _openedUpload = false;
+  bool _openedProRadio = false;
+  bool _openedNearby = false;
 
   TutorialStep get _step => widget.steps[_index];
   bool get _isLast => _index >= widget.steps.length - 1;
@@ -289,6 +327,8 @@ class _TutorialOverlayState extends State<_TutorialOverlay> {
       await widget.popToHome!();
     }
     _openedUpload = false;
+    _openedProRadio = false;
+    _openedNearby = false;
   }
 
   Future<void> _applyNav(TutorialNavTarget nav) async {
@@ -329,6 +369,18 @@ class _TutorialOverlayState extends State<_TutorialOverlay> {
           widget.selectTab(proTab);
         } else {
           await widget.openRoute(AppRoutes.proNetworxLanding);
+        }
+      case TutorialNavTarget.proRadio:
+        if (!_openedProRadio) {
+          await _popExtraRoutes();
+          _openedProRadio = true;
+          await widget.openRoute(AppRoutes.proRadio);
+        }
+      case TutorialNavTarget.nearby:
+        if (!_openedNearby) {
+          await _popExtraRoutes();
+          _openedNearby = true;
+          await widget.openRoute(AppRoutes.nearbyPeople);
         }
       case TutorialNavTarget.none:
         break;
