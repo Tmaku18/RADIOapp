@@ -9,6 +9,7 @@ import '../../core/services/discover_audio_service.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/services/radio_background_sync_service.dart';
 import '../../core/theme/networx_extensions.dart';
+import '../pro_radio/widgets/add_to_playlist_sheet.dart';
 
 class DiscoverAudioTab extends StatefulWidget {
   const DiscoverAudioTab({super.key});
@@ -560,6 +561,18 @@ class DiscoverAudioTabState extends State<DiscoverAudioTab> {
                           padding: const EdgeInsets.all(12),
                           child: Row(
                             children: [
+                              IconButton(
+                                tooltip: 'Add to playlist',
+                                onPressed: _busySwipe
+                                    ? null
+                                    : () => AddToPlaylistSheet.show(
+                                          context,
+                                          songId: card.songId,
+                                          songTitle: card.title,
+                                        ),
+                                icon: const Icon(Icons.add_circle_outline),
+                              ),
+                              const SizedBox(width: 4),
                               Expanded(
                                 child: OutlinedButton.icon(
                                   onPressed: _busySwipe

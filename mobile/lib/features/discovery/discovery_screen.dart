@@ -13,6 +13,7 @@ import '../../core/services/audio_player_service.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../core/theme/dimension_tokens.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
+import '../pro_radio/widgets/add_to_playlist_sheet.dart';
 import 'discover_audio_tab.dart';
 
 class DiscoveryScreen extends StatefulWidget {
@@ -1162,13 +1163,21 @@ class _LibraryTabState extends State<_LibraryTab> {
               ),
               title: Text(fav.title),
               subtitle: Text(fav.artistName),
-              trailing: busy
-                  ? const SizedBox(
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AddToPlaylistButton(
+                    songId: fav.id,
+                    songTitle: fav.title,
+                  ),
+                  if (busy)
+                    const SizedBox(
                       width: 24,
                       height: 24,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : IconButton(
+                  else
+                    IconButton(
                       tooltip: 'Remove favorite',
                       onPressed: () => _removeFavorite(fav),
                       icon: const Icon(
@@ -1176,6 +1185,8 @@ class _LibraryTabState extends State<_LibraryTab> {
                         color: Color(0xFFFFC107),
                       ),
                     ),
+                ],
+              ),
             ),
           );
         },
@@ -1289,6 +1300,10 @@ class _LibraryTabState extends State<_LibraryTab> {
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  AddToPlaylistButton(
+                    songId: item.songId,
+                    songTitle: item.title,
+                  ),
                   if (item.isLiked && item.clipUrl.trim().isNotEmpty)
                     IconButton(
                       tooltip: 'Make video',
@@ -1388,6 +1403,10 @@ class _LibraryTabState extends State<_LibraryTab> {
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  AddToPlaylistButton(
+                    songId: item.id,
+                    songTitle: item.title,
+                  ),
                   IconButton(
                     tooltip: playing ? 'Pause' : 'Play',
                     icon: busy

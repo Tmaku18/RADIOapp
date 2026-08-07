@@ -300,7 +300,7 @@ class _ProRadioHubScreenState extends State<ProRadioHubScreen> {
                     )
                   else if (_playlists.isEmpty)
                     Text(
-                      'No playlists yet. Tap + to create one, then add songs from artist profiles.',
+                      'No playlists yet. Tap + to create one, then add songs with the + button on radio, artist pages, Discover, or your library.',
                       style: theme.textTheme.bodySmall
                           ?.copyWith(color: cs.onSurfaceVariant),
                     )

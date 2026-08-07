@@ -13,6 +13,7 @@ import '../../core/services/audio_player_service.dart';
 import '../../core/theme/dimension_tokens.dart';
 import '../../features/player/dimension_player_controller.dart';
 import '../../features/player/widgets/synced_lyrics_panel.dart';
+import '../../features/pro_radio/widgets/add_to_playlist_sheet.dart';
 import 'dimension_widgets.dart';
 
 /// Emergent bottom radio bar — web [DimensionRadioBar] parity.
@@ -242,6 +243,28 @@ class DimensionRadioBar extends StatelessWidget {
                                               ctrl.submitReaction('fire'),
                                         ),
                                       ],
+                                      if ((ctrl.playlistSongId ?? '')
+                                          .isNotEmpty)
+                                        IconButton(
+                                          visualDensity: VisualDensity.compact,
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(
+                                            minWidth: 32,
+                                            minHeight: 32,
+                                          ),
+                                          tooltip: 'Add to playlist',
+                                          onPressed: () =>
+                                              AddToPlaylistSheet.show(
+                                            context,
+                                            songId: ctrl.playlistSongId!,
+                                            songTitle: ctrl.playlistSongTitle,
+                                          ),
+                                          icon: Icon(
+                                            Icons.add_circle_outline,
+                                            size: 20,
+                                            color: DimensionTokens.textPrimary,
+                                          ),
+                                        ),
                                     ],
                                   );
                                 },

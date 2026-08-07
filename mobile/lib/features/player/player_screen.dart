@@ -39,6 +39,7 @@ import 'widgets/butterfly_swarm_backdrop.dart';
 import 'widgets/radio_up_next_queue.dart';
 import 'widgets/chat_panel.dart';
 import 'widgets/synced_lyrics_panel.dart';
+import '../pro_radio/widgets/add_to_playlist_sheet.dart';
 
 class _StationOption {
   const _StationOption({
@@ -1404,6 +1405,17 @@ class _PlayerScreenState extends State<PlayerScreen>
                       onBuy: _buySong,
                       onReact: _react,
                       onToggleFavorite: _toggleFavorite,
+                      onAddToPlaylist: () {
+                        final t = _currentTrack;
+                        if (t == null) return;
+                        unawaited(
+                          AddToPlaylistSheet.show(
+                            providerContext,
+                            songId: t.id,
+                            songTitle: t.title,
+                          ),
+                        );
+                      },
                       onPlayPause: _togglePlayPause,
                       onEnterRoom: () => _openRoom(providerContext),
                       audioPlayer: _audioPlayer,
@@ -1701,6 +1713,7 @@ class _PlayerBody extends StatelessWidget {
   final VoidCallback onBuy;
   final Future<void> Function(String reaction) onReact;
   final VoidCallback onToggleFavorite;
+  final VoidCallback onAddToPlaylist;
   final VoidCallback onPlayPause;
   final VoidCallback onEnterRoom;
   final AudioPlayer audioPlayer;
@@ -1727,6 +1740,7 @@ class _PlayerBody extends StatelessWidget {
     required this.onBuy,
     required this.onReact,
     required this.onToggleFavorite,
+    required this.onAddToPlaylist,
     required this.onPlayPause,
     required this.onEnterRoom,
     required this.audioPlayer,
@@ -2221,6 +2235,12 @@ class _PlayerBody extends StatelessWidget {
                       isFavorite ? Icons.star : Icons.star_border,
                       color: isFavorite ? const Color(0xFFFFC107) : null,
                     ),
+                  ),
+                  const SizedBox(width: 6),
+                  IconButton.filledTonal(
+                    tooltip: 'Add to playlist',
+                    onPressed: onAddToPlaylist,
+                    icon: const Icon(Icons.add_circle_outline),
                   ),
                   const SizedBox(width: 6),
                   FilledButton.tonal(

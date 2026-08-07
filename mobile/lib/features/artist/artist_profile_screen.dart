@@ -21,6 +21,7 @@ import '../../core/services/pro_radio_queue_service.dart';
 import '../../core/services/users_service.dart';
 import '../../core/models/pro_radio_models.dart';
 import '../../features/pro_radio/widgets/pro_radio_paywall_sheet.dart';
+import '../../features/pro_radio/widgets/add_to_playlist_sheet.dart';
 import '../../core/brand/brand_assets.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
@@ -1483,6 +1484,12 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
                                   ],
                                 ),
                               ),
+                              if (!s.isBeat)
+                                AddToPlaylistButton(
+                                  songId: s.id,
+                                  songTitle: s.title,
+                                  color: surfaces.textSecondary,
+                                ),
                               IconButton(
                                 visualDensity: VisualDensity.compact,
                                 padding: EdgeInsets.zero,

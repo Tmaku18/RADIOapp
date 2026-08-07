@@ -78,6 +78,27 @@ class DimensionPlayerController extends ChangeNotifier {
     return id != null && id.isNotEmpty;
   }
 
+  /// Song id suitable for Pro-Radio playlists (strips discover: prefixes).
+  String? get playlistSongId {
+    final media = _media;
+    if (media == null) return null;
+    final fromExtras = media.extras?['songId']?.toString().trim();
+    if (fromExtras != null && fromExtras.isNotEmpty) return fromExtras;
+    final id = media.id;
+    if (id.startsWith('discover:')) {
+      final rest = id.substring('discover:'.length).trim();
+      return rest.isEmpty ? null : rest;
+    }
+    return id.isEmpty ? null : id;
+  }
+
+  String? get playlistSongTitle {
+    final media = _media;
+    if (media == null) return null;
+    final title = media.title.trim();
+    return title.isEmpty ? null : title;
+  }
+
   bool get canSkip {
     final media = _media;
     if (media == null) return false;
