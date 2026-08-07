@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
+import { isBetaAllFree } from '../common/beta-access';
 
 export type ProRadioSubStatus =
   | 'active'
@@ -15,11 +16,14 @@ export type ProRadioAccess = {
   hasAccess: boolean;
   status: ProRadioSubStatus | null;
   currentPeriodEnd: string | null;
+  /** True while beta unlocks Pro-Radio. Clients should still promote pricing. */
+  betaFree: boolean;
 };
 
 @Injectable()
 export class ProRadioSubscriptionService {
   async getAccess(userId: string): Promise<ProRadioAccess> {
+    const betaFree = isBetaAllFree();
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('pro_radio_subscriptions')
@@ -28,7 +32,12 @@ export class ProRadioSubscriptionService {
       .maybeSingle();
 
     if (error || !data) {
-      return { hasAccess: false, status: null, currentPeriodEnd: null };
+      return {
+        hasAccess: betaFree,
+        status: null,
+        currentPeriodEnd: null,
+        betaFree,
+      };
     }
 
     const status = data.status as ProRadioSubStatus;
@@ -37,9 +46,12 @@ export class ProRadioSubscriptionService {
       !data.current_period_end ||
       new Date(data.current_period_end as string) > new Date();
     return {
-      hasAccess: isActiveStatus && periodOk,
+      // Real status is still reported so the manage-subscription UI stays
+      // accurate for anyone who actually subscribed during beta.
+      hasAccess: betaFree || (isActiveStatus && periodOk),
       status,
       currentPeriodEnd: (data.current_period_end as string | null) ?? null,
+      betaFree,
     };
   }
 

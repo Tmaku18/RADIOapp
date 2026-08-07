@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
+import { isBetaAllFree } from '../common/beta-access';
 
 @Injectable()
 export class CreatorNetworkService {
   async hasCreatorNetworkAccess(userId: string): Promise<boolean> {
+    if (isBetaAllFree()) return true;
     const supabase = getSupabaseClient();
     const { data: row } = await supabase
       .from('creator_network_subscriptions')

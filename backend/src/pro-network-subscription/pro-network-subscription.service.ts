@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 import { isProNetworxMessagingBetaFree } from './pro-network-subscription.constants';
+import { isBetaAllFree } from '../common/beta-access';
 
 /**
  * Status as stored in pro_network_subscriptions.status. Mirrors the Stripe
@@ -24,6 +25,8 @@ export type ProNetworkAccess = {
   messagingBetaFree: boolean;
   /** True when the user may send Pro-Networx DMs (subscribed, admin path, or beta). */
   canMessage: boolean;
+  /** True while beta unlocks every subscription feature, not just messaging. */
+  betaFree: boolean;
 };
 
 @Injectable()
@@ -34,7 +37,7 @@ export class ProNetworkSubscriptionService {
    * info on Services listings.
    */
   isMessagingBetaFree(): boolean {
-    return isProNetworxMessagingBetaFree();
+    return isProNetworxMessagingBetaFree() || isBetaAllFree();
   }
 
   /**
@@ -50,6 +53,7 @@ export class ProNetworkSubscriptionService {
   async getAccess(userId: string): Promise<ProNetworkAccess> {
     const supabase = getSupabaseClient();
     const messagingBetaFree = this.isMessagingBetaFree();
+    const betaFree = isBetaAllFree();
     const { data, error } = await supabase
       .from('pro_network_subscriptions')
       .select('status, current_period_end')
@@ -58,11 +62,12 @@ export class ProNetworkSubscriptionService {
 
     if (error || !data) {
       return {
-        hasAccess: false,
+        hasAccess: betaFree,
         status: null,
         currentPeriodEnd: null,
         messagingBetaFree,
         canMessage: messagingBetaFree,
+        betaFree,
       };
     }
 
@@ -71,13 +76,17 @@ export class ProNetworkSubscriptionService {
     const periodOk =
       !data.current_period_end ||
       new Date(data.current_period_end as string) > new Date();
-    const hasAccess = isActiveStatus && periodOk;
+    // Beta opens everything gated on hasAccess — feed comments and Services
+    // contact info, not only DMs. Real status is still reported so the
+    // manage-subscription UI stays accurate.
+    const hasAccess = betaFree || (isActiveStatus && periodOk);
     return {
       hasAccess,
       status,
       currentPeriodEnd: (data.current_period_end as string | null) ?? null,
       messagingBetaFree,
       canMessage: messagingBetaFree || hasAccess,
+      betaFree,
     };
   }
 

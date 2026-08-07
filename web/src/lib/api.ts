@@ -1584,6 +1584,8 @@ export interface ProNetworkAccess {
   messagingBetaFree?: boolean;
   /** True when the user may send Pro-Networx DMs (subscribed or beta). */
   canMessage?: boolean;
+  /** True while beta unlocks every subscription feature, not just messaging. */
+  betaFree?: boolean;
 }
 
 export const proNetworkSubscriptionApi = {
@@ -1595,6 +1597,8 @@ export type ProRadioAccess = {
   hasAccess: boolean;
   status: string | null;
   currentPeriodEnd?: string | null;
+  /** True while beta unlocks Pro-Radio without a subscription. */
+  betaFree?: boolean;
   pricing?: { regularCents: number; introCents: number };
 };
 
