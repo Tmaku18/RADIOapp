@@ -197,6 +197,20 @@ void main() {
       );
     });
 
+    test('covers late starters: server rotates while our outro still plays', () {
+      // Clients start each song a few seconds after the server clock (fetch +
+      // buffer). The rotation push lands with ~that many seconds left locally;
+      // cutting the outro every song is heard as "falling out of sync".
+      expect(
+        shouldDeferTrackSwitchToBoundary(
+          localSeconds: 168,
+          durationSeconds: 180,
+          isPlaying: true,
+        ),
+        isTrue,
+      );
+    });
+
     test('reloads once the track is over, so a stalled decoder recovers', () {
       expect(
         shouldDeferTrackSwitchToBoundary(

@@ -356,13 +356,16 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
         }
         // Seconds from the end: the boundary handler is about to make this same
         // switch, so don't discard the buffer for a track that's finishing.
+        // Requires audio to be actually flowing (`ready`) — a buffering-stalled
+        // decoder never reaches the boundary handler, so it must hard-switch.
         final localDuration = _player.duration?.inSeconds;
         if (localId != null &&
             localDuration != null &&
             shouldDeferTrackSwitchToBoundary(
               localSeconds: position,
               durationSeconds: localDuration,
-              isPlaying: _player.playing,
+              isPlaying: _player.playing &&
+                  _player.processingState == ProcessingState.ready,
             )) {
           return;
         }

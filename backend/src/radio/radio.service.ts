@@ -232,6 +232,18 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   private readonly schedulerMinDelayMs = 1000;
   private readonly schedulerMaxDelayMs = 15 * 60 * 1000;
   private readonly schedulerRetryMs = 30 * 1000;
+  // Rotation `queue_updated` pushes wait for in-flight outros: listeners run a
+  // few seconds behind the server clock (response fetch + buffer fill), and a
+  // push at the exact boundary makes every device cut its outro and reload —
+  // heard as "the radio keeps falling out of sync". Late/stuck clients still
+  // get corrected when the delayed push lands; everyone else has already
+  // advanced through their own track-end handler by then and ignores it.
+  // DJ booth actions broadcast immediately from DjBoothService.
+  private readonly rotationBroadcastDelayMs = 8_000;
+  private readonly queueBroadcastTimers = new Map<
+    string,
+    ReturnType<typeof setTimeout>
+  >();
   private schedulerStopped = false;
   private cachedRadioIds: string[] | null = null;
   private cachedRadioIdsAt = 0;
@@ -737,6 +749,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       clearTimeout(timer);
     }
     this.stationTimers.clear();
+    for (const timer of this.queueBroadcastTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.queueBroadcastTimers.clear();
   }
 
   /**
@@ -848,7 +864,17 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       radioId,
       remainingSeconds * 1000 + this.schedulerTrailMs,
     );
-    void this.broadcastQueueUpdated(radioId);
+
+    // Delayed, not immediate — see rotationBroadcastDelayMs. Newest song wins:
+    // a pending push for the previous rotation is superseded.
+    const pending = this.queueBroadcastTimers.get(radioId);
+    if (pending) clearTimeout(pending);
+    const timer = setTimeout(() => {
+      this.queueBroadcastTimers.delete(radioId);
+      void this.broadcastQueueUpdated(radioId);
+    }, this.rotationBroadcastDelayMs);
+    if (typeof timer.unref === 'function') timer.unref();
+    this.queueBroadcastTimers.set(radioId, timer);
   }
 
   private async broadcastQueueUpdated(radioId: string): Promise<void> {

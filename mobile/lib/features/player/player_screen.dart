@@ -927,6 +927,8 @@ class _PlayerScreenState extends State<PlayerScreen>
 
       // Our song is seconds from the end: let the boundary handler do the
       // handoff rather than tearing down a buffer we're about to finish with.
+      // Requires audio to be actually flowing (`ready`) — a buffering-stalled
+      // decoder never reaches the boundary handler, so it must hard-switch.
       if (trackChanged &&
           !force &&
           playerOnRadio &&
@@ -935,7 +937,8 @@ class _PlayerScreenState extends State<PlayerScreen>
             localSeconds: _audioPlayer.position.inSeconds,
             durationSeconds:
                 _audioPlayer.duration?.inSeconds ?? localTrack.durationSeconds,
-            isPlaying: _audioPlayer.playing,
+            isPlaying: _audioPlayer.playing &&
+                _audioPlayer.processingState == ProcessingState.ready,
           )) {
         return;
       }

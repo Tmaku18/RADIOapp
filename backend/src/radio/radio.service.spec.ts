@@ -164,13 +164,30 @@ describe('RadioService', () => {
       expect(service.stationTimers.has('us-podcasts')).toBe(true);
     });
 
-    it('tells listeners to resync when a new song goes live', () => {
+    it('tells listeners to resync when a new song goes live, after the outro grace window', () => {
       jest.useFakeTimers();
       const service = createService() as any;
       service.onStationSongStarted('us-rap', 180);
+
+      // Not immediately — listeners run a few seconds behind the server clock,
+      // and an instant push would cut every outro ("falling out of sync").
+      expect(service.stationRealtime.broadcast).not.toHaveBeenCalled();
+
+      jest.advanceTimersByTime(8_000);
       expect(service.stationRealtime.broadcast).toHaveBeenCalledWith('us-rap', {
         type: 'queue_updated',
       });
+    });
+
+    it('supersedes a pending resync push when the station rotates again', () => {
+      jest.useFakeTimers();
+      const service = createService() as any;
+      service.onStationSongStarted('us-rap', 180);
+      jest.advanceTimersByTime(4_000);
+      service.onStationSongStarted('us-rap', 200);
+      jest.advanceTimersByTime(8_000);
+
+      expect(service.stationRealtime.broadcast).toHaveBeenCalledTimes(1);
     });
   });
 });

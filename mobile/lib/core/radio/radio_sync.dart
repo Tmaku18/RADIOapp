@@ -35,7 +35,16 @@ bool isServerAheadMidSong({
 }
 
 /// How close to the end of a song we stop reloading and wait for the boundary.
-const int kRadioBoundaryHandoffSeconds = 5;
+///
+/// Listeners run a few seconds behind the server clock (response fetch +
+/// buffer fill), so at every rotation the server announces the next song via
+/// `queue_updated` while the local outro is still playing. Cutting it off is
+/// what users report as "falling out of sync". The boundary handler is about
+/// to make the same transition cleanly via `/next?after=` — which always lands
+/// on the server's current song — so within this window we let the song
+/// finish. Beyond it the client is genuinely parked (resumed from sleep, long
+/// stall, DJ skipped mid-song) and a hard switch is the right call.
+const int kRadioBoundaryHandoffSeconds = 15;
 
 /// Whether to leave local playback alone when the server has already moved to
 /// the next song but ours is about to finish anyway.

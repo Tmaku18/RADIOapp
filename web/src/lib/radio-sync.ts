@@ -129,14 +129,27 @@ export function resolveRadioResumePosition(args: {
 }
 
 /**
- * Hard live sync: a playing listener always follows the server's current song,
- * even mid-song, so every device on a station hears the same track at the same
- * position. (Previously this returned true mid-song to avoid interrupting a
- * listener, but that let devices drift onto different songs — "true radio" must
- * stay locked.) Explicit user pause is handled separately via `pausedAt` /
- * autoplay gating, and the just-advanced guard via `isStaleRadioServerTrack`.
+ * How close to the end of the local song we hand off to the `ended` handler
+ * instead of hard-switching. Listeners run a few seconds behind the server
+ * clock (response fetch + buffer fill), so at every rotation the server
+ * announces the next song while the local outro is still playing. Cutting it
+ * off is what users report as "falling out of sync" — the ended handler is
+ * about to make the same transition cleanly via `/next?after=`, which always
+ * lands on the server's current song.
+ *
+ * Beyond this window the client is genuinely parked (resumed from sleep,
+ * long stall, DJ skipped mid-song) and a hard switch is the right call.
  */
-export function isServerAheadMidSong(_args: {
+export const RADIO_BOUNDARY_HANDOFF_SECONDS = 15;
+
+/**
+ * The server queue moved on while the local song is still finishing.
+ *
+ * Only defers while playback is actively progressing: a paused element never
+ * fires `ended`, so deferring for it would park the listener on a dead song
+ * while the station plays on.
+ */
+export function isServerAheadMidSong(args: {
   trackIdentityChanged: boolean;
   isPlaying: boolean;
   pausedAt: number | null;
@@ -144,7 +157,14 @@ export function isServerAheadMidSong(_args: {
   duration: number;
   fallbackDurationSeconds?: number;
 }): boolean {
-  return false;
+  if (!args.trackIdentityChanged) return false;
+  if (!args.isPlaying || args.pausedAt != null) return false;
+  const duration =
+    args.duration > 0 ? args.duration : (args.fallbackDurationSeconds ?? 0);
+  if (duration <= 0) return false;
+  if (args.currentTime <= 0) return false;
+  const remaining = duration - args.currentTime;
+  return remaining > 0 && remaining <= RADIO_BOUNDARY_HANDOFF_SECONDS;
 }
 
 /**
