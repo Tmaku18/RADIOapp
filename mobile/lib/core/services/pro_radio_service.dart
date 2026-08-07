@@ -13,6 +13,7 @@ class ProRadioService {
       currentPeriodEnd: null,
       regularCents: 999,
       introCents: 499,
+      betaFree: false,
     );
   }
 

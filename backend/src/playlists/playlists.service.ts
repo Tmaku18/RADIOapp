@@ -40,7 +40,19 @@ export class PlaylistsService {
       .select('id, title, description, cover_url, is_public, created_at, updated_at')
       .eq('user_id', userId)
       .order('updated_at', { ascending: false });
-    if (error) throw new BadRequestException(error.message);
+    // Missing-table / schema-cache blips should not 500 the hub — return an
+    // empty library so beta access still shows as unlocked.
+    if (error) {
+      const msg = error.message ?? '';
+      if (
+        msg.includes('schema cache') ||
+        msg.includes('user_playlists') ||
+        msg.includes('does not exist')
+      ) {
+        return { playlists: [] };
+      }
+      throw new BadRequestException(msg);
+    }
     const playlists = data ?? [];
     const counts = new Map<string, number>();
     if (playlists.length > 0) {

@@ -4,6 +4,8 @@ class ProRadioAccess {
   final String? currentPeriodEnd;
   final int regularCents;
   final int introCents;
+  /// True while beta unlocks Pro-Radio without a paid subscription.
+  final bool betaFree;
 
   const ProRadioAccess({
     required this.hasAccess,
@@ -11,6 +13,7 @@ class ProRadioAccess {
     required this.currentPeriodEnd,
     required this.regularCents,
     required this.introCents,
+    this.betaFree = false,
   });
 
   factory ProRadioAccess.fromJson(Map<String, dynamic> json) {
@@ -27,6 +30,7 @@ class ProRadioAccess {
       currentPeriodEnd: json['currentPeriodEnd']?.toString(),
       regularCents: regular,
       introCents: intro,
+      betaFree: json['betaFree'] == true,
     );
   }
 }

@@ -24,6 +24,7 @@ class _ProRadioHubScreenState extends State<ProRadioHubScreen> {
 
   bool _loading = true;
   bool? _hasAccess;
+  bool _betaFree = false;
   List<ProRadioPlaylist> _playlists = const [];
   String? _error;
   StreamSubscription? _queueSub;
@@ -56,20 +57,38 @@ class _ProRadioHubScreenState extends State<ProRadioHubScreen> {
     });
     try {
       final access = await _service.getAccess();
-      List<ProRadioPlaylist> playlists = const [];
-      if (access.hasAccess) {
-        playlists = await _service.listPlaylists();
-      }
       if (!mounted) return;
+      // Access and playlists are independent: a playlist-table outage must not
+      // flip a beta (or subscribed) user back onto the paywall.
       setState(() {
         _hasAccess = access.hasAccess;
-        _playlists = playlists;
+        _betaFree = access.betaFree;
         _loading = false;
       });
+      if (!access.hasAccess) return;
+
+      try {
+        final playlists = await _service.listPlaylists();
+        if (!mounted) return;
+        setState(() {
+          _playlists = playlists;
+          _error = null;
+        });
+      } catch (e) {
+        if (!mounted) return;
+        final raw = e.toString().replaceFirst('Exception: ', '');
+        setState(() {
+          _playlists = const [];
+          _error = raw.contains('user_playlists') || raw.contains('schema cache')
+              ? 'Playlists are temporarily unavailable. Pull to refresh — '
+                  'listening still works during beta.'
+              : raw;
+        });
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString();
+        _error = e.toString().replaceFirst('Exception: ', '');
         _loading = false;
         _hasAccess = false;
       });
@@ -194,7 +213,9 @@ class _ProRadioHubScreenState extends State<ProRadioHubScreen> {
                   const SizedBox(height: 4),
                   Text(
                     _hasAccess == true
-                        ? 'Play full tracks, build playlists, and control your queue.'
+                        ? (_betaFree
+                            ? 'Free during beta — play full tracks, build playlists, and control your queue.'
+                            : 'Play full tracks, build playlists, and control your queue.')
                         : 'Subscribe for $proRadioIntroDisplay first month, then $proRadioRegularDisplay/mo.',
                     style: theme.textTheme.bodyMedium
                         ?.copyWith(color: cs.onSurfaceVariant),

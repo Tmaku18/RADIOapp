@@ -39,11 +39,17 @@ export default function ProRadioPage() {
       const accessRes = await proRadioSubscriptionApi.getAccess();
       const access = accessRes.data?.hasAccess === true;
       setHasAccess(access);
-      if (access) {
+      if (!access) {
+        setPlaylists([]);
+        return;
+      }
+      // Playlist failures must not revoke access (same bug as the mobile hub).
+      try {
         const plRes = await proRadioPlaylistsApi.listMine();
         setPlaylists(plRes.data?.playlists ?? []);
-      } else {
+      } catch {
         setPlaylists([]);
+        toast.error('Playlists are temporarily unavailable. Pull to refresh.');
       }
     } catch {
       setHasAccess(false);
