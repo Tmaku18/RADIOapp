@@ -139,12 +139,20 @@ class Song {
       proRadioEligible: json['proRadioEligible'] == true ||
           json['pro_radio_eligible'] == true,
       locked: json['locked'] == true,
-      createdAt: DateTime.parse(
-        (json['created_at'] ?? json['createdAt']).toString(),
-      ),
-      updatedAt: DateTime.parse(
-        (json['updated_at'] ?? json['updatedAt']).toString(),
-      ),
+      // Artist-profile (and other lean payloads) often omit updated_at.
+      // `DateTime.parse((null).toString())` becomes parse("null") and crashes
+      // the Artist screen with FormatException: Invalid date format / null.
+      createdAt: DateTime.tryParse(
+            (json['created_at'] ?? json['createdAt'] ?? '').toString(),
+          ) ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+      updatedAt: DateTime.tryParse(
+            (json['updated_at'] ?? json['updatedAt'] ?? '').toString(),
+          ) ??
+          DateTime.tryParse(
+            (json['created_at'] ?? json['createdAt'] ?? '').toString(),
+          ) ??
+          DateTime.fromMillisecondsSinceEpoch(0),
     );
   }
 

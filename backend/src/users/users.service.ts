@@ -1112,6 +1112,7 @@ export class UsersService {
       'profile_play_count',
       'like_count',
       'created_at',
+      'updated_at',
       'status',
       'sample_url',
       'sample_start_seconds',
@@ -1389,6 +1390,7 @@ export class UsersService {
           likeCount,
           popularityScore,
           createdAt: song.created_at,
+          updatedAt: song.updated_at ?? song.created_at,
           featuredArtists: featuredBySongId.get(song.id) ?? [],
         };
       }),
