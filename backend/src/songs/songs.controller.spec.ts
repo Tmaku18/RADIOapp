@@ -13,6 +13,11 @@ jest.mock('../common/song-audio.util', () => ({
 }));
 
 const createAdminServiceMock = () => ({}) as any;
+const createAudioTranscodeMock = () =>
+  ({
+    needsStreamTranscode: jest.fn().mockReturnValue(false),
+    transcodeToStreamMp3: jest.fn().mockResolvedValue(null),
+  }) as any;
 const createImageModerationMock = () =>
   ({
     checkImage: jest.fn(),
@@ -45,6 +50,7 @@ describe('SongsController', () => {
       songsService as any,
       uploadsService as any,
       durationService as any,
+      createAudioTranscodeMock(),
       createAdminServiceMock(),
       createImageModerationMock(),
       createLyricsServiceMock(),
@@ -78,6 +84,7 @@ describe('SongsController', () => {
       songsService as any,
       uploadsService as any,
       durationService as any,
+      createAudioTranscodeMock(),
       createAdminServiceMock(),
       createImageModerationMock(),
       createLyricsServiceMock(),
@@ -131,6 +138,7 @@ describe('SongsController', () => {
       songsService as any,
       uploadsService as any,
       durationService as any,
+      createAudioTranscodeMock(),
       createAdminServiceMock(),
       imageModeration,
       createLyricsServiceMock(),
@@ -198,6 +206,7 @@ describe('SongsController', () => {
       songsService as any,
       uploadsService as any,
       durationService as any,
+      createAudioTranscodeMock(),
       createAdminServiceMock(),
       createImageModerationMock(),
       createLyricsServiceMock(),

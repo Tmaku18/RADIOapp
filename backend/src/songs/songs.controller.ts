@@ -21,6 +21,7 @@ import { FilesInterceptor } from '@nestjs/platform-express';
 import { SongsService } from './songs.service';
 import { UploadsService } from '../uploads/uploads.service';
 import { DurationService } from '../uploads/duration.service';
+import { AudioTranscodeService } from '../uploads/audio-transcode.service';
 import { CreateSongDto } from './dto/create-song.dto';
 import { CreateSongFromPathDto } from './dto/create-song-from-path.dto';
 import { GetUploadUrlDto } from './dto/get-upload-url.dto';
@@ -52,6 +53,7 @@ export class SongsController {
     private readonly songsService: SongsService,
     private readonly uploadsService: UploadsService,
     private readonly durationService: DurationService,
+    private readonly audioTranscode: AudioTranscodeService,
     private readonly adminService: AdminService,
     private readonly imageModeration: ImageModerationService,
     private readonly lyricsService: LyricsService,
@@ -422,8 +424,33 @@ export class SongsController {
       audioFile.mimetype,
     );
 
+    // Radio streams these bytes in real time — re-encode lossless/oversized
+    // uploads (WAV masters etc.) to 192 kbps MP3 so playback never outruns a
+    // phone connection. Falls back to the original bytes if ffmpeg fails.
+    let streamFile = audioFile;
+    if (
+      this.audioTranscode.needsStreamTranscode({
+        contentType: audioFile.mimetype,
+        sizeBytes: audioFile.buffer.length,
+        durationSeconds,
+      })
+    ) {
+      const mp3 = await this.audioTranscode.transcodeToStreamMp3(
+        audioFile.buffer,
+      );
+      if (mp3) {
+        streamFile = {
+          ...audioFile,
+          buffer: mp3,
+          size: mp3.length,
+          mimetype: 'audio/mpeg',
+          originalname: audioFile.originalname.replace(/\.[^.]+$/, '') + '.mp3',
+        };
+      }
+    }
+
     const audioUrl = await this.uploadsService.uploadAudioFile(
-      audioFile,
+      streamFile,
       userData.id,
     );
     const artworkUrl = artworkFile
@@ -531,6 +558,8 @@ export class SongsController {
     // This prevents spoofing and avoids the UI/credits falling back to the default 180s.
     // The `songs` bucket is private — always sign before fetching.
     let durationSeconds = dto.durationSeconds;
+    let downloadedAudio: Buffer | null = null;
+    let downloadedMime: string | undefined;
     try {
       const audioUrl =
         (await signSongAudioUrl(audioUrlData.publicUrl)) ??
@@ -543,27 +572,22 @@ export class SongsController {
 
         if (res.ok) {
           const contentLength = res.headers.get('content-length');
-          if (contentLength) {
-            const bytes = Number(contentLength);
-            // Extra buffer above the 100MB client limit for safety.
-            if (Number.isFinite(bytes) && bytes > 105 * 1024 * 1024) {
-              this.logger.warn(
-                `Skipping duration extraction for large audio (${bytes} bytes) at ${audioUrl}`,
-              );
-            } else {
-              const buf = Buffer.from(await res.arrayBuffer());
-              const mimeType = res.headers.get('content-type') ?? undefined;
-              durationSeconds = await this.durationService.extractDuration(
-                buf,
-                mimeType,
-              );
-            }
+          const bytes = contentLength ? Number(contentLength) : null;
+          // Extra buffer above the 100MB client limit for safety.
+          if (
+            bytes != null &&
+            Number.isFinite(bytes) &&
+            bytes > 105 * 1024 * 1024
+          ) {
+            this.logger.warn(
+              `Skipping duration extraction for large audio (${bytes} bytes) at ${audioUrl}`,
+            );
           } else {
-            const buf = Buffer.from(await res.arrayBuffer());
-            const mimeType = res.headers.get('content-type') ?? undefined;
+            downloadedAudio = Buffer.from(await res.arrayBuffer());
+            downloadedMime = res.headers.get('content-type') ?? undefined;
             durationSeconds = await this.durationService.extractDuration(
-              buf,
-              mimeType,
+              downloadedAudio,
+              downloadedMime,
             );
           }
         } else {
@@ -580,6 +604,44 @@ export class SongsController {
       );
     }
 
+    // Radio streams these bytes in real time — lossless/oversized uploads
+    // (WAV masters etc.) stall on cellular. Re-encode to 192 kbps MP3 and
+    // point the song at the streamable copy. The original object stays in
+    // storage untouched.
+    let streamAudioUrl: string | null = null;
+    if (
+      downloadedAudio &&
+      this.audioTranscode.needsStreamTranscode({
+        contentType: downloadedMime,
+        sizeBytes: downloadedAudio.length,
+        durationSeconds,
+      })
+    ) {
+      const mp3 = await this.audioTranscode.transcodeToStreamMp3(
+        downloadedAudio,
+      );
+      if (mp3) {
+        const streamPath =
+          dto.audioPath.replace(/\.[^./]+$/, '') +
+          `-stream192-${Date.now()}.mp3`;
+        const { error: streamUploadError } = await supabase.storage
+          .from('songs')
+          .upload(streamPath, mp3, {
+            contentType: 'audio/mpeg',
+            upsert: false,
+          });
+        if (streamUploadError) {
+          this.logger.warn(
+            `Failed to upload streamable copy, keeping original: ${streamUploadError.message}`,
+          );
+        } else {
+          streamAudioUrl = supabase.storage
+            .from('songs')
+            .getPublicUrl(streamPath).data.publicUrl;
+        }
+      }
+    }
+
     const fromPathStationIds = this.normalizeStationIdsInput(
       dto.stationIds,
       dto.stationId,
@@ -593,7 +655,7 @@ export class SongsController {
       artistName: (userData.display_name ?? '').trim(),
       artistOriginCity: dto.artistOriginCity.trim(),
       artistOriginState: dto.artistOriginState.trim(),
-      audioUrl: audioUrlData.publicUrl,
+      audioUrl: streamAudioUrl ?? audioUrlData.publicUrl,
       artworkUrl,
       durationSeconds,
       stationId: fromPathStationIds[0],

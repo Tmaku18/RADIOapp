@@ -1,5 +1,8 @@
 # Build stage
-FROM node:20-alpine AS builder
+# Node 22+ is required: @supabase/realtime-js needs the native WebSocket
+# global to publish station events (queue_updated, DJ transport) from the
+# server. On Node 20 every broadcast is silently dropped.
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -10,7 +13,7 @@ COPY . .
 RUN npm run build
 
 # Run stage
-FROM node:20-alpine
+FROM node:22-alpine
 
 WORKDIR /app
 
