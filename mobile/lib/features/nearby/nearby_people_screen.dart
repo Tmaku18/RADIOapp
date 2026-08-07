@@ -270,15 +270,15 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
                   context,
                   groups: _byCity,
                   emptyLabel:
-                      'No one nearby yet. Set your city in Profile to appear '
+                      'No one nearby yet. Set your ZIP in Profile to appear '
                       'on the map (approximate area only).',
                 ),
                 _buildGroupList(
                   context,
                   groups: _byZip,
                   emptyLabel:
-                      'No ZIP codes yet. Add your city or ZIP in Profile to '
-                      'show up here.',
+                      'No ZIP codes yet. Add your ZIP in Profile to show up '
+                      'here as an approximate area.',
                   isZip: true,
                 ),
               ],
@@ -299,8 +299,9 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Each circle is a general area — the person is somewhere inside '
-                'it, not at the centre. Never exact addresses or live GPS. '
+                'Each circle is a general area from ZIP code — the person is '
+                'somewhere inside it, not at the centre. Never exact addresses '
+                'or live GPS. '
                 '${_pos != null ? 'Green mark is you (for centering only).' : 'Enable location to center the map on you.'}',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: scheme.onSurface.withValues(alpha: 0.7),
@@ -345,8 +346,8 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: Text(
               _items.isEmpty
-                  ? 'No discoverable people found. Try Show all, or set your city in Profile.'
-                  : 'People are listed by city, but map pins aren’t ready yet. Pull refresh in a moment.',
+                  ? 'No discoverable people found. Try Show all, or set your ZIP in Profile.'
+                  : 'People are listed by city, but map areas aren’t ready yet. Pull refresh in a moment.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: scheme.onSurface.withValues(alpha: 0.65),
                   ),

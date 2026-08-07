@@ -674,37 +674,74 @@ export class DiscoveryService {
       return city.length > 0 || zip.length > 0 || region.length > 0;
     });
 
-    // Lazy-geocode users missing map coords (city/region first — general, not street).
-    const missing = eligible.filter((u) => {
+    // Resolve map coords from ZIP whenever we have one (backfills older
+    // city-centroid pins). City is only used when ZIP is missing.
+    const zipOf = (u: RawUser) => (u.zip_code ?? '').toString().trim();
+    const cityOf = (u: RawUser) =>
+      (u.city ?? '').toString().trim() ||
+      (u.location_region ?? '').toString().trim();
+    const missingCoords = (u: RawUser) => {
       const lat = u.artist_lat != null ? Number(u.artist_lat) : NaN;
       const lng = u.artist_lng != null ? Number(u.artist_lng) : NaN;
       return !Number.isFinite(lat) || !Number.isFinite(lng);
-    });
-    const placeKey = (u: RawUser) => {
-      const city = (u.city ?? '').toString().trim();
-      const region = (u.location_region ?? '').toString().trim();
-      const zip = (u.zip_code ?? '').toString().trim();
-      return city || region || zip;
     };
-    const uniquePlaces = [
-      ...new Set(missing.map(placeKey).filter((p) => p.length > 0)),
-    ].slice(0, 25);
+
+    const uniqueZips = [
+      ...new Set(eligible.map(zipOf).filter((z) => z.length > 0)),
+    ].slice(0, 40);
+    const uniqueCities = [
+      ...new Set(
+        eligible
+          .filter((u) => !zipOf(u) && missingCoords(u))
+          .map(cityOf)
+          .filter((c) => c.length > 0),
+      ),
+    ].slice(0, 15);
+
     const placeGeo = new Map<string, { lat: number; lng: number }>();
-    await Promise.all(
-      uniquePlaces.map(async (place) => {
-        const geo = await geocodeCityZip(place, null);
-        if (geo) placeGeo.set(place.toLowerCase(), geo);
+    await Promise.all([
+      ...uniqueZips.map(async (zip) => {
+        const geo = await geocodeCityZip('', zip);
+        if (geo) placeGeo.set(`zip:${zip.toLowerCase()}`, geo);
       }),
-    );
+      ...uniqueCities.map(async (city) => {
+        const geo = await geocodeCityZip(city, null);
+        if (geo) placeGeo.set(`city:${city.toLowerCase()}`, geo);
+      }),
+    ]);
 
     const persistUpdates: Array<{ id: string; lat: number; lng: number }> = [];
-    for (const u of missing) {
-      const place = placeKey(u);
-      const geo = place ? placeGeo.get(place.toLowerCase()) : undefined;
+    for (const u of eligible) {
+      const zip = zipOf(u);
+      const city = cityOf(u);
+      const geo = zip
+        ? placeGeo.get(`zip:${zip.toLowerCase()}`)
+        : city
+          ? placeGeo.get(`city:${city.toLowerCase()}`)
+          : undefined;
       if (!geo) continue;
+
+      const prevLat =
+        u.artist_lat != null && Number.isFinite(Number(u.artist_lat))
+          ? Number(u.artist_lat)
+          : null;
+      const prevLng =
+        u.artist_lng != null && Number.isFinite(Number(u.artist_lng))
+          ? Number(u.artist_lng)
+          : null;
+      // Persist when unset, or when a ZIP centroid replaces an old city pin
+      // (more than ~500 m apart — Open-Meteo jitter alone is smaller).
+      const shouldPersist =
+        prevLat == null ||
+        prevLng == null ||
+        (zip.length > 0 &&
+          this.haversineKm(prevLat, prevLng, geo.lat, geo.lng) > 0.5);
+
       u.artist_lat = geo.lat;
       u.artist_lng = geo.lng;
-      persistUpdates.push({ id: u.id, lat: geo.lat, lng: geo.lng });
+      if (shouldPersist) {
+        persistUpdates.push({ id: u.id, lat: geo.lat, lng: geo.lng });
+      }
     }
     // Best-effort persist so the next load doesn't re-geocode.
     if (persistUpdates.length > 0) {

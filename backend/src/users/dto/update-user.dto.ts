@@ -206,14 +206,21 @@ export class UpdateUserDto {
   @IsOptional()
   snapchatUrl?: string | null;
 
-  /** Artist map latitude for discovery map. */
+  /**
+   * Ignored. Map pins are derived server-side from ZIP (then distorted) so a
+   * client can never publish an exact street or GPS coordinate.
+   * @deprecated Kept for wire compatibility; the service drops these fields.
+   */
   @IsNumber()
   @Min(-90)
   @Max(90)
   @IsOptional()
   artistLat?: number;
 
-  /** Artist map longitude for discovery map. */
+  /**
+   * Ignored. See {@link artistLat}.
+   * @deprecated Kept for wire compatibility; the service drops these fields.
+   */
   @IsNumber()
   @Min(-180)
   @Max(180)

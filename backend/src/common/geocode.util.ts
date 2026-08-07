@@ -1,6 +1,9 @@
 /**
- * Best-effort city → lat/lng using Open-Meteo (no API key).
- * Used for Nearby People / discovery map pins at city-level only (not street/GPS).
+ * Best-effort place → lat/lng using Open-Meteo (no API key).
+ *
+ * Map pins are ZIP-based, then deliberately distorted before any client sees
+ * them. City is only a fallback when ZIP is missing, and street/GPS is never
+ * accepted as a public location.
  */
 
 export type GeocodeResult = { lat: number; lng: number };
@@ -9,17 +12,40 @@ export type GeocodeResult = { lat: number; lng: number };
 const geocodeCache = new Map<string, GeocodeResult | null>();
 
 /**
- * Geocode a place for map pins. Prefer city name; ZIP is only a fallback when
- * city is missing (and results are still fuzzed before clients see them).
+ * Build the Open-Meteo search string.
+ *
+ * ZIP wins when present: a postal-code centroid is the coarsest unit we store
+ * that still groups people usefully for Nearby. City alone is the fallback for
+ * older profiles that never set a ZIP. The two are never combined into a
+ * street-level query.
+ */
+export function resolveGeocodeQuery(
+  cityInput: string,
+  zipInput?: string | null,
+): string | null {
+  const zip = (zipInput ?? '').trim();
+  const city = cityInput.trim();
+  if (zip) {
+    // US ZIPs are 5 digits (optionally +4). Keep the core 5 so Open-Meteo
+    // resolves the postal area rather than a house-level +4.
+    const usZip = zip.match(/^(\d{5})(?:-\d{4})?$/);
+    if (usZip) return usZip[1];
+    return zip;
+  }
+  if (city) return city;
+  return null;
+}
+
+/**
+ * Geocode a place for map pins. Prefer ZIP; city is only a fallback when ZIP
+ * is missing. Results are still fuzzed via {@link approximatePublicCoords}
+ * before clients see them.
  */
 export async function geocodeCityZip(
   cityInput: string,
   zipInput?: string | null,
 ): Promise<GeocodeResult | null> {
-  const city = cityInput.trim();
-  const zip = (zipInput ?? '').trim();
-  // City-only query when possible so pins stay general (city centroid, not ZIP).
-  const name = city || zip;
+  const name = resolveGeocodeQuery(cityInput, zipInput);
   if (!name) return null;
 
   const cacheKey = name.toLowerCase();
@@ -71,7 +97,7 @@ export async function geocodeCityZip(
 /**
  * Radius in km of the "general vicinity" circle published for a person.
  * Clients draw a circle this big around the approximate point; the real
- * location is guaranteed to sit somewhere inside it.
+ * ZIP centroid is guaranteed to sit somewhere inside it — never the reverse.
  */
 export const LOCATION_VICINITY_RADIUS_KM = 3;
 
@@ -98,10 +124,10 @@ function unitFromSeed(seed: string): number {
 }
 
 /**
- * Public map coordinates, Craigslist style: shift the point by a fixed offset
- * inside a disc so the published pin is never the real address, only somewhere
- * within `radiusKm` of it. Also spreads people who share a city centroid so
- * their pins don't stack on one spot.
+ * Public map coordinates: shift the ZIP centroid by a fixed offset inside a
+ * disc so the published pin never lands on the stored point and never looks
+ * like a street address. Also spreads people who share one ZIP so their
+ * circles don't stack.
  *
  * The offset is derived from the user id alone and so never changes between
  * requests. Re-rolling it per request would let a caller collect many samples

@@ -557,7 +557,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         decoration: const InputDecoration(
                           labelText: 'City',
                           helperText:
-                              'Shown on Nearby People map once saved.',
+                              'Used for grouping in Nearby. Map area comes from ZIP.',
                         ),
                         textCapitalization: TextCapitalization.words,
                       ),
@@ -566,6 +566,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         controller: zipCtrl,
                         decoration: const InputDecoration(
                           labelText: 'ZIP / postal code',
+                          helperText:
+                              'Sets your approximate map area. The pin is '
+                              'deliberately shifted — never your exact address.',
                         ),
                         keyboardType: TextInputType.number,
                       ),

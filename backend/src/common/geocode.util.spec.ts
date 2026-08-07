@@ -1,7 +1,31 @@
 import {
   approximatePublicCoords,
   LOCATION_VICINITY_RADIUS_KM,
+  resolveGeocodeQuery,
 } from './geocode.util';
+
+describe('resolveGeocodeQuery', () => {
+  it('prefers ZIP over city so pins are postal-area based', () => {
+    expect(resolveGeocodeQuery('Atlanta', '30318')).toBe('30318');
+  });
+
+  it('strips ZIP+4 down to the 5-digit postal area', () => {
+    expect(resolveGeocodeQuery('Atlanta', '30318-1234')).toBe('30318');
+  });
+
+  it('falls back to city when ZIP is missing', () => {
+    expect(resolveGeocodeQuery('Atlanta', null)).toBe('Atlanta');
+    expect(resolveGeocodeQuery('Atlanta', '   ')).toBe('Atlanta');
+  });
+
+  it('returns null when neither city nor ZIP is set', () => {
+    expect(resolveGeocodeQuery('', null)).toBeNull();
+  });
+
+  it('keeps non-US postal strings as-is', () => {
+    expect(resolveGeocodeQuery('Toronto', 'M5V 2T6')).toBe('M5V 2T6');
+  });
+});
 
 function haversineKm(
   lat1: number,

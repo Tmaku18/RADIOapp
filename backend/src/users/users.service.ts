@@ -733,12 +733,10 @@ export class UsersService {
       }
     }
 
-    // Geocode city/ZIP → map pin when city (or zip) changes and coords not explicit.
-    if (
-      (cityProvided || zipProvided) &&
-      updateUserDto.artistLat === undefined &&
-      updateUserDto.artistLng === undefined
-    ) {
+    // Map pin is derived from ZIP (city only if ZIP is missing). Never accept
+    // client-supplied lat/lng — that would let someone publish a street address
+    // or live GPS and defeat the whole approximation model.
+    if (cityProvided || zipProvided) {
       const { data: currentLoc } = await supabase
         .from('users')
         .select('city, zip_code')
@@ -753,7 +751,6 @@ export class UsersService {
           ? updateUserDto.zipCode?.trim()
           : (currentLoc?.zip_code as string | null)?.trim()) || '';
       if (city || zip) {
-        // City centroid only (ZIP alone is a fallback). Exact GPS is never stored here.
         const geo = await geocodeCityZip(city, zip);
         if (geo) {
           updatePayload.artist_lat = geo.lat;
@@ -787,10 +784,8 @@ export class UsersService {
       updatePayload.facebook_url = updateUserDto.facebookUrl || null;
     if (updateUserDto.snapchatUrl !== undefined)
       updatePayload.snapchat_url = updateUserDto.snapchatUrl || null;
-    if (updateUserDto.artistLat !== undefined)
-      updatePayload.artist_lat = updateUserDto.artistLat;
-    if (updateUserDto.artistLng !== undefined)
-      updatePayload.artist_lng = updateUserDto.artistLng;
+    // artistLat / artistLng from the client are intentionally ignored — see
+    // the ZIP geocode block above. Public maps only ever see a distorted pin.
     if (updateUserDto.role !== undefined) {
       if (user.role === 'admin') {
         throw new BadRequestException(
