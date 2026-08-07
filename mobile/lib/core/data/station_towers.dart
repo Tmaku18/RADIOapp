@@ -7,10 +7,10 @@ class StationTower {
 }
 
 const List<StationTower> kNationalStationTowers = [
+  StationTower(id: 'us-ready-now-rap', genre: 'Ready Now Radio'),
   StationTower(id: 'us-rap', genre: 'New School Rap Radio'),
   StationTower(id: 'us-old-school-rap', genre: 'Old School Rap Radio'),
   StationTower(id: 'us-rap-clean', genre: 'Clean Rap Radio'),
-  StationTower(id: 'us-ready-now-rap', genre: 'Ready Now Radio'),
   StationTower(id: 'us-hip-hop', genre: 'Hip Hop'),
   StationTower(id: 'us-country', genre: 'Country'),
   StationTower(id: 'us-rock', genre: 'Rock'),

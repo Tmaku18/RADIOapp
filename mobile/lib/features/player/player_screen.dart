@@ -51,10 +51,10 @@ class _StationOption {
 }
 
 const List<_StationOption> _stationOptions = <_StationOption>[
+  _StationOption(id: 'us-ready-now-rap', genre: 'Ready Now Radio'),
   _StationOption(id: 'us-rap', genre: 'New School Rap Radio'),
   _StationOption(id: 'us-old-school-rap', genre: 'Old School Rap Radio'),
   _StationOption(id: 'us-rap-clean', genre: 'Clean Rap Radio'),
-  _StationOption(id: 'us-ready-now-rap', genre: 'Ready Now Radio'),
   _StationOption(id: 'us-hip-hop', genre: 'Hip Hop'),
   _StationOption(id: 'us-country', genre: 'Country'),
   _StationOption(id: 'us-rock', genre: 'Rock'),
@@ -316,16 +316,12 @@ class _PlayerScreenState extends State<PlayerScreen>
     return source != null && source.isNotEmpty && source != 'radio';
   }
 
+  /// App open always starts on Ready Now. Last station is not restored for
+  /// playback — listeners can still switch mid-session via the station picker.
   Future<void> _restoreStationSelection() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final stored = prefs.getString(_selectedStationPrefKey)?.trim();
-      if (stored != null && stored.isNotEmpty) {
-        _radioId = stored;
-      }
-    } catch (_) {
-      // Ignore storage failures and keep env/default station.
-    }
+    final stationId = env('RADIO_STATION_ID') ?? 'us-ready-now-rap';
+    _radioId = stationId;
+    await _persistStationSelection(stationId);
   }
 
   Future<void> _persistStationSelection(String stationId) async {

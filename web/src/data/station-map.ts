@@ -78,6 +78,15 @@ export const STATES_WITH_TOWERS: string[] = ['GA'];
 /** National stations distributed on the US map for easier picking. */
 export const TOWERS: Tower[] = [
   {
+    id: 'us-ready-now-rap',
+    state: 'US',
+    city: 'Houston',
+    genre: 'Ready Now Radio',
+    genreId: 'rap',
+    lat: 29.7604,
+    lng: -95.3698,
+  },
+  {
     id: 'us-rap',
     state: 'US',
     city: 'New York',
@@ -103,15 +112,6 @@ export const TOWERS: Tower[] = [
     genreId: 'rap',
     lat: 35.2271,
     lng: -80.8431,
-  },
-  {
-    id: 'us-ready-now-rap',
-    state: 'US',
-    city: 'Houston',
-    genre: 'Ready Now Radio',
-    genreId: 'rap',
-    lat: 29.7604,
-    lng: -95.3698,
   },
   {
     id: 'us-hip-hop',

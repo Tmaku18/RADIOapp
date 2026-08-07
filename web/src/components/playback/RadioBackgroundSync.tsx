@@ -11,7 +11,7 @@ import {
 import { isMobileWeb } from '@/lib/audio-analyser';
 import type { PlaybackTrack } from './types';
 import { resolveTrackArtworkUrl } from '@/lib/media-artwork';
-import { getLastRadioStationId, setLastRadioStationId } from '@/lib/playback-preferences';
+import { setLastRadioStationId } from '@/lib/playback-preferences';
 import { DEFAULT_STATION_ID } from '@/data/station-map';
 import { usePlaybackOptional } from './PlaybackProvider';
 
@@ -19,10 +19,9 @@ const BACKGROUND_POLL_MS = 10000;
 const HIDDEN_TAB_POLL_MS = 5000;
 const HIDDEN_MOBILE_POLL_MS = 3000;
 
-/** Marketing home always tunes Ready Now Radio; other routes respect last station. */
-function resolveBootstrapStationId(pathname: string | null): string {
-  if (pathname === '/') return DEFAULT_STATION_ID;
-  return getLastRadioStationId() || DEFAULT_STATION_ID;
+/** Cold start always tunes Ready Now; mid-session switches still update last-station. */
+function resolveBootstrapStationId(_pathname: string | null): string {
+  return DEFAULT_STATION_ID;
 }
 
 async function loadStationIntoBar(
