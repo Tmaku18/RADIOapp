@@ -1,4 +1,5 @@
 import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import { FirebaseAuthGuard } from './firebase-auth.guard';
 import { createSupabaseMock } from '../../test-utils/supabase-mock';
@@ -22,12 +23,16 @@ const createContext = (request: any) =>
     }),
   }) as any;
 
+const mockConfig = {
+  get: jest.fn().mockReturnValue(''),
+} as unknown as ConfigService;
+
 describe('FirebaseAuthGuard', () => {
   it('allows public routes', async () => {
     const reflector = {
       getAllAndOverride: jest.fn().mockReturnValue(true),
     } as unknown as Reflector;
-    const guard = new FirebaseAuthGuard(reflector);
+    const guard = new FirebaseAuthGuard(reflector, mockConfig);
     const context = createContext({ headers: {} });
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
@@ -37,7 +42,7 @@ describe('FirebaseAuthGuard', () => {
     const reflector = {
       getAllAndOverride: jest.fn().mockReturnValue(false),
     } as unknown as Reflector;
-    const guard = new FirebaseAuthGuard(reflector);
+    const guard = new FirebaseAuthGuard(reflector, mockConfig);
     const context = createContext({ headers: {} });
 
     await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
@@ -49,13 +54,18 @@ describe('FirebaseAuthGuard', () => {
     const reflector = {
       getAllAndOverride: jest.fn().mockReturnValue(false),
     } as unknown as Reflector;
-    const guard = new FirebaseAuthGuard(reflector);
+    const guard = new FirebaseAuthGuard(reflector, mockConfig);
     const request = { headers: { authorization: 'Bearer token' } };
     const context = createContext(request);
 
     const supabase = createSupabaseMock();
-    supabase.__builder.single.mockResolvedValue({
-      data: { id: 'user-id', is_banned: true, ban_reason: 'Test ban' },
+    supabase.__builder.maybeSingle.mockResolvedValue({
+      data: {
+        id: 'user-id',
+        role: 'listener',
+        is_banned: true,
+        ban_reason: 'Test ban',
+      },
       error: null,
     });
 
@@ -77,13 +87,18 @@ describe('FirebaseAuthGuard', () => {
     const reflector = {
       getAllAndOverride: jest.fn().mockReturnValue(false),
     } as unknown as Reflector;
-    const guard = new FirebaseAuthGuard(reflector);
+    const guard = new FirebaseAuthGuard(reflector, mockConfig);
     const request: any = { headers: { authorization: 'Bearer token' } };
     const context = createContext(request);
 
     const supabase = createSupabaseMock();
-    supabase.__builder.single.mockResolvedValue({
-      data: { id: 'user-id', is_banned: false },
+    supabase.__builder.maybeSingle.mockResolvedValue({
+      data: {
+        id: 'user-id',
+        role: 'listener',
+        is_banned: false,
+        ban_reason: null,
+      },
       error: null,
     });
 
@@ -101,6 +116,7 @@ describe('FirebaseAuthGuard', () => {
       uid: 'firebase-uid',
       email: 'test@example.com',
       emailVerified: true,
+      dbRole: 'listener',
     });
   });
 });

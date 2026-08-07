@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/services/analytics_service.dart';
-import '../../core/theme/dimension_tokens.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../core/analytics/analytics_metrics.dart';
 import '../../core/theme/networx_tokens.dart';
@@ -36,7 +35,6 @@ class _AboutScreenState extends State<AboutScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final surfaces = context.networxSurfaces;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final wordmarkStops = isDark
@@ -478,7 +476,6 @@ class _GlossaryGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
       child: Column(

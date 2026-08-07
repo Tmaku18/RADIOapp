@@ -1,3 +1,4 @@
+import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import { RolesGuard } from './roles.guard';
 import { createSupabaseMock } from '../../test-utils/supabase-mock';
@@ -16,12 +17,16 @@ const createContext = (request: any) =>
     }),
   }) as any;
 
+const mockConfig = {
+  get: jest.fn().mockReturnValue(''),
+} as unknown as ConfigService;
+
 describe('RolesGuard', () => {
   it('allows when no required roles', async () => {
     const reflector = {
       getAllAndOverride: jest.fn().mockReturnValue(undefined),
     } as unknown as Reflector;
-    const guard = new RolesGuard(reflector);
+    const guard = new RolesGuard(reflector, mockConfig);
     const context = createContext({ headers: {} });
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
@@ -31,7 +36,7 @@ describe('RolesGuard', () => {
     const reflector = {
       getAllAndOverride: jest.fn().mockReturnValue(['admin']),
     } as unknown as Reflector;
-    const guard = new RolesGuard(reflector);
+    const guard = new RolesGuard(reflector, mockConfig);
     const context = createContext({ headers: {} });
 
     await expect(guard.canActivate(context)).resolves.toBe(false);
@@ -41,7 +46,7 @@ describe('RolesGuard', () => {
     const reflector = {
       getAllAndOverride: jest.fn().mockReturnValue(['admin']),
     } as unknown as Reflector;
-    const guard = new RolesGuard(reflector);
+    const guard = new RolesGuard(reflector, mockConfig);
     const context = createContext({ user: { uid: 'firebase-uid' } });
 
     const supabase = createSupabaseMock();
@@ -59,7 +64,7 @@ describe('RolesGuard', () => {
     const reflector = {
       getAllAndOverride: jest.fn().mockReturnValue(['artist', 'admin']),
     } as unknown as Reflector;
-    const guard = new RolesGuard(reflector);
+    const guard = new RolesGuard(reflector, mockConfig);
     const context = createContext({ user: { uid: 'firebase-uid' } });
 
     const supabase = createSupabaseMock();
@@ -77,7 +82,7 @@ describe('RolesGuard', () => {
     const reflector = {
       getAllAndOverride: jest.fn().mockReturnValue(['listener', 'artist']),
     } as unknown as Reflector;
-    const guard = new RolesGuard(reflector);
+    const guard = new RolesGuard(reflector, mockConfig);
     const context = createContext({ user: { uid: 'firebase-uid' } });
 
     const supabase = createSupabaseMock();

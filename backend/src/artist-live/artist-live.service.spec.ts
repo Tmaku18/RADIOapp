@@ -1,7 +1,8 @@
 import { ArtistLiveService } from './artist-live.service';
 
 describe('ArtistLiveService', () => {
-  const createService = () => new ArtistLiveService({} as any, {} as any);
+  const createService = () =>
+    new ArtistLiveService({} as any, {} as any, {} as any);
 
   afterEach(() => {
     delete process.env.ARTIST_LIVE_ENABLED;

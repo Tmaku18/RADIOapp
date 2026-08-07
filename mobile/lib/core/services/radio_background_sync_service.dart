@@ -28,8 +28,6 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
   final RadioService _radio = RadioService();
   final AudioPlayer _player = AudioPlayerService().player;
 
-  StreamSubscription<PlayerState>? _playerSub;
-  StreamSubscription<DjBoothRealtimeEvent>? _boothSub;
   Timer? _pollTimer;
   bool _started = false;
   bool _syncInFlight = false;
@@ -137,8 +135,9 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
     if (_started) return;
     _started = true;
     WidgetsBinding.instance.addObserver(this);
-    _playerSub = _player.playerStateStream.listen(_onPlayerState);
-    _boothSub = StationEventsService().djBoothStream.listen(_onDjBoothEvent);
+    // Singleton lives for the app lifetime; no cancel path.
+    _player.playerStateStream.listen(_onPlayerState);
+    StationEventsService().djBoothStream.listen(_onDjBoothEvent);
     RadioConnectionMonitor.instance.addRestoreListener(_onConnectionRestored);
     AudioPlayerService.handler.onMusicPlaybackFailure = _recoverPlayback;
     unawaited(_bootstrapLiveRadioIfIdle());

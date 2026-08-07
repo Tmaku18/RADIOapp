@@ -28,7 +28,7 @@ describe('AdminController', () => {
       toggleFreeRotation: jest.fn(),
       getSongsInFreeRotation: jest.fn(),
     };
-    const controller = new AdminController(adminService as any);
+    const controller = new AdminController(adminService as any, {} as any);
 
     const result = await controller.getSongs(
       'pending',
@@ -71,7 +71,7 @@ describe('AdminController', () => {
       toggleFreeRotation: jest.fn(),
       getSongsInFreeRotation: jest.fn(),
     };
-    const controller = new AdminController(adminService as any);
+    const controller = new AdminController(adminService as any, {} as any);
     const supabase = createSupabaseMock();
 
     supabase.__builder.single.mockResolvedValue({
@@ -116,7 +116,7 @@ describe('AdminController', () => {
       toggleFreeRotation: jest.fn(),
       getSongsInFreeRotation: jest.fn(),
     };
-    const controller = new AdminController(adminService as any);
+    const controller = new AdminController(adminService as any, {} as any);
 
     const result = await controller.searchSongsForFreeRotation('a');
 

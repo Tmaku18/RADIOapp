@@ -149,7 +149,6 @@ class _PlayerScreenState extends State<PlayerScreen>
   ({String id, DateTime at})? _recentlyAdvancedFrom;
   int _stationSwitchGeneration = 0;
   String _radioId = env('RADIO_STATION_ID') ?? 'us-ready-now-rap';
-  final String _streamToken = 'mobile-${DateTime.now().millisecondsSinceEpoch}';
   late final AnimationController _rippleController;
 
   _StationOption get _activeStation {

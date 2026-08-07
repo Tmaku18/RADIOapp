@@ -3,7 +3,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/models/competition_models.dart';
 import '../../core/services/competition_service.dart';
 import '../../core/theme/dimension_tokens.dart';
-import '../../core/theme/networx_extensions.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 import 'top7_vote_picker.dart';
 
