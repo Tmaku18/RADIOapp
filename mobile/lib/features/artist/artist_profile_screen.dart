@@ -173,7 +173,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
       for (final row in albumsRaw.whereType<Map>()) {
         final map = row.map((k, v) => MapEntry(k.toString(), v));
         final trackList = map['tracks'];
-        final albumTracks = trackList is List
+        final List<Song> albumTracks = trackList is List
             ? trackList
                 .whereType<Map>()
                 .map(
@@ -208,7 +208,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
     }
     final groups = <_AlbumGroup>[];
     for (final album in albums) {
-      final albumTracks = [...(byId[album.id] ?? [])];
+      final albumTracks = List<Song>.from(byId[album.id] ?? const <Song>[]);
       albumTracks.sort((a, b) {
         final an = a.trackNumber ?? 9999;
         final bn = b.trackNumber ?? 9999;

@@ -35,6 +35,7 @@ class _AboutScreenState extends State<AboutScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final surfaces = context.networxSurfaces;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final wordmarkStops = isDark
