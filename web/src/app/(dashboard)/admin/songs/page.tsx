@@ -239,10 +239,25 @@ function sortSongsLocal(rows: Song[], sortBy: SortField, sortOrder: SortOrder): 
   });
 }
 
+type SongListFilter = 'pending' | 'approved' | 'rejected' | 'all' | 'copyrighted';
+
+function isCopyrightFlagged(song: Song): boolean {
+  return song.copyright_status === 'flagged';
+}
+
+function copyrightMatchLabel(song: Song): string {
+  const match = song.copyright_match;
+  if (!match?.title) return 'Possible copyright match';
+  const artists = match.artists?.length ? ` — ${match.artists.join(', ')}` : '';
+  const score =
+    typeof match.score === 'number' ? ` (${Math.round(match.score)}%)` : '';
+  return `${match.title}${artists}${score}`;
+}
+
 function filterAndSortSongsLocal(
   rows: Song[],
   args: {
-    filter: 'pending' | 'approved' | 'rejected' | 'all';
+    filter: SongListFilter;
     search: string;
     sortBy: SortField;
     sortOrder: SortOrder;
@@ -250,7 +265,11 @@ function filterAndSortSongsLocal(
 ): Song[] {
   const searchTerm = normalizeText(args.search);
   const filtered = rows.filter((song) => {
-    if (args.filter !== 'all' && song.status !== args.filter) return false;
+    if (args.filter === 'copyrighted') {
+      if (!isCopyrightFlagged(song)) return false;
+    } else if (args.filter !== 'all' && song.status !== args.filter) {
+      return false;
+    }
     if (!searchTerm) return true;
     const title = normalizeText(song.title);
     const artist = normalizeText(song.artist_name || song.users?.display_name || '');
@@ -289,7 +308,7 @@ function writeSongsCache(songs: Song[]): void {
 
 export default function AdminSongsPage() {
   const [songs, setSongs] = useState<Song[]>([]);
-  const [filter, setFilter] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending');
+  const [filter, setFilter] = useState<SongListFilter>('pending');
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<SortField>('created_at');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
@@ -448,7 +467,8 @@ export default function AdminSongsPage() {
     setLoading(true);
     try {
       const response = await adminApi.getSongs({
-        status: filter,
+        status: filter === 'copyrighted' ? 'all' : filter,
+        copyrightStatus: filter === 'copyrighted' ? 'flagged' : undefined,
         search: debouncedSearch || undefined,
         sortBy,
         sortOrder,
@@ -934,19 +954,25 @@ export default function AdminSongsPage() {
       {/* Filters and Search */}
       <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
         <div className="flex gap-2 flex-wrap">
-          {(['pending', 'approved', 'rejected', 'all'] as const).map((status) => (
+          {(['pending', 'approved', 'rejected', 'all', 'copyrighted'] as const).map(
+            (status) => (
             <button
               key={status}
               onClick={() => setFilter(status)}
               className={`px-4 py-2 rounded-lg font-medium transition-colors capitalize ${
                 filter === status
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? status === 'copyrighted'
+                    ? 'bg-red-600 text-white'
+                    : 'bg-purple-600 text-white'
+                  : status === 'copyrighted'
+                    ? 'bg-red-50 text-red-800 border border-red-200 hover:bg-red-100'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              {status}
+              {status === 'copyrighted' ? 'Copyrighted' : status}
             </button>
-          ))}
+            ),
+          )}
         </div>
         
         <div className="flex flex-wrap gap-3 items-center w-full lg:w-auto">
@@ -1010,6 +1036,13 @@ export default function AdminSongsPage() {
           {staleSongsNotice}
         </div>
       )}
+      {filter === 'copyrighted' && !loading && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-900">
+          Showing songs auto-flagged for a copyright match. Review before keeping
+          them approved or in free rotation.
+          {songs.length > 0 ? ` (${songs.length} found)` : ''}
+        </div>
+      )}
 
       {/* Songs List */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
@@ -1019,7 +1052,9 @@ export default function AdminSongsPage() {
           </div>
         ) : songs.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
-            No songs found with status: {filter}
+            {filter === 'copyrighted'
+              ? 'No copyright-flagged songs found.'
+              : `No songs found with status: ${filter}`}
           </div>
         ) : (
           <table className="w-full min-w-[960px]">
@@ -1042,6 +1077,9 @@ export default function AdminSongsPage() {
                 >
                   Status <SortIcon field="status" />
                 </th>
+                <th className="text-left px-6 py-3 text-sm font-medium text-gray-600 min-w-[160px]">
+                  Copyright
+                </th>
                 <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Content</th>
                 <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Free Rotation</th>
                 <th 
@@ -1057,7 +1095,14 @@ export default function AdminSongsPage() {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {songs.map((song) => (
-                <tr key={song.id} className="group hover:bg-gray-50">
+                <tr
+                  key={song.id}
+                  className={
+                    isCopyrightFlagged(song)
+                      ? 'bg-red-50/80 hover:bg-red-100/90 border-l-4 border-l-red-600'
+                      : 'group hover:bg-gray-50'
+                  }
+                >
                   <td className="px-6 py-4 min-w-[220px] max-w-[280px]">
                     <div className="flex items-center min-w-0">
                       <div className="w-10 h-10 bg-gray-200 rounded flex items-center justify-center mr-3">
@@ -1068,7 +1113,19 @@ export default function AdminSongsPage() {
                         />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium text-gray-900 truncate">{song.title}</p>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <p className="font-medium text-gray-900 truncate">
+                            {song.title}
+                          </p>
+                          {isCopyrightFlagged(song) && (
+                            <span
+                              className="shrink-0 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-red-600 text-white"
+                              title={copyrightMatchLabel(song)}
+                            >
+                              Copyrighted
+                            </span>
+                          )}
+                        </div>
                         {song.audio_url && (
                           <audio
                             controls
@@ -1134,55 +1191,38 @@ export default function AdminSongsPage() {
                         {song.rejection_reason}
                       </p>
                     )}
-                    {song.copyright_status &&
-                      !['clear', 'skipped', 'pending'].includes(song.copyright_status) && (
-                        <div className="mt-1">
-                          <span
-                            className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                              song.copyright_status === 'flagged'
-                                ? 'bg-orange-100 text-orange-800'
-                                : song.copyright_status === 'checking'
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : 'bg-gray-100 text-gray-700'
-                            }`}
-                            title={
-                              song.copyright_status === 'flagged'
-                                ? 'Auto-flagged: possible copyright match'
-                                : song.copyright_status === 'checking'
-                                  ? 'Copyright check in progress'
-                                  : 'Copyright check could not complete'
-                            }
-                          >
-                            {song.copyright_status === 'flagged'
-                              ? '© Copyright match'
-                              : song.copyright_status === 'checking'
-                                ? '© Checking…'
-                                : '© Check error'}
-                          </span>
-                          {song.copyright_status === 'flagged' && song.copyright_match?.title && (
-                            <p
-                              className="text-[10px] text-orange-700 mt-0.5 max-w-[170px] truncate"
-                              title={`${song.copyright_match.title}${
-                                song.copyright_match.artists?.length
-                                  ? ` — ${song.copyright_match.artists.join(', ')}`
-                                  : ''
-                              }${
-                                typeof song.copyright_match.score === 'number'
-                                  ? ` (${Math.round(song.copyright_match.score)}%)`
-                                  : ''
-                              }`}
-                            >
-                              {song.copyright_match.title}
-                              {song.copyright_match.artists?.length
-                                ? ` — ${song.copyright_match.artists.join(', ')}`
-                                : ''}
-                              {typeof song.copyright_match.score === 'number'
-                                ? ` (${Math.round(song.copyright_match.score)}%)`
-                                : ''}
-                            </p>
-                          )}
-                        </div>
-                      )}
+                  </td>
+                  <td className="px-6 py-4">
+                    {isCopyrightFlagged(song) ? (
+                      <div>
+                        <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-bold uppercase tracking-wide bg-red-600 text-white">
+                          Copyrighted
+                        </span>
+                        <p
+                          className="text-xs text-red-800 mt-1 max-w-[200px] truncate font-medium"
+                          title={copyrightMatchLabel(song)}
+                        >
+                          {copyrightMatchLabel(song)}
+                        </p>
+                      </div>
+                    ) : song.copyright_status === 'checking' ? (
+                      <span className="inline-block px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        Checking…
+                      </span>
+                    ) : song.copyright_status === 'error' ? (
+                      <span
+                        className="inline-block px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-900"
+                        title="Copyright check could not complete"
+                      >
+                        Check error
+                      </span>
+                    ) : song.copyright_status === 'clear' ? (
+                      <span className="inline-block px-2 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">
+                        Clear
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-400">—</span>
+                    )}
                   </td>
                   <td className="px-6 py-4">
                     <span
@@ -1225,7 +1265,13 @@ export default function AdminSongsPage() {
                   <td className="px-6 py-4 text-gray-600 text-sm whitespace-nowrap">
                     {new Date(song.created_at).toLocaleDateString()}
                   </td>
-                  <td className="sticky right-0 z-10 bg-white px-4 py-4 text-center shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)] group-hover:bg-gray-50">
+                  <td
+                    className={`sticky right-0 z-10 px-4 py-4 text-center shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)] ${
+                      isCopyrightFlagged(song)
+                        ? 'bg-red-50/80'
+                        : 'bg-white group-hover:bg-gray-50'
+                    }`}
+                  >
                     <div className="flex justify-center">
                       <SongActionsMenu
                         song={song}

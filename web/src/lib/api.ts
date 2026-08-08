@@ -1783,6 +1783,7 @@ export const adminApi = {
     sortOrder?: 'asc' | 'desc';
     limit?: number; 
     offset?: number;
+    copyrightStatus?: string;
   }) => api.get('/admin/songs', { params }),
   updateSongStatus: (id: string, status: 'approved' | 'rejected' | 'pending', reason?: string) =>
     api.patch(`/admin/songs/${id}`, { status, reason }),

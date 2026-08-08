@@ -113,8 +113,10 @@ export class AdminService {
     sortOrder?: 'asc' | 'desc';
     limit?: number;
     offset?: number;
+    copyrightStatus?: string;
   }) {
     const supabase = getSupabaseClient();
+    const copyrightStatus = filters.copyrightStatus?.trim().toLowerCase();
     const cacheKey = JSON.stringify({
       status: filters.status ?? null,
       search: filters.search?.trim() ?? null,
@@ -122,6 +124,7 @@ export class AdminService {
       sortOrder: filters.sortOrder ?? null,
       limit: filters.limit ?? null,
       offset: filters.offset ?? null,
+      copyrightStatus: copyrightStatus ?? null,
     });
 
     let query = supabase.from('songs').select(`
@@ -144,6 +147,15 @@ export class AdminService {
       query = query.eq('status', 'pending');
     }
     // When status is 'all', no filter is applied
+
+    if (
+      copyrightStatus &&
+      ['pending', 'checking', 'clear', 'flagged', 'error', 'skipped'].includes(
+        copyrightStatus,
+      )
+    ) {
+      query = query.eq('copyright_status', copyrightStatus);
+    }
 
     // Search by title or artist name
     if (filters.search && filters.search.trim()) {
@@ -191,6 +203,14 @@ export class AdminService {
         fallbackQuery = fallbackQuery.eq('status', filters.status);
       } else if (!filters.status) {
         fallbackQuery = fallbackQuery.eq('status', 'pending');
+      }
+      if (
+        copyrightStatus &&
+        ['pending', 'checking', 'clear', 'flagged', 'error', 'skipped'].includes(
+          copyrightStatus,
+        )
+      ) {
+        fallbackQuery = fallbackQuery.eq('copyright_status', copyrightStatus);
       }
       if (filters.search && filters.search.trim()) {
         fallbackQuery = fallbackQuery.ilike('title', `%${filters.search.trim()}%`);

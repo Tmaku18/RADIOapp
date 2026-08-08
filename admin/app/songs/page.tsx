@@ -6,7 +6,20 @@ import { adminApi } from '../lib/api';
 import type { Song } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 
-type StatusFilter = 'all' | 'pending' | 'approved' | 'rejected';
+type StatusFilter = 'all' | 'pending' | 'approved' | 'rejected' | 'copyrighted';
+
+function isCopyrightFlagged(song: Song): boolean {
+  return song.copyright_status === 'flagged';
+}
+
+function copyrightMatchLabel(song: Song): string {
+  const match = song.copyright_match;
+  if (!match?.title) return 'Possible copyright match';
+  const artists = match.artists?.length ? ` — ${match.artists.join(', ')}` : '';
+  const score =
+    typeof match.score === 'number' ? ` (${Math.round(match.score)}%)` : '';
+  return `${match.title}${artists}${score}`;
+}
 
 export default function SongsPage() {
   const { getIdToken } = useAuth();
@@ -28,9 +41,16 @@ export default function SongsPage() {
         throw new Error('Not authenticated');
       }
 
-      // Fetch songs with optional status filter
-      const filters: { status?: string; limit?: number } = { limit: 100 };
-      if (statusFilter !== 'all') {
+      // Fetch songs with optional status / copyright filter
+      const filters: {
+        status?: string;
+        copyrightStatus?: string;
+        limit?: number;
+      } = { limit: 100 };
+      if (statusFilter === 'copyrighted') {
+        filters.status = 'all';
+        filters.copyrightStatus = 'flagged';
+      } else if (statusFilter !== 'all') {
         filters.status = statusFilter;
       }
 
@@ -48,9 +68,12 @@ export default function SongsPage() {
     loadSongs();
   }, [loadSongs]);
 
-  const filteredSongs = statusFilter === 'all' 
-    ? songs 
-    : songs.filter(song => song.status === statusFilter);
+  const filteredSongs =
+    statusFilter === 'copyrighted'
+      ? songs.filter((song) => isCopyrightFlagged(song))
+      : statusFilter === 'all'
+        ? songs
+        : songs.filter((song) => song.status === statusFilter);
 
   const handleUpdateStatus = async (songId: string, newStatus: 'approved' | 'rejected') => {
     try {
@@ -163,20 +186,33 @@ export default function SongsPage() {
             🔄 Refresh
           </button>
           <div className="flex space-x-2">
-            {(['all', 'pending', 'approved', 'rejected'] as StatusFilter[]).map((status) => (
+            {(
+              ['all', 'pending', 'approved', 'rejected', 'copyrighted'] as StatusFilter[]
+            ).map((status) => (
               <button
                 key={status}
                 onClick={() => setStatusFilter(status)}
                 className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                   statusFilter === status
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
+                    ? status === 'copyrighted'
+                      ? 'bg-red-600 text-white'
+                      : 'bg-purple-600 text-white'
+                    : status === 'copyrighted'
+                      ? 'bg-red-50 text-red-800 border border-red-200 hover:bg-red-100'
+                      : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
                 }`}
               >
-                {status.charAt(0).toUpperCase() + status.slice(1)}
-                {status !== 'all' && (
+                {status === 'copyrighted'
+                  ? 'Copyrighted'
+                  : status.charAt(0).toUpperCase() + status.slice(1)}
+                {status !== 'all' && status !== 'copyrighted' && (
                   <span className="ml-2 text-xs">
-                    ({songs.filter(s => s.status === status).length})
+                    ({songs.filter((s) => s.status === status).length})
+                  </span>
+                )}
+                {status === 'copyrighted' && (
+                  <span className="ml-2 text-xs">
+                    ({songs.filter((s) => isCopyrightFlagged(s)).length})
                   </span>
                 )}
               </button>
@@ -184,6 +220,13 @@ export default function SongsPage() {
           </div>
         </div>
       </div>
+
+      {statusFilter === 'copyrighted' && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-900">
+          Songs auto-flagged for a copyright match. Review before keeping them
+          approved.
+        </div>
+      )}
 
       {/* Songs Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -195,6 +238,9 @@ export default function SongsPage() {
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Copyright
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Credits
@@ -213,13 +259,22 @@ export default function SongsPage() {
           <tbody className="bg-white divide-y divide-gray-200">
             {filteredSongs.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                  No songs found
+                <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                  {statusFilter === 'copyrighted'
+                    ? 'No copyright-flagged songs found'
+                    : 'No songs found'}
                 </td>
               </tr>
             ) : (
               filteredSongs.map((song) => (
-                <tr key={song.id} className="hover:bg-gray-50">
+                <tr
+                  key={song.id}
+                  className={
+                    isCopyrightFlagged(song)
+                      ? 'bg-red-50 hover:bg-red-100 border-l-4 border-l-red-600'
+                      : 'hover:bg-gray-50'
+                  }
+                >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="w-10 h-10 bg-gray-200 rounded flex items-center justify-center mr-4">
@@ -234,7 +289,16 @@ export default function SongsPage() {
                         )}
                       </div>
                       <div>
-                        <div className="text-sm font-medium text-gray-900">{song.title}</div>
+                        <div className="flex items-center gap-2">
+                          <div className="text-sm font-medium text-gray-900">
+                            {song.title}
+                          </div>
+                          {isCopyrightFlagged(song) && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-red-600 text-white">
+                              Copyrighted
+                            </span>
+                          )}
+                        </div>
                         <div className="text-sm text-gray-500">{song.artist_name}</div>
                       </div>
                     </div>
@@ -251,44 +315,29 @@ export default function SongsPage() {
                         {song.rejection_reason}
                       </p>
                     )}
-                    {song.copyright_status &&
-                      !['clear', 'skipped', 'pending'].includes(song.copyright_status) && (
-                        <div className="mt-1">
-                          <span
-                            className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                              song.copyright_status === 'flagged'
-                                ? 'bg-orange-100 text-orange-800'
-                                : song.copyright_status === 'checking'
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : 'bg-gray-100 text-gray-700'
-                            }`}
-                            title={
-                              song.copyright_status === 'flagged'
-                                ? 'Auto-flagged: possible copyright match'
-                                : song.copyright_status === 'checking'
-                                  ? 'Copyright check in progress'
-                                  : 'Copyright check could not complete'
-                            }
-                          >
-                            {song.copyright_status === 'flagged'
-                              ? '© Copyright match'
-                              : song.copyright_status === 'checking'
-                                ? '© Checking…'
-                                : '© Check error'}
-                          </span>
-                          {song.copyright_status === 'flagged' && song.copyright_match?.title && (
-                            <p className="text-[10px] text-orange-700 mt-0.5 max-w-[200px] truncate">
-                              {song.copyright_match.title}
-                              {song.copyright_match.artists?.length
-                                ? ` — ${song.copyright_match.artists.join(', ')}`
-                                : ''}
-                              {typeof song.copyright_match.score === 'number'
-                                ? ` (${Math.round(song.copyright_match.score)}%)`
-                                : ''}
-                            </p>
-                          )}
-                        </div>
-                      )}
+                  </td>
+                  <td className="px-6 py-4">
+                    {isCopyrightFlagged(song) ? (
+                      <div>
+                        <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-bold uppercase tracking-wide bg-red-600 text-white">
+                          Copyrighted
+                        </span>
+                        <p
+                          className="text-xs text-red-800 mt-1 max-w-[220px] truncate font-medium"
+                          title={copyrightMatchLabel(song)}
+                        >
+                          {copyrightMatchLabel(song)}
+                        </p>
+                      </div>
+                    ) : song.copyright_status === 'checking' ? (
+                      <span className="text-xs text-blue-700">Checking…</span>
+                    ) : song.copyright_status === 'error' ? (
+                      <span className="text-xs text-amber-800">Check error</span>
+                    ) : song.copyright_status === 'clear' ? (
+                      <span className="text-xs text-emerald-700">Clear</span>
+                    ) : (
+                      <span className="text-xs text-gray-400">—</span>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {song.credits_remaining}

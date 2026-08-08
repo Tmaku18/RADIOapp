@@ -36,15 +36,26 @@ async function apiRequest<T>(endpoint: string, options: RequestOptions = {}): Pr
 // Admin API functions
 export const adminApi = {
   // Songs
-  async getSongs(token: string, filters?: { status?: string; limit?: number; offset?: number }) {
+  async getSongs(
+    token: string,
+    filters?: {
+      status?: string;
+      copyrightStatus?: string;
+      limit?: number;
+      offset?: number;
+    },
+  ) {
     const params = new URLSearchParams();
     if (filters?.status) params.set('status', filters.status);
+    if (filters?.copyrightStatus) {
+      params.set('copyrightStatus', filters.copyrightStatus);
+    }
     if (filters?.limit) params.set('limit', filters.limit.toString());
     if (filters?.offset) params.set('offset', filters.offset.toString());
-    
+
     const queryString = params.toString();
     const endpoint = `admin/songs${queryString ? `?${queryString}` : ''}`;
-    
+
     return apiRequest<{ songs: Song[]; total: number }>(endpoint, { token });
   },
 

@@ -70,6 +70,7 @@ export class AdminController {
     @Query('sortOrder') sortOrder?: 'asc' | 'desc',
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
+    @Query('copyrightStatus') copyrightStatus?: string,
   ) {
     const songs = await this.adminService.getSongsPendingApproval({
       status,
@@ -78,6 +79,7 @@ export class AdminController {
       sortOrder,
       limit: limit ? parseInt(limit, 10) : undefined,
       offset: offset ? parseInt(offset, 10) : undefined,
+      copyrightStatus,
     });
     return { songs, total: songs.length };
   }
