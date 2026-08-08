@@ -6,7 +6,7 @@ describe('EmojiController', () => {
     const controller = new EmojiController(emojiService as any);
 
     const result = await controller.sendEmoji(
-      {} as any,
+      undefined as any,
       { emoji: '🔥' } as any,
     );
 
@@ -14,16 +14,20 @@ describe('EmojiController', () => {
     expect(emojiService.addReaction).not.toHaveBeenCalled();
   });
 
-  it('sends emoji reaction for current user', async () => {
+  it('sends emoji reaction for current user with radioId', async () => {
     const emojiService = { addReaction: jest.fn().mockResolvedValue(true) };
     const controller = new EmojiController(emojiService as any);
 
     const result = await controller.sendEmoji(
-      { user: { uid: 'user-1' } } as any,
-      { emoji: '🔥' } as any,
+      { uid: 'user-1' } as any,
+      { emoji: '🔥', radioId: 'global' } as any,
     );
 
-    expect(emojiService.addReaction).toHaveBeenCalledWith('user-1', '🔥');
+    expect(emojiService.addReaction).toHaveBeenCalledWith(
+      'user-1',
+      '🔥',
+      'global',
+    );
     expect(result).toEqual({ success: true });
   });
 });

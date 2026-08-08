@@ -1,5 +1,7 @@
-import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards } from '@nestjs/common';
 import { FirebaseAuthGuard } from '../auth/guards/firebase-auth.guard';
+import { CurrentUser } from '../auth/decorators/user.decorator';
+import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { EmojiService } from './emoji.service';
 import { EmojiReactionDto } from './dto/emoji-reaction.dto';
 
@@ -19,20 +21,22 @@ export class EmojiController {
   constructor(private readonly emojiService: EmojiService) {}
 
   /**
-   * Send an emoji reaction to the current song
+   * Send an emoji reaction to the current song / station chat channel
    */
   @Post('emoji')
   async sendEmoji(
-    @Req() req: any,
+    @CurrentUser() user: FirebaseUser,
     @Body() dto: EmojiReactionDto,
   ): Promise<{ success: boolean }> {
-    const userId = req.user?.uid;
-
-    if (!userId) {
+    if (!user?.uid) {
       return { success: false };
     }
 
-    const success = await this.emojiService.addReaction(userId, dto.emoji);
+    const success = await this.emojiService.addReaction(
+      user.uid,
+      dto.emoji,
+      dto.radioId,
+    );
     return { success };
   }
 }
