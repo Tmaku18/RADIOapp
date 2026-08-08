@@ -44,6 +44,7 @@ import {
 import { AdminService } from '../admin/admin.service';
 import { ImageModerationService } from '../moderation/image-moderation.service';
 import { LyricsService } from '../lyrics/lyrics.service';
+import { CopyrightService } from '../copyright/copyright.service';
 
 @Controller('songs')
 export class SongsController {
@@ -57,6 +58,7 @@ export class SongsController {
     private readonly adminService: AdminService,
     private readonly imageModeration: ImageModerationService,
     private readonly lyricsService: LyricsService,
+    private readonly copyrightService: CopyrightService,
   ) {}
 
   private assertArtistProfileComplete(userData: {
@@ -1312,6 +1314,22 @@ export class SongsController {
     return this.songsService.backfillMissingSamples({
       limit: body?.limit,
       concurrency: body?.concurrency,
+    });
+  }
+
+  /**
+   * Admin: fingerprint uploaded songs for copyright (ACRCloud).
+   * Default = unscanned/failed only. `{ force: true }` re-scans the catalog.
+   */
+  @Post('admin/backfill-copyright')
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  async backfillCopyright(
+    @Body() body: { limit?: number; force?: boolean },
+  ) {
+    return this.copyrightService.backfillChecks({
+      limit: body?.limit,
+      force: body?.force === true,
     });
   }
 

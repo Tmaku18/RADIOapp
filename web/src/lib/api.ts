@@ -699,6 +699,15 @@ export const songsApi = {
       '/songs/admin/backfill-lyrics',
       data ?? {},
     ),
+  /**
+   * Admin: fingerprint uploaded songs for copyright (ACRCloud).
+   * Default = unscanned/failed. `{ force: true }` re-scans the whole catalog.
+   */
+  backfillCopyright: (data?: { limit?: number; force?: boolean }) =>
+    api.post<{ queued: number; alreadyRunning: boolean; force: boolean }>(
+      '/songs/admin/backfill-copyright',
+      data ?? {},
+    ),
 };
 
 export const songSalesApi = {

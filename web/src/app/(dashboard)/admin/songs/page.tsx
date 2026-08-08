@@ -318,6 +318,7 @@ export default function AdminSongsPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [backfilling, setBackfilling] = useState(false);
   const [backfillingLyrics, setBackfillingLyrics] = useState(false);
+  const [backfillingCopyright, setBackfillingCopyright] = useState(false);
   const [durationOverrides, setDurationOverrides] = useState<Record<string, number>>({});
   const [editingSong, setEditingSong] = useState<Song | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -460,6 +461,36 @@ export default function AdminSongsPage() {
       );
     } finally {
       setBackfillingLyrics(false);
+    }
+  };
+
+  const handleBackfillCopyright = async () => {
+    if (backfillingCopyright) return;
+    const force = window.confirm(
+      'Scan uploaded songs for copyright?\n\nOK = scan all songs (including ones already checked)\nCancel = abort',
+    );
+    if (!force) return;
+    setBackfillingCopyright(true);
+    try {
+      const { data } = await songsApi.backfillCopyright({ force: true });
+      if (data.alreadyRunning) {
+        setError('A copyright scan is already running. Check back shortly.');
+      } else if (data.queued === 0) {
+        setError(null);
+        alert('No songs with audio were found to scan.');
+      } else {
+        setError(null);
+        alert(
+          `Copyright scan queued for ${data.queued} song(s). ` +
+            'Matches are auto-flagged and rejected in the background — refresh the Copyrighted tab shortly.',
+        );
+      }
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : 'Failed to start copyright scan.',
+      );
+    } finally {
+      setBackfillingCopyright(false);
     }
   };
 
@@ -1022,6 +1053,15 @@ export default function AdminSongsPage() {
             className="px-4 py-2 rounded-lg font-medium bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-50 transition-colors"
           >
             {backfillingLyrics ? 'Starting…' : 'Generate captions'}
+          </button>
+
+          <button
+            onClick={() => void handleBackfillCopyright()}
+            disabled={backfillingCopyright}
+            title="Fingerprint all uploaded songs for copyright matches (ACRCloud)"
+            className="px-4 py-2 rounded-lg font-medium bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+          >
+            {backfillingCopyright ? 'Starting…' : 'Scan copyright'}
           </button>
         </div>
       </div>

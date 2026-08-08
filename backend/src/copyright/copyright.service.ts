@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { getSupabaseClient } from '../config/supabase.config';
 import { signSongAudioUrl } from '../common/song-audio.util';
@@ -35,6 +35,7 @@ export class CopyrightService {
   private readonly matchThreshold: number;
   // Guard against downloading absurdly large files into memory.
   private readonly maxDownloadBytes = 105 * 1024 * 1024;
+  private backfillRunning = false;
 
   constructor(
     private readonly configService: ConfigService,
@@ -67,6 +68,137 @@ export class CopyrightService {
         );
       });
     });
+  }
+
+  /**
+   * Admin backfill: fingerprint uploaded songs via ACRCloud.
+   *
+   * By default scans `pending` / `error` / `skipped` / `checking`. Pass
+   * `force: true` to re-scan the whole catalog (including clear/flagged).
+   * Runs sequentially in the background so ACRCloud rate limits stay happy.
+   */
+  async backfillChecks(options?: {
+    limit?: number;
+    force?: boolean;
+    /** When true, wait for the full scan to finish (CLI / scripts). */
+    wait?: boolean;
+  }): Promise<{
+    queued: number;
+    alreadyRunning: boolean;
+    force: boolean;
+  }> {
+    if (this.backfillRunning) {
+      return { queued: 0, alreadyRunning: true, force: !!options?.force };
+    }
+    if (!this.enabled || !this.acrcloud.isConfigured()) {
+      this.logger.warn(
+        'Copyright backfill skipped: provider disabled or not configured',
+      );
+      return { queued: 0, alreadyRunning: false, force: !!options?.force };
+    }
+
+    const limit = Math.min(Math.max(options?.limit ?? 5000, 1), 5000);
+    const force = options?.force === true;
+    const wait = options?.wait === true;
+    const supabase = getSupabaseClient();
+
+    let query = supabase
+      .from('songs')
+      .select('id, audio_url, copyright_status')
+      .not('audio_url', 'is', null)
+      .order('created_at', { ascending: true })
+      .limit(limit);
+
+    if (!force) {
+      query = query.in('copyright_status', [
+        'pending',
+        'error',
+        'skipped',
+        'checking',
+      ]);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      throw new BadRequestException(
+        `Failed to load songs for copyright backfill: ${error.message}`,
+      );
+    }
+
+    const targets = (data ?? [])
+      .map((row: { id?: string; audio_url?: string | null }) => ({
+        id: row.id,
+        audioUrl: row.audio_url,
+      }))
+      .filter(
+        (row): row is { id: string; audioUrl: string } =>
+          !!row.id && !!row.audioUrl?.trim(),
+      );
+
+    if (targets.length === 0) {
+      return { queued: 0, alreadyRunning: false, force };
+    }
+
+    this.backfillRunning = true;
+    if (wait) {
+      try {
+        await this.runBackfill(targets);
+      } finally {
+        this.backfillRunning = false;
+      }
+      return { queued: targets.length, alreadyRunning: false, force };
+    }
+
+    void this.runBackfill(targets)
+      .catch((err) => {
+        this.logger.error(
+          `Copyright backfill crashed: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      })
+      .finally(() => {
+        this.backfillRunning = false;
+      });
+
+    return { queued: targets.length, alreadyRunning: false, force };
+  }
+
+  private async runBackfill(
+    targets: Array<{ id: string; audioUrl: string }>,
+  ): Promise<void> {
+    const total = targets.length;
+    let processed = 0;
+    let flagged = 0;
+    let clear = 0;
+    let errored = 0;
+    this.logger.log(`Copyright backfill started: ${total} song(s)`);
+
+    for (const target of targets) {
+      processed += 1;
+      try {
+        const status = await this.runCheck(target.id, target.audioUrl);
+        if (status === 'flagged') flagged += 1;
+        else if (status === 'clear') clear += 1;
+        else if (status === 'error' || status === 'skipped') errored += 1;
+        this.logger.log(
+          `Copyright backfill ${processed}/${total}: ${target.id} → ${status}`,
+        );
+      } catch (err) {
+        errored += 1;
+        this.logger.error(
+          `Copyright backfill failed for ${target.id}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+      // Soft rate-limit ACRCloud identify calls.
+      await new Promise((r) => setTimeout(r, 750));
+    }
+
+    this.logger.log(
+      `Copyright backfill finished: ${processed} scanned, ${flagged} flagged, ${clear} clear, ${errored} error/skipped`,
+    );
   }
 
   /**

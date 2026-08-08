@@ -54,6 +54,7 @@ describe('SongsController', () => {
       createAdminServiceMock(),
       createImageModerationMock(),
       createLyricsServiceMock(),
+      { backfillChecks: jest.fn() } as any,
     );
 
     await controller.getSongs('artist-1', 'approved', '10', '5');
@@ -88,6 +89,7 @@ describe('SongsController', () => {
       createAdminServiceMock(),
       createImageModerationMock(),
       createLyricsServiceMock(),
+      { backfillChecks: jest.fn() } as any,
     );
     const supabase = createSupabaseMock();
 
@@ -142,6 +144,7 @@ describe('SongsController', () => {
       createAdminServiceMock(),
       imageModeration,
       createLyricsServiceMock(),
+      { backfillChecks: jest.fn() } as any,
     );
     const supabase = createSupabaseMock();
 
@@ -210,6 +213,7 @@ describe('SongsController', () => {
       createAdminServiceMock(),
       createImageModerationMock(),
       createLyricsServiceMock(),
+      { backfillChecks: jest.fn() } as any,
     );
     const supabase = createSupabaseMock();
 
