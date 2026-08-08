@@ -45,16 +45,27 @@ class AudioPlayerService {
 
   /// Serialize `setAudioSource` calls on the shared player so concurrent loads
   /// (e.g. radio startup vs Discover autoplay) don't throw "Loading interrupted".
-  Future<void> loadSource(
+  ///
+  /// [isStale] is evaluated *after* the gate is acquired, immediately before the
+  /// source is applied. Waiters do not resume in call order, so a load queued
+  /// behind others can otherwise land last and leave the player on a source the
+  /// caller has already abandoned — heard as the previous station's song
+  /// continuing after a retune. Returns whether the source was applied.
+  Future<bool> loadSource(
     AudioSource source, {
     Duration? initialPosition,
+    bool Function()? isStale,
   }) async {
+    var applied = false;
     await _runExclusiveSourceLoad(() async {
+      if (isStale?.call() ?? false) return;
       await player.setAudioSource(source);
       if (initialPosition != null && initialPosition > Duration.zero) {
         await player.seek(initialPosition);
       }
+      applied = true;
     });
+    return applied;
   }
 
   static Future<void> _runExclusiveSourceLoad(

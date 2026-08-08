@@ -323,7 +323,7 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
       if (isStaleRadioServerTrack(track.id, _recentlyAdvancedFrom)) return;
 
       _markAdvancedFrom(endedId);
-      await _loadTrack(track, res, reportPlay: true);
+      await _loadTrack(track, res, reportPlay: true, radioId: radioId);
     } finally {
       _advanceInFlight = false;
     }
@@ -384,7 +384,12 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
           return;
         }
         _markAdvancedFrom(localId);
-        await _loadTrack(serverTrack, res, reportPlay: localId != serverTrack.id);
+        await _loadTrack(
+          serverTrack,
+          res,
+          reportPlay: localId != serverTrack.id,
+          radioId: radioId,
+        );
         return;
       }
 
@@ -431,6 +436,17 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
     return _player.duration?.inSeconds ?? track.durationSeconds;
   }
 
+  /// True once this load no longer matches the station that is actually loaded
+  /// (the listener retuned while the fetch or an earlier queued load was in
+  /// flight). Applying it anyway would drag them back to the old station.
+  bool Function() _staleStationCheck(String expectedRadioId) {
+    return () {
+      if (stationSwitchInFlight) return true;
+      final live = _radioId;
+      return live != null && live != expectedRadioId;
+    };
+  }
+
   Future<void> _loadTrack(
     Track track,
     TrackFetchResult result, {
@@ -442,8 +458,9 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
     // Start where the song is *now*, not where it was when the server replied —
     // on a slow link those differ by seconds.
     final startAt = liveTargetSeconds(track);
+    final bool applied;
     try {
-      await AudioPlayerService().loadSource(
+      applied = await AudioPlayerService().loadSource(
         AudioSource.uri(
           Uri.parse(track.audioUrl),
           tag: MediaItem(
@@ -459,10 +476,12 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
           ),
         ),
         initialPosition: startAt > 0 ? Duration(seconds: startAt) : null,
+        isStale: _staleStationCheck(effectiveRadioId),
       );
     } catch (_) {
       return;
     }
+    if (!applied) return;
     // A stale rate from an interrupted catch-up must not carry into the new
     // song.
     if (_player.speed != 1.0) await _player.setSpeed(1.0);

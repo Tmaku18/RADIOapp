@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../core/models/pro_radio_models.dart';
 import '../../core/services/pro_radio_queue_service.dart';
 import '../../core/services/pro_radio_service.dart';
+import 'pro_radio_player_screen.dart';
 
 /// Playlist detail: list tracks, play, and remove songs.
 class ProRadioPlaylistScreen extends StatefulWidget {
@@ -76,19 +77,26 @@ class _ProRadioPlaylistScreenState extends State<ProRadioPlaylistScreen> {
       return;
     }
     final safeStart = startIndex.clamp(0, items.length - 1);
-    // Reorder so playback starts at the tapped track, then continues.
-    final ordered = [
-      ...items.sublist(safeStart),
-      ...items.sublist(0, safeStart),
-    ];
+    // Open the player first so the listener sees the track and controls while
+    // the first buffer loads, the same way tapping a station does.
+    _openPlayer();
     try {
-      await _queue.playItems(ordered);
+      await _queue.playItems(items, startAt: safeStart);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Could not play: $e')),
       );
     }
+  }
+
+  void _openPlayer() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            ProRadioPlayerScreen(playlistTitle: widget.playlist.title),
+      ),
+    );
   }
 
   Future<void> _removeTrack(ProRadioPlaylistTrack track) async {

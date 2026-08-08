@@ -60,7 +60,17 @@ class StationEventsService {
   /// station id, so the legacy `'global'` default subscribed to a channel
   /// nothing publishes on.
   static const String _defaultStationId = 'us-ready-now-rap';
+
+  /// Station whose booth channel is currently subscribed.
   String _stationId = _defaultStationId;
+
+  /// Station the listener last asked for. Tracked separately from [_stationId]
+  /// so a switch requested while an earlier one is still tearing down is not
+  /// mistaken for a no-op.
+  String _targetStationId = _defaultStationId;
+
+  int _switchGeneration = 0;
+  Future<void> _switchQueue = Future<void>.value();
 
   void _emitBoothEvent(dynamic raw) {
     try {
@@ -99,12 +109,27 @@ class StationEventsService {
 
   /// Re-point realtime subscriptions at [stationId] without tearing down the
   /// shared rising-star channel (uses [_stationId] in the callback filter).
-  Future<void> switchStation(String stationId) async {
+  ///
+  /// Switches are queued and only the newest is applied: tapping through
+  /// stations otherwise interleaved channel teardown with subscribe, leaving
+  /// the listener on a booth channel for a station they had already left.
+  Future<void> switchStation(String stationId) {
     final trimmed = stationId.trim();
-    if (trimmed.isEmpty) return;
-    if (_started && _stationId == trimmed) return;
+    if (trimmed.isEmpty) return Future<void>.value();
+    if (_started && _targetStationId == trimmed) return Future<void>.value();
 
-    _stationId = trimmed;
+    _targetStationId = trimmed;
+    final generation = ++_switchGeneration;
+    final pending = _switchQueue.then(
+      (_) => _applyStationSwitch(trimmed, generation),
+    );
+    _switchQueue = pending.catchError((Object _) {});
+    return pending;
+  }
+
+  Future<void> _applyStationSwitch(String stationId, int generation) async {
+    // Superseded while queued — skip the intermediate channel churn entirely.
+    if (generation != _switchGeneration) return;
 
     SupabaseClient client;
     try {
@@ -115,10 +140,12 @@ class StationEventsService {
     }
 
     if (!_started) {
-      await start(stationId: trimmed);
+      await start(stationId: stationId);
       return;
     }
+    if (_stationId == stationId && _djBoothChannel != null) return;
 
+    _stationId = stationId;
     final oldBooth = _djBoothChannel;
     _djBoothChannel = null;
     if (oldBooth != null) {
@@ -126,12 +153,14 @@ class StationEventsService {
         await client.removeChannel(oldBooth);
       } catch (_) {}
     }
+    if (generation != _switchGeneration) return;
     await _subscribeDjBooth(client);
   }
 
   Future<void> start({String stationId = _defaultStationId}) async {
     _stationId =
         stationId.trim().isEmpty ? _defaultStationId : stationId.trim();
+    _targetStationId = _stationId;
     if (_started) return;
 
     SupabaseClient client;

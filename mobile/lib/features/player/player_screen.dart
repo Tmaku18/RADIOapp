@@ -512,13 +512,14 @@ class _PlayerScreenState extends State<PlayerScreen>
 
     final audio = AudioPlayerService();
     Object? lastError;
+    var applied = false;
     // Start where the song is *now*. On a slow link the server's snapshot is
     // already seconds old by the time it reaches us.
     final startAt = liveTargetSeconds(track);
     for (var attempt = 0; attempt < 3; attempt++) {
       if (_stationContextLost(expectedSwitchId, expectedRadioId)) return;
       try {
-        await audio.loadSource(
+        applied = await audio.loadSource(
           AudioSource.uri(
             Uri.parse(track.audioUrl),
             tag: MediaItem(
@@ -534,6 +535,10 @@ class _PlayerScreenState extends State<PlayerScreen>
             ),
           ),
           initialPosition: startAt > 0 ? Duration(seconds: startAt) : null,
+          // Re-checked inside the load gate: rapid retunes queue several loads
+          // and they don't resume in call order.
+          isStale: () =>
+              _stationContextLost(expectedSwitchId, expectedRadioId),
         );
         lastError = null;
         break;
@@ -562,6 +567,9 @@ class _PlayerScreenState extends State<PlayerScreen>
       });
       return;
     }
+    // Dropped inside the gate because a newer station took over — that station's
+    // load owns the player now, so playing here would pull the listener back.
+    if (!applied) return;
     if (_stationContextLost(expectedSwitchId, expectedRadioId)) return;
     // A stale rate from an interrupted catch-up must not carry into the new
     // song.

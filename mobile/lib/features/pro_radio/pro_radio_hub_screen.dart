@@ -7,6 +7,7 @@ import '../../core/models/pro_radio_models.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/services/pro_radio_queue_service.dart';
 import '../../core/services/pro_radio_service.dart';
+import 'pro_radio_player_screen.dart';
 import 'pro_radio_playlist_screen.dart';
 import 'widgets/pro_radio_paywall_sheet.dart';
 
@@ -169,6 +170,8 @@ class _ProRadioHubScreenState extends State<ProRadioHubScreen> {
         );
         return;
       }
+      if (!mounted) return;
+      _openPlayer(playlist.title);
       await _queue.playItems(items);
     } catch (e) {
       if (!mounted) return;
@@ -178,12 +181,16 @@ class _ProRadioHubScreenState extends State<ProRadioHubScreen> {
     }
   }
 
+  void _openPlayer([String? playlistTitle]) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ProRadioPlayerScreen(playlistTitle: playlistTitle),
+      ),
+    );
+  }
+
   Future<void> _togglePlayPause() async {
-    if (_audio.player.playing) {
-      await _audio.player.pause();
-    } else {
-      await _audio.player.play();
-    }
+    await _queue.togglePlayPause();
   }
 
   @override
@@ -252,6 +259,8 @@ class _ProRadioHubScreenState extends State<ProRadioHubScreen> {
                         leading: const Icon(Icons.music_note),
                         title: Text(current.title),
                         subtitle: Text(current.artistName ?? 'Artist'),
+                        trailing: const Icon(Icons.open_in_full, size: 18),
+                        onTap: () => _openPlayer(),
                       ),
                     ),
                     const SizedBox(height: 8),
