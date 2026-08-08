@@ -9,8 +9,11 @@
  *   --force   Re-scan the whole catalog (including clear/flagged)
  *   (default) Only pending / error / skipped / checking
  */
+import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../src/app.module';
+import { initializeFirebase } from '../src/config/firebase.config';
+import { initializeSupabase } from '../src/config/supabase.config';
 import { CopyrightService } from '../src/copyright/copyright.service';
 
 async function main() {
@@ -20,6 +23,14 @@ async function main() {
       ? 'Starting copyright backfill (FORCE: all songs with audio)...'
       : 'Starting copyright backfill (unscanned / failed only)...',
   );
+
+  // railway run injects private Redis DNS that is unreachable from a laptop.
+  // Copyright screening does not need Redis; drop it so module init stays fast.
+  delete process.env.REDIS_URL;
+
+  const config = new ConfigService();
+  initializeFirebase(config);
+  initializeSupabase(config);
 
   const app = await NestFactory.createApplicationContext(AppModule, {
     logger: ['error', 'warn', 'log'],
