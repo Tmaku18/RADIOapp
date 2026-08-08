@@ -91,6 +91,11 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
         route: AppRoutes.proRadio,
       ),
       const _NavSpec(
+        icon: Icons.forum_outlined,
+        label: 'The Chat Room',
+        route: AppRoutes.room,
+      ),
+      const _NavSpec(
         icon: Icons.headphones,
         label: 'Live DJ',
         route: AppRoutes.liveDj,
@@ -214,7 +219,6 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
                     open: _moreOpen,
                     onToggle: () => setState(() => _moreOpen = !_moreOpen),
                     children: [
-                      _subRow('The Chat Room', AppRoutes.room),
                       _subRow('Pro Directory', AppRoutes.proDirectory),
                       _subRow('Job Board', AppRoutes.jobBoard),
                       _subRow(
