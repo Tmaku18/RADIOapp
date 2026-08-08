@@ -1582,6 +1582,113 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
+  String _userLabel(Map<String, dynamic> user) {
+    final name = '${user['display_name'] ?? ''}'.trim();
+    if (name.isNotEmpty) return name;
+    final email = '${user['email'] ?? ''}'.trim();
+    return email.isNotEmpty ? email : 'this user';
+  }
+
+  Future<void> _confirmLifetimeBan(Map<String, dynamic> user) async {
+    final userId = '${user['id'] ?? ''}';
+    if (userId.isEmpty) return;
+    final reasonCtrl = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Lifetime ban / deactivate?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'This permanently deactivates ${_userLabel(user)}\'s account and '
+              'deletes all of their songs from the database and storage. The '
+              'user record is kept so they cannot create a new account.',
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: reasonCtrl,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Reason (optional)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Deactivate & ban'),
+          ),
+        ],
+      ),
+    );
+    final reason = reasonCtrl.text.trim();
+    reasonCtrl.dispose();
+    if (confirmed != true) return;
+    try {
+      await _admin.lifetimeBanUser(
+        userId,
+        reason.isEmpty ? 'Lifetime ban by admin' : reason,
+      );
+      await _refreshUsers();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Account deactivated and banned.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Ban failed: $e')));
+    }
+  }
+
+  Future<void> _confirmDeleteUserAccount(Map<String, dynamic> user) async {
+    final userId = '${user['id'] ?? ''}';
+    if (userId.isEmpty) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete this account?'),
+        content: Text(
+          'This permanently deletes ${_userLabel(user)}\'s account and all '
+          'associated data, including their songs. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete account'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await _admin.deleteUserAccount(userId);
+      await _refreshUsers();
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Account deleted.')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Delete failed: $e')));
+    }
+  }
+
   Widget _buildUsersTab() {
     final roles = const ['all', 'artist', 'listener', 'admin', 'dj', 'musician'];
     return ListView(
@@ -1671,34 +1778,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         ),
                       ),
                       OutlinedButton(
-                        onPressed: () async {
-                          try {
-                            await _admin.lifetimeBanUser(
-                              userId,
-                              'Lifetime ban by admin',
-                            );
-                            await _refreshUsers();
-                          } catch (e) {
-                            if (!mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Ban failed: $e')),
-                            );
-                          }
-                        },
+                        onPressed: () => _confirmLifetimeBan(user),
                         child: const Text('Lifetime Ban'),
                       ),
                       TextButton(
-                        onPressed: () async {
-                          try {
-                            await _admin.deleteUserAccount(userId);
-                            await _refreshUsers();
-                          } catch (e) {
-                            if (!mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Delete failed: $e')),
-                            );
-                          }
-                        },
+                        onPressed: () => _confirmDeleteUserAccount(user),
                         child: const Text('Delete Account'),
                       ),
                     ],
