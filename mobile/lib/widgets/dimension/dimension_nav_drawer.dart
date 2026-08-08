@@ -84,6 +84,12 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
       ),
       // Kept at the top — opens the radio player (do not remove/replace).
       const _NavSpec(icon: Icons.radio, label: 'Radio', tabIndex: 1),
+      // Directly under Radio to match the web sidebar order.
+      const _NavSpec(
+        icon: Icons.queue_music_outlined,
+        label: 'Pro-Radio',
+        route: AppRoutes.proRadio,
+      ),
       const _NavSpec(
         icon: Icons.headphones,
         label: 'Live DJ',
@@ -105,11 +111,6 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
         label: 'Library',
         route: AppRoutes.discovery,
         routeArgs: 3,
-      ),
-      const _NavSpec(
-        icon: Icons.queue_music_outlined,
-        label: 'Pro-Radio',
-        route: AppRoutes.proRadio,
       ),
       const _NavSpec(
         icon: Icons.people_alt_outlined,
