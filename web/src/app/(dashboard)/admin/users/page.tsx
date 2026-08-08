@@ -28,6 +28,8 @@ interface User {
   display_name: string | null;
   role: 'listener' | 'artist' | 'admin' | 'service_provider' | 'dj' | 'musician';
   created_at: string;
+  is_banned?: boolean;
+  is_shadow_banned?: boolean;
 }
 
 type SortField = 'name' | 'email' | 'role' | 'created_at';
@@ -44,6 +46,9 @@ export default function AdminUsersPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [lifetimeBanUser, setLifetimeBanUser] = useState<User | null>(null);
   const [banReason, setBanReason] = useState('');
+  const [shadowBanUser, setShadowBanUser] = useState<User | null>(null);
+  const [shadowBanReason, setShadowBanReason] = useState('');
+  const [restoreUser, setRestoreUser] = useState<User | null>(null);
   const [deleteAccountUser, setDeleteAccountUser] = useState<User | null>(null);
 
   // Debounce search
@@ -137,6 +142,50 @@ export default function AdminUsersPage() {
     } catch (err) {
       console.error('Failed to delete account:', err);
       toast.error('Failed to delete account');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleShadowBan = async () => {
+    if (!shadowBanUser) return;
+    const reason = shadowBanReason.trim();
+    if (reason.length < 3) {
+      toast.error('Add a short reason (at least 3 characters)');
+      return;
+    }
+    setActionLoading(shadowBanUser.id);
+    try {
+      await adminApi.shadowBanUser(shadowBanUser.id, reason);
+      setUsers(users.map((u) =>
+        u.id === shadowBanUser.id ? { ...u, is_shadow_banned: true } : u,
+      ));
+      setShadowBanUser(null);
+      setShadowBanReason('');
+      toast.success('User shadow banned');
+    } catch (err) {
+      console.error('Failed to shadow ban:', err);
+      toast.error('Failed to shadow ban user');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRestoreUser = async () => {
+    if (!restoreUser) return;
+    setActionLoading(restoreUser.id);
+    try {
+      await adminApi.restoreUser(restoreUser.id);
+      setUsers(users.map((u) =>
+        u.id === restoreUser.id
+          ? { ...u, is_banned: false, is_shadow_banned: false }
+          : u,
+      ));
+      setRestoreUser(null);
+      toast.success('User restored');
+    } catch (err) {
+      console.error('Failed to restore user:', err);
+      toast.error('Failed to restore user');
     } finally {
       setActionLoading(null);
     }
@@ -264,13 +313,25 @@ export default function AdminUsersPage() {
                   </td>
                   <td className="px-6 py-4 text-gray-600 break-all">{user.email}</td>
                   <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${
-                      user.role === 'admin' ? 'bg-primary/10 text-primary' :
-                      user.role === 'artist' ? 'bg-blue-100 text-blue-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {user.role === 'listener' ? 'Prospector' : user.role}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${
+                        user.role === 'admin' ? 'bg-primary/10 text-primary' :
+                        user.role === 'artist' ? 'bg-blue-100 text-blue-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {user.role === 'listener' ? 'Prospector' : user.role}
+                      </span>
+                      {user.is_shadow_banned && (
+                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-900">
+                          Shadow banned
+                        </span>
+                      )}
+                      {user.is_banned && (
+                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                          Banned
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4 text-gray-600 text-sm whitespace-nowrap">
                     {new Date(user.created_at).toLocaleDateString()}
@@ -319,6 +380,22 @@ export default function AdminUsersPage() {
                           Set as Admin
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
+                        {!user.is_shadow_banned && (
+                          <DropdownMenuItem
+                            onClick={() => { setShadowBanUser(user); setShadowBanReason(''); }}
+                            className="text-amber-700 focus:text-amber-800 focus:bg-amber-50 cursor-pointer"
+                          >
+                            Shadow Ban (chat)
+                          </DropdownMenuItem>
+                        )}
+                        {(user.is_shadow_banned || user.is_banned) && (
+                          <DropdownMenuItem
+                            onClick={() => setRestoreUser(user)}
+                            className="text-foreground focus:text-foreground focus:bg-accent cursor-pointer"
+                          >
+                            Restore Access
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem
                           onClick={() => { setLifetimeBanUser(user); setBanReason(''); }}
                           className="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
@@ -389,6 +466,68 @@ export default function AdminUsersPage() {
               onClick={() => handleDeleteAccount()}
             >
               Delete Account
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={!!shadowBanUser}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShadowBanUser(null);
+            setShadowBanReason('');
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Shadow ban this user?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {shadowBanUser?.display_name || shadowBanUser?.email} will still be able to use the app,
+              but their chat messages will be invisible to everyone else. Use this for chat trolls
+              without tipping them off.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-2">
+            <label htmlFor="shadow-ban-reason" className="block text-sm font-medium text-foreground mb-1">
+              Reason (required)
+            </label>
+            <input
+              id="shadow-ban-reason"
+              value={shadowBanReason}
+              onChange={(e) => setShadowBanReason(e.target.value)}
+              placeholder="e.g. Spam in chat room"
+              className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:ring-2 focus:ring-ring"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button
+              variant="destructive"
+              onClick={() => void handleShadowBan()}
+              disabled={actionLoading === shadowBanUser?.id}
+            >
+              Shadow Ban
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!restoreUser} onOpenChange={(open) => !open && setRestoreUser(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Restore this user?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This clears the shadow ban (and any hard ban flags) for{' '}
+              {restoreUser?.display_name || restoreUser?.email}. Their chat messages will be
+              visible again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button onClick={() => void handleRestoreUser()}>
+              Restore Access
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

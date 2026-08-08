@@ -313,6 +313,14 @@ class AdminService {
     await _api.post('admin/users/$userId/lifetime-ban', {'reason': reason});
   }
 
+  Future<void> shadowBanUser(String userId, String reason) async {
+    await _api.post('admin/users/$userId/shadow-ban', {'reason': reason});
+  }
+
+  Future<void> restoreUser(String userId) async {
+    await _api.post('admin/users/$userId/restore', {});
+  }
+
   Future<void> deleteUserAccount(String userId) async {
     await _api.delete('admin/users/$userId');
   }

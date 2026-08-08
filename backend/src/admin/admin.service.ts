@@ -1862,7 +1862,9 @@ export class AdminService {
 
     let query = supabase
       .from('users')
-      .select('id, email, display_name, role, avatar_url, created_at');
+      .select(
+        'id, email, display_name, role, avatar_url, created_at, is_banned, is_shadow_banned',
+      );
 
     if (filters.role && filters.role !== 'all') {
       query = query.eq('role', filters.role);

@@ -1851,6 +1851,9 @@ export const adminApi = {
   ) => api.patch(`/admin/users/${id}/role`, { role }),
   lifetimeBanUser: (id: string, reason?: string) =>
     api.post(`/admin/users/${id}/lifetime-ban`, { reason }),
+  shadowBanUser: (id: string, reason: string) =>
+    api.post(`/admin/users/${id}/shadow-ban`, { reason }),
+  restoreUser: (id: string) => api.post(`/admin/users/${id}/restore`),
   deleteUserAccount: (id: string) => api.delete(`/admin/users/${id}`),
   // Radios (stations) – state-scoped for fallback multi-select
   getRadios: (state?: string) =>

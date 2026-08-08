@@ -1689,6 +1689,116 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
   }
 
+  Future<void> _confirmShadowBan(Map<String, dynamic> user) async {
+    final userId = '${user['id'] ?? ''}';
+    if (userId.isEmpty) return;
+    final reasonCtrl = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Shadow ban this user?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${_userLabel(user)} can still use the app, but their chat '
+              'messages will be invisible to everyone else. Use this for chat '
+              'trolls without tipping them off.',
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: reasonCtrl,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                labelText: 'Reason (required)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (reasonCtrl.text.trim().length < 3) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Add a short reason (at least 3 characters).',
+                    ),
+                  ),
+                );
+                return;
+              }
+              Navigator.pop(context, true);
+            },
+            child: const Text('Shadow ban'),
+          ),
+        ],
+      ),
+    );
+    final reason = reasonCtrl.text.trim();
+    reasonCtrl.dispose();
+    if (confirmed != true) return;
+    if (reason.length < 3) return;
+    try {
+      await _admin.shadowBanUser(userId, reason);
+      await _refreshUsers();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User shadow banned.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Shadow ban failed: $e')));
+    }
+  }
+
+  Future<void> _confirmRestoreUser(Map<String, dynamic> user) async {
+    final userId = '${user['id'] ?? ''}';
+    if (userId.isEmpty) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Restore this user?'),
+        content: Text(
+          'This clears the shadow ban (and any hard ban flags) for '
+          '${_userLabel(user)}. Their chat messages will be visible again.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Restore access'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await _admin.restoreUser(userId);
+      await _refreshUsers();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User restored.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Restore failed: $e')));
+    }
+  }
+
   Widget _buildUsersTab() {
     final roles = const ['all', 'artist', 'listener', 'admin', 'dj', 'musician'];
     return ListView(
@@ -1738,6 +1848,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ..._users.map((user) {
           final userId = '${user['id']}';
           final role = '${user['role'] ?? 'listener'}';
+          final isShadowBanned = user['is_shadow_banned'] == true;
+          final isBanned = user['is_banned'] == true;
           return Card(
             child: Padding(
               padding: const EdgeInsets.all(10),
@@ -1749,6 +1861,29 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   Text('${user['email'] ?? ''} · $role'),
+                  if (isShadowBanned || isBanned) ...[
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        if (isShadowBanned)
+                          Chip(
+                            label: const Text('Shadow banned'),
+                            visualDensity: VisualDensity.compact,
+                            backgroundColor: Colors.amber.withValues(
+                              alpha: 0.25,
+                            ),
+                          ),
+                        if (isBanned)
+                          Chip(
+                            label: const Text('Banned'),
+                            visualDensity: VisualDensity.compact,
+                            backgroundColor: Colors.red.withValues(alpha: 0.25),
+                          ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
@@ -1777,6 +1912,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           role == 'artist' ? 'Make Listener' : 'Make Artist',
                         ),
                       ),
+                      if (!isShadowBanned)
+                        OutlinedButton(
+                          onPressed: () => _confirmShadowBan(user),
+                          child: const Text('Shadow Ban'),
+                        ),
+                      if (isShadowBanned || isBanned)
+                        OutlinedButton(
+                          onPressed: () => _confirmRestoreUser(user),
+                          child: const Text('Restore'),
+                        ),
                       OutlinedButton(
                         onPressed: () => _confirmLifetimeBan(user),
                         child: const Text('Lifetime Ban'),
