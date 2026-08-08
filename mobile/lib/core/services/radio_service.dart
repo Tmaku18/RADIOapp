@@ -6,7 +6,10 @@ import 'api_service.dart';
 
 class RadioService {
   final ApiService _apiService = ApiService();
-  static const String defaultRadioId = 'global';
+  /// Home station. Must match the backend default — the legacy `'global'` value
+  /// addressed a queue of its own, so callers that fell back to it drifted onto
+  /// a different rotation than the one the player screen was tuned to.
+  static const String defaultRadioId = 'us-ready-now-rap';
 
   static String _withRadio(String endpoint, String radioId) {
     final separator = endpoint.contains('?') ? '&' : '?';

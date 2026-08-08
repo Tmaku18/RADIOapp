@@ -148,6 +148,11 @@ class _PlayerScreenState extends State<PlayerScreen>
   /// don't jump the listener backward (or reload mid-handoff).
   ({String id, DateTime at})? _recentlyAdvancedFrom;
   int _stationSwitchGeneration = 0;
+  /// Set from the moment the listener picks a station until its audio is live.
+  /// Pollers must stand down for that window: a request issued against the
+  /// previous station would otherwise land afterwards and load its song over
+  /// the new one.
+  bool _stationSwitchInFlight = false;
   String _radioId = env('RADIO_STATION_ID') ?? 'us-ready-now-rap';
   late final AnimationController _rippleController;
 
@@ -348,70 +353,100 @@ class _PlayerScreenState extends State<PlayerScreen>
     }
   }
 
-  Future<void> _changeStation(_StationOption station) async {
-    if (station.id == _radioId) return;
-    final switchId = ++_stationSwitchGeneration;
-    _trackBoundaryTimer?.cancel();
-    _recentlyAdvancedFrom = null;
+  /// True when an in-flight radio request belongs to a station the listener has
+  /// since left (or the screen went away). Applying such a response would swap
+  /// the audio back to the previous station.
+  bool _stationContextLost(int switchId, String radioId) =>
+      !mounted || switchId != _stationSwitchGeneration || radioId != _radioId;
 
-    setState(() {
-      _radioId = station.id;
-      _isLoading = true;
-      _isPlaying = false;
-      _currentTrack = null;
-      _selectedReaction = null;
-      _hasVoted = false;
-      _lastVotedPlayId = null;
-      _isVoting = false;
-      _noContent = false;
-      _noContentMessage = null;
-      _songAccess = null;
-    });
-
-    unawaited(_persistStationSelection(station.id));
-    // Drop any live DJ overlay; setAudioSource below replaces the music stream
-    // without a full stop() so ExoPlayer keeps its decoder warm.
-    unawaited(AudioPlayerService.handler.stopVoiceOverlay());
-
-    final trackFuture = _radioService.getCurrentTrack(radioId: station.id);
-    final adFuture = _venueAds.getCurrent(stationId: station.id);
-    final eventsFuture = StationEventsService().switchStation(station.id);
-
-    final results = await Future.wait<Object?>([
-      trackFuture,
-      adFuture,
-      eventsFuture,
-    ]);
-    if (!mounted || switchId != _stationSwitchGeneration) return;
-
-    final res = results[0] as TrackFetchResult;
-    final ad = results[1] as VenueAd?;
-    setState(() => _ad = ad);
-
-    if (res.noContent) {
-      setState(() {
-        _isLoading = false;
-        _noContent = true;
-        _noContentMessage = res.message;
-      });
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Tuned to ${station.genre}')),
-      );
-      return;
-    }
-
-    final track = res.track;
-    if (track == null || track.audioUrl.trim().isEmpty) {
-      setState(() => _isLoading = false);
-      return;
-    }
-
-    await _loadAndPlay(track, res);
-    if (!mounted || switchId != _stationSwitchGeneration) return;
+  void _announceTunedTo(_StationOption station) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Tuned to ${station.genre}')),
     );
+  }
+
+  Future<void> _changeStation(_StationOption station) async {
+    if (station.id == _radioId) return;
+    final switchId = ++_stationSwitchGeneration;
+    _stationSwitchInFlight = true;
+    RadioBackgroundSyncService.instance.stationSwitchInFlight = true;
+    _trackBoundaryTimer?.cancel();
+    // Stop polling until the new station is live; a tick landing mid-switch
+    // would fetch and load the station we are leaving.
+    _trackSyncTimer?.cancel();
+    _recentlyAdvancedFrom = null;
+
+    try {
+      setState(() {
+        _radioId = station.id;
+        _isLoading = true;
+        _isPlaying = false;
+        _currentTrack = null;
+        _selectedReaction = null;
+        _hasVoted = false;
+        _lastVotedPlayId = null;
+        _isVoting = false;
+        _noContent = false;
+        _noContentMessage = null;
+        _songAccess = null;
+      });
+
+      unawaited(_persistStationSelection(station.id));
+      RadioPresenceService.instance.configure(
+        userRole: _me?.role,
+        radioId: station.id,
+      );
+      // Drop any live DJ overlay; setAudioSource below replaces the music stream
+      // without a full stop() so ExoPlayer keeps its decoder warm.
+      unawaited(AudioPlayerService.handler.stopVoiceOverlay());
+
+      final trackFuture = _radioService.getCurrentTrack(radioId: station.id);
+      final adFuture = _venueAds.getCurrent(stationId: station.id);
+      final eventsFuture = StationEventsService().switchStation(station.id);
+
+      final results = await Future.wait<Object?>([
+        trackFuture,
+        adFuture,
+        eventsFuture,
+      ]);
+      if (_stationContextLost(switchId, station.id)) return;
+
+      final res = results[0] as TrackFetchResult;
+      final ad = results[1] as VenueAd?;
+      setState(() => _ad = ad);
+
+      if (res.noContent) {
+        setState(() {
+          _isLoading = false;
+          _noContent = true;
+          _noContentMessage = res.message;
+        });
+        if (mounted) _announceTunedTo(station);
+        return;
+      }
+
+      final track = res.track;
+      if (track == null || track.audioUrl.trim().isEmpty) {
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      await _loadAndPlay(
+        track,
+        res,
+        switchId: switchId,
+        radioId: station.id,
+      );
+      if (_stationContextLost(switchId, station.id)) return;
+      if (mounted) _announceTunedTo(station);
+    } finally {
+      // A newer switch owns the flags now — leave them set for that one.
+      if (switchId == _stationSwitchGeneration) {
+        _stationSwitchInFlight = false;
+        RadioBackgroundSyncService.instance.stationSwitchInFlight = false;
+        if (mounted) _startTrackSyncTimer();
+      }
+    }
   }
 
   Future<void> _openStationPicker() async {
@@ -461,17 +496,27 @@ class _PlayerScreenState extends State<PlayerScreen>
     await _loadAndPlay(track, res);
   }
 
+  /// [switchId] / [radioId] identify the station this track was fetched for.
+  /// They are re-checked around every await so a reply that arrives after the
+  /// listener retunes is dropped instead of overriding the new station.
   Future<void> _loadAndPlay(
     Track track,
     TrackFetchResult result, {
     bool reportPlay = true,
+    int? switchId,
+    String? radioId,
   }) async {
+    final expectedSwitchId = switchId ?? _stationSwitchGeneration;
+    final expectedRadioId = radioId ?? _radioId;
+    if (_stationContextLost(expectedSwitchId, expectedRadioId)) return;
+
     final audio = AudioPlayerService();
     Object? lastError;
     // Start where the song is *now*. On a slow link the server's snapshot is
     // already seconds old by the time it reaches us.
     final startAt = liveTargetSeconds(track);
     for (var attempt = 0; attempt < 3; attempt++) {
+      if (_stationContextLost(expectedSwitchId, expectedRadioId)) return;
       try {
         await audio.loadSource(
           AudioSource.uri(
@@ -483,7 +528,7 @@ class _PlayerScreenState extends State<PlayerScreen>
               artUri: BrandAssets.mediaArtUri(track.artworkUrl),
               extras: {
                 'source': 'radio',
-                'radioId': _radioId,
+                'radioId': expectedRadioId,
                 'songId': track.id,
               },
             ),
@@ -517,6 +562,7 @@ class _PlayerScreenState extends State<PlayerScreen>
       });
       return;
     }
+    if (_stationContextLost(expectedSwitchId, expectedRadioId)) return;
     // A stale rate from an interrupted catch-up must not carry into the new
     // song.
     if (_audioPlayer.speed != 1.0) await _audioPlayer.setSpeed(1.0);
@@ -532,9 +578,9 @@ class _PlayerScreenState extends State<PlayerScreen>
       await _audioPlayer.play();
     }
     if (reportPlay) {
-      unawaited(_radioService.reportPlay(track.id, radioId: _radioId));
+      unawaited(_radioService.reportPlay(track.id, radioId: expectedRadioId));
     }
-    if (!mounted) return;
+    if (_stationContextLost(expectedSwitchId, expectedRadioId)) return;
 
     final playId = track.playId;
     final alreadyVoted =
@@ -773,18 +819,23 @@ class _PlayerScreenState extends State<PlayerScreen>
   /// arriving late can't skip a track for everyone else.
   Future<void> _handleTrackEnded() async {
     if (!mounted || _trackAdvanceInFlight || _trackSyncInFlight) return;
+    // Tearing down the old station's source can surface as a completed track;
+    // advancing here would pull the next song of the station we just left.
+    if (_stationSwitchInFlight) return;
     if (_nonRadioOwnsPlayer) return;
+    final switchId = _stationSwitchGeneration;
+    final radioId = _radioId;
     _trackAdvanceInFlight = true;
     _trackBoundaryTimer?.cancel();
     final endedId = _currentTrack?.id;
     try {
       var res = await _radioService.getNextTrack(
-        radioId: _radioId,
+        radioId: radioId,
       );
       RadioConnectionMonitor.instance.reportRequestResult(
         networkError: res.networkError,
       );
-      if (!mounted) return;
+      if (_stationContextLost(switchId, radioId)) return;
       if (_nonRadioOwnsPlayer) return;
 
       // Couldn't reach the service to advance — keep the ended track on screen
@@ -807,11 +858,11 @@ class _PlayerScreenState extends State<PlayerScreen>
       // nudge that arrives after someone else's advance is ignored.
       if (endedId != null && res.track != null && res.track!.id == endedId) {
         final forced = await _radioService.getNextTrack(
-          radioId: _radioId,
+          radioId: radioId,
           force: true,
           after: endedId,
         );
-        if (!mounted) return;
+        if (_stationContextLost(switchId, radioId)) return;
         if (_nonRadioOwnsPlayer) return;
         if (!forced.noContent && forced.track != null) {
           res = forced;
@@ -836,7 +887,13 @@ class _PlayerScreenState extends State<PlayerScreen>
         _selectedReaction = null;
         _isVoting = false;
       });
-      await _loadAndPlay(track, res, reportPlay: true);
+      await _loadAndPlay(
+        track,
+        res,
+        reportPlay: true,
+        switchId: switchId,
+        radioId: radioId,
+      );
     } catch (_) {
       // Keep playing; periodic sync will retry.
     } finally {
@@ -880,15 +937,21 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   Future<void> _syncCurrentTrack({bool force = false}) async {
     if (!mounted || _trackSyncInFlight || _trackAdvanceInFlight) return;
+    // Retuning owns the player until its own load finishes.
+    if (_stationSwitchInFlight) return;
     // Public profile / samples share this player — don't steal or seek them.
     if (!force && _nonRadioOwnsPlayer) return;
+    final switchId = _stationSwitchGeneration;
+    final radioId = _radioId;
     _trackSyncInFlight = true;
     try {
-      final res = await _radioService.getCurrentTrack(radioId: _radioId);
+      final res = await _radioService.getCurrentTrack(radioId: radioId);
       RadioConnectionMonitor.instance.reportRequestResult(
         networkError: res.networkError,
       );
-      if (!mounted) return;
+      // The listener may have retuned while we awaited: this reply describes
+      // the station they just left.
+      if (_stationContextLost(switchId, radioId)) return;
       // Profile may have taken over while we awaited the server.
       if (!force && _nonRadioOwnsPlayer) return;
 
@@ -961,6 +1024,8 @@ class _PlayerScreenState extends State<PlayerScreen>
           serverTrack,
           res,
           reportPlay: _isPlaying || localTrack?.id != serverTrack.id,
+          switchId: switchId,
+          radioId: radioId,
         );
         return;
       }
@@ -1199,6 +1264,7 @@ class _PlayerScreenState extends State<PlayerScreen>
     _activeInstances = (_activeInstances - 1).clamp(0, 1 << 30);
     if (_activeInstances == 0) {
       RadioBackgroundSyncService.instance.playerScreenActive = false;
+      RadioBackgroundSyncService.instance.stationSwitchInFlight = false;
     }
     RadioConnectionMonitor.instance.removeRestoreListener(_onConnectionRestored);
     RadioConnectionMonitor.instance.state.removeListener(

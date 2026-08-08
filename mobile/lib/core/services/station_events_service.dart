@@ -55,7 +55,12 @@ class StationEventsService {
   RealtimeChannel? _channel;
   RealtimeChannel? _djBoothChannel;
   bool _started = false;
-  String _stationId = 'global';
+
+  /// Home station. The backend names its broadcast channel after the normalized
+  /// station id, so the legacy `'global'` default subscribed to a channel
+  /// nothing publishes on.
+  static const String _defaultStationId = 'us-ready-now-rap';
+  String _stationId = _defaultStationId;
 
   void _emitBoothEvent(dynamic raw) {
     try {
@@ -124,8 +129,9 @@ class StationEventsService {
     await _subscribeDjBooth(client);
   }
 
-  Future<void> start({String stationId = 'global'}) async {
-    _stationId = stationId.trim().isEmpty ? 'global' : stationId.trim();
+  Future<void> start({String stationId = _defaultStationId}) async {
+    _stationId =
+        stationId.trim().isEmpty ? _defaultStationId : stationId.trim();
     if (_started) return;
 
     SupabaseClient client;
@@ -159,7 +165,10 @@ class StationEventsService {
             try {
               final row = payload.newRecord;
               if (row.isEmpty) return;
-              if ((row['station_id']?.toString() ?? 'global') != _stationId) {
+              final eventStation =
+                  row['station_id']?.toString().trim() ?? '';
+              if ((eventStation.isEmpty ? _defaultStationId : eventStation) !=
+                  _stationId) {
                 return;
               }
               final rawPayload = row['payload'];

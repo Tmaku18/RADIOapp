@@ -13,7 +13,7 @@ import { Public } from '../auth/decorators/public.decorator';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { ProspectorYieldService } from './prospector-yield.service';
-import { DEFAULT_RADIO_ID } from './radio-state.service';
+import { normalizeSongStationId } from './station.constants';
 
 @Controller('radio')
 export class RadioController {
@@ -59,7 +59,10 @@ export class RadioController {
   @Public()
   @Get('current')
   async getCurrentTrack(@Query('radio') radioId?: string) {
-    const id = radioId?.trim() || DEFAULT_RADIO_ID;
+    // Normalize so the queue state key and the song scoping agree. Legacy ids
+    // ('global', 'default', old ga-* ids) otherwise get their own Redis queue
+    // while their songs are picked from the default station.
+    const id = normalizeSongStationId(radioId);
 
     // Stale-while-revalidate: if we have a cached snapshot, serve it
     // immediately. Background refresh is throttled per radio to prevent every
@@ -114,7 +117,7 @@ export class RadioController {
     @Query('force') force?: string,
     @Query('after') after?: string,
   ) {
-    const id = radioId?.trim() || DEFAULT_RADIO_ID;
+    const id = normalizeSongStationId(radioId);
     const forceAdvance = ['1', 'true', 'yes'].includes(
       (force ?? '').trim().toLowerCase(),
     );
@@ -178,7 +181,7 @@ export class RadioController {
   @Public()
   @Get('peek')
   async peekNextTrack(@Query('radio') radioId?: string) {
-    const id = radioId?.trim() || DEFAULT_RADIO_ID;
+    const id = normalizeSongStationId(radioId);
     try {
       return await this.withTimeout(
         this.radioService.peekNextTrack(id),
@@ -203,14 +206,14 @@ export class RadioController {
     @Query('radio') radioId?: string,
   ) {
     const parsedLimit = limit ? parseInt(limit, 10) : 10;
-    const id = radioId?.trim() || DEFAULT_RADIO_ID;
+    const id = normalizeSongStationId(radioId);
     return this.radioService.getUpcomingQueue(parsedLimit, id);
   }
 
   @Delete('queue')
   @Roles('admin')
   async clearQueue(@Query('radio') radioId?: string) {
-    const id = radioId?.trim() || DEFAULT_RADIO_ID;
+    const id = normalizeSongStationId(radioId);
     return this.radioService.clearQueueState(id);
   }
 }

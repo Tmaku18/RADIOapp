@@ -41,6 +41,12 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
   /// When true, [PlayerScreen] owns sync to avoid duplicate handlers.
   bool playerScreenActive = false;
 
+  /// True while the listener is tuning to a different station. Everything here
+  /// derives the station from the *currently loaded* media item, which still
+  /// names the old station until the new source lands — so any work started in
+  /// that window would fetch and play the station being left behind.
+  bool stationSwitchInFlight = false;
+
   String? get _radioId {
     final tag = _player.sequenceState.currentSource?.tag;
     if (tag is! MediaItem) return null;
@@ -153,12 +159,19 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
   Future<void> _recoverPlayback() async {
     if (!_hasRadioSource) return;
     if (AudioPlayerService.handler.userPaused) return;
-    final radioId = _radioId;
-    if (radioId == null) return;
 
     for (var attempt = 0; attempt < 3; attempt++) {
       await Future<void>.delayed(Duration(seconds: 2 * (attempt + 1)));
       if (!_hasRadioSource || AudioPlayerService.handler.userPaused) return;
+      // Swapping stations tears the old source down, which looks exactly like a
+      // stream death. Recovering it would drag the listener back to the station
+      // they just left.
+      if (stationSwitchInFlight || AudioPlayerService.isLoadingSource) return;
+
+      // Re-read per attempt rather than once up front: the station can change
+      // during the backoff, and the old id refetches the wrong queue.
+      final radioId = _radioId;
+      if (radioId == null) return;
 
       final res = await _radio.getCurrentTrack(radioId: radioId);
       RadioConnectionMonitor.instance.reportRequestResult(
@@ -177,7 +190,7 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
   /// Service came back: re-read the live position immediately instead of
   /// waiting out the poll interval, so the catch-up starts right away.
   Future<void> _onConnectionRestored() async {
-    if (playerScreenActive || !_hasRadioSource) return;
+    if (playerScreenActive || stationSwitchInFlight || !_hasRadioSource) return;
     await _syncCurrentTrack();
   }
 
@@ -218,7 +231,7 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
   }
 
   void _onDjBoothEvent(DjBoothRealtimeEvent event) {
-    if (playerScreenActive) return;
+    if (playerScreenActive || stationSwitchInFlight) return;
     switch (event.type) {
       case 'mic_on':
         // Background listeners must hear the DJ too — not only while the
@@ -282,6 +295,7 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
 
   Future<void> _handleTrackEnded() async {
     if (playerScreenActive || _advanceInFlight || _syncInFlight) return;
+    if (stationSwitchInFlight) return;
     final radioId = _radioId;
     if (radioId == null) return;
     _advanceInFlight = true;
@@ -317,6 +331,7 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
 
   Future<void> _syncCurrentTrack() async {
     if (playerScreenActive || _syncInFlight || _advanceInFlight) return;
+    if (stationSwitchInFlight) return;
     final radioId = _radioId;
     if (radioId == null) return;
     _syncInFlight = true;
