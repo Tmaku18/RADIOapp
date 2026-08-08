@@ -76,6 +76,29 @@ export class RefineryController {
   }
 
   /**
+   * Artist adds their own approved song to The Refinery directly.
+   *
+   * Deliberately has no Stripe path: the submission fee is a digital good, so
+   * `submit` above is web-only, which left the mobile apps with no way in.
+   * Gated on `isRefinerySubmissionFree()` inside the service.
+   */
+  @Post('songs/:id/add')
+  @HttpCode(200)
+  @UseGuards(RolesGuard)
+  @Roles('artist', 'admin')
+  async addSong(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') songId: string,
+    @Body() body: SubmitRefineryDto,
+  ) {
+    return this.refineryService.addToRefinery(
+      user.uid,
+      songId,
+      body?.customQuestions ?? [],
+    );
+  }
+
+  /**
    * Artist withdraws their song from The Refinery (no refund).
    * Useful if the song needs to be edited or unpublished.
    */

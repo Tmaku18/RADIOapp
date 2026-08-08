@@ -21,6 +21,7 @@ import {
   REFINERY_SURVEY_KEYS,
   REFINERY_SURVEY_QUESTIONS,
   RatingKey,
+  isRefinerySubmissionFree,
 } from './refinery-questions';
 import { SubmitReviewDto } from './dto/submit-review.dto';
 
@@ -141,6 +142,134 @@ export class RefineryService {
   // Artist submission ($4.99 Stripe Checkout)
   // ---------------------------------------------------------------------------
 
+  /** Replace the artist's custom questions for a song (empty list clears them). */
+  private async saveCustomQuestions(
+    songId: string,
+    customQuestions: string[],
+  ): Promise<void> {
+    const supabase = getSupabaseClient();
+    const trimmed = (customQuestions ?? [])
+      .map((q) => (q ?? '').trim())
+      .filter((q) => q.length > 0)
+      .slice(0, REFINERY_MAX_CUSTOM_QUESTIONS);
+
+    await supabase
+      .from('refinery_custom_questions')
+      .delete()
+      .eq('song_id', songId);
+    if (trimmed.length === 0) return;
+
+    const rows = trimmed.map((q, i) => ({
+      song_id: songId,
+      question_text: q,
+      display_order: i,
+    }));
+    const { error: cqErr } = await supabase
+      .from('refinery_custom_questions')
+      .insert(rows);
+    if (cqErr) {
+      this.logger.warn(
+        `Failed to insert custom questions for ${songId}: ${cqErr.message}`,
+      );
+    }
+  }
+
+  /**
+   * Put a song into the reviewer queue and tell the artist. Shared by the paid
+   * webhook fulfillment and the free add so the two can't drift apart — a song
+   * that skipped either the counter reset or the timestamp would sort and
+   * paginate wrongly in the queue.
+   */
+  private async enrollSongInRefinery(params: {
+    songId: string;
+    artistUserId: string;
+    title: string;
+  }): Promise<void> {
+    const supabase = getSupabaseClient();
+    const { songId, artistUserId, title } = params;
+
+    const { error } = await supabase
+      .from('songs')
+      .update({
+        in_refinery: true,
+        refinery_submitted_at: new Date().toISOString(),
+        refinery_review_count: 0,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', songId);
+    if (error) {
+      throw new BadRequestException(
+        `Failed to add song to The Refinery: ${error.message}`,
+      );
+    }
+
+    try {
+      await this.notifications.create({
+        userId: artistUserId,
+        type: 'refinery_submission_received',
+        title: 'Your song is in The Refinery',
+        message: `"${title}" is now under review. You'll be notified as reviews come in.`,
+        metadata: { songId },
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Failed to create submission notification: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
+  /**
+   * Artist adds their own approved song to The Refinery without checkout.
+   *
+   * This is the only submission path the mobile apps can use: the fee is a
+   * digital good, so store rules keep Stripe checkout web-only.
+   */
+  async addToRefinery(
+    firebaseUid: string,
+    songId: string,
+    customQuestions: string[] = [],
+  ) {
+    if (!isRefinerySubmissionFree()) {
+      throw new BadRequestException(
+        'Adding a song to The Refinery requires the submission fee. Complete checkout on the web app.',
+      );
+    }
+
+    const userId = await this.getUserIdFromFirebase(firebaseUid);
+    const supabase = getSupabaseClient();
+
+    const { data: song, error } = await supabase
+      .from('songs')
+      .select('id, artist_id, title, status, in_refinery')
+      .eq('id', songId)
+      .single();
+
+    if (error || !song) throw new NotFoundException('Song not found');
+    if (song.artist_id !== userId) {
+      throw new ForbiddenException('You can only add your own songs');
+    }
+    // The reviewer queue filters on in_refinery alone, so an unapproved song
+    // would reach reviewers ahead of moderation.
+    if (song.status !== 'approved') {
+      throw new BadRequestException(
+        'Only approved songs can be added to The Refinery.',
+      );
+    }
+    // Idempotent: the button is drawn from a list that may be a refresh behind.
+    if (song.in_refinery) {
+      return { added: true, alreadyIn: true, songId };
+    }
+
+    await this.saveCustomQuestions(songId, customQuestions);
+    await this.enrollSongInRefinery({
+      songId,
+      artistUserId: userId,
+      title: song.title,
+    });
+
+    return { added: true, alreadyIn: false, songId };
+  }
+
   async createSubmissionCheckoutSession(
     firebaseUid: string,
     songId: string,
@@ -163,30 +292,10 @@ export class RefineryService {
       throw new BadRequestException('Song is already in The Refinery');
     }
 
-    const trimmed = (customQuestions ?? [])
-      .map((q) => (q ?? '').trim())
-      .filter((q) => q.length > 0)
-      .slice(0, REFINERY_MAX_CUSTOM_QUESTIONS);
-
     // Persist custom questions up-front so the webhook doesn't need to ferry
     // arbitrary-length data through Stripe metadata. They sit attached to the
     // song but only become "live" once we flip in_refinery in fulfillSubmission.
-    await supabase.from('refinery_custom_questions').delete().eq('song_id', songId);
-    if (trimmed.length > 0) {
-      const rows = trimmed.map((q, i) => ({
-        song_id: songId,
-        question_text: q,
-        display_order: i,
-      }));
-      const { error: cqErr } = await supabase
-        .from('refinery_custom_questions')
-        .insert(rows);
-      if (cqErr) {
-        this.logger.warn(
-          `Failed to insert custom questions for ${songId}: ${cqErr.message}`,
-        );
-      }
-    }
+    await this.saveCustomQuestions(songId, customQuestions);
 
     const { data: tx, error: txError } = await supabase
       .from('transactions')
@@ -265,29 +374,13 @@ export class RefineryService {
       return;
     }
 
-    await supabase
-      .from('songs')
-      .update({
-        in_refinery: true,
-        refinery_submitted_at: new Date().toISOString(),
-        refinery_review_count: 0,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', songId);
-
-    try {
-      await this.notifications.create({
-        userId: artistUserId,
-        type: 'refinery_submission_received',
-        title: 'Your song is in The Refinery',
-        message: `"${song.title}" is now under review. You'll be notified as reviews come in.`,
-        metadata: { songId },
-      });
-    } catch (err) {
-      this.logger.warn(
-        `Failed to create submission notification: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
+    // Throws if the update fails so the Stripe webhook retries — the artist has
+    // already paid, so losing the enrollment silently is the worst outcome.
+    await this.enrollSongInRefinery({
+      songId,
+      artistUserId,
+      title: song.title,
+    });
   }
 
   /** Artist withdraws their song from The Refinery (no refund). */

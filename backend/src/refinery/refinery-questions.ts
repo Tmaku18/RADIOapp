@@ -8,6 +8,8 @@
  * removing keys breaks stored survey_responses analytics.
  */
 
+import { isBetaAllFree } from '../common/beta-access';
+
 export type RatingKey =
   | 'overall_rating'
   | 'beat_rating'
@@ -96,3 +98,21 @@ export const REFINERY_SUBMISSION_PRICE_CENTS = 499;
 export const REFINERY_DEFAULT_MIN_REVIEWS = 100;
 export const REFINERY_REVIEW_REWARD_CENTS = 10;
 export const REFINERY_MAX_CUSTOM_QUESTIONS = 10;
+
+/**
+ * Whether artists can add a song to The Refinery without paying the submission
+ * fee.
+ *
+ * Follows the master beta switch by default. This is also what makes The
+ * Refinery reachable from the apps at all: the fee is a digital good, so App
+ * Store and Play Store rules keep its Stripe checkout web-only, and a
+ * payment-only Refinery has no mobile entry point.
+ *
+ * Set REFINERY_FREE_SUBMISSIONS=false to require the fee again independently of
+ * the wider beta.
+ */
+export function isRefinerySubmissionFree(): boolean {
+  const raw = (process.env.REFINERY_FREE_SUBMISSIONS ?? '').trim();
+  if (raw !== '') return raw.toLowerCase() !== 'false';
+  return isBetaAllFree();
+}

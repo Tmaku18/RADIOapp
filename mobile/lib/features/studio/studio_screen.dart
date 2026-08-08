@@ -714,7 +714,16 @@ class _StudioScreenState extends State<StudioScreen>
                                                 try {
                                                   await _refinery
                                                       .addSongToRefinery(s.id);
-                                                  if (mounted) await _load();
+                                                  if (!mounted) return;
+                                                  await _load();
+                                                  if (!mounted) return;
+                                                  messenger.showSnackBar(
+                                                    SnackBar(
+                                                      content: Text(
+                                                        '"${s.title}" is in The Refinery',
+                                                      ),
+                                                    ),
+                                                  );
                                                 } catch (e) {
                                                   if (mounted) {
                                                     messenger.showSnackBar(
