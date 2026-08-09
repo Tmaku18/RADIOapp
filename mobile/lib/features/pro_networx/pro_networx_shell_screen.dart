@@ -73,8 +73,8 @@ class _ProNetworxShellScreenState extends State<ProNetworxShellScreen> {
     setState(() => _index = index.clamp(0, ProNetworxShellScreen.tabCount - 1));
   }
 
-  void _openRoute(String route) {
-    Navigator.of(context).pushNamed(route);
+  void _openRoute(String route, [Object? arguments]) {
+    Navigator.of(context).pushNamed(route, arguments: arguments);
   }
 
   @override

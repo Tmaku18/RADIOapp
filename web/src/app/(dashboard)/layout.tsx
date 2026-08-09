@@ -31,12 +31,9 @@ import { Separator } from '@/components/ui/separator';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { ComputerSettingsIcon } from '@hugeicons/core-free-icons';
 import {
-  Award,
-  BarChart3,
   FileSearch,
   Flame,
   Headphones,
-  Library,
   ListMusic,
   Megaphone,
   MessageCircle,
@@ -80,41 +77,40 @@ const PRO_NETWORX_INTERNAL_URL = `/auth-handoff?return_url=${encodeURIComponent(
 const SUPPORT_DISCORD_URL = 'https://discord.gg/a9S5m8fUJy';
 type MainNavItem = { name: string; href: string; icon: LucideIcon; external?: boolean };
 
+// Library is consolidated into Pro-Networx (its shell links back to
+// /browse/saved); Rewards and Analytics live in the More section.
 const listenerNavigation: MainNavItem[] = [
   { name: 'Radio', href: '/listen', icon: Music },
   { name: 'Pro-Radio', href: '/pro-radio', icon: ListMusic },
+  { name: 'Pro-Networx', href: PRO_NETWORX_INTERNAL_URL, icon: Network },
   { name: 'DMs', href: '/messages', icon: MessageCircle },
   { name: 'Live DJ', href: '/dj', icon: Headphones },
   { name: 'Live Performances', href: '/performances', icon: Mic2 },
-  { name: 'Library', href: '/browse/saved', icon: Library },
   { name: 'Feed', href: '/social', icon: Rss },
   { name: 'Discover', href: '/social/discover', icon: Flame },
   { name: 'Vote', href: '/competition', icon: Megaphone },
   { name: 'The Refinery', href: '/refinery', icon: FileSearch },
-  { name: 'Pro-Networx', href: PRO_NETWORX_INTERNAL_URL, icon: Network },
-  { name: 'Rewards', href: '/yield', icon: Award },
 ];
 
 const artistNavigation: MainNavItem[] = [
   { name: 'Radio', href: '/listen', icon: Music },
   { name: 'Pro-Radio', href: '/pro-radio', icon: ListMusic },
+  { name: 'Pro-Networx', href: PRO_NETWORX_INTERNAL_URL, icon: Network },
   { name: 'DMs', href: '/messages', icon: MessageCircle },
   { name: 'Live DJ', href: '/dj', icon: Headphones },
   { name: 'Live Performances', href: '/performances', icon: Mic2 },
-  { name: 'Library', href: '/browse/saved', icon: Library },
   { name: 'Feed', href: '/social', icon: Rss },
   { name: 'Discover', href: '/social/discover', icon: Flame },
   { name: 'My Uploaded Songs', href: '/artist/songs', icon: UploadCloud },
-  { name: 'Analytics', href: '/artist/stats', icon: BarChart3 },
   { name: 'The Refinery', href: '/refinery', icon: FileSearch },
-  { name: 'Pro-Networx', href: PRO_NETWORX_INTERNAL_URL, icon: Network },
-  { name: 'Rewards', href: '/yield', icon: Award },
 ];
 
+// Dashboard is intentionally absent — the logo card at the top already
+// links to /dashboard (Networx Home).
 const moreNav = [
-  { name: 'Dashboard', href: '/dashboard' },
   { name: 'Profile', href: '/profile' },
   { name: 'Live', href: '/live' },
+  { name: 'Rewards', href: '/yield' },
   { name: 'Settings', href: '/settings' },
 ];
 const streamerNav = { name: 'Stream settings', href: '/stream-settings' };
@@ -436,6 +432,11 @@ export default function DashboardLayout({
                       href="/artist/songs"
                       label="My Uploaded Songs"
                       isActive={pathname.startsWith('/artist/songs')}
+                    />
+                    <DimensionNavSubLink
+                      href="/artist/stats"
+                      label="Analytics"
+                      isActive={pathname.startsWith('/artist/stats')}
                     />
                     <DimensionNavSubLink
                       href="/artist/payouts"

@@ -9,6 +9,7 @@ import {
   ClipboardList,
   Compass,
   Home,
+  Library,
   LogOut,
   Radio,
   Search,
@@ -28,6 +29,9 @@ const TABS = [
 ] as const;
 
 const NETWORX_RADIO_DASHBOARD = 'https://www.networxradio.com/dashboard';
+// Song library (saved songs) — consolidated into Pro-Networx from the main
+// sidebar; lives on the radio dashboard origin, so route via auth handoff.
+const NETWORX_RADIO_LIBRARY = 'https://www.networxradio.com/browse/saved';
 
 type ProNetworxAppShellProps = {
   children: React.ReactNode;
@@ -102,6 +106,20 @@ export function ProNetworxAppShell({ children }: ProNetworxAppShellProps) {
               </span>
             )}
           </Link>
+
+          <a
+            href={
+              user
+                ? `/auth-handoff?return_url=${encodeURIComponent(NETWORX_RADIO_LIBRARY)}`
+                : 'https://www.networxradio.com/'
+            }
+            data-testid="pro-tab-library"
+            title="Library"
+            className="relative flex items-center gap-3 px-3 py-2.5 rounded-lg font-dim-mono text-[11px] tracking-[0.2em] uppercase text-white/70 hover:bg-white/5 hover:text-cyan-300 transition-colors"
+          >
+            <Library className="w-4 h-4 shrink-0" />
+            <span className="hidden lg:inline truncate">Library</span>
+          </a>
 
           <div className="mt-auto space-y-1 pt-3 border-t border-white/10">
             <a

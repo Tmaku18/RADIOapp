@@ -5,8 +5,8 @@ import '../../core/navigation/app_routes.dart';
 import '../../core/theme/dimension_tokens.dart';
 
 /// Left-hand Pro-Networx drawer mirroring the web [ProNetworxAppShell] sidebar:
-/// Home, Discover, Search, Services, Projects, Radio, My profile, plus
-/// Back to Radio / About Pro footer actions.
+/// Home, Discover, Search, Services, Projects, Radio, My profile, Library,
+/// plus Back to Radio / About Pro footer actions.
 class ProNetworxNavDrawer extends StatelessWidget {
   const ProNetworxNavDrawer({
     super.key,
@@ -20,7 +20,7 @@ class ProNetworxNavDrawer extends StatelessWidget {
   final int currentTabIndex;
 
   final ValueChanged<int> onSelectTab;
-  final void Function(String route) onOpenRoute;
+  final void Function(String route, [Object? arguments]) onOpenRoute;
   final VoidCallback onBackToRadio;
 
   static const tabLabels = <String>[
@@ -48,9 +48,9 @@ class ProNetworxNavDrawer extends StatelessWidget {
     onSelectTab(index);
   }
 
-  void _openRoute(BuildContext context, String route) {
+  void _openRoute(BuildContext context, String route, [Object? arguments]) {
     Navigator.of(context).pop();
-    onOpenRoute(route);
+    onOpenRoute(route, arguments);
   }
 
   void _backToRadio(BuildContext context) {
@@ -128,6 +128,14 @@ class ProNetworxNavDrawer extends StatelessWidget {
                     label: 'My profile',
                     active: false,
                     onTap: () => _openRoute(context, AppRoutes.proMeProfile),
+                  ),
+                  // Song library (saved songs) — consolidated from the main
+                  // drawer into Pro-Networx.
+                  _ProNavRow(
+                    icon: Icons.library_music_outlined,
+                    label: 'Library',
+                    active: false,
+                    onTap: () => _openRoute(context, AppRoutes.discovery, 3),
                   ),
                   const SizedBox(height: 8),
                   const Divider(height: 1),

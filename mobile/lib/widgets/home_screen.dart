@@ -189,8 +189,6 @@ class _HomeScreenState extends State<HomeScreen> {
       drawer: DimensionNavDrawer(
         user: _user,
         isArtist: canUpload,
-        // Upload is always in the drawer; listeners hit Trial by Fire gate.
-        showUpload: true,
         isAdmin: isAdmin,
         isStreamerRole: isStreamerRole,
         currentTabIndex: safeIndex,

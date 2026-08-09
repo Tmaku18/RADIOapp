@@ -16,7 +16,6 @@ class DimensionNavDrawer extends StatefulWidget {
     super.key,
     required this.user,
     required this.isArtist,
-    this.showUpload = false,
     required this.isAdmin,
     required this.isStreamerRole,
     required this.currentTabIndex,
@@ -27,8 +26,6 @@ class DimensionNavDrawer extends StatefulWidget {
 
   final app_user.User? user;
   final bool isArtist;
-  /// When true, Upload appears even for listeners (gated by ApplyScreen).
-  final bool showUpload;
   final bool isAdmin;
   final bool isStreamerRole;
 
@@ -95,6 +92,8 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
         label: 'The Chat Room',
         route: AppRoutes.room,
       ),
+      // Directly under The Chat Room; the song Library lives inside its shell.
+      proNetworx,
       const _NavSpec(
         icon: Icons.chat_bubble_outline,
         label: 'DMs',
@@ -115,68 +114,32 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
         label: 'Nearby People',
         route: AppRoutes.nearbyPeople,
       ),
-      // Web `/browse/saved` — song library tab inside Discover (not Pro posts).
-      const _NavSpec(
-        icon: Icons.library_music_outlined,
-        label: 'Library',
-        route: AppRoutes.discovery,
-        routeArgs: 3,
-      ),
       const _NavSpec(
         icon: Icons.people_alt_outlined,
         label: 'Feed',
         tabIndex: 2,
       ),
       const _NavSpec(
-        icon: Icons.notifications_outlined,
-        label: 'Notifications',
-        route: AppRoutes.notifications,
-      ),
-      const _NavSpec(
         icon: Icons.local_fire_department_outlined,
         label: 'Discover',
         tabIndex: 3,
       ),
-      if (widget.isArtist)
-        // Same hub as Networx Home (web dashboard).
-        const _NavSpec(
-          icon: Icons.dashboard_outlined,
-          label: 'Dashboard',
-          tabIndex: 0,
-        )
-      else
+      if (!widget.isArtist)
         const _NavSpec(
           icon: Icons.how_to_vote_outlined,
           label: 'Vote',
           tabIndex: 4,
         ),
-      if (widget.isArtist || widget.showUpload)
-        const _NavSpec(
-          icon: Icons.cloud_upload_outlined,
-          label: 'Upload',
-          route: AppRoutes.upload,
-        ),
+      // Upload lives inside My Songs (studio) now.
       const _NavSpec(
         icon: Icons.library_music_outlined,
         label: 'My Songs',
         route: AppRoutes.studio,
       ),
-      if (widget.isArtist)
-        const _NavSpec(
-          icon: Icons.show_chart,
-          label: 'Analytics',
-          route: AppRoutes.analytics,
-        ),
       const _NavSpec(
         icon: Icons.science_outlined,
         label: 'The Refinery',
         route: AppRoutes.refinery,
-      ),
-      proNetworx,
-      const _NavSpec(
-        icon: Icons.redeem_outlined,
-        label: 'Rewards',
-        route: AppRoutes.yield,
       ),
     ];
   }
@@ -211,7 +174,7 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
                         if (item.tabIndex != null) {
                           _selectTab(item.tabIndex!);
                         } else if (item.route != null) {
-                          _openRoute(item.route!, item.routeArgs);
+                          _openRoute(item.route!);
                         }
                       },
                     ),
@@ -224,6 +187,9 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
                     open: _moreOpen,
                     onToggle: () => setState(() => _moreOpen = !_moreOpen),
                     children: [
+                      _subRow('Rewards', AppRoutes.yield),
+                      if (widget.isArtist)
+                        _subRow('Analytics', AppRoutes.analytics),
                       _subRow('Pro Directory', AppRoutes.proDirectory),
                       _subRow('Job Board', AppRoutes.jobBoard),
                       _subRow(
@@ -295,14 +261,12 @@ class _NavSpec {
     required this.label,
     this.tabIndex,
     this.route,
-    this.routeArgs,
   });
 
   final IconData icon;
   final String label;
   final int? tabIndex;
   final String? route;
-  final Object? routeArgs;
 }
 
 class _LogoCard extends StatelessWidget {
