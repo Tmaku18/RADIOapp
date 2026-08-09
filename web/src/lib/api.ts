@@ -1328,6 +1328,8 @@ export const messagesApi = {
     api.delete(`/messages/messages/${messageId}/reactions`, { params: { emoji } }),
   markThreadRead: (otherUserId: string, lastReadMessageId?: string | null) =>
     api.post(`/messages/conversations/${otherUserId}/read`, { lastReadMessageId: lastReadMessageId ?? null }),
+  acceptConversation: (otherUserId: string) =>
+    api.post(`/messages/conversations/${otherUserId}/accept`),
   getUnreadSummary: () => api.get('/messages/unread-summary'),
   sendTyping: (otherUserId: string) => api.post(`/messages/conversations/${otherUserId}/typing`),
   getUploadUrl: (data: { filename: string; contentType: string }) =>

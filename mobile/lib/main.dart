@@ -171,6 +171,23 @@ class _MyAppState extends State<MyApp> {
             AppRoutes.watchLive,
             arguments: data['artistId'].toString(),
           );
+        } else if (type == 'new_message' && data['senderId'] != null) {
+          // ThreadScreen resolves the viewer's own user id when it's empty.
+          nav.pushNamed(
+            AppRoutes.thread,
+            arguments: {
+              'myUserId': '',
+              'otherUserId': data['senderId'].toString(),
+              'otherDisplayName': null,
+            },
+          );
+        } else if (type == 'message_request') {
+          nav.pushNamed(
+            AppRoutes.messages,
+            arguments: {'tab': 'requests'},
+          );
+        } else if (type == 'new_message') {
+          nav.pushNamed(AppRoutes.messages);
         } else if (type == 'song_liked' ||
             type == 'feed_post_liked' ||
             type == 'followed_artist_new_upload') {

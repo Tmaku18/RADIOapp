@@ -169,6 +169,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         return Icons.play_circle_outline;
       case 'app_update':
         return Icons.system_update_alt_outlined;
+      case 'new_message':
+      case 'message_request':
+        return Icons.chat_bubble_outline;
       default:
         return Icons.notifications_none;
     }
@@ -279,6 +282,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                   n.type == 'live_now') {
                                 Navigator.of(context)
                                     .pushNamed(AppRoutes.player);
+                              } else if (n.type == 'message_request') {
+                                Navigator.of(context).pushNamed(
+                                  AppRoutes.messages,
+                                  arguments: {'tab': 'requests'},
+                                );
+                              } else if (n.type == 'new_message') {
+                                Navigator.of(context)
+                                    .pushNamed(AppRoutes.messages);
                               }
                             },
                             leading: Icon(

@@ -155,6 +155,15 @@ export class ServiceMessagesController {
     return this.service.removeReaction(userId, messageId, normalizedEmoji);
   }
 
+  @Post('conversations/:otherUserId/accept')
+  async acceptConversation(
+    @CurrentUser() user: FirebaseUser,
+    @Param('otherUserId') otherUserId: string,
+  ) {
+    const userId = await this.getUserId(user.uid);
+    return this.service.acceptConversation(userId, otherUserId);
+  }
+
   @Post('conversations/:otherUserId/read')
   async markThreadRead(
     @CurrentUser() user: FirebaseUser,

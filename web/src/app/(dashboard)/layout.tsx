@@ -39,6 +39,7 @@ import {
   Library,
   ListMusic,
   Megaphone,
+  MessageCircle,
   Mic2,
   Music,
   Network,
@@ -82,6 +83,7 @@ type MainNavItem = { name: string; href: string; icon: LucideIcon; external?: bo
 const listenerNavigation: MainNavItem[] = [
   { name: 'Radio', href: '/listen', icon: Music },
   { name: 'Pro-Radio', href: '/pro-radio', icon: ListMusic },
+  { name: 'DMs', href: '/messages', icon: MessageCircle },
   { name: 'Live DJ', href: '/dj', icon: Headphones },
   { name: 'Live Performances', href: '/performances', icon: Mic2 },
   { name: 'Library', href: '/browse/saved', icon: Library },
@@ -96,6 +98,7 @@ const listenerNavigation: MainNavItem[] = [
 const artistNavigation: MainNavItem[] = [
   { name: 'Radio', href: '/listen', icon: Music },
   { name: 'Pro-Radio', href: '/pro-radio', icon: ListMusic },
+  { name: 'DMs', href: '/messages', icon: MessageCircle },
   { name: 'Live DJ', href: '/dj', icon: Headphones },
   { name: 'Live Performances', href: '/performances', icon: Mic2 },
   { name: 'Library', href: '/browse/saved', icon: Library },
@@ -162,7 +165,7 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith('/discover')) return 'Discover';
   if (pathname.startsWith('/social/discover')) return 'Discover';
   if (pathname.startsWith('/social')) return 'Feed';
-  if (pathname.startsWith('/messages')) return 'Messages';
+  if (pathname.startsWith('/messages')) return 'DMs';
   if (pathname.startsWith('/dashboard')) return 'Dashboard';
   if (pathname.startsWith('/listen')) return 'Radio';
   if (pathname.startsWith('/pro-radio')) return 'Pro-Radio';

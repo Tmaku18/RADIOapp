@@ -77,7 +77,13 @@ class AppRouter {
       case AppRoutes.credits:
         return _route(const CreditsScreen(), settings);
       case AppRoutes.messages:
-        return _route(const MessagesScreen(), settings);
+        return _route(
+          MessagesScreen(
+            initialTab:
+                (args is Map && args['tab'] == 'requests') ? 1 : 0,
+          ),
+          settings,
+        );
       case AppRoutes.thread:
         if (args is Map<String, dynamic>) {
           return _route(
@@ -85,6 +91,7 @@ class AppRouter {
               myUserId: args['myUserId'].toString(),
               otherUserId: args['otherUserId'].toString(),
               otherDisplayName: args['otherDisplayName']?.toString(),
+              isRequest: args['isRequest'] == true,
             ),
             settings,
           );

@@ -24,6 +24,8 @@ interface ConversationSummary {
   unreadCount: number;
   lastMessageType: 'text' | 'image' | 'video' | 'voice';
   lastMessageStatus: 'sent' | 'delivered' | 'read';
+  /** Instagram-style message request (sender not followed, not accepted yet). */
+  isRequest?: boolean;
 }
 
 interface SharedPostSnapshot {
@@ -76,6 +78,8 @@ export default function MessagesPage() {
   const myId = profile?.id ?? null;
 
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [inboxTab, setInboxTab] = useState<'chats' | 'requests'>('chats');
+  const [accepting, setAccepting] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedOther, setSelectedOther] = useState<{ userId: string; displayName: string | null; avatarUrl: string | null } | null>(
     null,
@@ -387,13 +391,62 @@ export default function MessagesPage() {
     return conversations.find((c) => c.otherUserId === selectedOther.userId)?.unreadCount ?? 0;
   }, [conversations, selectedOther]);
 
+  const requestConversations = useMemo(
+    () => conversations.filter((c) => c.isRequest === true),
+    [conversations],
+  );
+  const chatConversations = useMemo(
+    () => conversations.filter((c) => c.isRequest !== true),
+    [conversations],
+  );
+  const visibleConversations = inboxTab === 'requests' ? requestConversations : chatConversations;
+
+  const selectedIsRequest = useMemo(() => {
+    if (!selectedOther) return false;
+    return conversations.find((c) => c.otherUserId === selectedOther.userId)?.isRequest === true;
+  }, [conversations, selectedOther]);
+
+  const handleAcceptRequest = async () => {
+    if (!selectedOther || accepting) return;
+    setAccepting(true);
+    try {
+      await messagesApi.acceptConversation(selectedOther.userId);
+      await loadConversations();
+      setInboxTab('chats');
+    } catch {
+      setError('Failed to accept the message request');
+    } finally {
+      setAccepting(false);
+    }
+  };
+
   return (
     <div className="container max-w-4xl py-6">
       <div className="grid gap-4 md:grid-cols-[280px_1fr] min-h-[60vh]">
         <Card className="md:col-span-1">
           <CardContent className="p-0">
             <div className="p-2 border-b">
-              <h2 className="font-semibold text-sm">Conversations</h2>
+              <h2 className="font-semibold text-sm">DMs</h2>
+              <div className="mt-2 flex gap-1">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={inboxTab === 'chats' ? 'default' : 'outline'}
+                  className="flex-1"
+                  onClick={() => setInboxTab('chats')}
+                >
+                  Chats
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={inboxTab === 'requests' ? 'default' : 'outline'}
+                  className="flex-1"
+                  onClick={() => setInboxTab('requests')}
+                >
+                  Requests{requestConversations.length > 0 ? ` (${requestConversations.length})` : ''}
+                </Button>
+              </div>
               <Input
                 placeholder="Search messages..."
                 value={search}
@@ -403,11 +456,15 @@ export default function MessagesPage() {
             </div>
             {loadingConversations ? (
               <div className="p-4 text-center text-muted-foreground text-sm">Loading...</div>
-            ) : conversations.length === 0 ? (
-              <div className="p-4 text-center text-muted-foreground text-sm">No conversations yet. Message someone from Discover or an artist profile.</div>
+            ) : visibleConversations.length === 0 ? (
+              <div className="p-4 text-center text-muted-foreground text-sm">
+                {inboxTab === 'requests'
+                  ? "No message requests. DMs from people you don't follow show up here first."
+                  : 'No conversations yet. Message someone from Discover or an artist profile.'}
+              </div>
             ) : (
               <ul className="divide-y">
-                {conversations.map((c) => (
+                {visibleConversations.map((c) => (
                   <li key={c.otherUserId}>
                     <button
                       type="button"
@@ -460,6 +517,20 @@ export default function MessagesPage() {
                     {typingOther ? 'typing...' : selectedUnread > 0 ? `${selectedUnread} unread` : 'online'}
                   </div>
                 </div>
+
+                {selectedIsRequest && (
+                  <div className="border-b bg-muted/60 p-3 flex flex-wrap items-center gap-3">
+                    <p className="text-sm text-muted-foreground flex-1 min-w-48">
+                      <span className="font-medium text-foreground">
+                        {selectedOther.displayName || 'This user'}
+                      </span>{' '}
+                      wants to send you a message. Accept to move this chat to your DMs — replying also accepts.
+                    </p>
+                    <Button size="sm" onClick={handleAcceptRequest} disabled={accepting}>
+                      {accepting ? 'Accepting…' : 'Accept request'}
+                    </Button>
+                  </div>
+                )}
 
                 <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
                   {loadingThread ? (

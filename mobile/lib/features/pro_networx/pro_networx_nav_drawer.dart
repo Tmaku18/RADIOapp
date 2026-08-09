@@ -134,7 +134,7 @@ class ProNetworxNavDrawer extends StatelessWidget {
                   const SizedBox(height: 8),
                   _ProNavRow(
                     icon: Icons.mail_outline,
-                    label: 'Messages',
+                    label: 'DMs',
                     active: false,
                     onTap: () => _openRoute(context, AppRoutes.messages),
                   ),

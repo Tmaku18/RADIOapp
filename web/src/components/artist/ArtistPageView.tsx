@@ -668,6 +668,11 @@ export function ArtistPageView({
                         ? 'Favorited'
                         : 'Favorite'}
                   </Button>
+                  <Link href={`/messages?with=${data.artist.id}`}>
+                    <Button variant="outline" className="w-full sm:w-auto">
+                      Message
+                    </Button>
+                  </Link>
                 </>
               )}
               {mode === 'dashboard' ? (

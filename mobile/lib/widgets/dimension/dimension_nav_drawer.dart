@@ -96,6 +96,11 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
         route: AppRoutes.room,
       ),
       const _NavSpec(
+        icon: Icons.chat_bubble_outline,
+        label: 'DMs',
+        route: AppRoutes.messages,
+      ),
+      const _NavSpec(
         icon: Icons.headphones,
         label: 'Live DJ',
         route: AppRoutes.liveDj,
@@ -242,7 +247,7 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
                         setState(() => _accountOpen = !_accountOpen),
                     children: [
                       _subRow('Profile', AppRoutes.profile),
-                      _subRow('Messages', AppRoutes.messages),
+                      _subRow('DMs', AppRoutes.messages),
                       _subRow('Notifications', AppRoutes.notifications),
                       _subRow('Settings', AppRoutes.settings),
                       _subRow('About Networx', AppRoutes.about),

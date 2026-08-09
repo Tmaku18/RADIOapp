@@ -83,6 +83,11 @@ class MessagesService {
     await _api.post('messages/conversations/$otherUserId/read', {});
   }
 
+  /// Accept a message request so the chat moves to the main DM inbox.
+  Future<void> acceptConversation(String otherUserId) async {
+    await _api.post('messages/conversations/$otherUserId/accept', {});
+  }
+
   Future<void> setTyping({
     required String otherUserId,
     required bool isTyping,

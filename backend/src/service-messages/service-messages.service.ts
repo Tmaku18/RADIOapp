@@ -38,6 +38,11 @@ export interface ConversationSummary {
   lastMessageType: MessageType;
   lastMessageStatus: 'sent' | 'delivered' | 'read';
   canDm: boolean;
+  /**
+   * Instagram-style message request: true when the viewer doesn't follow the
+   * other user, has never replied, and hasn't explicitly accepted the chat.
+   */
+  isRequest: boolean;
 }
 
 export interface ServiceMessageRow {
@@ -211,6 +216,94 @@ export class ServiceMessagesService {
     return out;
   }
 
+  /** Set of user ids (among candidates) that `userId` follows. */
+  private async getFollowedIds(
+    userId: string,
+    candidateIds: string[],
+  ): Promise<Set<string>> {
+    const out = new Set<string>();
+    if (!candidateIds.length) return out;
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('user_follows')
+      .select('followed_user_id')
+      .eq('follower_user_id', userId)
+      .in('followed_user_id', candidateIds);
+    if (error) return out;
+    for (const r of (data ?? []) as Array<{ followed_user_id: string }>) {
+      out.add(r.followed_user_id);
+    }
+    return out;
+  }
+
+  /** Set of user ids (among candidates) whose chats `userId` has accepted. */
+  private async getAcceptedIds(
+    userId: string,
+    candidateIds: string[],
+  ): Promise<Set<string>> {
+    const out = new Set<string>();
+    if (!candidateIds.length) return out;
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('dm_conversation_accepts')
+      .select('other_user_id')
+      .eq('user_id', userId)
+      .in('other_user_id', candidateIds);
+    if (error) {
+      if (this.isMissingTableError(error, 'dm_conversation_accepts'))
+        return out;
+      return out;
+    }
+    for (const r of (data ?? []) as Array<{ other_user_id: string }>) {
+      out.add(r.other_user_id);
+    }
+    return out;
+  }
+
+  /**
+   * True when a message from `senderId` should land in `recipientId`'s
+   * request inbox: the recipient doesn't follow the sender, has never sent
+   * a message in the thread, and hasn't explicitly accepted the conversation.
+   */
+  private async isRequestForRecipient(
+    recipientId: string,
+    senderId: string,
+  ): Promise<boolean> {
+    const followed = await this.getFollowedIds(recipientId, [senderId]);
+    if (followed.has(senderId)) return false;
+    const accepted = await this.getAcceptedIds(recipientId, [senderId]);
+    if (accepted.has(senderId)) return false;
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('service_messages')
+      .select('id')
+      .eq('sender_id', recipientId)
+      .eq('recipient_id', senderId)
+      .limit(1);
+    if (error) return false;
+    return !(data ?? []).length;
+  }
+
+  /** Explicitly accept a message request (moves the chat out of Requests). */
+  async acceptConversation(
+    userId: string,
+    otherUserId: string,
+  ): Promise<{ ok: true }> {
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.from('dm_conversation_accepts').upsert(
+      {
+        user_id: userId,
+        other_user_id: otherUserId,
+        accepted_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id,other_user_id' },
+    );
+    if (error && !this.isMissingTableError(error, 'dm_conversation_accepts')) {
+      throw new Error(`Failed to accept conversation: ${error.message}`);
+    }
+    return { ok: true };
+  }
+
   /** True when the two users follow each other (mutual = "friends"). */
   private async areMutualFollowers(
     userA: string,
@@ -279,6 +372,7 @@ export class ServiceMessagesService {
     if (!messages?.length) return [];
 
     const otherIds = new Set<string>();
+    const repliedToOthers = new Set<string>();
     const lastByOther = new Map<
       string,
       {
@@ -292,6 +386,7 @@ export class ServiceMessagesService {
     >();
     for (const m of messages as any[]) {
       const other = m.sender_id === userId ? m.recipient_id : m.sender_id;
+      if (m.sender_id === userId) repliedToOthers.add(other);
       if (!lastByOther.has(other)) {
         otherIds.add(other);
         lastByOther.set(other, {
@@ -318,6 +413,12 @@ export class ServiceMessagesService {
     // Conversations always show as dm-able for the viewer when they can message.
     const canDmGlobally =
       await this.proNetworkSubscription.canSendMessages(userId);
+
+    // Request classification: chats from people the viewer doesn't follow stay
+    // in the Requests inbox until the viewer replies or explicitly accepts.
+    const candidateIds = [...otherIds];
+    const followedIds = await this.getFollowedIds(userId, candidateIds);
+    const acceptedIds = await this.getAcceptedIds(userId, candidateIds);
 
     const { data: readRows, error: readError } = await supabase
       .from('message_reads')
@@ -381,6 +482,10 @@ export class ServiceMessagesService {
         lastMessageType: last.message_type,
         lastMessageStatus: lastStatus,
         canDm: canDmGlobally,
+        isRequest:
+          !followedIds.has(otherId) &&
+          !repliedToOthers.has(otherId) &&
+          !acceptedIds.has(otherId),
       });
     }
     summaries.sort(
@@ -560,16 +665,17 @@ export class ServiceMessagesService {
     }
 
     // DM gate: Pro Networks subscription is normally required. During beta,
-    // messaging is free (still promoted in the UI). Exception: sharing a post
-    // to a friend (mutual follower) is always allowed.
+    // messaging is free (still promoted in the UI). Exception: messaging a
+    // friend (mutual follower) is always allowed so friends' DMs go through.
     const canMessage = await this.proNetworkSubscription.canSendMessages(
       input.senderId,
     );
     if (!canMessage) {
-      const sharingToFriend =
-        messageType === 'post_share' &&
-        (await this.areMutualFollowers(input.senderId, input.recipientId));
-      if (!sharingToFriend) {
+      const messagingFriend = await this.areMutualFollowers(
+        input.senderId,
+        input.recipientId,
+      );
+      if (!messagingFriend) {
         throw new ForbiddenException(PRO_NETWORK_PAYWALL_PAYLOAD);
       }
     }
@@ -641,8 +747,16 @@ export class ServiceMessagesService {
       sharedPost: sharedPostSnapshot,
     };
 
+    // Instagram-style delivery: DMs from people the recipient follows land in
+    // the main inbox ("New message" push); DMs from strangers land in the
+    // Requests inbox and notify as a message request without the content.
+    const isRequest = await this.isRequestForRecipient(
+      input.recipientId,
+      input.senderId,
+    );
+
     const senderName = await this.getDisplayName(input.senderId);
-    const title = 'New message';
+    const title = isRequest ? 'Message request' : 'New message';
     const fallbackPreview =
       messageType === 'text'
         ? trimmedBody
@@ -653,19 +767,23 @@ export class ServiceMessagesService {
             : messageType === 'post_share'
               ? 'Shared a post'
               : 'Sent a voice message';
-    const messageText = senderName
-      ? `${senderName}: ${fallbackPreview.slice(0, 60)}${fallbackPreview.length > 60 ? '…' : ''}`
-      : fallbackPreview.slice(0, 80);
+    const messageText = isRequest
+      ? `${senderName ?? 'Someone'} wants to send you a message`
+      : senderName
+        ? `${senderName}: ${fallbackPreview.slice(0, 60)}${fallbackPreview.length > 60 ? '…' : ''}`
+        : fallbackPreview.slice(0, 80);
+    const notificationType = isRequest ? 'message_request' : 'new_message';
 
     await this.notificationService.create({
       userId: input.recipientId,
-      type: 'new_message',
+      type: notificationType,
       title,
       message: messageText,
       metadata: {
         senderId: input.senderId,
         messageId: inserted.id,
         requestId: inserted.request_id,
+        isRequest,
       },
     });
 
@@ -674,7 +792,7 @@ export class ServiceMessagesService {
       title,
       body: messageText,
       data: {
-        type: 'new_message',
+        type: notificationType,
         senderId: input.senderId,
         messageId: inserted.id,
       },
@@ -836,17 +954,19 @@ export class ServiceMessagesService {
 
   async getUnreadSummary(userId: string): Promise<{
     totalUnread: number;
+    requestCount: number;
     byConversation: Array<{ otherUserId: string; unreadCount: number }>;
   }> {
     const conversations = await this.listConversations(userId);
     const byConversation = conversations
-      .filter((c) => c.unreadCount > 0)
+      .filter((c) => c.unreadCount > 0 && !c.isRequest)
       .map((c) => ({ otherUserId: c.otherUserId, unreadCount: c.unreadCount }));
     return {
       totalUnread: byConversation.reduce(
         (sum, row) => sum + row.unreadCount,
         0,
       ),
+      requestCount: conversations.filter((c) => c.isRequest).length,
       byConversation,
     };
   }

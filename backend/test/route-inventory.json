@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-07-25T17:20:56.266Z",
-  "count": 346,
+  "generatedAt": "2026-08-09T03:55:39.739Z",
+  "count": 370,
   "routes": [
     {
       "method": "GET",
@@ -837,6 +837,90 @@
       "file": "admin/admin.controller.ts"
     },
     {
+      "method": "POST",
+      "path": "/api/albums",
+      "controller": "albums.controller",
+      "handler": "create",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "albums/albums.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/albums/:id",
+      "controller": "albums.controller",
+      "handler": "remove",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "albums/albums.controller.ts"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/albums/:id",
+      "controller": "albums.controller",
+      "handler": "update",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "albums/albums.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/albums/:id/tracks",
+      "controller": "albums.controller",
+      "handler": "addTrack",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "albums/albums.controller.ts"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/albums/:id/tracks",
+      "controller": "albums.controller",
+      "handler": "setTracks",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "albums/albums.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/albums/:id/tracks/:songId",
+      "controller": "albums.controller",
+      "handler": "removeTrack",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "albums/albums.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/albums/mine",
+      "controller": "albums.controller",
+      "handler": "listMine",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "albums/albums.controller.ts"
+    },
+    {
       "method": "GET",
       "path": "/api/analytics/me",
       "controller": "analytics.controller",
@@ -1538,6 +1622,20 @@
       "file": "discovery/discovery.controller.ts"
     },
     {
+      "method": "POST",
+      "path": "/api/discovery/feed/upload-url",
+      "controller": "discovery.controller",
+      "handler": "createFeedUploadUrl",
+      "public": false,
+      "roles": [
+        "listener",
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "discovery/discovery.controller.ts"
+    },
+    {
       "method": "GET",
       "path": "/api/discovery/feed/users/:userId/posts",
       "controller": "discovery.controller",
@@ -1823,6 +1921,15 @@
     },
     {
       "method": "POST",
+      "path": "/api/messages/conversations/:otherUserId/accept",
+      "controller": "service-messages.controller",
+      "handler": "acceptConversation",
+      "public": false,
+      "roles": [],
+      "file": "service-messages/service-messages.controller.ts"
+    },
+    {
+      "method": "POST",
       "path": "/api/messages/conversations/:otherUserId/read",
       "controller": "service-messages.controller",
       "handler": "markThreadRead",
@@ -2094,6 +2201,24 @@
     },
     {
       "method": "POST",
+      "path": "/api/payments/create-pro-radio-checkout-session",
+      "controller": "payments.controller",
+      "handler": "createProRadioCheckoutSession",
+      "public": false,
+      "roles": [],
+      "file": "payments/payments.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/payments/create-pro-radio-payment-sheet",
+      "controller": "payments.controller",
+      "handler": "createProRadioPaymentSheet",
+      "public": false,
+      "roles": [],
+      "file": "payments/payments.controller.ts"
+    },
+    {
+      "method": "POST",
       "path": "/api/payments/google-play/complete",
       "controller": "payments.controller",
       "handler": "completeGooglePlayPurchase",
@@ -2178,6 +2303,78 @@
       "public": false,
       "roles": [],
       "file": "payments/payments.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/playlists",
+      "controller": "playlists.controller",
+      "handler": "create",
+      "public": false,
+      "roles": [],
+      "file": "playlists/playlists.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/playlists/:id",
+      "controller": "playlists.controller",
+      "handler": "remove",
+      "public": false,
+      "roles": [],
+      "file": "playlists/playlists.controller.ts"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/playlists/:id",
+      "controller": "playlists.controller",
+      "handler": "update",
+      "public": false,
+      "roles": [],
+      "file": "playlists/playlists.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/playlists/:id/reorder",
+      "controller": "playlists.controller",
+      "handler": "reorder",
+      "public": false,
+      "roles": [],
+      "file": "playlists/playlists.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/playlists/:id/tracks",
+      "controller": "playlists.controller",
+      "handler": "tracks",
+      "public": false,
+      "roles": [],
+      "file": "playlists/playlists.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/playlists/:id/tracks",
+      "controller": "playlists.controller",
+      "handler": "addTrack",
+      "public": false,
+      "roles": [],
+      "file": "playlists/playlists.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/playlists/:id/tracks/:songId",
+      "controller": "playlists.controller",
+      "handler": "removeTrack",
+      "public": false,
+      "roles": [],
+      "file": "playlists/playlists.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/playlists/mine",
+      "controller": "playlists.controller",
+      "handler": "listMine",
+      "public": false,
+      "roles": [],
+      "file": "playlists/playlists.controller.ts"
     },
     {
       "method": "GET",
@@ -2355,6 +2552,15 @@
       "public": false,
       "roles": [],
       "file": "pro-networx/pro-services.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/pro-radio-subscription/access",
+      "controller": "pro-radio-subscription.controller",
+      "handler": "access",
+      "public": false,
+      "roles": [],
+      "file": "pro-radio-subscription/pro-radio-subscription.controller.ts"
     },
     {
       "method": "POST",
@@ -2539,6 +2745,18 @@
       "file": "refinery/refinery.controller.ts"
     },
     {
+      "method": "POST",
+      "path": "/api/refinery/songs/:id/add",
+      "controller": "refinery.controller",
+      "handler": "addSong",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "refinery/refinery.controller.ts"
+    },
+    {
       "method": "GET",
       "path": "/api/refinery/songs/:id/analytics",
       "controller": "refinery.controller",
@@ -2650,6 +2868,19 @@
       "handler": "getProviderByUserId",
       "public": false,
       "roles": [],
+      "file": "service-providers/service-providers.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/service-providers/me/cover",
+      "controller": "service-providers.controller",
+      "handler": "clearCover",
+      "public": false,
+      "roles": [
+        "artist",
+        "service_provider",
+        "admin"
+      ],
       "file": "service-providers/service-providers.controller.ts"
     },
     {
@@ -2978,6 +3209,17 @@
     },
     {
       "method": "POST",
+      "path": "/api/songs/admin/backfill-copyright",
+      "controller": "songs.controller",
+      "handler": "backfillCopyright",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "POST",
       "path": "/api/songs/admin/backfill-lyrics",
       "controller": "songs.controller",
       "handler": "backfillLyrics",
@@ -3010,6 +3252,15 @@
         "service_provider",
         "admin"
       ],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/songs/beats/marketplace",
+      "controller": "songs.controller",
+      "handler": "listBeatMarketplace",
+      "public": true,
+      "roles": [],
       "file": "songs/songs.controller.ts"
     },
     {

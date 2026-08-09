@@ -36,4 +36,19 @@ describe('ServiceMessagesController', () => {
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
+
+  it('accepts a message request', async () => {
+    const service = {
+      acceptConversation: jest.fn().mockResolvedValue({ ok: true }),
+    };
+    const controller = new ServiceMessagesController(service as any);
+    await controller.acceptConversation(
+      { uid: 'firebase-1' } as any,
+      'other-1',
+    );
+    expect(service.acceptConversation).toHaveBeenCalledWith(
+      'user-1',
+      'other-1',
+    );
+  });
 });

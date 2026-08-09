@@ -384,6 +384,19 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
     }
   }
 
+  void _openMessages() {
+    // ThreadScreen resolves the viewer's own user id when it's empty.
+    Navigator.pushNamed(
+      context,
+      AppRoutes.thread,
+      arguments: {
+        'myUserId': '',
+        'otherUserId': widget.artistId,
+        'otherDisplayName': _artist?.displayName,
+      },
+    );
+  }
+
   Future<void> _toggleFavorite() async {
     if (_isOwnerProfile || _favoriteLoading) return;
     final next = !_favorited;
@@ -1203,6 +1216,15 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _openMessages,
+                    icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                    label: const Text('Message'),
+                  ),
                 ),
               ],
               const SizedBox(height: 10),

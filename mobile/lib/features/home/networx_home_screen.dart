@@ -155,7 +155,7 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
         ),
         _HomeAction(
           Icons.chat_bubble_outline,
-          'Messages',
+          'DMs',
           'Chat with clients.',
           () => Navigator.pushNamed(context, AppRoutes.messages),
         ),
@@ -261,7 +261,7 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
       ),
       _HomeAction(
         Icons.chat_bubble_outline,
-        'Messages',
+        'DMs',
         'Chat with gems and creators.',
         () => Navigator.pushNamed(context, AppRoutes.messages),
       ),

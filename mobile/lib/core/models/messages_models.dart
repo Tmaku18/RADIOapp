@@ -5,6 +5,11 @@ class ConversationSummary {
   final DateTime lastMessageAt;
   final String? lastMessagePreview;
   final bool lastMessageFromMe;
+  final int unreadCount;
+
+  /// Instagram-style message request: sender isn't followed by the viewer and
+  /// the viewer hasn't replied or accepted yet.
+  final bool isRequest;
 
   ConversationSummary({
     required this.otherUserId,
@@ -13,6 +18,8 @@ class ConversationSummary {
     required this.lastMessageAt,
     required this.lastMessagePreview,
     required this.lastMessageFromMe,
+    this.unreadCount = 0,
+    this.isRequest = false,
   });
 
   factory ConversationSummary.fromJson(Map<String, dynamic> json) {
@@ -24,6 +31,8 @@ class ConversationSummary {
           DateTime.now(),
       lastMessagePreview: (json['lastMessagePreview'] ?? json['last_message_preview'])?.toString(),
       lastMessageFromMe: json['lastMessageFromMe'] == true || json['last_message_from_me'] == true,
+      unreadCount: int.tryParse((json['unreadCount'] ?? json['unread_count'] ?? '0').toString()) ?? 0,
+      isRequest: json['isRequest'] == true || json['is_request'] == true,
     );
   }
 }

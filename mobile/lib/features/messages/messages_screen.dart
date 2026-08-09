@@ -13,7 +13,10 @@ import '../../widgets/dimension/dimension_widgets.dart';
 import '../pro_networx/widgets/pro_network_paywall_sheet.dart';
 
 class MessagesScreen extends StatefulWidget {
-  const MessagesScreen({super.key});
+  /// 0 = Chats, 1 = Requests.
+  final int initialTab;
+
+  const MessagesScreen({super.key, this.initialTab = 0});
 
   @override
   State<MessagesScreen> createState() => _MessagesScreenState();
@@ -24,10 +27,17 @@ class _MessagesScreenState extends State<MessagesScreen> {
   bool _loading = true;
   List<ConversationSummary> _conversations = const [];
   app_user.User? _me;
+  int _tab = 0; // 0 = Chats, 1 = Requests
+
+  List<ConversationSummary> get _chats =>
+      _conversations.where((c) => !c.isRequest).toList();
+  List<ConversationSummary> get _requests =>
+      _conversations.where((c) => c.isRequest).toList();
 
   @override
   void initState() {
     super.initState();
+    _tab = widget.initialTab == 1 ? 1 : 0;
     _load();
   }
 
@@ -48,11 +58,112 @@ class _MessagesScreenState extends State<MessagesScreen> {
     }
   }
 
+  Widget _buildEmptyState(NetworxSurfaces surfaces) {
+    final isRequests = _tab == 1;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              isRequests ? 'No message requests.' : 'No conversations yet.',
+              style: TextStyle(
+                color: surfaces.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              isRequests
+                  ? 'DMs from people you don\'t follow show up here first.'
+                  : 'Message someone from Discover or an artist profile.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: surfaces.textMuted,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConversationTile(
+    ConversationSummary c,
+    NetworxSurfaces surfaces,
+    ColorScheme scheme,
+  ) {
+    return Card(
+      child: ListTile(
+        leading: c.otherAvatarUrl != null
+            ? CircleAvatar(
+                backgroundImage: NetworkImage(c.otherAvatarUrl!),
+              )
+            : const CircleAvatar(child: Text('👤')),
+        title: Text(c.otherDisplayName ?? 'Unknown'),
+        subtitle: Text(
+          (c.lastMessageFromMe ? 'You: ' : '') +
+              (c.lastMessagePreview ?? 'No messages'),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(color: surfaces.textSecondary),
+        ),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              _formatTime(c.lastMessageAt),
+              style: TextStyle(color: surfaces.textMuted),
+            ),
+            if (c.unreadCount > 0) ...[
+              const SizedBox(height: 4),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: scheme.primary,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '${c.unreadCount}',
+                  style: TextStyle(
+                    color: scheme.onPrimary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+        onTap: _me == null
+            ? null
+            : () {
+                Navigator.pushNamed(
+                  context,
+                  AppRoutes.thread,
+                  arguments: {
+                    'myUserId': _me!.id,
+                    'otherUserId': c.otherUserId,
+                    'otherDisplayName': c.otherDisplayName,
+                    'isRequest': c.isRequest,
+                  },
+                ).then((_) => _load());
+              },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final surfaces = context.networxSurfaces;
+    final scheme = Theme.of(context).colorScheme;
+    final visible = _tab == 1 ? _requests : _chats;
     return DimensionScreenShell(
-      title: 'Messages',
+      title: 'DMs',
       showNeonLine: true,
       loading: _loading,
       actions: [
@@ -61,75 +172,41 @@ class _MessagesScreenState extends State<MessagesScreen> {
           icon: const Icon(Icons.refresh),
         ),
       ],
-      body: _conversations.isEmpty
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'No conversations yet.',
-                          style: TextStyle(
-                            color: surfaces.textSecondary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Message someone from Discover or an artist profile.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: surfaces.textMuted,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+            child: SegmentedButton<int>(
+              segments: [
+                const ButtonSegment(value: 0, label: Text('Chats')),
+                ButtonSegment(
+                  value: 1,
+                  label: Text(
+                    _requests.isEmpty
+                        ? 'Requests'
+                        : 'Requests (${_requests.length})',
                   ),
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: _conversations.length,
-                  separatorBuilder: (_, index) => const SizedBox(height: 8),
-                  itemBuilder: (context, i) {
-                    final c = _conversations[i];
-                    return Card(
-                      child: ListTile(
-                        leading: c.otherAvatarUrl != null
-                            ? CircleAvatar(
-                                backgroundImage: NetworkImage(c.otherAvatarUrl!),
-                              )
-                            : const CircleAvatar(child: Text('👤')),
-                        title: Text(c.otherDisplayName ?? 'Unknown'),
-                        subtitle: Text(
-                          (c.lastMessageFromMe ? 'You: ' : '') +
-                              (c.lastMessagePreview ?? 'No messages'),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: surfaces.textSecondary),
-                        ),
-                        trailing: Text(
-                          _formatTime(c.lastMessageAt),
-                          style: TextStyle(color: surfaces.textMuted),
-                        ),
-                        onTap: _me == null
-                            ? null
-                            : () {
-                                Navigator.pushNamed(
-                                  context,
-                                  AppRoutes.thread,
-                                  arguments: {
-                                    'myUserId': _me!.id,
-                                    'otherUserId': c.otherUserId,
-                                    'otherDisplayName': c.otherDisplayName,
-                                  },
-                                ).then((_) => _load());
-                              },
-                      ),
-                    );
-                  },
                 ),
+              ],
+              selected: {_tab},
+              onSelectionChanged: (sel) =>
+                  setState(() => _tab = sel.first),
+              showSelectedIcon: false,
+            ),
+          ),
+          Expanded(
+            child: visible.isEmpty
+                ? _buildEmptyState(surfaces)
+                : ListView.separated(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: visible.length,
+                    separatorBuilder: (_, index) => const SizedBox(height: 8),
+                    itemBuilder: (context, i) =>
+                        _buildConversationTile(visible[i], surfaces, scheme),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -139,11 +216,15 @@ class ThreadScreen extends StatefulWidget {
   final String otherUserId;
   final String? otherDisplayName;
 
+  /// True when this chat is still a pending message request for the viewer.
+  final bool isRequest;
+
   const ThreadScreen({
     super.key,
     required this.myUserId,
     required this.otherUserId,
     required this.otherDisplayName,
+    this.isRequest = false,
   });
 
   @override
@@ -162,6 +243,8 @@ class _ThreadScreenState extends State<ThreadScreen> {
   bool? _hasAccess;
   bool _canMessage = true;
   bool _messagingBetaFree = true;
+  bool _pendingRequest = false;
+  bool _accepting = false;
   List<MessageRow> _messages = const [];
   late String _myUserId;
 
@@ -169,9 +252,31 @@ class _ThreadScreenState extends State<ThreadScreen> {
   void initState() {
     super.initState();
     _myUserId = widget.myUserId.trim();
+    _pendingRequest = widget.isRequest;
     _ensureMyUserId();
     _load();
     _loadAccess();
+  }
+
+  Future<void> _acceptRequest() async {
+    if (_accepting) return;
+    setState(() => _accepting = true);
+    try {
+      await _service.acceptConversation(widget.otherUserId);
+      if (!mounted) return;
+      setState(() => _pendingRequest = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Request accepted — moved to your DMs.')),
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not accept the request.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _accepting = false);
+    }
   }
 
   Future<void> _ensureMyUserId() async {
@@ -271,6 +376,8 @@ class _ThreadScreenState extends State<ThreadScreen> {
           );
       setState(() {
         _draft.text = '';
+        // Replying accepts the message request server-side.
+        _pendingRequest = false;
         if (!_messages.any((m) => m.id == row.id)) {
           _messages = [..._messages, row];
         }
@@ -692,6 +799,40 @@ class _ThreadScreenState extends State<ThreadScreen> {
       ],
       body: Column(
         children: [
+          if (_pendingRequest)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: scheme.tertiaryContainer,
+                border: Border(
+                  bottom: BorderSide(color: surfaces.border),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Message request',
+                    style: DimensionTypography.cardTitle(fontSize: 14),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${widget.otherDisplayName ?? 'This user'} wants to send you a message. '
+                    'Accept to move this chat to your DMs — replying also accepts.',
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: scheme.onTertiaryContainer),
+                  ),
+                  const SizedBox(height: 8),
+                  FilledButton.tonal(
+                    onPressed: _accepting ? null : _acceptRequest,
+                    child: Text(_accepting ? 'Accepting…' : 'Accept request'),
+                  ),
+                ],
+              ),
+            ),
           if (_paywallShown || !_canMessage || (_messagingBetaFree && _hasAccess != true))
             Container(
               width: double.infinity,
