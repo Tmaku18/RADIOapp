@@ -89,6 +89,22 @@ const String _selectedStationPrefKey = 'selected_radio_station_id';
 /// Neutral starting point for song temperature (matches backend TEMP_BASELINE).
 const int _kTempBaseline = 50;
 
+/// Station tuning state shared by every mounted [PlayerScreen].
+///
+/// The home shell keeps a [PlayerScreen] alive inside its IndexedStack while
+/// the mini radio bar, notifications and Pro-Radio all push a second
+/// full-screen instance on top of it. When each instance tracked its own
+/// station id and switch generation, the two could drive the shared audio
+/// player toward *different* stations — every sync tick one instance reloaded
+/// its station's song over the other's, and at track end both fired `/next`
+/// (and force-advances) for two stations at once. Listeners heard it as the
+/// radio randomly changing songs and genres right after switching stations.
+class _StationTuner {
+  static String? radioId;
+  static int generation = 0;
+  static bool switchInFlight = false;
+}
+
 class PlayerScreen extends StatefulWidget {
   const PlayerScreen({super.key, this.onOpenNavDrawer, this.onUpload});
 
@@ -104,9 +120,15 @@ class PlayerScreen extends StatefulWidget {
 
 class _PlayerScreenState extends State<PlayerScreen>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
-  /// Counts mounted [PlayerScreen]s so disposing a pushed route doesn't clear
-  /// the flag while the home-tab instance is still alive.
-  static int _activeInstances = 0;
+  /// Mounted instances in stack order (home-tab instance first, pushed
+  /// full-screen instances after it). Also serves the role the old instance
+  /// counter had: the background sync flag clears only when this empties.
+  static final List<_PlayerScreenState> _mounted = <_PlayerScreenState>[];
+
+  /// Only the top-most mounted instance drives the shared player (sync polls,
+  /// end-of-track advance, booth overlays). A buried instance stays passive —
+  /// two active drivers is what made the radio flip between stations.
+  bool get _isSyncDriver => _mounted.isNotEmpty && identical(_mounted.last, this);
 
   final AudioPlayer _audioPlayer = AudioPlayerService().player;
   final RadioService _radioService = RadioService();
@@ -147,14 +169,26 @@ class _PlayerScreenState extends State<PlayerScreen>
   /// Song we just advanced away from; ignore server "current" for ~12s so pollers
   /// don't jump the listener backward (or reload mid-handoff).
   ({String id, DateTime at})? _recentlyAdvancedFrom;
-  int _stationSwitchGeneration = 0;
+  late final AnimationController _rippleController;
+
+  /// Shared across instances (see [_StationTuner]) so a station switch made in
+  /// a pushed player also invalidates the home-tab instance's in-flight work.
+  int get _stationSwitchGeneration => _StationTuner.generation;
+  int _nextStationSwitchGeneration() => ++_StationTuner.generation;
+
   /// Set from the moment the listener picks a station until its audio is live.
   /// Pollers must stand down for that window: a request issued against the
   /// previous station would otherwise land afterwards and load its song over
-  /// the new one.
-  bool _stationSwitchInFlight = false;
-  String _radioId = env('RADIO_STATION_ID') ?? 'us-ready-now-rap';
-  late final AnimationController _rippleController;
+  /// the new one. Shared across instances and mirrored to the background sync.
+  bool get _stationSwitchInFlight => _StationTuner.switchInFlight;
+  set _stationSwitchInFlight(bool value) {
+    _StationTuner.switchInFlight = value;
+    RadioBackgroundSyncService.instance.stationSwitchInFlight = value;
+  }
+
+  String get _radioId =>
+      _StationTuner.radioId ?? env('RADIO_STATION_ID') ?? 'us-ready-now-rap';
+  set _radioId(String value) => _StationTuner.radioId = value;
 
   _StationOption get _activeStation {
     for (final station in _stationOptions) {
@@ -169,7 +203,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   @override
   void initState() {
     super.initState();
-    _activeInstances++;
+    _mounted.add(this);
     RadioBackgroundSyncService.instance.playerScreenActive = true;
     WidgetsBinding.instance.addObserver(this);
     _rippleController = AnimationController(
@@ -312,6 +346,12 @@ class _PlayerScreenState extends State<PlayerScreen>
     return tag is MediaItem && tag.extras?['source'] == 'radio';
   }
 
+  /// Track id of whatever source is loaded in the shared player right now.
+  String? _loadedTrackId() {
+    final tag = _audioPlayer.sequenceState.currentSource?.tag;
+    return tag is MediaItem ? tag.id : null;
+  }
+
   /// True when another feature (public profile, sample, Discover) owns the
   /// shared player. Radio sync must stand down so it doesn't interrupt them.
   bool get _nonRadioOwnsPlayer {
@@ -321,12 +361,29 @@ class _PlayerScreenState extends State<PlayerScreen>
     return source != null && source.isNotEmpty && source != 'radio';
   }
 
-  /// App open always starts on Ready Now. Last station is not restored for
-  /// playback — listeners can still switch mid-session via the station picker.
+  /// Cold app open starts on Ready Now, but a *second* mounted instance (mini
+  /// bar tap, notification, Pro-Radio "open full player") must adopt whatever
+  /// station is already live. Resetting to the bootstrap default here is what
+  /// used to yank listeners back to Ready Now — and left the two instances
+  /// fighting over the shared player — whenever the full player was pushed
+  /// after a station switch.
   Future<void> _restoreStationSelection() async {
-    final stationId = env('RADIO_STATION_ID') ?? 'us-ready-now-rap';
+    final stationId = _StationTuner.radioId ??
+        _liveSourceRadioId() ??
+        env('RADIO_STATION_ID') ??
+        'us-ready-now-rap';
     _radioId = stationId;
     await _persistStationSelection(stationId);
+  }
+
+  /// Station named by the radio source currently loaded in the shared player,
+  /// or null when the player is idle or owned by a non-radio feature.
+  String? _liveSourceRadioId() {
+    final tag = _audioPlayer.sequenceState.currentSource?.tag;
+    if (tag is! MediaItem) return null;
+    if (tag.extras?['source'] != 'radio') return null;
+    final id = tag.extras?['radioId']?.toString().trim();
+    return (id == null || id.isEmpty) ? null : id;
   }
 
   Future<void> _persistStationSelection(String stationId) async {
@@ -367,9 +424,8 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   Future<void> _changeStation(_StationOption station) async {
     if (station.id == _radioId) return;
-    final switchId = ++_stationSwitchGeneration;
+    final switchId = _nextStationSwitchGeneration();
     _stationSwitchInFlight = true;
-    RadioBackgroundSyncService.instance.stationSwitchInFlight = true;
     _trackBoundaryTimer?.cancel();
     // Stop polling until the new station is live; a tick landing mid-switch
     // would fetch and load the station we are leaving.
@@ -443,7 +499,6 @@ class _PlayerScreenState extends State<PlayerScreen>
       // A newer switch owns the flags now — leave them set for that one.
       if (switchId == _stationSwitchGeneration) {
         _stationSwitchInFlight = false;
-        RadioBackgroundSyncService.instance.stationSwitchInFlight = false;
         if (mounted) _startTrackSyncTimer();
       }
     }
@@ -711,6 +766,9 @@ class _PlayerScreenState extends State<PlayerScreen>
   /// React immediately to live DJ booth events (pushed over Supabase Realtime)
   /// so listeners hear the admin go live / queue advance without waiting for poll.
   Future<void> _onDjBoothEvent(DjBoothRealtimeEvent event) async {
+    // One handler per event: both instances subscribe to the same stream, and
+    // duplicate overlay starts/syncs from the buried one just race the top one.
+    if (!_isSyncDriver) return;
     final handler = AudioPlayerService.handler;
     switch (event.type) {
       case 'mic_on':
@@ -827,6 +885,9 @@ class _PlayerScreenState extends State<PlayerScreen>
   /// arriving late can't skip a track for everyone else.
   Future<void> _handleTrackEnded() async {
     if (!mounted || _trackAdvanceInFlight || _trackSyncInFlight) return;
+    // Both mounted instances hear the shared player complete; only the top one
+    // may advance, or the queue gets nudged twice.
+    if (!_isSyncDriver) return;
     // Tearing down the old station's source can surface as a completed track;
     // advancing here would pull the next song of the station we just left.
     if (_stationSwitchInFlight) return;
@@ -945,6 +1006,9 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   Future<void> _syncCurrentTrack({bool force = false}) async {
     if (!mounted || _trackSyncInFlight || _trackAdvanceInFlight) return;
+    // A buried instance must not poll alongside the top one: with two drivers,
+    // each reload the other's station and the radio flips between songs.
+    if (!_isSyncDriver) return;
     // Retuning owns the player until its own load finishes.
     if (_stationSwitchInFlight) return;
     // Public profile / samples share this player — don't steal or seek them.
@@ -1016,6 +1080,36 @@ class _PlayerScreenState extends State<PlayerScreen>
 
       if ((force && !playerOnRadio) || trackChanged) {
         if (!force && _nonRadioOwnsPlayer) return;
+        // The shared player is already on the server's song — loaded by the
+        // other PlayerScreen instance or the background sync — so adopt it
+        // into this screen's UI instead of reloading, which would audibly
+        // restart the track. This is the hand-off path when a pushed player
+        // pops and the home-tab instance resumes driving.
+        if (playerOnRadio && _loadedTrackId() == serverTrack.id) {
+          final playId = serverTrack.playId;
+          final alreadyVoted = playId != null &&
+              playId.isNotEmpty &&
+              playId == _lastVotedPlayId;
+          setState(() {
+            _currentTrack = serverTrack;
+            _isPlaying = _audioPlayer.playing &&
+                !AudioPlayerService.handler.userPaused;
+            _isLoading = false;
+            _noContent = false;
+            _noContentMessage = null;
+            _hasVoted = alreadyVoted;
+            if (!alreadyVoted) _selectedReaction = null;
+            _isVoting = false;
+            _songAccess = null;
+            _isFavorite = false;
+          });
+          _scheduleTrackBoundarySync(serverTrack);
+          unawaited(_loadSongAccess(serverTrack.id));
+          unawaited(_loadFavorite(serverTrack.id));
+          await _applyBoothState(serverTrack);
+          await _applyLiveSync(serverTrack);
+          return;
+        }
         // Hard live sync: always follow the server's current song, even mid-
         // song, so every device on a station hears the same track. Explicit
         // user pause is still respected inside [_loadAndPlay].
@@ -1102,7 +1196,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   }
 
   Future<void> _refreshTrackStats() async {
-    if (!mounted || _presenceTickInFlight) return;
+    if (!mounted || _presenceTickInFlight || !_isSyncDriver) return;
     final track = _currentTrack;
     final isTunedIn = _isPlaying || AudioPlayerService.handler.userPausedNotifier.value;
     if (!isTunedIn || track == null || track.id.isEmpty) return;
@@ -1269,10 +1363,19 @@ class _PlayerScreenState extends State<PlayerScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _activeInstances = (_activeInstances - 1).clamp(0, 1 << 30);
-    if (_activeInstances == 0) {
+    _mounted.remove(this);
+    if (_mounted.isEmpty) {
       RadioBackgroundSyncService.instance.playerScreenActive = false;
       RadioBackgroundSyncService.instance.stationSwitchInFlight = false;
+      _StationTuner.switchInFlight = false;
+    } else {
+      // The instance underneath becomes the sync driver again. It was passive
+      // while buried, so catch it up right away instead of waiting out its
+      // poll tick. Post-frame: never re-enter sync mid-dispose of this route.
+      final next = _mounted.last;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (next.mounted) unawaited(next._syncCurrentTrack());
+      });
     }
     RadioConnectionMonitor.instance.removeRestoreListener(_onConnectionRestored);
     RadioConnectionMonitor.instance.state.removeListener(
