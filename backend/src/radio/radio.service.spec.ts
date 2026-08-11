@@ -103,6 +103,92 @@ describe('RadioService', () => {
     });
   });
 
+  describe('cached current track', () => {
+    // A song whose row says 3 minutes but whose audio ran short: the queue moved
+    // on at 1:00 while the snapshot still believes there is 2:00 left.
+    const snapshot = (songId: string, startedAtIso: string) => ({
+      id: songId,
+      started_at: startedAtIso,
+      duration_seconds: 180,
+    });
+
+    const liveState = (songId: string, playedAtIso: string) => ({
+      songId,
+      startedAt: new Date(playedAtIso).getTime(),
+      durationMs: 180_000,
+      priorityScore: 0,
+      isFallback: true,
+      isAdminFallback: false,
+      playedAt: playedAtIso,
+    });
+
+    it('serves the snapshot while it still matches the live queue', async () => {
+      const startedAt = new Date(Date.now() - 60_000).toISOString();
+      const service = createService({
+        stateService: {
+          peekCurrentState: jest.fn().mockResolvedValue(
+            liveState('song-a', startedAt),
+          ),
+        },
+      }) as any;
+      service.cacheTrackSnapshot('us-rap', snapshot('song-a', startedAt));
+
+      const result = await service.getVerifiedCachedCurrentTrack('us-rap');
+      expect(result?.id).toBe('song-a');
+    });
+
+    it('drops a snapshot of the song the queue already left', async () => {
+      const startedAt = new Date(Date.now() - 60_000).toISOString();
+      const service = createService({
+        stateService: {
+          peekCurrentState: jest.fn().mockResolvedValue(
+            liveState('song-b', new Date().toISOString()),
+          ),
+        },
+      }) as any;
+      service.cacheTrackSnapshot('us-rap', snapshot('song-a', startedAt));
+
+      // Without this the listener is told to go back to song-a for the two
+      // minutes its recorded duration still has left.
+      await expect(
+        service.getVerifiedCachedCurrentTrack('us-rap'),
+      ).resolves.toBeNull();
+      expect(service.getCachedCurrentTrack('us-rap')).toBeNull();
+    });
+
+    it('drops a snapshot when the same song was restarted', async () => {
+      const firstPlay = new Date(Date.now() - 60_000).toISOString();
+      const service = createService({
+        stateService: {
+          peekCurrentState: jest
+            .fn()
+            .mockResolvedValue(liveState('song-a', new Date().toISOString())),
+        },
+      }) as any;
+      service.cacheTrackSnapshot('us-rap', snapshot('song-a', firstPlay));
+
+      // Single-song station looping: same id, new play, so the cached position
+      // is two minutes into a song that just started over.
+      await expect(
+        service.getVerifiedCachedCurrentTrack('us-rap'),
+      ).resolves.toBeNull();
+    });
+
+    it('keeps serving the snapshot when the live state is unreadable', async () => {
+      const startedAt = new Date(Date.now() - 60_000).toISOString();
+      const service = createService({
+        stateService: {
+          peekCurrentState: jest.fn().mockResolvedValue(undefined),
+        },
+      }) as any;
+      service.cacheTrackSnapshot('us-rap', snapshot('song-a', startedAt));
+
+      // Redis down is not the same as an empty queue — listeners keep audio.
+      const result = await service.getVerifiedCachedCurrentTrack('us-rap');
+      expect(result?.id).toBe('song-a');
+    });
+  });
+
   describe('station scheduler', () => {
     afterEach(() => {
       jest.useRealTimers();

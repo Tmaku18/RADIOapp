@@ -136,6 +136,27 @@ export class RadioStateService implements OnModuleInit {
   }
 
   /**
+   * Cheap read of what is playing right now, straight from Redis.
+   *
+   * Unlike {@link getCurrentState} this never falls back to the database, so it
+   * is safe to call on every listener poll. The tri-state return distinguishes
+   * "nothing is playing" (`null`) from "we could not find out" (`undefined`) —
+   * callers that use this to invalidate a cache must not treat an unreachable
+   * Redis as an empty queue.
+   */
+  async peekCurrentState(
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<RadioState | null | undefined> {
+    if (!this.redisAvailable) return undefined;
+    try {
+      return await this.getStateFromRedis(radioId);
+    } catch (e) {
+      this.logger.warn(`peekCurrentState failed: ${e?.message ?? e}`);
+      return undefined;
+    }
+  }
+
+  /**
    * Set current playing song state.
    */
   async setCurrentState(

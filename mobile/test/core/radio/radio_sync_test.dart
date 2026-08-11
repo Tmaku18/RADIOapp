@@ -246,4 +246,108 @@ void main() {
       );
     });
   });
+
+  group('RadioFinishedPlays', () {
+    Track play(String id, {DateTime? startedAt}) => Track(
+      id: id,
+      title: 'Test',
+      artistName: 'Artist',
+      audioUrl: 'https://example.com/$id.mp3',
+      durationSeconds: 180,
+      startedAt: startedAt,
+    );
+
+    final finished = RadioFinishedPlays.instance;
+
+    setUp(finished.reset);
+
+    test('ignores the play this device just finished', () {
+      final startedAt = DateTime.utc(2026, 1, 1, 12);
+      finished.markFinished('us-rap', play('song-a', startedAt: startedAt));
+
+      // The server still describes song-a as current because the row's duration
+      // outlives the audio. Following it would rewind the listener.
+      expect(
+        finished.isFinishedPlay(
+          'us-rap',
+          play('song-a', startedAt: startedAt),
+        ),
+        isTrue,
+      );
+    });
+
+    test('lets the same song through when it comes round again', () {
+      finished.markFinished(
+        'us-rap',
+        play('song-a', startedAt: DateTime.utc(2026, 1, 1, 12)),
+      );
+
+      // A short station looping back to song-a announces a new start time, so
+      // this is a different play and must be heard.
+      expect(
+        finished.isFinishedPlay(
+          'us-rap',
+          play('song-a', startedAt: DateTime.utc(2026, 1, 1, 12, 30)),
+        ),
+        isFalse,
+      );
+    });
+
+    test('does not carry a finished play across stations', () {
+      final startedAt = DateTime.utc(2026, 1, 1, 12);
+      finished.markFinished('us-rap', play('song-a', startedAt: startedAt));
+
+      expect(
+        finished.isFinishedPlay(
+          'us-rock',
+          play('song-a', startedAt: startedAt),
+        ),
+        isFalse,
+      );
+    });
+
+    test('releases the guard once the window passes', () {
+      final startedAt = DateTime.utc(2026, 1, 1, 12);
+      finished.markFinished('us-rap', play('song-a', startedAt: startedAt));
+
+      expect(
+        finished.isFinishedPlay(
+          'us-rap',
+          play('song-a', startedAt: startedAt),
+          now: DateTime.now().add(
+            kRadioFinishedPlayWindow + const Duration(minutes: 1),
+          ),
+        ),
+        isFalse,
+      );
+    });
+
+    test('falls back to a short window with no start time to compare', () {
+      finished.markFinished('us-rap', play('song-a'));
+
+      expect(finished.isFinishedPlay('us-rap', play('song-a')), isTrue);
+      expect(
+        finished.isFinishedPlay(
+          'us-rap',
+          play('song-a'),
+          now: DateTime.now().add(const Duration(seconds: 30)),
+        ),
+        isFalse,
+      );
+    });
+
+    test('forgets a station when the listener retunes to it', () {
+      final startedAt = DateTime.utc(2026, 1, 1, 12);
+      finished.markFinished('us-rap', play('song-a', startedAt: startedAt));
+      finished.clearStation('us-rap');
+
+      expect(
+        finished.isFinishedPlay(
+          'us-rap',
+          play('song-a', startedAt: startedAt),
+        ),
+        isFalse,
+      );
+    });
+  });
 }

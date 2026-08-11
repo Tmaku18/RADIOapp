@@ -78,6 +78,93 @@ bool isStaleRadioServerTrack(
   return DateTime.now().difference(recentlyAdvancedFrom.at).inSeconds < 12;
 }
 
+/// How long a play this device sat through stays recognisable as "already
+/// heard".
+///
+/// The server can keep describing a finished song for as long as the duration
+/// recorded on its row — much longer than the audio actually ran when that
+/// number is wrong, or when a DJ skipped. The window only has to outlive that.
+const Duration kRadioFinishedPlayWindow = Duration(minutes: 20);
+
+/// Fallback window for payloads that carry no `started_at`, where one play of a
+/// song cannot be told apart from the next.
+const Duration kRadioFinishedPlayFallbackWindow = Duration(seconds: 12);
+
+class _FinishedPlay {
+  _FinishedPlay({required this.startedAt, required this.at});
+
+  /// Server timeline start of the play we finished. This is what separates a
+  /// stale description of that play from the song legitimately coming round
+  /// again, which arrives with a new start time.
+  final DateTime? startedAt;
+
+  /// Device clock when we finished it, used only to expire the record.
+  final DateTime at;
+}
+
+/// Plays this device is done with, per station — finished, or left behind on a
+/// hard switch.
+///
+/// A listener who has moved on from a song must never be pulled back into it by
+/// a server response that still describes it as current. Process-wide state, so
+/// the guard survives the handoff between the player screen and the background
+/// sync service, and a second player screen being pushed over the first.
+class RadioFinishedPlays {
+  RadioFinishedPlays._();
+
+  static final RadioFinishedPlays instance = RadioFinishedPlays._();
+
+  final Map<String, Map<String, _FinishedPlay>> _byStation = {};
+
+  void markFinished(String? stationId, Track? track) {
+    if (stationId == null || stationId.isEmpty) return;
+    if (track == null || track.id.isEmpty) return;
+    final plays = _byStation.putIfAbsent(stationId, () => {});
+    plays[track.id] = _FinishedPlay(
+      startedAt: track.startedAt,
+      at: DateTime.now(),
+    );
+    _prune(plays);
+  }
+
+  void clearStation(String? stationId) {
+    if (stationId == null) return;
+    _byStation.remove(stationId);
+  }
+
+  /// Whether [serverTrack] describes a play this device already finished, and
+  /// so must not be loaded again.
+  ///
+  /// Matching on the start time keeps genuine repeats playable: a short station
+  /// that comes back round to the same song announces it with a new start time,
+  /// which is a different play and passes straight through.
+  bool isFinishedPlay(String? stationId, Track? serverTrack, {DateTime? now}) {
+    if (stationId == null || serverTrack == null) return false;
+    final record = _byStation[stationId]?[serverTrack.id];
+    if (record == null) return false;
+
+    final at = now ?? DateTime.now();
+    final serverStartedAt = serverTrack.startedAt;
+    if (record.startedAt == null || serverStartedAt == null) {
+      // Nothing to compare plays with, so fall back to shrugging off only the
+      // responses that were already in flight when we moved on.
+      return at.difference(record.at) < kRadioFinishedPlayFallbackWindow;
+    }
+    if (!record.startedAt!.isAtSameMomentAs(serverStartedAt)) return false;
+    return at.difference(record.at) < kRadioFinishedPlayWindow;
+  }
+
+  void _prune(Map<String, _FinishedPlay> plays) {
+    final now = DateTime.now();
+    plays.removeWhere(
+      (_, play) => now.difference(play.at) > kRadioFinishedPlayWindow,
+    );
+  }
+
+  /// Drops every station's history. For tests.
+  void reset() => _byStation.clear();
+}
+
 /// Ceiling on how much latency we trust. Beyond this the request was so slow
 /// that the payload is better treated as a rough hint than a clock reading.
 const int _maxCompensationSeconds = 45;

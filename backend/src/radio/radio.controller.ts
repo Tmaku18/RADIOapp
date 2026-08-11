@@ -64,10 +64,10 @@ export class RadioController {
     // while their songs are picked from the default station.
     const id = normalizeSongStationId(radioId);
 
-    // Stale-while-revalidate: if we have a cached snapshot, serve it
-    // immediately. Background refresh is throttled per radio to prevent every
-    // listener poll from triggering a full DB pass.
-    const existing = this.radioService.getCachedCurrentTrack(id);
+    // Stale-while-revalidate: if we have a cached snapshot that still matches
+    // the live queue, serve it immediately. Background refresh is throttled per
+    // radio to prevent every listener poll from triggering a full DB pass.
+    const existing = await this.radioService.getVerifiedCachedCurrentTrack(id);
     if (existing) {
       const now = Date.now();
       const lastRefresh = this.swrLastRefreshAt.get(id) ?? 0;

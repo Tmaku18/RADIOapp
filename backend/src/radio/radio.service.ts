@@ -397,6 +397,54 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  private invalidateTrackSnapshot(radioId: string): void {
+    this.lastKnownTrackByRadio.delete(radioId);
+  }
+
+  /**
+   * The stale-while-revalidate snapshot, but only when it still agrees with the
+   * queue state in Redis.
+   *
+   * A snapshot expires on its own song's clock (`started_at + duration`), which
+   * is only correct while the queue advances exactly on that clock. Anything
+   * that rotates early — a DJ skip, or simply an audio file shorter than the
+   * duration stored on the row — leaves the snapshot describing a song that is
+   * already over, and `/radio/current` then tells every listener to go back to
+   * the track that just finished. Verifying against Redis costs one GET and also
+   * keeps replicas honest that did not run the advance themselves.
+   */
+  async getVerifiedCachedCurrentTrack(
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<any | null> {
+    const cached = this.getCachedCurrentTrack(radioId);
+    if (!cached) return null;
+
+    const live = await this.radioStateService.peekCurrentState(radioId);
+    // Redis is unreachable, so there is nothing cheap to verify against. Keep
+    // serving the snapshot: a database outage should still leave listeners with
+    // audio, which is the whole reason this cache exists.
+    if (live === undefined) return cached;
+
+    if (!live?.songId) {
+      this.invalidateTrackSnapshot(radioId);
+      return null;
+    }
+
+    const liveSongId = this.normalizeStackSongId(live.songId);
+    // A different start time on the same song means it was restarted (a
+    // single-song station looping), so the cached position is wrong too.
+    const samePlay =
+      !live.playedAt ||
+      !cached.started_at ||
+      live.playedAt === cached.started_at;
+    if (liveSongId !== cached.id || !samePlay) {
+      this.invalidateTrackSnapshot(radioId);
+      return null;
+    }
+
+    return cached;
+  }
+
   getCachedCurrentTrack(radioId: string = DEFAULT_RADIO_ID): any | null {
     const cached = this.lastKnownTrackByRadio.get(radioId);
     if (!cached) return null;
@@ -2553,7 +2601,17 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     if (inflight) {
       return inflight;
     }
-    const promise = this.doGetNextTrack(radioId, forceAdvance, afterSongId);
+    // Re-point the snapshot at whatever the advance settles on. Without this the
+    // cache keeps handing out the song we just left until its old clock runs
+    // out, which listeners hear as the radio jumping backwards.
+    const promise = this.doGetNextTrack(
+      radioId,
+      forceAdvance,
+      afterSongId,
+    ).then((payload) => {
+      this.cacheTrackSnapshot(radioId, payload);
+      return payload;
+    });
     this.advanceLocks.set(radioId, promise);
     try {
       return await promise;
@@ -2689,6 +2747,11 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     // Past the "current song still playing" early return — we are committing to
     // an advance. Record it so near-simultaneous force advances are debounced.
     await this.recordAdvance(radioId, now);
+
+    // Selecting and starting the next song takes several round trips. The
+    // snapshot describes the song being retired, so drop it now rather than
+    // serving a finished track to everyone polling during that window.
+    this.invalidateTrackSnapshot(radioId);
 
     const currentSongId = currentState?.songId;
     this.nextSongNotified5MinFor.delete(radioId);

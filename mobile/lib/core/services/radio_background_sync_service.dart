@@ -36,6 +36,7 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
   bool _bootstrapInFlight = false;
   DateTime _lastSyncSeekAt = DateTime.fromMillisecondsSinceEpoch(0);
   RecentlyAdvancedFrom? _recentlyAdvancedFrom;
+  Track? _loadedTrack;
   bool _appInBackground = false;
 
   /// When true, [PlayerScreen] owns sync to avoid duplicate handlers.
@@ -285,12 +286,27 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
     }
   }
 
-  void _markAdvancedFrom(String? trackId) {
+  void _markAdvancedFrom(String? trackId, String radioId) {
     if (trackId == null || trackId.isEmpty) return;
     _recentlyAdvancedFrom = RecentlyAdvancedFrom(
       id: trackId,
       at: DateTime.now(),
     );
+    // Only we know the full payload behind the loaded source. If the player
+    // screen loaded something itself, it owns this bookkeeping instead.
+    final track = _loadedTrack;
+    if (track != null && track.id == trackId) {
+      RadioFinishedPlays.instance.markFinished(radioId, track);
+    }
+  }
+
+  /// Whether the server is describing a play this device has already moved on
+  /// from, which must never be loaded again.
+  bool _isStaleServerTrack(Track serverTrack, String radioId) {
+    if (RadioFinishedPlays.instance.isFinishedPlay(radioId, serverTrack)) {
+      return true;
+    }
+    return isStaleRadioServerTrack(serverTrack.id, _recentlyAdvancedFrom);
   }
 
   Future<void> _handleTrackEnded() async {
@@ -320,9 +336,9 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
 
       final track = res.track;
       if (track == null || track.audioUrl.trim().isEmpty) return;
-      if (isStaleRadioServerTrack(track.id, _recentlyAdvancedFrom)) return;
+      if (_isStaleServerTrack(track, radioId)) return;
 
-      _markAdvancedFrom(endedId);
+      _markAdvancedFrom(endedId, radioId);
       await _loadTrack(track, res, reportPlay: true, radioId: radioId);
     } finally {
       _advanceInFlight = false;
@@ -347,7 +363,7 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
       final serverTrack = res.track!;
       if (serverTrack.audioUrl.trim().isEmpty) return;
 
-      if (isStaleRadioServerTrack(serverTrack.id, _recentlyAdvancedFrom)) {
+      if (_isStaleServerTrack(serverTrack, radioId)) {
         return;
       }
 
@@ -383,7 +399,7 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
             )) {
           return;
         }
-        _markAdvancedFrom(localId);
+        _markAdvancedFrom(localId, radioId);
         await _loadTrack(
           serverTrack,
           res,
@@ -482,6 +498,7 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
       return;
     }
     if (!applied) return;
+    _loadedTrack = track;
     // A stale rate from an interrupted catch-up must not carry into the new
     // song.
     if (_player.speed != 1.0) await _player.setSpeed(1.0);

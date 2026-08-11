@@ -431,6 +431,9 @@ class _PlayerScreenState extends State<PlayerScreen>
     // would fetch and load the station we are leaving.
     _trackSyncTimer?.cancel();
     _recentlyAdvancedFrom = null;
+    // Tuning away and back should hear the station as it is now, not skip what
+    // this device happened to play the last time it was here.
+    RadioFinishedPlays.instance.clearStation(_radioId);
 
     try {
       setState(() {
@@ -852,14 +855,19 @@ class _PlayerScreenState extends State<PlayerScreen>
   }
 
 
-  void _markAdvancedFrom(String? trackId) {
-    if (trackId == null || trackId.isEmpty) return;
-    _recentlyAdvancedFrom = (id: trackId, at: DateTime.now());
+  void _markAdvancedFrom(Track? track) {
+    if (track == null || track.id.isEmpty) return;
+    _recentlyAdvancedFrom = (id: track.id, at: DateTime.now());
+    RadioFinishedPlays.instance.markFinished(_radioId, track);
   }
 
-  bool _isStaleServerTrack(String serverTrackId) {
+  bool _isStaleServerTrack(Track? serverTrack) {
+    if (serverTrack == null) return false;
+    if (RadioFinishedPlays.instance.isFinishedPlay(_radioId, serverTrack)) {
+      return true;
+    }
     final adv = _recentlyAdvancedFrom;
-    if (adv == null || adv.id != serverTrackId) return false;
+    if (adv == null || adv.id != serverTrack.id) return false;
     return DateTime.now().difference(adv.at).inSeconds < 12;
   }
 
@@ -940,12 +948,12 @@ class _PlayerScreenState extends State<PlayerScreen>
 
       final track = res.track;
       if (track == null || track.audioUrl.trim().isEmpty) return;
-      if (_isStaleServerTrack(track.id)) return;
+      if (_isStaleServerTrack(track)) return;
       if (_nonRadioOwnsPlayer) return;
 
-      final previousId = _currentTrack?.id;
-      if (previousId != null && previousId != track.id) {
-        _markAdvancedFrom(previousId);
+      final previous = _currentTrack;
+      if (previous != null && previous.id != track.id) {
+        _markAdvancedFrom(previous);
       }
 
       setState(() {
@@ -1049,7 +1057,7 @@ class _PlayerScreenState extends State<PlayerScreen>
 
       final localTrack = _currentTrack;
 
-      if (_isStaleServerTrack(serverTrack.id)) {
+      if (_isStaleServerTrack(serverTrack)) {
         await _applyBoothState(serverTrack);
         return;
       }
@@ -1121,7 +1129,7 @@ class _PlayerScreenState extends State<PlayerScreen>
           _selectedReaction = null;
           _isVoting = false;
         });
-        _markAdvancedFrom(localTrack?.id);
+        _markAdvancedFrom(localTrack);
         await _loadAndPlay(
           serverTrack,
           res,
