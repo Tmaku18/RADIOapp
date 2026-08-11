@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/models/user.dart' as app_user;
 import '../../core/navigation/app_routes.dart';
 import '../../core/theme/dimension_tokens.dart';
+import '../../features/invite/invite_friends_sheet.dart';
 
 /// Left-hand navigation drawer that mirrors the web app's Dimension sidebar
 /// (logo header, role-based pill nav items in the same order, collapsible
@@ -215,6 +216,7 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
                       _subRow('Profile', AppRoutes.profile),
                       _subRow('DMs', AppRoutes.messages),
                       _subRow('Notifications', AppRoutes.notifications),
+                      _actionRow('Invite friends', _openInvite),
                       _subRow('Settings', AppRoutes.settings),
                       _subRow('About Networx', AppRoutes.about),
                     ],
@@ -252,6 +254,19 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
 
   Widget _subRow(String label, String route) {
     return _NavSubRow(label: label, onTap: () => _openRoute(route));
+  }
+
+  /// A row that runs an action instead of navigating.
+  Widget _actionRow(String label, VoidCallback onTap) {
+    return _NavSubRow(label: label, onTap: onTap);
+  }
+
+  void _openInvite() {
+    // Close the drawer first, then present from the navigator's context — this
+    // widget is gone by the time the sheet opens.
+    final navigator = Navigator.of(context);
+    navigator.pop();
+    InviteFriendsSheet.show(navigator.context);
   }
 }
 

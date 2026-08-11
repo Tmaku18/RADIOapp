@@ -11,6 +11,7 @@ import '../../core/auth/auth_service.dart';
 import '../../core/auth/role_helpers.dart';
 import '../../core/models/user.dart' as app_user;
 import '../../widgets/dimension/dimension_widgets.dart';
+import '../invite/invite_friends_sheet.dart';
 
 /// Settings screen with Instagram/Twitch-style sectioned list:
 /// Account, Preferences, Notifications, Security & Privacy, Payments,
@@ -796,6 +797,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ]),
 
                 _section('Help & Legal', [
+                  _navTile(
+                    context,
+                    icon: Icons.person_add_alt_1_outlined,
+                    title: 'Invite friends',
+                    subtitle: 'Share the app by text, email, or anywhere else',
+                    onTap: () => InviteFriendsSheet.show(context),
+                  ),
                   _navTile(
                     context,
                     icon: Icons.tour_outlined,
