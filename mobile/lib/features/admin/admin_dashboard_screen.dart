@@ -28,6 +28,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final AudioPlayer _previewPlayer = AudioPlayer();
 
   bool _loading = true;
+  /// True while the non-Overview tabs are still filling in behind first paint.
+  bool _sectionsLoading = false;
   bool _liveActionLoading = false;
   String? _error;
   Map<String, dynamic> _analytics = {};
@@ -101,79 +103,119 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
   }
 
+  /// Loads only what the Overview tab needs, then hands off to
+  /// [_loadSecondary].
+  ///
+  /// The dashboard used to await all thirteen of its requests one after
+  /// another before painting anything, so the wait was the *sum* of every
+  /// endpoint. Now the three cheap Overview calls go out together and the
+  /// heavier per-tab lists stream in behind the first paint.
   Future<void> _loadInitial() async {
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final analytics = await _admin.getAnalytics();
-      final liveStatus = await _admin.getLiveStatus();
-      final radios = await _admin.getRadios();
-      final songs = await _admin.getSongs(
-        limit: 100,
-        status: _songStatusFilter, // pending by default (web parity)
-      );
-      final users = await _admin.getUsers(limit: 100);
-      // Non-critical sections: a single failing endpoint (e.g. feed-media)
-      // should not blank the entire dashboard, so fall back to current values.
-      final swipeCards =
-          await _tryLoad(() => _admin.getSwipeCards(limit: 100)) ?? _swipeCards;
-      final feed = await _tryLoad(() => _admin.getFeedMedia()) ?? _feedMedia;
-      final fallback =
-          await _tryLoad(() => _admin.getFallbackSongsGrouped()) ??
-              _fallbackGroups;
-      final freeRotation =
-          await _tryLoad(() => _admin.getSongsInFreeRotation()) ??
-              _freeRotationSongs;
-      final streamers =
-          await _tryLoad(() => _admin.getStreamerApplications()) ??
-              _streamerApplications;
-
-      String? selectedRadioId = _selectedRadioId;
-      List<AdminQueueItem> queue = const [];
-      Map<String, String>? nowPlaying;
-      List<Map<String, dynamic>> queueCandidates = freeRotation;
-      if (radios.isNotEmpty) {
-        selectedRadioId ??= radios.first.id;
-        final queueRes = await _admin.getRadioQueue(selectedRadioId, limit: 200);
-        queue = queueRes.parseUpcomingQueue();
-        _queueDraftCtrl.text = queue.map((e) => e.stackId).join('\n');
-        nowPlaying = queueRes.parseCurrentSong();
-        queueCandidates = await _tryLoad(
-              () => _admin.getSongsInFreeRotation(selectedRadioId),
-            ) ??
-            freeRotation;
-      }
+      // Future.wait rather than record `.wait`: it rethrows the first real
+      // error, where a record wait reports only a ParallelWaitError count.
+      final results = await Future.wait([
+        _admin.getAnalytics(),
+        _admin.getLiveStatus(),
+        _admin.getRadios(),
+      ]);
+      final analytics = results[0] as Map<String, dynamic>;
+      final liveStatus = results[1] as Map<String, dynamic>;
+      final radios = results[2] as List<AdminRadio>;
 
       if (!mounted) return;
       setState(() {
         _analytics = analytics;
         _liveStatus = liveStatus;
         _radios = radios;
-        _songs = songs;
-        _users = users;
-        _swipeCards = swipeCards;
-        _feedMedia = feed;
-        _fallbackGroups = fallback;
-        _freeRotationSongs = freeRotation;
-        _queueAddCandidates = queueCandidates;
-        _selectedAddStackId = queueCandidates.isEmpty
-            ? null
-            : _candidateStackId(queueCandidates.first);
-        _streamerApplications = streamers;
-        _selectedRadioId = selectedRadioId;
-        _queue = queue;
-        _queueDraft = List<AdminQueueItem>.from(queue);
-        _originalStackIds = queue.map((e) => e.stackId).toList();
-        _nowPlaying = nowPlaying;
+        if (radios.isNotEmpty) _selectedRadioId ??= radios.first.id;
+        _loading = false;
       });
+      await _loadSecondary();
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = e.toString());
-    } finally {
-      if (mounted) setState(() => _loading = false);
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
     }
+  }
+
+  /// Fills in the six non-Overview tabs, flagging progress so those tabs can
+  /// say they are still loading rather than looking empty.
+  Future<void> _loadSecondary() async {
+    if (mounted) setState(() => _sectionsLoading = true);
+    try {
+      await _fetchSections();
+    } finally {
+      if (mounted) setState(() => _sectionsLoading = false);
+    }
+  }
+
+  /// Every request is started before any of them is awaited, so this costs
+  /// roughly one round trip rather than nine. [_tryLoad] means each future
+  /// resolves to null instead of throwing, so a single dead endpoint leaves
+  /// its own section stale rather than blanking the dashboard.
+  Future<void> _fetchSections() async {
+    final radioId = _selectedRadioId;
+
+    final songsReq = _tryLoad(
+      () => _admin.getSongs(
+        limit: 100,
+        status: _songStatusFilter, // pending by default (web parity)
+      ),
+    );
+    final usersReq = _tryLoad(() => _admin.getUsers(limit: 100));
+    final swipeReq = _tryLoad(() => _admin.getSwipeCards(limit: 100));
+    final feedReq = _tryLoad(() => _admin.getFeedMedia());
+    final fallbackReq = _tryLoad(() => _admin.getFallbackSongsGrouped());
+    final freeRotationReq = _tryLoad(() => _admin.getSongsInFreeRotation());
+    final streamersReq = _tryLoad(() => _admin.getStreamerApplications());
+    // The queue tab is scoped to the selected station; free rotation on the
+    // Fallback tab deliberately stays on the default station.
+    final queueReq = radioId == null
+        ? null
+        : _tryLoad(() => _admin.getRadioQueue(radioId, limit: 200));
+    final candidatesReq = radioId == null
+        ? null
+        : _tryLoad(() => _admin.getSongsInFreeRotation(radioId));
+
+    final songs = await songsReq ?? _songs;
+    final users = await usersReq ?? _users;
+    final swipeCards = await swipeReq ?? _swipeCards;
+    final feed = await feedReq ?? _feedMedia;
+    final fallback = await fallbackReq ?? _fallbackGroups;
+    final freeRotation = await freeRotationReq ?? _freeRotationSongs;
+    final streamers = await streamersReq ?? _streamerApplications;
+    final queueRes = queueReq == null ? null : await queueReq;
+    final queueCandidates =
+        (candidatesReq == null ? null : await candidatesReq) ?? freeRotation;
+
+    final queue = queueRes?.parseUpcomingQueue() ?? const <AdminQueueItem>[];
+
+    if (!mounted) return;
+    _queueDraftCtrl.text = queue.map((e) => e.stackId).join('\n');
+    setState(() {
+      _songs = songs;
+      _users = users;
+      _swipeCards = swipeCards;
+      _feedMedia = feed;
+      _fallbackGroups = fallback;
+      _freeRotationSongs = freeRotation;
+      _queueAddCandidates = queueCandidates;
+      _selectedAddStackId = queueCandidates.isEmpty
+          ? null
+          : _candidateStackId(queueCandidates.first);
+      _streamerApplications = streamers;
+      _queue = queue;
+      _queueDraft = List<AdminQueueItem>.from(queue);
+      _originalStackIds = queue.map((e) => e.stackId).toList();
+      _nowPlaying = queueRes?.parseCurrentSong();
+    });
   }
 
   Future<void> _refreshQueue() async {
@@ -923,6 +965,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 Tab(text: 'Fallback/Rotation'),
                 Tab(text: 'Streamers'),
               ],
+            ),
+            // Overview paints before the other tabs have their data, so say so
+            // rather than letting those lists read as empty.
+            SizedBox(
+              height: 2,
+              child: _sectionsLoading
+                  ? const LinearProgressIndicator(minHeight: 2)
+                  : null,
             ),
             Expanded(
               child: TabBarView(

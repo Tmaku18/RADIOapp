@@ -1740,113 +1740,95 @@ export class AdminService {
     };
   }
 
-  async getAnalytics() {
+  /**
+   * Exact row count for a table, optionally filtered to one column value.
+   * `head: true` skips the row payload so only the count comes back.
+   */
+  private async countRows(
+    label: string,
+    table: string,
+    filter?: { column: string; value: string },
+  ): Promise<number> {
     const supabase = getSupabaseClient();
-
-    const { count: totalUsers, error: totalUsersError } = await supabase
-      .from('users')
+    let query = supabase
+      .from(table)
       .select('*', { count: 'exact', head: true });
-    if (totalUsersError) {
+    if (filter) query = query.eq(filter.column, filter.value);
+    const { count, error } = await query;
+    if (error) {
       throw new BadRequestException(
-        `Failed to fetch user analytics: ${totalUsersError.message}`,
+        `Failed to fetch ${label} analytics: ${error.message}`,
       );
     }
+    return count ?? 0;
+  }
 
-    const { count: totalArtists, error: totalArtistsError } = await supabase
-      .from('users')
-      .select('*', { count: 'exact', head: true })
-      .eq('role', 'artist');
-    if (totalArtistsError) {
-      throw new BadRequestException(
-        `Failed to fetch artist analytics: ${totalArtistsError.message}`,
-      );
-    }
-
-    const { count: totalListeners, error: totalListenersError } = await supabase
-      .from('users')
-      .select('*', { count: 'exact', head: true })
-      .eq('role', 'listener');
-    if (totalListenersError) {
-      throw new BadRequestException(
-        `Failed to fetch listener analytics: ${totalListenersError.message}`,
-      );
-    }
-
-    const { count: totalSongs, error: totalSongsError } = await supabase
-      .from('songs')
-      .select('*', { count: 'exact', head: true });
-    if (totalSongsError) {
-      throw new BadRequestException(
-        `Failed to fetch song analytics: ${totalSongsError.message}`,
-      );
-    }
-
-    const { count: pendingSongs, error: pendingSongsError } = await supabase
-      .from('songs')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'pending');
-    if (pendingSongsError) {
-      throw new BadRequestException(
-        `Failed to fetch pending song analytics: ${pendingSongsError.message}`,
-      );
-    }
-
-    const { count: approvedSongs, error: approvedSongsError } = await supabase
-      .from('songs')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'approved');
-    if (approvedSongsError) {
-      throw new BadRequestException(
-        `Failed to fetch approved song analytics: ${approvedSongsError.message}`,
-      );
-    }
-
-    // Get total plays
-    const { count: totalPlays, error: playsError } = await supabase
-      .from('plays')
-      .select('*', { count: 'exact', head: true });
-
-    if (playsError) {
-      throw new BadRequestException(
-        `Failed to fetch play analytics: ${playsError.message}`,
-      );
-    }
-
-    let totalListenCount = 0;
-    let earsReached = 0;
+  /**
+   * Radio reach totals. These RPCs are not deployed in every environment, so
+   * a failure degrades to zero rather than failing the whole dashboard.
+   */
+  private async getRadioReach() {
     try {
+      const supabase = getSupabaseClient();
       const [{ data: listens }, { data: ears }] = await Promise.all([
         supabase.rpc('get_radio_listen_count'),
         supabase.rpc('get_radio_ears_reached'),
       ]);
-      if (listens != null) totalListenCount = Math.max(0, Number(listens) || 0);
-      if (ears != null) earsReached = Math.max(0, Number(ears) || 0);
+      return {
+        totalListenCount: Math.max(0, Number(listens) || 0),
+        earsReached: Math.max(0, Number(ears) || 0),
+      };
     } catch {
-      // RPCs may be unavailable in some environments.
+      return { totalListenCount: 0, earsReached: 0 };
     }
+  }
 
-    // Get total likes
-    const { count: totalLikes, error: likesError } = await supabase
-      .from('likes')
-      .select('*', { count: 'exact', head: true });
-
-    if (likesError) {
-      throw new BadRequestException(
-        `Failed to fetch likes analytics: ${likesError.message}`,
-      );
-    }
+  async getAnalytics() {
+    // Each count is its own round trip to Postgres and none of them depend on
+    // one another, so they go out together. Awaited in sequence these were the
+    // slowest part of the admin dashboard's first paint.
+    const [
+      totalUsers,
+      totalArtists,
+      totalListeners,
+      totalSongs,
+      pendingSongs,
+      approvedSongs,
+      totalPlays,
+      totalLikes,
+      reach,
+    ] = await Promise.all([
+      this.countRows('user', 'users'),
+      this.countRows('artist', 'users', { column: 'role', value: 'artist' }),
+      this.countRows('listener', 'users', {
+        column: 'role',
+        value: 'listener',
+      }),
+      this.countRows('song', 'songs'),
+      this.countRows('pending song', 'songs', {
+        column: 'status',
+        value: 'pending',
+      }),
+      this.countRows('approved song', 'songs', {
+        column: 'status',
+        value: 'approved',
+      }),
+      this.countRows('play', 'plays'),
+      this.countRows('likes', 'likes'),
+      this.getRadioReach(),
+    ]);
 
     return {
-      totalUsers: totalUsers || 0,
-      totalArtists: totalArtists || 0,
-      totalListeners: totalListeners || 0,
-      totalSongs: totalSongs || 0,
-      pendingSongs: pendingSongs || 0,
-      approvedSongs: approvedSongs || 0,
-      totalPlays: totalPlays || 0,
-      totalListenCount,
-      earsReached,
-      totalLikes: totalLikes || 0,
+      totalUsers,
+      totalArtists,
+      totalListeners,
+      totalSongs,
+      pendingSongs,
+      approvedSongs,
+      totalPlays,
+      totalListenCount: reach.totalListenCount,
+      earsReached: reach.earsReached,
+      totalLikes,
     };
   }
 
