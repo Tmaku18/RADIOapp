@@ -71,21 +71,22 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
       if (user != null || authService.currentUser != null) {
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          AppRoutes.home,
-          (route) => false,
-        );
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
         return;
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sign in did not complete. Please try again.')),
+        const SnackBar(
+          content: Text('Sign in did not complete. Please try again.'),
+        ),
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
       if (mounted) {
@@ -101,10 +102,14 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final user = await authService.signInWithApple();
       if (mounted && (user != null || authService.currentUser != null)) {
-        Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Apple sign-in was canceled or did not complete.')),
+          const SnackBar(
+            content: Text('Apple sign-in was canceled or did not complete.'),
+          ),
         );
       }
     } on ProfileSetupRequiredException catch (setup) {
@@ -112,11 +117,13 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       if (mounted) {
         if (authService.currentUser != null) {
-          Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
+          Navigator.of(
+            context,
+          ).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Apple sign in failed: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Apple sign in failed: $e')));
         }
       }
     } finally {
@@ -137,7 +144,9 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
       if (user != null || authService.currentUser != null) {
-        Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
       }
     } on ProfileSetupRequiredException catch (setup) {
       if (mounted) setState(() => _isSubmitting = false);
@@ -146,11 +155,13 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
       if (authService.currentUser != null) {
-        Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
       }
     } finally {
       if (mounted && _isSubmitting) {
@@ -178,8 +189,9 @@ class _LoginScreenState extends State<LoginScreen> {
       try {
         await authService.completeOAuthProfile(name, role: role);
         if (!mounted) return;
-        Navigator.of(context)
-            .pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
         return;
       } catch (e) {
         suggested = name;
@@ -266,10 +278,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 FilledButton(
                   onPressed: () {
                     if (formKey.currentState!.validate()) {
-                      Navigator.of(dialogContext).pop((
-                        name: controller.text.trim(),
-                        role: selectedRole,
-                      ));
+                      Navigator.of(
+                        dialogContext,
+                      ).pop((name: controller.text.trim(), role: selectedRole));
                     }
                   },
                   child: const Text('Continue'),
@@ -291,8 +302,10 @@ class _LoginScreenState extends State<LoginScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Theme-aware brand surface so the auth screen matches web in both modes.
-    final onCard = isDark ? NetworxTokens.cloudDancer : NetworxTokens.lightTextPrimary;
-    final borderColor = onCard.withValues(alpha: 0.12);
+    final onPage = isDark
+        ? NetworxTokens.cloudDancer
+        : NetworxTokens.lightTextPrimary;
+    final borderColor = onPage.withValues(alpha: 0.12);
     final fieldFill = isDark
         ? NetworxTokens.charcoalMatte.withValues(alpha: 0.86)
         : NetworxTokens.lightElevated;
@@ -302,32 +315,21 @@ class _LoginScreenState extends State<LoginScreen> {
         : 'assets/images/branding/networx-logo-cyan-light.png';
     // Flat wordmark — a gradient wordmark over a gradient page was more
     // treatment than a sign-in screen needs, and it fought the cyan logo mark.
-    final wordmarkColor = isDark ? Colors.white : NetworxTokens.lightTextPrimary;
+    final wordmarkColor = isDark
+        ? Colors.white
+        : NetworxTokens.lightTextPrimary;
     // Neutral page wash. The old third stop was the brand colour, so the whole
     // bottom of the screen bloomed.
     final gradientColors = isDark
-        ? const [
-            Color(0xFF1A1A1C),
-            Color(0xFF0B0B0C),
-            Color(0xFF000000),
-          ]
-        : const [
-            Color(0xFFFFFFFF),
-            Color(0xFFFAFAFC),
-            Color(0xFFF2F2F7),
-          ];
+        ? const [Color(0xFF1A1A1C), Color(0xFF0B0B0C), Color(0xFF000000)]
+        : const [Color(0xFFFFFFFF), Color(0xFFFAFAFC), Color(0xFFF2F2F7)];
 
-    InputDecoration themedDecoration({
-      required String label,
-      String? hint,
-    }) {
+    InputDecoration themedDecoration({required String label, String? hint}) {
       return InputDecoration(
         labelText: label,
         hintText: hint,
-        labelStyle: TextStyle(color: onCard.withValues(alpha: 0.86)),
-        hintStyle: TextStyle(
-          color: onCard.withValues(alpha: 0.5),
-        ),
+        labelStyle: TextStyle(color: onPage.withValues(alpha: 0.86)),
+        hintStyle: TextStyle(color: onPage.withValues(alpha: 0.5)),
         filled: true,
         fillColor: fieldFill,
         enabledBorder: OutlineInputBorder(
@@ -349,8 +351,13 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     }
 
+    // Full-bleed page. The form used to sit in a bordered, shadowed card,
+    // which read as a picture pasted onto the wallpaper rather than the app's
+    // first screen — so the content now runs edge to edge on the background.
+    const pagePadding = EdgeInsets.symmetric(horizontal: 24, vertical: 28);
+
     return Scaffold(
-      body: Container(
+      body: DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
@@ -359,288 +366,312 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
         child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 460),
-                child: Form(
-                  key: _formKey,
-                  child: Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? NetworxTokens.deepMidnight.withValues(alpha: 0.76)
-                          : NetworxTokens.lightSurface,
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(
-                        color: onCard.withValues(alpha: isDark ? 0.14 : 0.12),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: isDark ? 0.55 : 0.12),
-                          blurRadius: 28,
-                          offset: const Offset(0, 14),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(18),
-                          child: Image.asset(
-                            logoAsset,
-                            width: 78,
-                            height: 78,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          'NETWORX',
-                          style: textTheme.headlineSmall?.copyWith(
-                            color: wordmarkColor,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 2,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _isSignUp
-                              ? 'Create your account'
-                              : 'Welcome back',
-                          textAlign: TextAlign.center,
-                          style: textTheme.bodyMedium?.copyWith(
-                            color: onCard.withValues(alpha: 0.74),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        if (_isSignUp) ...[
-                          TextFormField(
-                            controller: _displayNameController,
-                            style: TextStyle(color: onCard),
-                            decoration: themedDecoration(
-                              label: 'Display name',
-                              hint: 'Your public name',
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter your name';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 14),
-                          DropdownButtonFormField<String>(
-                            initialValue: _selectedRole,
-                            decoration: themedDecoration(label: 'Role'),
-                            dropdownColor: isDark
-                                ? NetworxTokens.charcoalMatte
-                                : NetworxTokens.lightSurface,
-                            style: TextStyle(color: onCard),
-                            items: const [
-                              DropdownMenuItem(value: 'listener', child: Text('Listener')),
-                              DropdownMenuItem(value: 'artist', child: Text('Artist')),
-                              DropdownMenuItem(value: 'service_provider', child: Text('Producer')),
-                            ],
-                            onChanged: (value) {
-                              setState(() {
-                                _selectedRole = value!;
-                              });
-                            },
-                          ),
-                          const SizedBox(height: 14),
-                        ],
-                        TextFormField(
-                          controller: _emailController,
-                          style: TextStyle(color: onCard),
-                          decoration: themedDecoration(
-                            label: 'Email',
-                            hint: 'you@example.com',
-                          ),
-                          keyboardType: TextInputType.emailAddress,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter your email';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 14),
-                        TextFormField(
-                          controller: _passwordController,
-                          style: TextStyle(color: onCard),
-                          decoration: themedDecoration(
-                            label: 'Password',
-                            hint: 'Enter your password',
-                          ),
-                          obscureText: true,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter your password';
-                            }
-                            if (_isSignUp && value.length < 6) {
-                              return 'Password must be at least 6 characters';
-                            }
-                            return null;
-                          },
-                        ),
-                        if (_isSignUp) ...[
-                          const SizedBox(height: 14),
-                          TextFormField(
-                            controller: _confirmPasswordController,
-                            style: TextStyle(color: onCard),
-                            decoration: themedDecoration(
-                              label: 'Confirm password',
-                              hint: 'Re-enter your password',
-                            ),
-                            obscureText: true,
-                            validator: (value) {
-                              if (!_isSignUp) return null;
-                              if (value == null || value.isEmpty) {
-                                return 'Please confirm your password';
-                              }
-                              if (value != _passwordController.text) {
-                                return 'Passwords do not match';
-                              }
-                              return null;
-                            },
-                          ),
-                        ],
-                        const SizedBox(height: 18),
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton(
-                            onPressed: _isSubmitting ? null : _handleEmailSignIn,
-                            style: FilledButton.styleFrom(
-                              backgroundColor: scheme.primary,
-                              foregroundColor: scheme.onPrimary,
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                            ),
-                            child: _isSubmitting
-                                ? SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: scheme.onPrimary,
-                                    ),
-                                  )
-                                : Text(_isSignUp ? 'Create account' : 'Sign in'),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        Row(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              // Centre the form when it fits, scroll it when the keyboard or a
+              // short screen squeezes the viewport.
+              final minHeight = (constraints.maxHeight - pagePadding.vertical)
+                  .clamp(0.0, double.infinity);
+              return SingleChildScrollView(
+                padding: pagePadding,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: minHeight),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 460),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Expanded(
-                              child: Divider(
-                                color: onCard.withValues(alpha: 0.22),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(22),
+                              child: Image.asset(
+                                logoAsset,
+                                width: 96,
+                                height: 96,
+                                fit: BoxFit.cover,
                               ),
                             ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                              child: Text(
-                                'OR',
-                                style: textTheme.labelSmall?.copyWith(
-                                  color: onCard.withValues(alpha: 0.72),
-                                  letterSpacing: 0.8,
+                            const SizedBox(height: 16),
+                            Text(
+                              'NETWORX',
+                              style: textTheme.headlineMedium?.copyWith(
+                                color: wordmarkColor,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 2,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              _isSignUp
+                                  ? 'Create your account'
+                                  : 'Welcome back',
+                              textAlign: TextAlign.center,
+                              style: textTheme.bodyMedium?.copyWith(
+                                color: onPage.withValues(alpha: 0.74),
+                              ),
+                            ),
+                            const SizedBox(height: 28),
+                            if (_isSignUp) ...[
+                              TextFormField(
+                                controller: _displayNameController,
+                                style: TextStyle(color: onPage),
+                                decoration: themedDecoration(
+                                  label: 'Display name',
+                                  hint: 'Your public name',
                                 ),
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Please enter your name';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 14),
+                              DropdownButtonFormField<String>(
+                                initialValue: _selectedRole,
+                                decoration: themedDecoration(label: 'Role'),
+                                dropdownColor: isDark
+                                    ? NetworxTokens.charcoalMatte
+                                    : NetworxTokens.lightSurface,
+                                style: TextStyle(color: onPage),
+                                items: const [
+                                  DropdownMenuItem(
+                                    value: 'listener',
+                                    child: Text('Listener'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'artist',
+                                    child: Text('Artist'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'service_provider',
+                                    child: Text('Producer'),
+                                  ),
+                                ],
+                                onChanged: (value) {
+                                  setState(() {
+                                    _selectedRole = value!;
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: 14),
+                            ],
+                            TextFormField(
+                              controller: _emailController,
+                              style: TextStyle(color: onPage),
+                              decoration: themedDecoration(
+                                label: 'Email',
+                                hint: 'you@example.com',
+                              ),
+                              keyboardType: TextInputType.emailAddress,
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter your email';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 14),
+                            TextFormField(
+                              controller: _passwordController,
+                              style: TextStyle(color: onPage),
+                              decoration: themedDecoration(
+                                label: 'Password',
+                                hint: 'Enter your password',
+                              ),
+                              obscureText: true,
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Please enter your password';
+                                }
+                                if (_isSignUp && value.length < 6) {
+                                  return 'Password must be at least 6 characters';
+                                }
+                                return null;
+                              },
+                            ),
+                            if (_isSignUp) ...[
+                              const SizedBox(height: 14),
+                              TextFormField(
+                                controller: _confirmPasswordController,
+                                style: TextStyle(color: onPage),
+                                decoration: themedDecoration(
+                                  label: 'Confirm password',
+                                  hint: 'Re-enter your password',
+                                ),
+                                obscureText: true,
+                                validator: (value) {
+                                  if (!_isSignUp) return null;
+                                  if (value == null || value.isEmpty) {
+                                    return 'Please confirm your password';
+                                  }
+                                  if (value != _passwordController.text) {
+                                    return 'Passwords do not match';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ],
+                            const SizedBox(height: 18),
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton(
+                                onPressed: _isSubmitting
+                                    ? null
+                                    : _handleEmailSignIn,
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: scheme.primary,
+                                  foregroundColor: scheme.onPrimary,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                ),
+                                child: _isSubmitting
+                                    ? SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: scheme.onPrimary,
+                                        ),
+                                      )
+                                    : Text(
+                                        _isSignUp
+                                            ? 'Create account'
+                                            : 'Sign in',
+                                      ),
                               ),
                             ),
-                            Expanded(
-                              child: Divider(
-                                color: onCard.withValues(alpha: 0.22),
+                            const SizedBox(height: 14),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Divider(
+                                    color: onPage.withValues(alpha: 0.22),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                  ),
+                                  child: Text(
+                                    'OR',
+                                    style: textTheme.labelSmall?.copyWith(
+                                      color: onPage.withValues(alpha: 0.72),
+                                      letterSpacing: 0.8,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Divider(
+                                    color: onPage.withValues(alpha: 0.22),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: _isSubmitting
+                                    ? null
+                                    : _handleGoogleSignIn,
+                                icon: const Icon(Icons.g_mobiledata, size: 28),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: onPage,
+                                  side: BorderSide(color: borderColor),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                ),
+                                label: const Text('Continue with Google'),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            if (!kIsWeb && (Platform.isIOS || Platform.isMacOS))
+                              FutureBuilder<bool>(
+                                future: SignInWithApple.isAvailable(),
+                                builder: (context, snapshot) {
+                                  if (snapshot.data != true) {
+                                    return const SizedBox.shrink();
+                                  }
+                                  return Column(
+                                    children: [
+                                      SizedBox(
+                                        width: double.infinity,
+                                        child: OutlinedButton.icon(
+                                          onPressed: _isSubmitting
+                                              ? null
+                                              : _handleAppleSignIn,
+                                          icon: const Icon(
+                                            Icons.apple,
+                                            size: 22,
+                                          ),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: onPage,
+                                            side: BorderSide(
+                                              color: borderColor,
+                                            ),
+                                            padding: const EdgeInsets.symmetric(
+                                              vertical: 12,
+                                            ),
+                                          ),
+                                          label: const Text(
+                                            'Continue with Apple',
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                    ],
+                                  );
+                                },
+                              )
+                            else
+                              const SizedBox.shrink(),
+                            TextButton(
+                              onPressed: _isSubmitting
+                                  ? null
+                                  : () {
+                                      setState(() {
+                                        _isSignUp = !_isSignUp;
+                                      });
+                                    },
+                              child: Text(
+                                _isSignUp
+                                    ? 'Already have an account? Sign in'
+                                    : 'Don\'t have an account? Sign up',
+                                style: TextStyle(color: linkColor),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: _isSubmitting
+                                  ? null
+                                  : () {
+                                      if (Navigator.of(context).canPop()) {
+                                        Navigator.of(context).pop();
+                                      } else {
+                                        Navigator.of(
+                                          context,
+                                        ).pushNamed(AppRoutes.welcome);
+                                      }
+                                    },
+                              child: Text(
+                                'New here? Learn about Networx',
+                                style: TextStyle(
+                                  color: onPage.withValues(alpha: 0.74),
+                                ),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 14),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: _isSubmitting ? null : _handleGoogleSignIn,
-                            icon: const Icon(Icons.g_mobiledata, size: 28),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: onCard,
-                              side: BorderSide(color: borderColor),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                            ),
-                            label: const Text('Continue with Google'),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        if (!kIsWeb && (Platform.isIOS || Platform.isMacOS))
-                          FutureBuilder<bool>(
-                            future: SignInWithApple.isAvailable(),
-                            builder: (context, snapshot) {
-                              if (snapshot.data != true) {
-                                return const SizedBox.shrink();
-                              }
-                              return Column(
-                                children: [
-                                  SizedBox(
-                                    width: double.infinity,
-                                    child: OutlinedButton.icon(
-                                      onPressed:
-                                          _isSubmitting ? null : _handleAppleSignIn,
-                                      icon: const Icon(Icons.apple, size: 22),
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: onCard,
-                                        side: BorderSide(color: borderColor),
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 12,
-                                        ),
-                                      ),
-                                      label: const Text('Continue with Apple'),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                ],
-                              );
-                            },
-                          )
-                        else
-                          const SizedBox.shrink(),
-                        TextButton(
-                          onPressed: _isSubmitting
-                              ? null
-                              : () {
-                                  setState(() {
-                                    _isSignUp = !_isSignUp;
-                                  });
-                                },
-                          child: Text(
-                            _isSignUp
-                                ? 'Already have an account? Sign in'
-                                : 'Don\'t have an account? Sign up',
-                            style: TextStyle(color: linkColor),
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: _isSubmitting
-                              ? null
-                              : () {
-                                  if (Navigator.of(context).canPop()) {
-                                    Navigator.of(context).pop();
-                                  } else {
-                                    Navigator.of(context)
-                                        .pushNamed(AppRoutes.welcome);
-                                  }
-                                },
-                          child: Text(
-                            'New here? Learn about Networx',
-                            style: TextStyle(
-                              color: onCard.withValues(alpha: 0.74),
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
         ),
       ),
