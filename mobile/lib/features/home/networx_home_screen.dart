@@ -360,6 +360,8 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
                     color: DimensionTokens.textSecondary,
                   ),
                 ),
+                const SizedBox(height: 16),
+                const _WelcomeBanner(),
                 const SizedBox(height: 20),
                 if (_loadingStats)
                   const Padding(
@@ -448,6 +450,39 @@ class _HomeAction {
   final String title;
   final String desc;
   final VoidCallback onTap;
+}
+
+/// The "Welcome to the Networx" cast illustration.
+///
+/// 3:2 matches the artwork exactly, so `cover` fills the card without
+/// cropping anyone out or letterboxing the sides.
+class _WelcomeBanner extends StatelessWidget {
+  const _WelcomeBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    DimensionTokens.watch(context);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(DimensionTokens.cardRadius),
+      child: AspectRatio(
+        aspectRatio: 3 / 2,
+        child: Image.asset(
+          'assets/images/branding/welcome-to-the-networx.png',
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => ColoredBox(
+            color: DimensionTokens.bgSurface,
+            child: Center(
+              child: Icon(
+                Icons.music_note,
+                color: DimensionTokens.textMuted,
+                size: 40,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _Stat extends StatelessWidget {
