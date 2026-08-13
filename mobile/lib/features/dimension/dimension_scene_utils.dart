@@ -7,12 +7,11 @@ import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:three_js/three_js.dart' as three;
 
-// Hero scene palette. Named "cyan" from the original electric-blue identity;
-// retinted to the app accent so the 3D hero stops being the one place on the
-// marketing screen using a different brand colour.
-const dimensionCyan = 0xFA243C;
-const dimensionCyanDeep = 0xD91E33;
-const dimensionArchColor = 0xFF8A96;
+// Hero scene palette — the electric cyan brand accent, so the 3D hero matches
+// the rest of the marketing screen.
+const dimensionCyan = 0x00F0FF;
+const dimensionCyanDeep = 0x22D3EE;
+const dimensionArchColor = 0xA6FBFF;
 const dimensionBgDark = 0x000000;
 
 const additiveBlending = 2; // three.js AdditiveBlending

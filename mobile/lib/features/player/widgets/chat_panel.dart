@@ -377,8 +377,8 @@ class _ChatPanelState extends State<ChatPanel> {
                       ),
                       child: Text(
                         '${chatService.unreadCount}',
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: scheme.onPrimary,
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                         ),
@@ -567,15 +567,15 @@ class _ChatPanelState extends State<ChatPanel> {
                                     children: [
                                       Text(
                                         '${chatService.unreadCount} new message${chatService.unreadCount > 1 ? 's' : ''}',
-                                        style: const TextStyle(
-                                          color: Colors.white,
+                                        style: TextStyle(
+                                          color: scheme.onPrimary,
                                           fontSize: 12,
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
                                       const SizedBox(width: 4),
-                                      const Icon(Icons.arrow_downward,
-                                          color: Colors.white, size: 14),
+                                      Icon(Icons.arrow_downward,
+                                          color: scheme.onPrimary, size: 14),
                                     ],
                                   ),
                                 ),
@@ -651,15 +651,15 @@ class _ChatPanelState extends State<ChatPanel> {
                         child: IconButton(
                           onPressed: _isSending ? null : _sendMessage,
                           icon: _isSending
-                              ? const SizedBox(
+                              ? SizedBox(
                                   width: 20,
                                   height: 20,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    color: Colors.white,
+                                    color: scheme.onPrimary,
                                   ),
                                 )
-                              : const Icon(Icons.send, color: Colors.white),
+                              : Icon(Icons.send, color: scheme.onPrimary),
                         ),
                       ),
                     ],

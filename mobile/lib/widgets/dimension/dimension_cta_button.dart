@@ -29,7 +29,7 @@ class DimensionCtaButton extends StatelessWidget {
     final (Color bg, Color fg, Color border) = switch (variant) {
       DimensionCtaVariant.primary => (
           DimensionTokens.neonCyan,
-          Colors.white,
+          onAccentColor(DimensionTokens.neonCyan),
           Colors.transparent,
         ),
       DimensionCtaVariant.secondary => (

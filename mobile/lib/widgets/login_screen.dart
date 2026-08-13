@@ -300,9 +300,8 @@ class _LoginScreenState extends State<LoginScreen> {
     final logoAsset = isDark
         ? 'assets/images/branding/networx-logo-cyan.png'
         : 'assets/images/branding/networx-logo-cyan-light.png';
-    // Flat wordmark. The three-stop gradient became a red-on-red smear once the
-    // palette changed, and a gradient wordmark over a gradient page was already
-    // more treatment than a sign-in screen needs.
+    // Flat wordmark — a gradient wordmark over a gradient page was more
+    // treatment than a sign-in screen needs, and it fought the cyan logo mark.
     final wordmarkColor = isDark ? Colors.white : NetworxTokens.lightTextPrimary;
     // Neutral page wash. The old third stop was the brand colour, so the whole
     // bottom of the screen bloomed.

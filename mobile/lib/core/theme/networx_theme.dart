@@ -11,6 +11,15 @@ enum NetworxBrand { listener, artist }
 /// the system UI font that native controls sit comfortably beside it.
 const String kNetworxFontFamily = 'Inter';
 
+/// Label/icon colour that stays legible on a filled [accent] surface.
+///
+/// The brand accent is a bright cyan, so filled buttons need dark labels in
+/// dark mode — the opposite of what most accents want.
+Color onAccentColor(Color accent) =>
+    ThemeData.estimateBrightnessForColor(accent) == Brightness.dark
+        ? Colors.white
+        : Colors.black;
+
 Color _brandPrimary(NetworxBrand brand, {required bool isDark}) {
   if (!isDark) return NetworxTokens.lightPrimary;
   switch (brand) {
@@ -49,18 +58,23 @@ ThemeData buildNetworxTheme({
   final textMuted =
       isDark ? NetworxTokens.darkTextMuted : NetworxTokens.lightTextMuted;
 
+  // Electric cyan is a light colour, so filled accent surfaces need dark
+  // labels. Let Material work that out rather than pinning a value that only
+  // holds for one accent.
+  final onAccent = onAccentColor(primary);
+
   final scheme = ColorScheme(
     brightness: brightness,
     primary: primary,
-    onPrimary: Colors.white,
+    onPrimary: onAccent,
     primaryContainer: primary.withValues(alpha: isDark ? 0.20 : 0.12),
     onPrimaryContainer: textPrimary,
     secondary: primary,
-    onSecondary: Colors.white,
+    onSecondary: onAccent,
     secondaryContainer: primary.withValues(alpha: isDark ? 0.16 : 0.10),
     onSecondaryContainer: textPrimary,
     tertiary: primary,
-    onTertiary: Colors.white,
+    onTertiary: onAccent,
     tertiaryContainer: primary.withValues(alpha: isDark ? 0.14 : 0.10),
     onTertiaryContainer: textPrimary,
     error: NetworxTokens.error,

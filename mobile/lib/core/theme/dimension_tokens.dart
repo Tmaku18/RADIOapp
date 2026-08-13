@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-/// NETWORX visual tokens — a restrained, music-first system modelled on
-/// Apple Music: near-black (or pure white) surfaces, one accent colour, and
+/// NETWORX visual tokens — a restrained, music-first system: near-black (or
+/// pure white) surfaces, the electric cyan brand accent used sparingly, and
 /// depth from elevation rather than glow.
 ///
-/// The token *names* predate this palette and are kept so the whole widget
-/// kit keeps compiling; read them by role, not by the colour in the name:
+/// Some token *names* predate this palette. Read them by role, not by the
+/// colour in the name:
 ///   * [neonCyan] / [neonPink] / [pink400] — the single brand accent
 ///   * [neonYellow] — reserved for warning + "needs attention" states
 ///
@@ -38,8 +38,8 @@ class DimensionTokens {
   static const Color _bgBaseDark = Color(0xFF000000);
   static const Color _bgSurfaceDark = Color(0xFF1C1C1E);
   static const Color _bgElevatedDark = Color(0xFF2C2C2E);
-  static const Color _accentDark = Color(0xFFFA243C);
-  static const Color _accentPressedDark = Color(0xFFD91E33);
+  static const Color _accentDark = Color(0xFF00F0FF);
+  static const Color _accentPressedDark = Color(0xFF67E8F9);
   static const Color _warningDark = Color(0xFFFFD60A);
   static const Color _textPrimaryDark = Color(0xFFFFFFFF);
   static const Color _textSecondaryDark = Color(0xFF9E9EA7);
@@ -49,8 +49,8 @@ class DimensionTokens {
   static const Color _bgBaseLight = Color(0xFFFFFFFF);
   static const Color _bgSurfaceLight = Color(0xFFF2F2F7);
   static const Color _bgElevatedLight = Color(0xFFFFFFFF);
-  static const Color _accentLight = Color(0xFFD70015);
-  static const Color _accentPressedLight = Color(0xFFB00010);
+  static const Color _accentLight = Color(0xFF0E7490);
+  static const Color _accentPressedLight = Color(0xFF0E9AA7);
   static const Color _warningLight = Color(0xFFB25000);
   static const Color _textPrimaryLight = Color(0xFF000000);
   static const Color _textSecondaryLight = Color(0xFF6B6B70);

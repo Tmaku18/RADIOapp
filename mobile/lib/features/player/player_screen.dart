@@ -2161,10 +2161,10 @@ class _PlayerBody extends StatelessWidget {
                         color: scheme.primary,
                         borderRadius: BorderRadius.circular(999),
                       ),
-                      child: const Text(
+                      child: Text(
                         'Live',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: scheme.onPrimary,
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),

@@ -3,19 +3,19 @@ import 'package:flutter/material.dart';
 /// NETWORX brand tokens (dark-first, light-optional).
 ///
 /// The palette is deliberately narrow — near-black or white surfaces, greys
-/// for structure, and a single red accent — so album artwork carries the
-/// colour in the UI. Token *names* are historical; several "cyan"/"gold"
-/// names now resolve to that one accent so older call sites stay consistent
-/// instead of reintroducing a second brand colour.
+/// for structure, and the electric cyan accent — so album artwork carries the
+/// colour in the UI. Several legacy names ("rose gold", "amethyst", "cobalt")
+/// now resolve to that one accent so older call sites stay consistent instead
+/// of reintroducing a second brand colour.
 class NetworxTokens {
   // Core surfaces
   static const Color deepMidnight = Color(0xFF000000);
   static const Color charcoalMatte = Color(0xFF1C1C1E);
 
-  /// The single brand accent (historically "electric cyan").
-  static const Color electricCyan = Color(0xFFFA243C);
-  static const Color electricCyanHover = Color(0xFFD91E33);
-  static const Color deepCobalt = Color(0xFFFA243C);
+  /// The single brand accent.
+  static const Color electricCyan = Color(0xFF00F5FF);
+  static const Color electricCyanHover = Color(0xFF00C9D4);
+  static const Color deepCobalt = electricCyan;
   static const Color cloudDancer = Color(0xFFFFFFFF);
 
   // Back-compat aliases (avoid broad refactors)
@@ -26,8 +26,8 @@ class NetworxTokens {
   static const Color radioactiveLime = Color(0xFF30D158);
 
   // Legacy brand tokens (kept to avoid broad refactors)
-  static const Color amethyst = Color(0xFFFA243C);
-  static const Color amethystGlow = Color(0xFFFF5A6E);
+  static const Color amethyst = electricCyan;
+  static const Color amethystGlow = electricCyanHover;
   static const Color roseGold = electricCyan;
 
   // Status — system-style, used sparingly
@@ -58,8 +58,8 @@ class NetworxTokens {
   static const Color lightTextSecondary = Color(0xFF6B6B70);
   static const Color lightTextMuted = Color(0xFF8A8A8E);
 
-  static const Color lightPrimary = Color(0xFFD70015);
-  static const Color lightPrimaryHover = Color(0xFFB00010);
+  static const Color lightPrimary = Color(0xFF0E9AA7);
+  static const Color lightPrimaryHover = Color(0xFF0B7E89);
 
   /// Neutral wash used behind hero areas. Kept low-contrast so it reads as
   /// depth rather than decoration.
