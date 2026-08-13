@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/dimension_tokens.dart';
-import 'neon_line.dart';
+import 'dimension_typography.dart';
 
-/// A soft section break: an uppercase neon label above an animated [NeonLine],
-/// replacing hard [Divider]s / plain section titles to match the web look.
+/// A section heading, in the style of a grouped music library: a bold
+/// title-case line with an optional trailing action, and nothing else.
 ///
-/// Pass [trailing] for an action (e.g. "See all"). Keeps horizontal padding at
-/// zero so callers control layout inside their own list padding.
+/// It used to be an uppercase wide-tracked accent label sitting on an animated
+/// gradient rule, which drew more attention than the content beneath it.
 class DimensionSectionHeader extends StatelessWidget {
   const DimensionSectionHeader({
     super.key,
     required this.title,
     this.trailing,
     this.color,
-    this.padding = const EdgeInsets.only(top: 20, bottom: 10),
+    this.padding = const EdgeInsets.only(top: 24, bottom: 10),
   });
 
   final String title;
@@ -24,30 +24,22 @@ class DimensionSectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labelColor = color ?? DimensionTokens.cyan300;
+    DimensionTokens.watch(context);
     return Padding(
       padding: padding,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  title.toUpperCase(),
-                  style: TextStyle(
-                    color: labelColor,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.6,
-                  ),
-                ),
+          Expanded(
+            child: Text(
+              title,
+              style: DimensionTypography.cardTitle(fontSize: 22).copyWith(
+                fontWeight: FontWeight.w700,
+                color: color ?? DimensionTokens.textPrimary,
               ),
-              ?trailing,
-            ],
+            ),
           ),
-          const SizedBox(height: 8),
-          const NeonLine(),
+          ?trailing,
         ],
       ),
     );

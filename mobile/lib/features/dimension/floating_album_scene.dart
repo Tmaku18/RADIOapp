@@ -69,43 +69,42 @@ class _FloatingAlbumSceneState extends State<FloatingAlbumScene>
 
   @override
   Widget build(BuildContext context) {
-    final amplitude = widget.floatAmplitude ?? (widget.fullscreen ? 14.0 : 8.0);
+    final amplitude = widget.floatAmplitude ?? 6.0;
     final radius = widget.fullscreen
         ? BorderRadius.zero
         : (widget.borderRadius ?? BorderRadius.circular(16));
-    // Slightly enlarge so float/tilt never reveals empty edges.
-    final edgeScale = widget.fullscreen ? 1.14 : 1.0;
+
+    final artwork = ClipRRect(
+      borderRadius: radius,
+      child: widget.blurSigma > 0
+          ? ImageFiltered(
+              imageFilter: ImageFilter.blur(
+                sigmaX: widget.blurSigma,
+                sigmaY: widget.blurSigma,
+              ),
+              child: _image(),
+            )
+          : _image(),
+    );
+
+    // As a full-bleed backdrop the artwork holds still. Drifting and tilting a
+    // blurred image behind the controls put the whole screen in slow motion,
+    // which is exactly the sort of thing that gets tiring on a screen people
+    // leave open while they listen.
+    if (widget.fullscreen) {
+      return Transform.scale(scale: 1.14, child: artwork);
+    }
 
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
         final t = _controller.value * math.pi * 2;
-        final dy = math.sin(t) * amplitude;
-        final tilt = math.sin(t * 0.5) * (widget.fullscreen ? 0.02 : 0.04);
-        final breathe = widget.fullscreen ? 1.0 + math.sin(t) * 0.015 : 1.0;
         return Transform.translate(
-          offset: Offset(0, dy),
-          child: Transform.rotate(
-            angle: tilt,
-            child: Transform.scale(
-              scale: edgeScale * breathe,
-              child: child,
-            ),
-          ),
+          offset: Offset(0, math.sin(t) * amplitude),
+          child: child,
         );
       },
-      child: ClipRRect(
-        borderRadius: radius,
-        child: widget.blurSigma > 0
-            ? ImageFiltered(
-                imageFilter: ImageFilter.blur(
-                  sigmaX: widget.blurSigma,
-                  sigmaY: widget.blurSigma,
-                ),
-                child: _image(),
-              )
-            : _image(),
-      ),
+      child: artwork,
     );
   }
 

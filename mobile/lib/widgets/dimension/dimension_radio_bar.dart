@@ -4,7 +4,6 @@ import 'package:audio_service/audio_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../../core/brand/brand_assets.dart';
@@ -16,9 +15,18 @@ import '../../features/player/widgets/synced_lyrics_panel.dart';
 import '../../features/pro_radio/widgets/add_to_playlist_sheet.dart';
 import 'dimension_widgets.dart';
 
-/// Emergent bottom radio bar — web [DimensionRadioBar] parity.
+/// The persistent now-playing bar.
+///
+/// Deliberately spare: artwork, what's playing, and transport. Reactions,
+/// temperature, the equalizer animation and the add-to-playlist control used
+/// to share this row too — ten targets across roughly 340 logical pixels — so
+/// they now live in the full-screen player, one tap away, or in the long-press
+/// menu here.
 class DimensionRadioBar extends StatelessWidget {
   const DimensionRadioBar({super.key});
+
+  static const double _artSize = 48;
+  static const double _rowHeight = 64;
 
   /// Synced closed captions for owned/sample playback. The full-screen player
   /// is radio-only (it would tune the radio over the current track), so
@@ -56,9 +64,80 @@ class DimensionRadioBar extends StatelessWidget {
     );
   }
 
+  /// Everything that used to be crammed into the bar itself.
+  static void _showActionsSheet(BuildContext context, MediaItem item) {
+    final ctrl = dimensionPlayerController;
+    HapticFeedback.selectionClick();
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: AnimatedBuilder(
+          animation: ctrl,
+          builder: (context, _) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Icon(
+                  ctrl.isFavorite ? Icons.star : Icons.star_border,
+                  color: ctrl.isFavorite ? DimensionTokens.neonCyan : null,
+                ),
+                title: Text(ctrl.isFavorite ? 'In favorites' : 'Add to favorites'),
+                onTap: ctrl.favoriteBusy ? null : ctrl.toggleFavorite,
+              ),
+              if (ctrl.canVote) ...[
+                ListTile(
+                  leading: const Text('🔥', style: TextStyle(fontSize: 20)),
+                  title: const Text('Rate as fire'),
+                  selected: ctrl.selectedReaction == 'fire',
+                  onTap: () {
+                    ctrl.submitReaction('fire');
+                    Navigator.of(sheetContext).pop();
+                  },
+                ),
+                ListTile(
+                  leading: const Text('💩', style: TextStyle(fontSize: 20)),
+                  title: const Text('Rate as trash'),
+                  selected: ctrl.selectedReaction == 'shit',
+                  onTap: () {
+                    ctrl.submitReaction('shit');
+                    Navigator.of(sheetContext).pop();
+                  },
+                ),
+              ],
+              if ((ctrl.playlistSongId ?? '').isNotEmpty)
+                ListTile(
+                  leading: const Icon(Icons.playlist_add),
+                  title: const Text('Add to a playlist'),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    AddToPlaylistSheet.show(
+                      context,
+                      songId: ctrl.playlistSongId!,
+                      songTitle: ctrl.playlistSongTitle,
+                    );
+                  },
+                ),
+              ListTile(
+                leading: const Icon(Icons.lyrics_outlined),
+                title: const Text('Lyrics'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _showLyricsSheet(context, item);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     DimensionTokens.watch(context);
+    final isDark = DimensionTokens.isDark;
+
     return AnimatedBuilder(
       animation: dimensionPlayerController,
       builder: (context, _) {
@@ -71,276 +150,105 @@ class DimensionRadioBar extends StatelessWidget {
             final item = media is MediaItem ? media : null;
             if (item == null) return const SizedBox.shrink();
 
-            // Light frosted fill so the cyber backdrop reads through; blur
-            // (applied below in dark mode) keeps the transport controls legible.
             final bar = DecoratedBox(
               decoration: BoxDecoration(
-                color: DimensionTokens.isDark
-                    ? const Color(0xFF08080A).withValues(alpha: 0.48)
-                    : const Color(0xFFF8FAFC).withValues(alpha: 0.72),
+                color: (isDark ? const Color(0xFF1C1C1E) : Colors.white)
+                    .withValues(alpha: 0.86),
                 border: Border(
-                  top: BorderSide(
-                    color: DimensionTokens.neonCyan.withValues(
-                      alpha: DimensionTokens.isDark ? 0.22 : 0.28,
-                    ),
-                  ),
+                  top: BorderSide(color: DimensionTokens.glassBorder),
                 ),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const NeonLine(),
+                  // A hairline of progress across the top edge. The old bar
+                  // spent a whole row on a scrubber plus two timestamps; the
+                  // full player is where you actually seek.
+                  _ProgressHairline(progress: ctrl.progress),
                   SafeArea(
                     top: false,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                      child: Column(
+                    child: SizedBox(
+                      height: _rowHeight,
+                      child: Row(
                         children: [
-                          LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final shortestSide =
-                                      MediaQuery.sizeOf(context).shortestSide;
-                                  final isTablet = shortestSide >=
-                                      DimensionTokens.breakpointTablet;
-                                  final narrow = constraints.maxWidth < 400;
-                                  final showVbar = constraints.maxWidth >= 360;
-                                  final showTemp = constraints.maxWidth >= 420;
-                                  final artSize = isTablet
-                                      ? 56.0
-                                      : (narrow ? 40.0 : 48.0);
-
-                                  return Row(
-                                    children: [
-                                      Expanded(
-                                        child: InkWell(
-                                          onTap: () {
-                                            HapticFeedback.lightImpact();
-                                            final extras = item.extras;
-                                            final isRadio = extras == null ||
-                                                extras['source'] == 'radio' ||
-                                                extras['radioId'] != null;
-                                            if (isRadio) {
-                                              Navigator.of(context)
-                                                  .pushNamed(AppRoutes.player);
-                                            } else {
-                                              _showLyricsSheet(context, item);
-                                            }
-                                          },
-                                          borderRadius: BorderRadius.circular(8),
-                                          child: Row(
-                                            children: [
-                                              ClipRRect(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                                child: SizedBox(
-                                                  width: artSize,
-                                                  height: artSize,
-                                                  child: _Artwork(item: item),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Expanded(
-                                                child: Column(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: [
-                                                    if (ctrl.showLiveBadge)
-                                                      LiveDot(
-                                                        label: ctrl.isReconnecting
-                                                            ? 'RECONNECTING'
-                                                            : 'LIVE',
-                                                        color: ctrl.isReconnecting
-                                                            ? DimensionTokens
-                                                                  .neonYellow
-                                                            : null,
-                                                      ),
-                                                    Text(
-                                                      item.title,
-                                                      maxLines: 1,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                      style: GoogleFonts.outfit(
-                                                        color: DimensionTokens
-                                                            .textPrimary,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                        fontSize: 13,
-                                                      ),
-                                                    ),
-                                                    Text(
-                                                      item.artist ??
-                                                          'NETWORX Radio',
-                                                      maxLines: 1,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                      style: GoogleFonts.outfit(
-                                                        color: DimensionTokens
-                                                            .textSecondary,
-                                                        fontSize: 11,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
+                          Expanded(
+                            child: InkWell(
+                              onTap: () {
+                                HapticFeedback.lightImpact();
+                                final extras = item.extras;
+                                final isRadio = extras == null ||
+                                    extras['source'] == 'radio' ||
+                                    extras['radioId'] != null;
+                                if (isRadio) {
+                                  Navigator.of(context)
+                                      .pushNamed(AppRoutes.player);
+                                } else {
+                                  _showLyricsSheet(context, item);
+                                }
+                              },
+                              onLongPress: () =>
+                                  _showActionsSheet(context, item),
+                              child: Padding(
+                                padding: const EdgeInsets.only(left: 12),
+                                child: Row(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(6),
+                                      child: SizedBox(
+                                        width: _artSize,
+                                        height: _artSize,
+                                        child: _Artwork(item: item),
                                       ),
-                                      _TransportButton(
-                                        icon: ctrl.isPlaying
-                                            ? Icons.pause_circle_filled
-                                            : Icons.play_circle_filled,
-                                        iconSize: narrow ? 32 : 36,
-                                        color: DimensionTokens.neonCyan,
-                                        onPressed: ctrl.togglePlay,
-                                      ),
-                                      if (showVbar)
-                                        Flexible(
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 4,
-                                            ),
-                                            child: VbarVisualizer(
-                                              isPlaying: ctrl.isPlaying,
-                                              height: 24,
-                                              barCount: narrow ? 5 : 9,
-                                            ),
-                                          ),
-                                        ),
-                                      if (showTemp && ctrl.temperature != null)
-                                        Padding(
-                                          padding:
-                                              const EdgeInsets.only(left: 2),
-                                          child: Text(
-                                            '${ctrl.temperature}°',
-                                            style: GoogleFonts.jetBrainsMono(
-                                              color: DimensionTokens.neonCyan,
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                        ),
-                                      if (ctrl.canVote) ...[
-                                        _VoteBtn(
-                                          emoji: '💩',
-                                          selected:
-                                              ctrl.selectedReaction == 'shit',
-                                          onTap: () =>
-                                              ctrl.submitReaction('shit'),
-                                        ),
-                                        _FavoriteBtn(
-                                          selected: ctrl.isFavorite,
-                                          busy: ctrl.favoriteBusy,
-                                          onTap: ctrl.toggleFavorite,
-                                        ),
-                                        _VoteBtn(
-                                          emoji: '🔥',
-                                          selected:
-                                              ctrl.selectedReaction == 'fire',
-                                          onTap: () =>
-                                              ctrl.submitReaction('fire'),
-                                        ),
-                                      ],
-                                      if ((ctrl.playlistSongId ?? '')
-                                          .isNotEmpty)
-                                        IconButton(
-                                          visualDensity: VisualDensity.compact,
-                                          padding: EdgeInsets.zero,
-                                          constraints: const BoxConstraints(
-                                            minWidth: 32,
-                                            minHeight: 32,
-                                          ),
-                                          tooltip: 'Add to playlist',
-                                          onPressed: () =>
-                                              AddToPlaylistSheet.show(
-                                            context,
-                                            songId: ctrl.playlistSongId!,
-                                            songTitle: ctrl.playlistSongTitle,
-                                          ),
-                                          icon: Icon(
-                                            Icons.add_circle_outline,
-                                            size: 20,
-                                            color: DimensionTokens.textPrimary,
-                                          ),
-                                        ),
-                                    ],
-                                  );
-                                },
-                              ),
-                              const SizedBox(height: 6),
-                              Row(
-                                children: [
-                                  Text(
-                                    ctrl.elapsedLabel,
-                                    style: GoogleFonts.jetBrainsMono(
-                                      color: DimensionTokens.textMuted,
-                                      fontSize: 10,
                                     ),
-                                  ),
-                                  Expanded(
-                                    // Radio: display-only progress (stay glued
-                                    // to live). Owned/library tracks: draggable
-                                    // scrubber so the listener can seek.
-                                    child: ctrl.canSkip
-                                        ? SliderTheme(
-                                            data: SliderThemeData(
-                                              trackHeight: 4,
-                                              activeTrackColor:
-                                                  DimensionTokens.neonCyan,
-                                              inactiveTrackColor:
-                                                  DimensionTokens.textMuted
-                                                      .withValues(alpha: 0.35),
-                                              thumbColor:
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            item.title,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color:
                                                   DimensionTokens.textPrimary,
-                                              thumbShape:
-                                                  const RoundSliderThumbShape(
-                                                enabledThumbRadius: 6,
-                                              ),
-                                              overlayShape:
-                                                  const RoundSliderOverlayShape(
-                                                overlayRadius: 12,
-                                              ),
-                                            ),
-                                            child: Slider(
-                                              value: ctrl.progress
-                                                  .clamp(0, 100)
-                                                  .toDouble(),
-                                              max: 100,
-                                              onChanged: (v) => ctrl
-                                                  .seekToProgress(v),
-                                            ),
-                                          )
-                                        : Padding(
-                                            padding: const EdgeInsets
-                                                .symmetric(horizontal: 8),
-                                            child: ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(4),
-                                              child: LinearProgressIndicator(
-                                                value: ctrl.progress / 100,
-                                                minHeight: 4,
-                                                backgroundColor:
-                                                    DimensionTokens.textMuted
-                                                        .withValues(alpha: 0.35),
-                                                valueColor:
-                                                    AlwaysStoppedAnimation(
-                                                  DimensionTokens.neonCyan,
-                                                ),
-                                              ),
+                                              fontWeight: FontWeight.w500,
+                                              fontSize: 15,
+                                              letterSpacing: -0.2,
                                             ),
                                           ),
-                                  ),
-                                  Text(
-                                    ctrl.totalLabel,
-                                    style: GoogleFonts.jetBrainsMono(
-                                      color: DimensionTokens.textMuted,
-                                      fontSize: 10,
+                                          const SizedBox(height: 1),
+                                          _SubtitleLine(
+                                            text: item.artist ??
+                                                'NETWORX Radio',
+                                            live: ctrl.showLiveBadge,
+                                            reconnecting: ctrl.isReconnecting,
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
+                            ),
+                          ),
+                          _BarButton(
+                            icon: ctrl.isPlaying
+                                ? Icons.pause_rounded
+                                : Icons.play_arrow_rounded,
+                            iconSize: 32,
+                            tooltip: ctrl.isPlaying ? 'Pause' : 'Play',
+                            onPressed: ctrl.togglePlay,
+                          ),
+                          _BarButton(
+                            icon: Icons.more_horiz_rounded,
+                            iconSize: 22,
+                            tooltip: 'More',
+                            onPressed: () => _showActionsSheet(context, item),
+                          ),
+                          const SizedBox(width: 4),
                         ],
                       ),
                     ),
@@ -349,7 +257,6 @@ class DimensionRadioBar extends StatelessWidget {
               ),
             );
 
-            if (!DimensionTokens.isDark) return bar;
             return ClipRect(
               child: BackdropFilter(
                 filter: ImageFilter.blur(
@@ -366,28 +273,98 @@ class DimensionRadioBar extends StatelessWidget {
   }
 }
 
-class _TransportButton extends StatelessWidget {
-  const _TransportButton({
+class _ProgressHairline extends StatelessWidget {
+  const _ProgressHairline({required this.progress});
+
+  final double progress;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 2,
+      child: LinearProgressIndicator(
+        value: (progress / 100).clamp(0.0, 1.0),
+        minHeight: 2,
+        backgroundColor: Colors.transparent,
+        valueColor: AlwaysStoppedAnimation(
+          DimensionTokens.textPrimary.withValues(alpha: 0.30),
+        ),
+      ),
+    );
+  }
+}
+
+class _SubtitleLine extends StatelessWidget {
+  const _SubtitleLine({
+    required this.text,
+    required this.live,
+    required this.reconnecting,
+  });
+
+  final String text;
+  final bool live;
+  final bool reconnecting;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = TextStyle(
+      color: DimensionTokens.textSecondary,
+      fontSize: 13,
+      letterSpacing: -0.1,
+    );
+
+    if (!live) {
+      return Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: style,
+      );
+    }
+
+    return Row(
+      children: [
+        LiveDot(
+          size: 6,
+          color: reconnecting ? DimensionTokens.neonYellow : null,
+        ),
+        const SizedBox(width: 5),
+        Flexible(
+          child: Text(
+            reconnecting ? 'Reconnecting' : text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: style,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BarButton extends StatelessWidget {
+  const _BarButton({
     required this.icon,
     required this.onPressed,
-    this.iconSize = 22,
-    this.color,
+    required this.tooltip,
+    this.iconSize = 24,
   });
 
   final IconData icon;
   final VoidCallback? onPressed;
+  final String tooltip;
   final double iconSize;
-  final Color? color;
 
   @override
   Widget build(BuildContext context) {
     return IconButton(
       visualDensity: VisualDensity.compact,
       padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
       iconSize: iconSize,
+      tooltip: tooltip,
       icon: Icon(icon),
-      color: color ?? DimensionTokens.textPrimary,
+      color: DimensionTokens.textPrimary,
       onPressed: onPressed,
     );
   }
@@ -405,72 +382,10 @@ class _Artwork extends StatelessWidget {
       fit: BoxFit.cover,
       errorWidget: (context, url, error) => ColoredBox(
         color: DimensionTokens.bgSurface,
-        child: Icon(Icons.music_note, color: DimensionTokens.neonCyan),
-      ),
-    );
-  }
-}
-
-class _VoteBtn extends StatelessWidget {
-  const _VoteBtn({
-    required this.emoji,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String emoji;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected
-          ? DimensionTokens.neonCyan.withValues(alpha: 0.15)
-          : DimensionTokens.textMuted.withValues(alpha: 0.12),
-      shape: const CircleBorder(),
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(4),
-          child: Text(emoji, style: const TextStyle(fontSize: 14)),
-        ),
-      ),
-    );
-  }
-}
-
-class _FavoriteBtn extends StatelessWidget {
-  const _FavoriteBtn({
-    required this.selected,
-    required this.busy,
-    required this.onTap,
-  });
-
-  final bool selected;
-  final bool busy;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected
-          ? const Color(0xFFFFC107).withValues(alpha: 0.2)
-          : DimensionTokens.textMuted.withValues(alpha: 0.12),
-      shape: const CircleBorder(),
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: busy ? null : onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(4),
-          child: Icon(
-            selected ? Icons.star : Icons.star_border,
-            size: 16,
-            color: selected
-                ? const Color(0xFFFFC107)
-                : DimensionTokens.textPrimary,
-          ),
+        child: Icon(
+          Icons.music_note,
+          size: 20,
+          color: DimensionTokens.textMuted,
         ),
       ),
     );

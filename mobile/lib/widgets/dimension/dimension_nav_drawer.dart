@@ -151,12 +151,7 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
     return Drawer(
       width: 300,
       backgroundColor: DimensionTokens.bgSurface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topRight: Radius.circular(24),
-          bottomRight: Radius.circular(24),
-        ),
-      ),
+      shape: const RoundedRectangleBorder(),
       child: SafeArea(
         child: Column(
           children: [
@@ -291,62 +286,28 @@ class _LogoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+      padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(8),
         onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.4),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: DimensionTokens.neonCyan.withValues(alpha: 0.2),
-            ),
-          ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           child: Row(
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Colors.black,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: DimensionTokens.neonCyan.withValues(alpha: 0.4),
-                  ),
-                  boxShadow: DimensionTokens.glowCyan(spread: 10),
-                ),
-                child: Icon(
-                  Icons.graphic_eq,
-                  color: DimensionTokens.neonCyan,
-                  size: 22,
-                ),
+              Icon(
+                Icons.graphic_eq,
+                color: DimensionTokens.neonCyan,
+                size: 26,
               ),
               const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'NETWORX',
-                    style: TextStyle(
-                      color: DimensionTokens.textPrimary,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 15,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  Text(
-                    'RADIO',
-                    style: TextStyle(
-                      color: DimensionTokens.cyan300.withValues(alpha: 0.8),
-                      fontSize: 9,
-                      letterSpacing: 4,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+              Text(
+                'Networx Radio',
+                style: TextStyle(
+                  color: DimensionTokens.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 20,
+                  letterSpacing: -0.4,
+                ),
               ),
             ],
           ),
@@ -371,64 +332,41 @@ class _NavRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Plain glyph and label. Every row used to carry a 36px circled icon, so a
+    // fourteen-item sidebar read as fourteen buttons rather than a list.
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(vertical: 1),
       child: Material(
         color: active
-            ? DimensionTokens.neonCyan.withValues(alpha: 0.10)
+            ? DimensionTokens.neonCyan.withValues(alpha: 0.12)
             : Colors.transparent,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(8),
         child: InkWell(
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(8),
           onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(
-                color: active
-                    ? DimensionTokens.neonCyan.withValues(alpha: 0.30)
-                    : Colors.transparent,
-              ),
-            ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
             child: Row(
               children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: active
-                        ? DimensionTokens.neonCyan
-                        : DimensionTokens.textPrimary.withValues(alpha: 0.04),
-                    border: active
-                        ? null
-                        : Border.all(
-                            color: DimensionTokens.glassBorder,
-                          ),
-                  ),
-                  child: Icon(
-                    icon,
-                    size: 18,
-                    color: active
-                        ? (DimensionTokens.isDark
-                            ? Colors.black
-                            : Colors.white)
-                        : DimensionTokens.cyan300,
-                  ),
+                Icon(
+                  icon,
+                  size: 22,
+                  color: active
+                      ? DimensionTokens.neonCyan
+                      : DimensionTokens.textSecondary,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Text(
                     label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 15,
                       fontWeight: active ? FontWeight.w600 : FontWeight.w400,
                       color: active
-                          ? DimensionTokens.textPrimary
-                          : DimensionTokens.textSecondary,
+                          ? DimensionTokens.neonCyan
+                          : DimensionTokens.textPrimary,
                     ),
                   ),
                 ),
@@ -452,12 +390,12 @@ class _NavSubRow extends StatelessWidget {
       borderRadius: BorderRadius.circular(10),
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(48, 8, 12, 8),
+        padding: const EdgeInsets.fromLTRB(48, 10, 12, 10),
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 13,
-            color: DimensionTokens.textMuted,
+            fontSize: 15,
+            color: DimensionTokens.textSecondary,
           ),
         ),
       ),
@@ -489,28 +427,17 @@ class _CollapsibleSection extends StatelessWidget {
           borderRadius: BorderRadius.circular(999),
           onTap: onToggle,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
             child: Row(
               children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: DimensionTokens.textPrimary.withValues(alpha: 0.04),
-                    border: Border.all(
-                      color: DimensionTokens.glassBorder,
-                    ),
-                  ),
-                  child: Icon(icon, size: 18, color: DimensionTokens.cyan300),
-                ),
-                const SizedBox(width: 12),
+                Icon(icon, size: 22, color: DimensionTokens.textSecondary),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Text(
                     title,
                     style: TextStyle(
-                      fontSize: 14,
-                      color: DimensionTokens.textSecondary,
+                      fontSize: 15,
+                      color: DimensionTokens.textPrimary,
                     ),
                   ),
                 ),
@@ -549,13 +476,13 @@ class _UserFooter extends StatelessWidget {
   final VoidCallback onSignOut;
 
   String get _roleLabel {
-    if (isAdmin) return 'ADMIN';
+    if (isAdmin) return 'Admin';
     final role = user?.role;
-    if (role == 'service_provider') return 'PRODUCER';
+    if (role == 'service_provider') return 'Producer';
     if (role == 'dj') return 'DJ';
-    if (role == 'musician') return 'MUSICIAN';
-    if (isArtist || role == 'artist') return 'ARTIST';
-    return 'LISTENER';
+    if (role == 'musician') return 'Musician';
+    if (isArtist || role == 'artist') return 'Artist';
+    return 'Listener';
   }
 
   @override
@@ -619,10 +546,8 @@ class _UserFooter extends StatelessWidget {
                         Text(
                           _roleLabel,
                           style: TextStyle(
-                            color: DimensionTokens.cyan300,
-                            fontSize: 9,
-                            letterSpacing: 2,
-                            fontWeight: FontWeight.w600,
+                            color: DimensionTokens.textSecondary,
+                            fontSize: 13,
                           ),
                         ),
                       ],
@@ -634,34 +559,23 @@ class _UserFooter extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           InkWell(
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: BorderRadius.circular(8),
             onTap: onSignOut,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
               child: Row(
                 children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: DimensionTokens.textPrimary.withValues(alpha: 0.04),
-                      border: Border.all(
-                        color: DimensionTokens.glassBorder,
-                      ),
-                    ),
-                    child: Icon(
-                      Icons.logout,
-                      size: 18,
-                      color: DimensionTokens.pink400,
-                    ),
+                  Icon(
+                    Icons.logout,
+                    size: 22,
+                    color: DimensionTokens.textSecondary,
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 14),
                   Text(
                     'Sign out',
                     style: TextStyle(
-                      fontSize: 14,
-                      color: DimensionTokens.textSecondary,
+                      fontSize: 15,
+                      color: DimensionTokens.textPrimary,
                     ),
                   ),
                 ],

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/auth/auth_service.dart';
@@ -69,7 +68,7 @@ class GemDashboardScreen extends StatelessWidget {
             children: [
               Text(
                 subtitle,
-                style: GoogleFonts.outfit(
+                style: TextStyle(
                   color: DimensionTokens.textSecondary,
                   fontSize: 14,
                   height: 1.4,
@@ -83,7 +82,7 @@ class GemDashboardScreen extends StatelessWidget {
                   children: [
                     Text(
                       'Upload Music',
-                      style: GoogleFonts.outfit(
+                      style: TextStyle(
                         color: DimensionTokens.textPrimary,
                         fontWeight: FontWeight.w800,
                         fontSize: 20,
@@ -92,7 +91,7 @@ class GemDashboardScreen extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text(
                       'Submit tracks for radio rotation — same fields as the website.',
-                      style: GoogleFonts.outfit(
+                      style: TextStyle(
                         color: DimensionTokens.textMuted,
                         fontSize: 13,
                       ),
@@ -115,7 +114,7 @@ class GemDashboardScreen extends StatelessWidget {
               const SizedBox(height: 16),
               Text(
                 'QUICK ACTIONS',
-                style: GoogleFonts.jetBrainsMono(
+                style: TextStyle(
                   color: DimensionTokens.pink400,
                   fontSize: 10,
                   letterSpacing: 2,
@@ -200,14 +199,14 @@ class _DashTile extends StatelessWidget {
           leading: Icon(icon, color: DimensionTokens.neonCyan),
           title: Text(
             title,
-            style: GoogleFonts.outfit(
+            style: TextStyle(
               fontWeight: FontWeight.w700,
               color: DimensionTokens.textPrimary,
             ),
           ),
           subtitle: Text(
             desc,
-            style: GoogleFonts.outfit(
+            style: TextStyle(
               fontSize: 12,
               color: DimensionTokens.textMuted,
             ),

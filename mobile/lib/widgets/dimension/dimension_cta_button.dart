@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/dimension_tokens.dart';
+import '../../core/theme/networx_theme.dart';
 
 enum DimensionCtaVariant { primary, secondary, pink }
 
-/// Web Emergent CTA pills.
+/// The app's pill button.
+///
+/// Previously an ALL-CAPS wide-tracked monospace label on a glowing neon fill.
+/// Now: sentence case, the UI font, a solid accent fill for the primary action
+/// and a hairline outline for everything else.
 class DimensionCtaButton extends StatelessWidget {
   const DimensionCtaButton({
     super.key,
@@ -22,51 +26,42 @@ class DimensionCtaButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     DimensionTokens.watch(context);
-    final style = switch (variant) {
-      DimensionCtaVariant.primary => _Style(
-          bg: DimensionTokens.neonCyan,
-          fg: Colors.black,
-          border: Colors.transparent,
-          glow: DimensionTokens.glowCyan(spread: 12),
+    final (Color bg, Color fg, Color border) = switch (variant) {
+      DimensionCtaVariant.primary => (
+          DimensionTokens.neonCyan,
+          Colors.white,
+          Colors.transparent,
         ),
-      DimensionCtaVariant.secondary => _Style(
-          bg: Colors.transparent,
-          fg: DimensionTokens.textPrimary,
-          border: DimensionTokens.isDark
-              ? Colors.white.withValues(alpha: 0.28)
-              : DimensionTokens.textSecondary.withValues(alpha: 0.45),
-          glow: const [],
+      DimensionCtaVariant.secondary => (
+          Colors.transparent,
+          DimensionTokens.textPrimary,
+          DimensionTokens.glassBorderStrong,
         ),
-      DimensionCtaVariant.pink => _Style(
-          bg: Colors.transparent,
-          fg: DimensionTokens.neonPink,
-          border: DimensionTokens.neonPink,
-          glow: DimensionTokens.glowPink(spread: 12),
+      DimensionCtaVariant.pink => (
+          Colors.transparent,
+          DimensionTokens.neonPink,
+          DimensionTokens.neonPink.withValues(alpha: 0.55),
         ),
     };
 
     final child = Material(
-      color: style.bg,
+      color: bg,
       elevation: 0,
-      shadowColor: Colors.transparent,
-      shape: StadiumBorder(side: BorderSide(color: style.border)),
+      shape: StadiumBorder(side: BorderSide(color: border)),
       child: InkWell(
         onTap: onPressed,
         customBorder: const StadiumBorder(),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          decoration: BoxDecoration(
-            boxShadow: style.glow,
-            borderRadius: BorderRadius.circular(999),
-          ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
           child: Text(
-            label.toUpperCase(),
+            label,
             textAlign: TextAlign.center,
-            style: GoogleFonts.jetBrainsMono(
-              color: style.fg,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 2.5,
+            style: TextStyle(
+              fontFamily: kNetworxFontFamily,
+              color: fg,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.1,
             ),
           ),
         ),
@@ -76,18 +71,4 @@ class DimensionCtaButton extends StatelessWidget {
     if (expanded) return SizedBox(width: double.infinity, child: child);
     return child;
   }
-}
-
-class _Style {
-  const _Style({
-    required this.bg,
-    required this.fg,
-    required this.border,
-    required this.glow,
-  });
-
-  final Color bg;
-  final Color fg;
-  final Color border;
-  final List<BoxShadow> glow;
 }

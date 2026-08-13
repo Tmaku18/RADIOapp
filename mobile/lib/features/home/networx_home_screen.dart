@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/auth/auth_service.dart';
@@ -70,6 +69,13 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
     } finally {
       if (mounted) setState(() => _loadingStats = false);
     }
+  }
+
+  String _greeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
   }
 
   String _roleHomeTitle(String? role) {
@@ -313,202 +319,120 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
                     onPressed: widget.onOpenNavDrawer,
                   )
                 : null,
-            title: Text(
-              'Networx Home',
-              style: GoogleFonts.outfit(fontWeight: FontWeight.w700),
-            ),
+            title: const Text('Home'),
             actions: [
               const NotificationsBellButton(),
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: FilledButton.icon(
-                  onPressed: () =>
-                      Navigator.pushNamed(context, AppRoutes.upload),
-                  icon: const Icon(Icons.cloud_upload_outlined, size: 18),
-                  label: const Text('Upload'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: DimensionTokens.neonCyan,
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                  ),
-                ),
+              IconButton(
+                onPressed: () =>
+                    Navigator.pushNamed(context, AppRoutes.upload),
+                tooltip: 'Upload',
+                icon: const Icon(Icons.cloud_upload_outlined),
               ),
+              const SizedBox(width: 4),
             ],
           ),
           body: RefreshIndicator(
             onRefresh: _loadStats,
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
               children: [
-                GlassCard(
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        '◤ DASHBOARD · WELCOME BACK',
-                        style: GoogleFonts.jetBrainsMono(
-                          color: DimensionTokens.neonCyan,
-                          fontSize: 10,
-                          letterSpacing: 2,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text.rich(
-                        TextSpan(
-                          style: GoogleFonts.outfit(
-                            fontWeight: FontWeight.w900,
-                            fontSize: 28,
-                            height: 1.05,
-                            color: DimensionTokens.textPrimary,
-                            letterSpacing: -0.5,
-                          ),
-                          children: [
-                            const TextSpan(text: 'Hey '),
-                            TextSpan(
-                              text: '$name.',
-                              style: TextStyle(
-                                color: DimensionTokens.neonCyan,
-                              ),
-                            ),
-                            const TextSpan(text: '\nMine the frequency.'),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _roleHomeSubtitle(role),
-                        style: GoogleFonts.outfit(
-                          color: DimensionTokens.textSecondary,
-                          fontSize: 14,
-                          height: 1.4,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: AspectRatio(
-                          aspectRatio: 16 / 10,
-                          child: Image.asset(
-                            'assets/images/branding/welcome-to-the-networx.png',
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, _, _) => Container(
-                              color: Colors.black26,
-                              alignment: Alignment.center,
-                              child: Icon(
-                                Icons.music_note,
-                                color: DimensionTokens.neonCyan,
-                                size: 48,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                // A large greeting in place of the card-in-a-card hero: an
+                // eyebrow label, a two-tone slogan, a subtitle and a marketing
+                // banner all stacked inside a bordered panel.
+                Text(
+                  _greeting(),
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: DimensionTokens.textSecondary,
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 2),
+                Text(
+                  name,
+                  style: DimensionTypography.pageTitle(fontSize: 32),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _roleHomeSubtitle(role),
+                  style: TextStyle(
+                    fontSize: 15,
+                    height: 1.4,
+                    color: DimensionTokens.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 20),
                 if (_loadingStats)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 24),
                     child: Center(child: CircularProgressIndicator()),
                   )
                 else
-                  GridView.count(
-                    crossAxisCount: 2,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
-                    childAspectRatio: 1.55,
+                  // One card, four figures. Four separate tiles each with its
+                  // own circular badge in its own accent colour turned basic
+                  // counts into the loudest thing on the screen.
+                  GlassCard(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: Row(
+                      children: [
+                        _Stat(label: 'Songs', value: _songs),
+                        _StatDivider(),
+                        _Stat(label: 'Listens', value: _listens),
+                        _StatDivider(),
+                        _Stat(label: 'Ears', value: _ears),
+                        _StatDivider(),
+                        _Stat(label: 'Likes', value: _likes),
+                      ],
+                    ),
+                  ),
+                DimensionSectionHeader(title: _roleHomeTitle(role)),
+                // A single grouped list, the way iOS settings and Apple Music's
+                // library present a set of destinations.
+                GlassCard(
+                  padding: EdgeInsets.zero,
+                  child: Column(
                     children: [
-                      _StatTile(
-                        label: 'Songs',
-                        value: _songs,
-                        icon: Icons.headphones,
-                        accent: DimensionTokens.pink400,
-                      ),
-                      _StatTile(
-                        label: 'Ears Reached',
-                        value: _ears,
-                        icon: Icons.favorite_border,
-                        accent: DimensionTokens.neonYellow,
-                      ),
-                      _StatTile(
-                        label: 'Listens',
-                        value: _listens,
-                        icon: Icons.graphic_eq,
-                        accent: DimensionTokens.neonCyan,
-                      ),
-                      _StatTile(
-                        label: 'Likes',
-                        value: _likes,
-                        icon: Icons.local_fire_department_outlined,
-                        accent: DimensionTokens.neonCyan,
-                      ),
-                    ],
-                  ),
-                const SizedBox(height: 18),
-                Text(
-                  'QUICK ACTIONS',
-                  style: GoogleFonts.jetBrainsMono(
-                    color: DimensionTokens.neonCyan,
-                    fontSize: 10,
-                    letterSpacing: 2,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _roleHomeTitle(role),
-                  style: GoogleFonts.outfit(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 18,
-                    color: DimensionTokens.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                for (final action in actions)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: GlassCard(
-                      padding: EdgeInsets.zero,
-                      child: ListTile(
-                        onTap: action.onTap,
-                        leading: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.black.withValues(alpha: 0.55),
-                            border: Border.all(
-                              color: DimensionTokens.neonCyan
-                                  .withValues(alpha: 0.4),
+                      for (var i = 0; i < actions.length; i++) ...[
+                        if (i > 0)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 56),
+                            child: Divider(
+                              height: 0.5,
+                              color: DimensionTokens.glassBorder,
                             ),
                           ),
-                          child: Icon(
-                            action.icon,
+                        ListTile(
+                          onTap: actions[i].onTap,
+                          contentPadding:
+                              const EdgeInsets.symmetric(horizontal: 16),
+                          leading: Icon(
+                            actions[i].icon,
                             color: DimensionTokens.neonCyan,
+                            size: 24,
+                          ),
+                          title: Text(
+                            actions[i].title,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          subtitle: Text(
+                            actions[i].desc,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: DimensionTokens.textSecondary,
+                            ),
+                          ),
+                          trailing: Icon(
+                            Icons.chevron_right,
                             size: 20,
-                          ),
-                        ),
-                        title: Text(
-                          action.title,
-                          style: GoogleFonts.outfit(
-                            fontWeight: FontWeight.w700,
-                            color: DimensionTokens.textPrimary,
-                          ),
-                        ),
-                        subtitle: Text(
-                          action.desc,
-                          style: GoogleFonts.outfit(
-                            fontSize: 12,
                             color: DimensionTokens.textMuted,
                           ),
                         ),
-                        trailing: const Icon(Icons.chevron_right, size: 20),
-                      ),
-                    ),
+                      ],
+                    ],
                   ),
+                ),
               ],
             ),
           ),
@@ -526,67 +450,47 @@ class _HomeAction {
   final VoidCallback onTap;
 }
 
-class _StatTile extends StatelessWidget {
-  const _StatTile({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.accent,
-  });
+class _Stat extends StatelessWidget {
+  const _Stat({required this.label, required this.value});
 
   final String label;
   final int value;
-  final IconData icon;
-  final Color accent;
+
+  static final _thousands = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
 
   @override
   Widget build(BuildContext context) {
-    return GlassCard(
-      padding: const EdgeInsets.all(12),
-      child: Row(
+    return Expanded(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.black.withValues(alpha: 0.55),
-              border: Border.all(color: accent.withValues(alpha: 0.45)),
-            ),
-            child: Icon(icon, color: accent, size: 18),
+          Text(
+            value.toString().replaceAllMapped(_thousands, (m) => '${m[1]},'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: DimensionTypography.statValue(fontSize: 22),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  value.toString().replaceAllMapped(
-                    RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-                    (m) => '${m[1]},',
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.outfit(
-                    fontWeight: FontWeight.w900,
-                    fontSize: 20,
-                    color: accent,
-                  ),
-                ),
-                Text(
-                  label.toUpperCase(),
-                  style: GoogleFonts.jetBrainsMono(
-                    fontSize: 8,
-                    letterSpacing: 1.2,
-                    color: DimensionTokens.textMuted,
-                  ),
-                ),
-              ],
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: DimensionTokens.textSecondary,
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _StatDivider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 0.5,
+      height: 28,
+      color: DimensionTokens.glassBorder,
     );
   }
 }

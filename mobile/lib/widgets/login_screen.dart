@@ -296,31 +296,26 @@ class _LoginScreenState extends State<LoginScreen> {
     final fieldFill = isDark
         ? NetworxTokens.charcoalMatte.withValues(alpha: 0.86)
         : NetworxTokens.lightElevated;
-    final linkColor = isDark ? NetworxTokens.electricCyan : NetworxTokens.deepCobalt;
+    final linkColor = scheme.primary;
     final logoAsset = isDark
         ? 'assets/images/branding/networx-logo-cyan.png'
         : 'assets/images/branding/networx-logo-cyan-light.png';
-    final wordmarkStops = isDark
-        ? const [
-            Color(0xFFEAFEFF),
-            NetworxTokens.electricCyan,
-            NetworxTokens.electricCyanHover,
-          ]
-        : const [
-            NetworxTokens.electricCyan,
-            NetworxTokens.electricCyanHover,
-            NetworxTokens.deepCobalt,
-          ];
+    // Flat wordmark. The three-stop gradient became a red-on-red smear once the
+    // palette changed, and a gradient wordmark over a gradient page was already
+    // more treatment than a sign-in screen needs.
+    final wordmarkColor = isDark ? Colors.white : NetworxTokens.lightTextPrimary;
+    // Neutral page wash. The old third stop was the brand colour, so the whole
+    // bottom of the screen bloomed.
     final gradientColors = isDark
         ? const [
-            NetworxTokens.deepMidnight,
-            NetworxTokens.charcoalMatte,
-            NetworxTokens.deepCobalt,
+            Color(0xFF1A1A1C),
+            Color(0xFF0B0B0C),
+            Color(0xFF000000),
           ]
         : const [
-            Color(0xFFFAFAFA),
             Color(0xFFFFFFFF),
-            Color(0xFFE6FBFF),
+            Color(0xFFFAFAFC),
+            Color(0xFFF2F2F7),
           ];
 
     InputDecoration themedDecoration({
@@ -342,7 +337,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: NetworxTokens.electricCyan, width: 1.4),
+          borderSide: BorderSide(color: scheme.primary, width: 1.4),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -403,19 +398,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         const SizedBox(height: 10),
-                        ShaderMask(
-                          shaderCallback: (bounds) => LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: wordmarkStops,
-                          ).createShader(bounds),
-                          child: Text(
-                            'NETWORX',
-                            style: textTheme.headlineSmall?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 3,
-                            ),
+                        Text(
+                          'NETWORX',
+                          style: textTheme.headlineSmall?.copyWith(
+                            color: wordmarkColor,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 2,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -527,8 +515,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: FilledButton(
                             onPressed: _isSubmitting ? null : _handleEmailSignIn,
                             style: FilledButton.styleFrom(
-                              backgroundColor: NetworxTokens.electricCyan,
-                              foregroundColor: NetworxTokens.deepMidnight,
+                              backgroundColor: scheme.primary,
+                              foregroundColor: scheme.onPrimary,
                               padding: const EdgeInsets.symmetric(vertical: 14),
                             ),
                             child: _isSubmitting

@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../../core/analytics/analytics_metrics.dart';
@@ -359,7 +358,7 @@ class _HeroSection extends StatelessWidget {
                       const SizedBox(width: 8),
                       Text(
                         'BROADCASTING NOW · $liveListeners listeners',
-                        style: GoogleFonts.jetBrainsMono(
+                        style: TextStyle(
                           color: DimensionTokens.pink400,
                           fontSize: 9,
                           letterSpacing: 1.5,
@@ -384,7 +383,7 @@ class _HeroSection extends StatelessWidget {
                   'Whether you are a hidden gem ready to be heard, a Prospector discovering new '
                   'talent, or a pro ready to mentor — Networx is the underground frequency where '
                   'careers begin.',
-                  style: GoogleFonts.outfit(
+                  style: TextStyle(
                     color: DimensionTokens.textPrimary.withValues(alpha: 0.7),
                     fontSize: 15,
                     height: 1.5,
@@ -447,7 +446,7 @@ class _HeroStat extends StatelessWidget {
         children: [
           Text(
             value,
-            style: GoogleFonts.unbounded(
+            style: TextStyle(
               color: DimensionTokens.cyan300,
               fontSize: 20,
               fontWeight: FontWeight.w800,
@@ -455,7 +454,7 @@ class _HeroStat extends StatelessWidget {
           ),
           Text(
             label.toUpperCase(),
-            style: GoogleFonts.jetBrainsMono(
+            style: TextStyle(
               color: DimensionTokens.textMuted,
               fontSize: 9,
               letterSpacing: 2,
@@ -489,7 +488,7 @@ class _LiveStatCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             value,
-            style: GoogleFonts.unbounded(
+            style: TextStyle(
               color: DimensionTokens.textPrimary,
               fontSize: 18,
               fontWeight: FontWeight.w800,
@@ -497,7 +496,7 @@ class _LiveStatCard extends StatelessWidget {
           ),
           Text(
             label,
-            style: GoogleFonts.outfit(
+            style: TextStyle(
               color: DimensionTokens.textPrimary,
               fontSize: 11,
               fontWeight: FontWeight.w600,
@@ -505,7 +504,7 @@ class _LiveStatCard extends StatelessWidget {
           ),
           Text(
             sub,
-            style: GoogleFonts.jetBrainsMono(
+            style: TextStyle(
               color: DimensionTokens.textMuted,
               fontSize: 8,
             ),
@@ -654,7 +653,7 @@ class _DimensionSongCard extends StatelessWidget {
                   right: 8,
                   child: Text(
                     '#${rank.toString().padLeft(2, '0')}',
-                    style: GoogleFonts.jetBrainsMono(
+                    style: TextStyle(
                       color: DimensionTokens.textPrimary,
                       fontSize: 10,
                     ),
@@ -671,7 +670,7 @@ class _DimensionSongCard extends StatelessWidget {
                     ),
                     child: Text(
                       '$temperature°',
-                      style: GoogleFonts.jetBrainsMono(
+                      style: TextStyle(
                         color: DimensionTokens.neonCyan,
                         fontSize: 10,
                       ),
@@ -695,7 +694,7 @@ class _DimensionSongCard extends StatelessWidget {
                     title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.outfit(
+                    style: TextStyle(
                       color: DimensionTokens.textPrimary,
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
@@ -705,7 +704,7 @@ class _DimensionSongCard extends StatelessWidget {
                     artist,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.outfit(
+                    style: TextStyle(
                       color: DimensionTokens.textSecondary,
                       fontSize: 11,
                     ),
@@ -713,7 +712,7 @@ class _DimensionSongCard extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(
                     '${formatMetricCount(listens)} listens · $ripples ripples',
-                    style: GoogleFonts.jetBrainsMono(
+                    style: TextStyle(
                       color: DimensionTokens.textMuted,
                       fontSize: 9,
                     ),

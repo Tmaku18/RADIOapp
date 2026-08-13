@@ -40,26 +40,15 @@ class _LiveDotState extends State<LiveDot> with SingleTickerProviderStateMixin {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        AnimatedBuilder(
-          animation: _controller,
-          builder: (context, _) {
-            final scale = 0.85 + _controller.value * 0.3;
-            return Container(
-              width: widget.size * scale,
-              height: widget.size * scale,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: color,
-                boxShadow: [
-                  BoxShadow(
-                    color: color.withValues(alpha: 0.7),
-                    blurRadius: 8,
-                    spreadRadius: 1,
-                  ),
-                ],
-              ),
-            );
-          },
+        // A gentle opacity breath reads as "live" without the halo and the
+        // size jump, which made the whole row reflow every frame.
+        FadeTransition(
+          opacity: _controller.drive(Tween(begin: 0.45, end: 1.0)),
+          child: Container(
+            width: widget.size,
+            height: widget.size,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+          ),
         ),
         if (widget.label != null) ...[
           const SizedBox(width: 6),
@@ -67,9 +56,9 @@ class _LiveDotState extends State<LiveDot> with SingleTickerProviderStateMixin {
             widget.label!,
             style: TextStyle(
               color: color,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 2,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.2,
             ),
           ),
         ],

@@ -106,7 +106,7 @@ class _DimensionCanvasState extends State<DimensionCanvas> {
                 ),
                 child: Text(
                   '3D:$_status ${_show3d ? "shown" : "hidden"}',
-                  style: const TextStyle(color: Color(0xFF00F0FF), fontSize: 10),
+                  style: const TextStyle(color: Colors.white, fontSize: 10),
                 ),
               ),
             ),

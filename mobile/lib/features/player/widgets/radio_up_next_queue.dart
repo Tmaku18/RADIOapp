@@ -3,8 +3,6 @@ import 'dart:async';
 import 'package:audio_service/audio_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-
 import '../../../core/services/audio_player_service.dart';
 import '../../../core/services/radio_service.dart';
 import '../../../core/services/station_events_service.dart';
@@ -141,19 +139,21 @@ class _RadioUpNextQueueState extends State<RadioUpNextQueue> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              columns == 1 ? 'UP NEXT' : 'UP NEXT IN THE QUEUE',
-              style: GoogleFonts.jetBrainsMono(
-                color: DimensionTokens.pink400,
-                fontSize: 10,
-                letterSpacing: 2.4,
+              'Up next',
+              style: TextStyle(
+                color: DimensionTokens.textPrimary,
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.3,
               ),
             ),
             Text(
-              _loading ? '…' : '${_tracks.length} TRACKS',
-              style: GoogleFonts.jetBrainsMono(
-                color: DimensionTokens.textMuted,
-                fontSize: 10,
-                letterSpacing: 1.8,
+              _loading
+                  ? '…'
+                  : '${_tracks.length} ${_tracks.length == 1 ? 'track' : 'tracks'}',
+              style: TextStyle(
+                color: DimensionTokens.textSecondary,
+                fontSize: 13,
               ),
             ),
           ],
@@ -176,7 +176,7 @@ class _RadioUpNextQueueState extends State<RadioUpNextQueue> {
                       ? 'Loading upcoming tracks…'
                       : 'No upcoming tracks in the rotation yet.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(color: DimensionTokens.textMuted),
+              style: TextStyle(color: DimensionTokens.textMuted),
             ),
           )
         else
@@ -212,7 +212,7 @@ class _RadioUpNextQueueState extends State<RadioUpNextQueue> {
                               color: DimensionTokens.bgSurface,
                               child: Icon(
                                 Icons.music_note,
-                                color: DimensionTokens.neonCyan,
+                                color: DimensionTokens.textMuted,
                               ),
                             ),
                     ),
@@ -226,19 +226,19 @@ class _RadioUpNextQueueState extends State<RadioUpNextQueue> {
                             track.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.outfit(
+                            style: TextStyle(
                               color: DimensionTokens.textPrimary,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              fontSize: 14,
                             ),
                           ),
                           Text(
                             track.artistName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.outfit(
+                            style: TextStyle(
                               color: DimensionTokens.textSecondary,
-                              fontSize: 10,
+                              fontSize: 12,
                             ),
                           ),
                         ],
@@ -248,9 +248,9 @@ class _RadioUpNextQueueState extends State<RadioUpNextQueue> {
                       track.temperaturePercent != null
                           ? '${track.temperaturePercent}°'
                           : track.likeCount?.toString() ?? '—',
-                      style: GoogleFonts.jetBrainsMono(
-                        color: DimensionTokens.neonCyan,
-                        fontSize: 10,
+                      style: TextStyle(
+                        color: DimensionTokens.textMuted,
+                        fontSize: 12,
                       ),
                     ),
                   ],
@@ -269,14 +269,14 @@ class _RadioUpNextQueueState extends State<RadioUpNextQueue> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'UP NEXT',
-          style: GoogleFonts.jetBrainsMono(
-            color: DimensionTokens.pink400,
-            fontSize: 9,
-            letterSpacing: 2,
+          'Up next',
+          style: TextStyle(
+            color: DimensionTokens.textSecondary,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         if (_loading)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 6),
@@ -293,9 +293,9 @@ class _RadioUpNextQueueState extends State<RadioUpNextQueue> {
                 : _radioActive
                     ? 'Loading…'
                     : 'Nothing queued yet',
-            style: GoogleFonts.outfit(
+            style: TextStyle(
               color: DimensionTokens.textMuted,
-              fontSize: 11,
+              fontSize: 13,
             ),
           )
         else
@@ -319,7 +319,7 @@ class _RadioUpNextQueueState extends State<RadioUpNextQueue> {
                           child: Icon(
                             Icons.music_note,
                             size: 14,
-                            color: DimensionTokens.neonCyan,
+                            color: DimensionTokens.textMuted,
                           ),
                         ),
                 ),
@@ -332,19 +332,19 @@ class _RadioUpNextQueueState extends State<RadioUpNextQueue> {
                         next.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.outfit(
+                        style: TextStyle(
                           color: DimensionTokens.textPrimary,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 14,
                         ),
                       ),
                       Text(
                         next.artistName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.outfit(
+                        style: TextStyle(
                           color: DimensionTokens.textSecondary,
-                          fontSize: 9,
+                          fontSize: 12,
                         ),
                       ),
                     ],
@@ -353,9 +353,9 @@ class _RadioUpNextQueueState extends State<RadioUpNextQueue> {
                 if (next.temperaturePercent != null)
                   Text(
                     '${next.temperaturePercent}°',
-                    style: GoogleFonts.jetBrainsMono(
-                      color: DimensionTokens.neonCyan,
-                      fontSize: 9,
+                    style: TextStyle(
+                      color: DimensionTokens.textMuted,
+                      fontSize: 12,
                     ),
                   ),
               ],

@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 
-/// NETWORX Dimension — Emergent 3D cyber aesthetic.
-/// Mirrors web [dimension.css] tokens for dark and `.light [data-dimension]`.
+/// NETWORX visual tokens — a restrained, music-first system modelled on
+/// Apple Music: near-black (or pure white) surfaces, one accent colour, and
+/// depth from elevation rather than glow.
+///
+/// The token *names* predate this palette and are kept so the whole widget
+/// kit keeps compiling; read them by role, not by the colour in the name:
+///   * [neonCyan] / [neonPink] / [pink400] — the single brand accent
+///   * [neonYellow] — reserved for warning + "needs attention" states
 ///
 /// Call [bindBrightness] from the app [MaterialApp.builder] so static getters
 /// track ThemeMode without threading [BuildContext] through every call site.
@@ -10,7 +16,7 @@ class DimensionTokens {
 
   static Brightness _brightness = Brightness.dark;
 
-  /// Keep Dimension chrome in sync with Material brightness.
+  /// Keep chrome in sync with Material brightness.
   static void bindBrightness(Brightness brightness) {
     _brightness = brightness;
   }
@@ -28,59 +34,65 @@ class DimensionTokens {
 
   static bool get isDark => _brightness == Brightness.dark;
 
-  // —— Dark (web `:root` / `[data-dimension]`) ——
-  static const Color _bgBaseDark = Color(0xFF050505);
-  static const Color _bgSurfaceDark = Color(0xFF0A0A0C);
-  static const Color _neonCyanDark = Color(0xFF00F0FF);
-  static const Color _neonPinkDark = Color(0xFFFF007F);
-  static const Color _neonYellowDark = Color(0xFFF4D03F);
-  static const Color _cyan300Dark = Color(0xFF67E8F9);
-  static const Color _pink400Dark = Color(0xFFF472B6);
+  // —— Dark: true black base so artwork is the brightest thing on screen ——
+  static const Color _bgBaseDark = Color(0xFF000000);
+  static const Color _bgSurfaceDark = Color(0xFF1C1C1E);
+  static const Color _bgElevatedDark = Color(0xFF2C2C2E);
+  static const Color _accentDark = Color(0xFFFA243C);
+  static const Color _accentPressedDark = Color(0xFFD91E33);
+  static const Color _warningDark = Color(0xFFFFD60A);
   static const Color _textPrimaryDark = Color(0xFFFFFFFF);
-  static const Color _textSecondaryDark = Color(0xFFA0A0AB);
-  static const Color _textMutedDark = Color(0xFF5E5E66);
-  static const Color _glassStrongDark = Color(0xFF08080A);
+  static const Color _textSecondaryDark = Color(0xFF9E9EA7);
+  static const Color _textMutedDark = Color(0xFF6C6C72);
 
-  // —— Light (web `.light [data-dimension]` + dashboard `.light`) ——
-  static const Color _bgBaseLight = Color(0xFFE8EDF4);
-  static const Color _bgSurfaceLight = Color(0xFFF1F5F9);
-  static const Color _neonCyanLight = Color(0xFF0E7490);
-  static const Color _neonPinkLight = Color(0xFFBE185D);
-  static const Color _neonYellowLight = Color(0xFFB45309);
-  static const Color _cyan300Light = Color(0xFF0E9AA7);
-  static const Color _pink400Light = Color(0xFFBE185D);
-  static const Color _textPrimaryLight = Color(0xFF0F172A);
-  static const Color _textSecondaryLight = Color(0xFF334155);
-  // Slate-600 — readable on near-white glass cards (was too faint at 64748B).
-  static const Color _textMutedLight = Color(0xFF475569);
+  // —— Light: paper white with grouped-list grey ——
+  static const Color _bgBaseLight = Color(0xFFFFFFFF);
+  static const Color _bgSurfaceLight = Color(0xFFF2F2F7);
+  static const Color _bgElevatedLight = Color(0xFFFFFFFF);
+  static const Color _accentLight = Color(0xFFD70015);
+  static const Color _accentPressedLight = Color(0xFFB00010);
+  static const Color _warningLight = Color(0xFFB25000);
+  static const Color _textPrimaryLight = Color(0xFF000000);
+  static const Color _textSecondaryLight = Color(0xFF6B6B70);
+  static const Color _textMutedLight = Color(0xFF8A8A8E);
 
   static Color get bgBase => isDark ? _bgBaseDark : _bgBaseLight;
   static Color get bgSurface => isDark ? _bgSurfaceDark : _bgSurfaceLight;
-  static Color get neonCyan => isDark ? _neonCyanDark : _neonCyanLight;
-  static Color get neonPink => isDark ? _neonPinkDark : _neonPinkLight;
-  static Color get neonYellow => isDark ? _neonYellowDark : _neonYellowLight;
-  static Color get cyan300 => isDark ? _cyan300Dark : _cyan300Light;
-  static Color get pink400 => isDark ? _pink400Dark : _pink400Light;
+
+  /// One step above [bgSurface] — sheets, raised rows, pressed states.
+  static Color get bgElevated => isDark ? _bgElevatedDark : _bgElevatedLight;
+
+  /// The brand accent. Named `neonCyan` for historical reasons.
+  static Color get neonCyan => isDark ? _accentDark : _accentLight;
+  static Color get neonPink => isDark ? _accentDark : _accentLight;
+  static Color get pink400 => isDark ? _accentDark : _accentLight;
+  static Color get cyan300 =>
+      isDark ? _accentPressedDark : _accentPressedLight;
+
+  /// Warning / attention only (offline, reconnecting, expiring).
+  static Color get neonYellow => isDark ? _warningDark : _warningLight;
+
   static Color get textPrimary =>
       isDark ? _textPrimaryDark : _textPrimaryLight;
   static Color get textSecondary =>
       isDark ? _textSecondaryDark : _textSecondaryLight;
   static Color get textMuted => isDark ? _textMutedDark : _textMutedLight;
 
-  /// Fade color used by [CyberBackdrop] radial wash.
+  /// Fade color used by the ambient backdrop wash.
   static Color get backdropFade => isDark ? Colors.black : _bgBaseLight;
 
-  /// Border used on glass / surfaces (white hairline in dark, teal in light).
+  /// Hairline separator — the only border most surfaces get.
   static Color get glassBorder => isDark
-      ? Colors.white.withValues(alpha: 0.08)
-      : const Color(0xFF0E7490).withValues(alpha: 0.16);
+      ? Colors.white.withValues(alpha: 0.09)
+      : Colors.black.withValues(alpha: 0.08);
 
   static Color get glassBorderStrong => isDark
-      ? Colors.white.withValues(alpha: 0.10)
-      : const Color(0xFF0E7490).withValues(alpha: 0.22);
+      ? Colors.white.withValues(alpha: 0.14)
+      : Colors.black.withValues(alpha: 0.12);
 
-  /// Fixed bottom player height (web: DIMENSION_RADIO_BAR_HEIGHT).
-  static const double radioBarHeight = 112;
+  /// Fixed bottom player height. Sized for a single Apple-Music-style row:
+  /// artwork, two lines of text, and transport.
+  static const double radioBarHeight = 74;
 
   /// Responsive breakpoints — mirrors web Tailwind tiers.
   static const double breakpointTablet = 600;
@@ -88,128 +100,93 @@ class DimensionTokens {
   static const double breakpointDesktop = 1024;
   static const double maxContentWidth = 1100;
 
-  static const double glassBlur = 24;
-  static const double glassStrongBlur = 40;
+  static const double glassBlur = 20;
+  static const double glassStrongBlur = 30;
 
-  /// Canonical corner radii — web parity (cards ~16, tiles/thumbnails ~12).
-  static const double cardRadius = 16;
-  static const double tileRadius = 12;
+  /// Canonical corner radii. Kept tight and consistent — sprawling radii
+  /// (8/12/14/16/18/999 in the same view) were a big part of the old clutter.
+  static const double cardRadius = 12;
+  static const double tileRadius = 8;
 
-  /// Translucent, NO-BLUR surface for list rows/grid cells.
+  /// Album/track artwork, which reads best slightly softer than a card.
+  static const double artworkRadius = 10;
+
+  /// 4pt spacing scale. Use these instead of ad-hoc padding numbers.
+  static const double space1 = 4;
+  static const double space2 = 8;
+  static const double space3 = 12;
+  static const double space4 = 16;
+  static const double space5 = 20;
+  static const double space6 = 24;
+  static const double space8 = 32;
+
+  /// Opaque list-row / grid-cell surface.
   static BoxDecoration surfaceDecoration({
     BorderRadius? borderRadius,
     bool highlight = false,
   }) {
     return BoxDecoration(
-      color: isDark
-          ? bgSurface.withValues(alpha: 0.62)
-          : Colors.white.withValues(alpha: 0.88),
+      color: isDark ? _bgSurfaceDark : Colors.white,
       borderRadius: borderRadius ?? BorderRadius.circular(cardRadius),
       border: Border.all(
         color: highlight
-            ? neonCyan.withValues(alpha: isDark ? 0.35 : 0.28)
+            ? neonCyan.withValues(alpha: 0.55)
             : glassBorder,
+        width: highlight ? 1.5 : 1,
       ),
-      boxShadow: isDark
-          ? null
-          : [
-              BoxShadow(
-                color: const Color(0xFF0F172A).withValues(alpha: 0.05),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
-              ),
-            ],
+      boxShadow: isDark ? null : _softShadow(6, 0.05),
     );
   }
 
   static BoxDecoration glassDecoration({BorderRadius? borderRadius}) {
     return BoxDecoration(
-      // Light mode: near-opaque so CyberBackdrop orbs cannot muddy card text.
-      color: isDark
-          ? bgSurface.withValues(alpha: 0.72)
-          : const Color(0xFFF8FAFC),
+      color: isDark ? _bgSurfaceDark : Colors.white,
       borderRadius: borderRadius ?? BorderRadius.circular(cardRadius),
       border: Border.all(color: glassBorder),
-      boxShadow: isDark
-          ? null
-          : [
-              BoxShadow(
-                color: const Color(0xFF0F172A).withValues(alpha: 0.08),
-                blurRadius: 28,
-                offset: const Offset(0, 10),
-              ),
-            ],
+      boxShadow: isDark ? null : _softShadow(10, 0.06),
     );
   }
 
   static BoxDecoration glassStrongDecoration({BorderRadius? borderRadius}) {
     return BoxDecoration(
       color: isDark
-          ? _glassStrongDark.withValues(alpha: 0.88)
-          : const Color(0xFFF1F5F9),
-      gradient: isDark
-          ? null
-          : const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFFFFFFFF),
-                Color(0xFFF1F5F9),
-              ],
-            ),
-      borderRadius: borderRadius ?? BorderRadius.circular(16),
+          ? _bgElevatedDark.withValues(alpha: 0.92)
+          : Colors.white.withValues(alpha: 0.94),
+      borderRadius: borderRadius ?? BorderRadius.circular(cardRadius),
       border: Border.all(color: glassBorderStrong),
-      boxShadow: isDark
-          ? null
-          : [
-              BoxShadow(
-                color: const Color(0xFF0F172A).withValues(alpha: 0.08),
-                blurRadius: 24,
-                offset: const Offset(0, 4),
-              ),
-            ],
+      boxShadow: isDark ? null : _softShadow(14, 0.08),
     );
   }
 
-  static List<BoxShadow> glowCyan({double spread = 20}) => [
+  static List<BoxShadow> _softShadow(double blur, double alpha) => [
         BoxShadow(
-          color: neonCyan.withValues(alpha: isDark ? 0.35 : 0.20),
-          blurRadius: spread,
-          spreadRadius: 0,
-        ),
-        BoxShadow(
-          color: neonCyan.withValues(alpha: isDark ? 0.15 : 0.08),
-          blurRadius: spread * 3,
-          spreadRadius: 0,
+          color: Colors.black.withValues(alpha: alpha),
+          blurRadius: blur,
+          offset: Offset(0, blur / 3),
         ),
       ];
 
-  static List<BoxShadow> glowPink({double spread = 20}) => [
+  /// Artwork lift. Replaces the old neon glow: album art gets a real shadow,
+  /// nothing else does.
+  static List<BoxShadow> artworkShadow({double blur = 28}) => [
         BoxShadow(
-          color: neonPink.withValues(alpha: isDark ? 0.35 : 0.20),
-          blurRadius: spread,
-          spreadRadius: 0,
-        ),
-        BoxShadow(
-          color: neonPink.withValues(alpha: isDark ? 0.15 : 0.08),
-          blurRadius: spread * 3,
-          spreadRadius: 0,
+          color: Colors.black.withValues(alpha: isDark ? 0.55 : 0.22),
+          blurRadius: blur,
+          offset: Offset(0, blur / 3.5),
         ),
       ];
 
-  /// Web `[data-dimension] .text-glow-cyan`
-  static List<Shadow> get textGlowCyan => [
-        Shadow(
-          color: neonCyan.withValues(alpha: isDark ? 0.7 : 0.25),
-          blurRadius: isDark ? 14 : 10,
-        ),
-      ];
+  /// Historically a neon halo; now a neutral lift so existing call sites keep
+  /// their sense of depth without the glow.
+  static List<BoxShadow> glowCyan({double spread = 20}) =>
+      artworkShadow(blur: spread);
 
-  /// Web `[data-dimension] .text-glow-pink`
-  static List<Shadow> get textGlowPink => [
-        Shadow(
-          color: neonPink.withValues(alpha: isDark ? 0.8 : 0.25),
-          blurRadius: isDark ? 14 : 10,
-        ),
-      ];
+  static List<BoxShadow> glowPink({double spread = 20}) =>
+      artworkShadow(blur: spread);
+
+  /// Glowing text does not belong in a music app — these are intentionally
+  /// empty so every legacy call site renders flat.
+  static List<Shadow> get textGlowCyan => const <Shadow>[];
+
+  static List<Shadow> get textGlowPink => const <Shadow>[];
 }

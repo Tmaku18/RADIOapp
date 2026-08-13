@@ -5,7 +5,7 @@ import 'cyber_backdrop.dart';
 import 'dimension_typography.dart';
 import 'neon_line.dart';
 
-/// Dimension marketing/listen screen chrome — cyber backdrop + themed base.
+/// Standard screen chrome: base canvas, flat app bar, optional hairline rule.
 class DimensionScreenShell extends StatelessWidget {
   const DimensionScreenShell({
     super.key,
@@ -43,7 +43,10 @@ class DimensionScreenShell extends StatelessWidget {
               scrolledUnderElevation: 0,
               centerTitle: centerTitle,
               leading: leading,
-              title: Text(title!, style: DimensionTypography.pageTitle(fontSize: 18)),
+              title: Text(
+                title!,
+                style: DimensionTypography.pageTitle(fontSize: 20),
+              ),
               actions: actions,
             ),
       floatingActionButton: floatingActionButton,

@@ -1,9 +1,12 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import '../../core/theme/dimension_tokens.dart';
 
-/// Web: `.glass`
+/// A plain content card.
+///
+/// Named for the frosted-glass treatment it used to carry. The blur is gone:
+/// stacking translucent panels over a busy backdrop cost a full-screen
+/// `BackdropFilter` per card and left text sitting on whatever colour happened
+/// to be behind it. These are now opaque surfaces with a hairline border.
 class GlassCard extends StatelessWidget {
   const GlassCard({
     super.key,
@@ -17,46 +20,44 @@ class GlassCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
   final BorderRadius? borderRadius;
+
+  /// Renders one elevation step up — used for sheets and the player bar.
   final bool strong;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     DimensionTokens.watch(context);
-    final radius = borderRadius ?? BorderRadius.circular(16);
+    final radius =
+        borderRadius ?? BorderRadius.circular(DimensionTokens.cardRadius);
     final decoration = strong
         ? DimensionTokens.glassStrongDecoration(borderRadius: radius)
         : DimensionTokens.glassDecoration(borderRadius: radius);
-    final blur = strong ? DimensionTokens.glassStrongBlur : DimensionTokens.glassBlur;
-    final padded = Padding(
-      padding: padding ?? const EdgeInsets.all(16),
-      child: child,
-    );
 
-    // Light mode skips backdrop blur — frosted glass over dark orbs made
-    // slate text unreadable. Dark mode keeps the glass effect.
-    Widget content = ClipRRect(
-      borderRadius: radius,
-      child: DimensionTokens.isDark
-          ? BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-              child: DecoratedBox(decoration: decoration, child: padded),
-            )
-          : DecoratedBox(decoration: decoration, child: padded),
+    Widget content = DecoratedBox(
+      decoration: decoration,
+      child: Padding(
+        padding: padding ?? const EdgeInsets.all(DimensionTokens.space4),
+        child: child,
+      ),
     );
 
     if (onTap != null) {
       content = Material(
         color: Colors.transparent,
-        child: InkWell(onTap: onTap, borderRadius: radius, child: content),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: radius,
+          child: content,
+        ),
       );
     }
 
-    return content;
+    return ClipRRect(borderRadius: radius, child: content);
   }
 }
 
-/// Web: `.glass-strong` — nav, footer, player bar.
+/// One elevation step up — nav, sheets, player bar.
 class GlassStrong extends GlassCard {
   const GlassStrong({
     super.key,

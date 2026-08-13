@@ -3,14 +3,17 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:three_js/three_js.dart' as three;
 
-const dimensionCyan = 0x00F0FF;
-const dimensionCyanDeep = 0x22D3EE;
-const dimensionArchColor = 0xA6FBFF;
-const dimensionBgDark = 0x050505;
+// Hero scene palette. Named "cyan" from the original electric-blue identity;
+// retinted to the app accent so the 3D hero stops being the one place on the
+// marketing screen using a different brand colour.
+const dimensionCyan = 0xFA243C;
+const dimensionCyanDeep = 0xD91E33;
+const dimensionArchColor = 0xFF8A96;
+const dimensionBgDark = 0x000000;
 
 const additiveBlending = 2; // three.js AdditiveBlending
 
@@ -43,9 +46,12 @@ three.MeshBasicMaterial cyanArchMaterial({double opacity = 0.92}) {
   });
 }
 
-/// When true, the dimension hero shows an on-screen status badge so Play Store
-/// testers (no USB/logcat) can report whether 3D fails or renders blank.
-const bool kDimensionDebugBadge = true;
+/// When true, the dimension hero shows an on-screen status badge so testers
+/// without USB/logcat can report whether 3D fails or renders blank.
+///
+/// Debug builds only — this was pinned on, so every release shipped a
+/// `3D:frames-ok shown` readout over the marketing hero.
+const bool kDimensionDebugBadge = kDebugMode;
 
 three.Settings dimensionSceneSettings() {
   // We force flutter_angle's device-native GLES path (see vendored
@@ -92,7 +98,7 @@ Future<three.Texture?> createNoteTexture(
           fontWeight: FontWeight.bold,
           fontFamily: 'serif',
           shadows: [
-            Shadow(color: const Color(0xFF00F0FF), blurRadius: blur),
+            Shadow(color: const Color(dimensionCyan | 0xFF000000), blurRadius: blur),
           ],
         ),
       ),

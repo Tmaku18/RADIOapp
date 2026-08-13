@@ -35,7 +35,6 @@ import '../../core/theme/networx_tokens.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 import '../dimension/floating_album_scene.dart';
-import 'widgets/butterfly_swarm_backdrop.dart';
 import 'widgets/radio_up_next_queue.dart';
 import 'widgets/chat_panel.dart';
 import 'widgets/synced_lyrics_panel.dart';
@@ -1453,12 +1452,16 @@ class _PlayerScreenState extends State<PlayerScreen>
           return Scaffold(
             backgroundColor: DimensionTokens.bgBase,
             extendBodyBehindAppBar: showCoverBackdrop,
+            // Over artwork the bar is pure chrome — the station name is the
+            // title, and tapping it opens the picker. "Change" used to appear
+            // here *and* in the panel below.
             appBar: AppBar(
-              backgroundColor: showCoverBackdrop
-                  ? Colors.black.withValues(alpha: 0.18)
-                  : Colors.transparent,
+              backgroundColor: Colors.transparent,
               elevation: 0,
               scrolledUnderElevation: 0,
+              centerTitle: true,
+              foregroundColor:
+                  showCoverBackdrop ? Colors.white : DimensionTokens.textPrimary,
               leading: widget.onOpenNavDrawer != null
                   ? IconButton(
                       icon: const Icon(Icons.menu),
@@ -1466,88 +1469,46 @@ class _PlayerScreenState extends State<PlayerScreen>
                       onPressed: widget.onOpenNavDrawer,
                     )
                   : null,
-              title: Row(
-                children: [
-                  LiveDot(
-                    label: _connectionImpaired ? 'RECONNECTING' : 'ON AIR',
-                    color: _connectionImpaired
-                        ? DimensionTokens.neonYellow
-                        : null,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      _activeStation.genre,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                  ),
-                ],
+              title: _StationTitle(
+                label: _activeStation.genre,
+                reconnecting: _connectionImpaired,
+                onTap: _openStationPicker,
+                onLight: showCoverBackdrop,
               ),
               actions: [
                 if (widget.onUpload != null)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 4),
-                    child: FilledButton.tonalIcon(
-                      onPressed: widget.onUpload,
-                      icon: const Icon(Icons.cloud_upload_outlined, size: 18),
-                      label: const Text('Upload'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor:
-                            DimensionTokens.neonCyan.withValues(alpha: 0.22),
-                        foregroundColor: DimensionTokens.neonCyan,
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                    ),
+                  IconButton(
+                    onPressed: widget.onUpload,
+                    tooltip: 'Upload',
+                    icon: const Icon(Icons.cloud_upload_outlined),
                   ),
-                TextButton.icon(
-                  onPressed: _openStationPicker,
-                  icon: const Icon(Icons.swap_horiz),
-                  label: const Text('Change'),
-                ),
               ],
             ),
             body: Stack(
               fit: StackFit.expand,
               children: [
-                // Full-bleed cover art, or Networx butterfly swarm when none.
+                // One background: the artwork, blurred out of focus. The old
+                // stack layered the cover, a blue pearl wash, an animated cyber
+                // grid and three glow orbs on top of each other, which left
+                // nothing on the screen actually looking like the album.
                 if (coverUrl != null)
                   Positioned.fill(
                     child: FloatingAlbumScene(
                       key: ValueKey('player-bg-$coverUrl'),
                       imageUrl: coverUrl,
                       fullscreen: true,
-                      blurSigma: 1.5,
+                      blurSigma: 45,
                     ),
                   )
-                else if (showCoverBackdrop)
-                  const Positioned.fill(
-                    child: IgnorePointer(
-                      child: ButterflySwarmBackdrop(butterflyCount: 22),
-                    ),
-                  ),
-                // Pearlescent blue wash so the UI stays readable over covers.
-                // Lighter over the swarm so the space field still reads.
-                if (showCoverBackdrop)
+                else
+                  const Positioned.fill(child: CyberBackdrop()),
+                // A single scrim carries text contrast, densest at the bottom
+                // where the small type lives. It takes the theme's colour so
+                // body text stays legible in light mode too.
+                if (coverUrl != null)
                   Positioned.fill(
-                    child: IgnorePointer(
-                      child: Opacity(
-                        opacity: coverUrl != null ? 1.0 : 0.45,
-                        child: const _PearlescentBlueWash(),
-                      ),
-                    ),
+                    child: IgnorePointer(child: _ArtworkScrim()),
                   ),
-                // Keep cyber grid + glow orbs animating over the cover.
-                Positioned.fill(
-                  child: Opacity(
-                    opacity: coverUrl != null
-                        ? 0.42
-                        : (showCoverBackdrop ? 0.18 : 1.0),
-                    child: const CyberBackdrop(),
-                  ),
-                ),
                 if (_isLoading)
                   const Center(child: CircularProgressIndicator())
                 else if (_noContent)
@@ -1622,43 +1583,263 @@ class _PlayerScreenState extends State<PlayerScreen>
   }
 }
 
-/// Soft blue pearl wash over full-bleed cover art (readability + brand tint).
-class _PearlescentBlueWash extends StatelessWidget {
-  const _PearlescentBlueWash();
+/// A secondary control beside the play button — plain glyph, generous tap area.
+class _PlayerAction extends StatelessWidget {
+  const _PlayerAction({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+    this.color,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onPressed;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
+    return IconButton(
+      onPressed: onPressed,
+      tooltip: tooltip,
+      iconSize: 26,
+      color: color ?? DimensionTokens.textSecondary,
+      icon: Icon(icon),
+    );
+  }
+}
+
+/// Reactions, crowd temperature and add-to-playlist as one quiet strip.
+///
+/// These were previously a bordered "Song temperature" card with its own
+/// progress bar and emoji tallies, plus two more emoji buttons in the transport
+/// row — the same information competing with itself in two places.
+class _ReactionStrip extends StatelessWidget {
+  const _ReactionStrip({
+    required this.canVote,
+    required this.isVoting,
+    required this.selectedReaction,
+    required this.fireVotes,
+    required this.shitVotes,
+    required this.temperaturePercent,
+    required this.onReact,
+    required this.onAddToPlaylist,
+  });
+
+  final bool canVote;
+  final bool isVoting;
+  final String? selectedReaction;
+  final int fireVotes;
+  final int shitVotes;
+  final int temperaturePercent;
+  final void Function(String reaction) onReact;
+  final VoidCallback onAddToPlaylist;
+
+  @override
+  Widget build(BuildContext context) {
+    DimensionTokens.watch(context);
+    final scheme = Theme.of(context).colorScheme;
+
+    return Column(
       children: [
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                const Color(0xFF0B2740).withValues(alpha: 0.58),
-                const Color(0xFF134E6F).withValues(alpha: 0.42),
-                const Color(0xFF071824).withValues(alpha: 0.72),
-              ],
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _ReactionChip(
+              emoji: '🔥',
+              count: fireVotes,
+              selected: selectedReaction == 'fire',
+              enabled: canVote && !isVoting,
+              onTap: () => onReact('fire'),
             ),
-          ),
+            const SizedBox(width: 10),
+            _ReactionChip(
+              emoji: '💩',
+              count: shitVotes,
+              selected: selectedReaction == 'shit',
+              enabled: canVote && !isVoting,
+              onTap: () => onReact('shit'),
+            ),
+            const SizedBox(width: 10),
+            _PlayerAction(
+              icon: Icons.playlist_add_rounded,
+              tooltip: 'Add to playlist',
+              onPressed: onAddToPlaylist,
+            ),
+          ],
         ),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: RadialGradient(
-              center: const Alignment(-0.45, -0.55),
-              radius: 1.2,
-              colors: [
-                const Color(0xFFA5F3FC).withValues(alpha: 0.20),
-                const Color(0xFF38BDF8).withValues(alpha: 0.08),
-                Colors.transparent,
-              ],
-              stops: const [0.0, 0.45, 1.0],
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 120,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  minHeight: 3,
+                  value: temperaturePercent.clamp(0, 100) / 100,
+                  backgroundColor:
+                      DimensionTokens.textPrimary.withValues(alpha: 0.14),
+                  valueColor: AlwaysStoppedAnimation(scheme.primary),
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: 8),
+            Text(
+              '$temperaturePercent% hot',
+              style: TextStyle(
+                fontSize: 12,
+                color: DimensionTokens.textSecondary,
+              ),
+            ),
+          ],
         ),
       ],
+    );
+  }
+}
+
+class _ReactionChip extends StatelessWidget {
+  const _ReactionChip({
+    required this.emoji,
+    required this.count,
+    required this.selected,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final String emoji;
+  final int count;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: selected
+          ? scheme.primary.withValues(alpha: 0.16)
+          : DimensionTokens.textPrimary.withValues(alpha: 0.08),
+      shape: StadiumBorder(
+        side: BorderSide(
+          color: selected ? scheme.primary : Colors.transparent,
+        ),
+      ),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: enabled ? onTap : null,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(emoji, style: const TextStyle(fontSize: 15)),
+              const SizedBox(width: 6),
+              Text(
+                '$count',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: DimensionTokens.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Contrast wash over the blurred cover behind the player.
+class _ArtworkScrim extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    DimensionTokens.watch(context);
+    final base = DimensionTokens.isDark ? Colors.black : Colors.white;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            base.withValues(alpha: 0.55),
+            base.withValues(alpha: 0.38),
+            base.withValues(alpha: 0.86),
+          ],
+          stops: const [0.0, 0.32, 1.0],
+        ),
+      ),
+    );
+  }
+}
+
+/// App bar title: the station you're on, tappable to switch. Doubles as the
+/// connection indicator so "RECONNECTING" doesn't need its own badge.
+class _StationTitle extends StatelessWidget {
+  const _StationTitle({
+    required this.label,
+    required this.reconnecting,
+    required this.onTap,
+    required this.onLight,
+  });
+
+  final String label;
+  final bool reconnecting;
+  final VoidCallback onTap;
+
+  /// True when drawn over artwork, where everything must read as white.
+  final bool onLight;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = onLight ? Colors.white : DimensionTokens.textPrimary;
+    final subColor = onLight
+        ? Colors.white.withValues(alpha: 0.7)
+        : DimensionTokens.textSecondary;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              reconnecting ? 'Reconnecting' : 'Live radio',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 0.2,
+                color: reconnecting ? DimensionTokens.neonYellow : subColor,
+              ),
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.2,
+                      color: color,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 2),
+                Icon(Icons.expand_more_rounded, size: 18, color: subColor),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1939,95 +2120,71 @@ class _PlayerBody extends StatelessWidget {
       final artworkUrl = BrandAssets.displayArtworkUrl(track.artworkUrl);
       return AspectRatio(
         aspectRatio: 1,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(18),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (artworkUrl != null)
-                FloatingAlbumScene(
-                  key: ValueKey(artworkUrl),
-                  imageUrl: artworkUrl,
-                )
-              else
-                const ButterflySwarmBackdrop(
-                  butterflyCount: 12,
-                  intensity: 0.9,
-                ),
-              if (track.isLiveBroadcast)
-                Positioned(
-                  top: 12,
-                  left: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
+        child: DecoratedBox(
+          // The one place in the app that gets a real drop shadow — it lifts
+          // the cover off its own blurred backdrop.
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(DimensionTokens.artworkRadius),
+            boxShadow: DimensionTokens.artworkShadow(blur: 36),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(DimensionTokens.artworkRadius),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (artworkUrl != null)
+                  FloatingAlbumScene(
+                    key: ValueKey(artworkUrl),
+                    imageUrl: artworkUrl,
+                    floatAmplitude: 0,
+                    borderRadius: BorderRadius.zero,
+                  )
+                else
+                  ColoredBox(
+                    color: DimensionTokens.bgSurface,
+                    child: Icon(
+                      Icons.radio_rounded,
+                      size: 64,
+                      color: DimensionTokens.textMuted,
                     ),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [surfaces.roseGold, scheme.primary],
+                  ),
+                if (track.isLiveBroadcast)
+                  Positioned(
+                    top: 12,
+                    left: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
                       ),
-                      borderRadius: BorderRadius.circular(999),
-                      boxShadow: [
-                        BoxShadow(
-                          color: surfaces.roseGold.withValues(alpha: 0.35),
-                          blurRadius: 18,
+                      decoration: BoxDecoration(
+                        color: scheme.primary,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: const Text(
+                        'Live',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
                         ),
-                      ],
-                    ),
-                    child: const Text(
-                      'NOW LIVE',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
                       ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       );
     }
 
+    // No panel. Track details sit directly on the scrimmed artwork, the way a
+    // now-playing screen should — a translucent card floating over a blurred
+    // copy of the same image was two layers of frosting on one cake.
     Widget glassPanel({required Widget child, double padding = 16}) {
-      // Pearlescent translucent blue — reads as glass over the full-bleed cover.
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(
-            sigmaX: surfaces.glassBlur + 4,
-            sigmaY: surfaces.glassBlur + 4,
-          ),
-          child: Container(
-            padding: EdgeInsets.all(padding),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  const Color(0xFF7DD3FC).withValues(alpha: 0.28),
-                  const Color(0xFF38BDF8).withValues(alpha: 0.14),
-                  const Color(0xFFBAE6FD).withValues(alpha: 0.22),
-                ],
-              ),
-              border: Border.all(
-                color: const Color(0xFFA5F3FC).withValues(alpha: 0.40),
-              ),
-              boxShadow: [
-                ...surfaces.glassShadow,
-                BoxShadow(
-                  color: const Color(0xFF38BDF8).withValues(alpha: 0.18),
-                  blurRadius: 24,
-                  spreadRadius: 0,
-                ),
-              ],
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: child,
-          ),
-        ),
+      return Padding(
+        padding: EdgeInsets.symmetric(horizontal: padding * 0.25),
+        child: child,
       );
     }
 
@@ -2313,141 +2470,60 @@ class _PlayerBody extends StatelessWidget {
                 },
               ),
               SizedBox(height: afterProgressGap),
-              SyncedLyricsPanel(
-                songId: track.id,
-                positionStream: audioPlayer.positionStream,
-                currentPosition: () => audioPlayer.position,
-              ),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.45),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: scheme.onSurface.withValues(alpha: 0.14),
+              // Transport comes first now, and it is one big centered play
+              // control flanked by the two most-used actions. It used to be
+              // seven targets — play, chat, two emoji vote buttons, favourite,
+              // playlist — jammed into a single row.
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _PlayerAction(
+                    icon: Icons.forum_outlined,
+                    tooltip: 'The Room',
+                    onPressed: onEnterRoom,
                   ),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Song temperature',
-                          style: Theme.of(context).textTheme.labelMedium
-                              ?.copyWith(color: surfaces.textSecondary),
-                        ),
-                        Text(
-                          '$temperaturePercent%',
-                          style: Theme.of(context).textTheme.labelMedium
-                              ?.copyWith(
-                                color: scheme.primary,
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
-                      ],
+                  SizedBox(width: isShortScreen ? 28 : 40),
+                  IconButton(
+                    onPressed: onPlayPause,
+                    iconSize: controlsIconSize,
+                    padding: EdgeInsets.zero,
+                    color: scheme.onSurface,
+                    tooltip: isPlaying ? 'Pause' : 'Play',
+                    icon: Icon(
+                      isPlaying
+                          ? Icons.pause_rounded
+                          : Icons.play_arrow_rounded,
                     ),
-                    const SizedBox(height: 8),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(999),
-                      child: LinearProgressIndicator(
-                        minHeight: 7,
-                        value: (temperaturePercent.clamp(0, 100)) / 100,
-                        backgroundColor: scheme.onSurface.withValues(
-                          alpha: 0.12,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [Text('💩 $shitVotes'), Text('🔥 $fireVotes')],
-                    ),
-                  ],
-                ),
+                  ),
+                  SizedBox(width: isShortScreen ? 28 : 40),
+                  _PlayerAction(
+                    icon: isFavorite ? Icons.star : Icons.star_border,
+                    tooltip: isFavorite
+                        ? 'Remove from Favorites'
+                        : 'Add to Favorites',
+                    color: isFavorite ? scheme.primary : null,
+                    onPressed: favoriteBusy ? null : onToggleFavorite,
+                  ),
+                ],
+              ),
+              SizedBox(height: afterProgressGap),
+              _ReactionStrip(
+                canVote: canVote,
+                isVoting: isVoting,
+                selectedReaction: selectedReaction,
+                fireVotes: fireVotes,
+                shitVotes: shitVotes,
+                temperaturePercent: temperaturePercent,
+                onReact: onReact,
+                onAddToPlaylist: onAddToPlaylist,
               ),
               SizedBox(height: afterProgressGap),
               buyAction(),
               SizedBox(height: afterProgressGap),
-              Row(
-                children: [
-                  IconButton(
-                    onPressed: onPlayPause,
-                    iconSize: controlsIconSize,
-                    icon: Icon(
-                      isPlaying ? Icons.pause_circle : Icons.play_circle,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: onEnterRoom,
-                    tooltip: 'Enter the Room',
-                    icon: const Icon(Icons.forum_outlined),
-                  ),
-                  FilledButton.tonal(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: selectedReaction == 'shit'
-                          ? scheme.errorContainer
-                          : null,
-                      foregroundColor: selectedReaction == 'shit'
-                          ? scheme.onErrorContainer
-                          : null,
-                    ),
-                    onPressed: (!canVote || isVoting)
-                        ? null
-                        : () => onReact('shit'),
-                    child: isVoting
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('💩'),
-                  ),
-                  const SizedBox(width: 6),
-                  IconButton.filledTonal(
-                    tooltip: isFavorite
-                        ? 'Remove from Favorites'
-                        : 'Add to Favorites',
-                    onPressed: favoriteBusy ? null : onToggleFavorite,
-                    icon: Icon(
-                      isFavorite ? Icons.star : Icons.star_border,
-                      color: isFavorite ? const Color(0xFFFFC107) : null,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  IconButton.filledTonal(
-                    tooltip: 'Add to playlist',
-                    onPressed: onAddToPlaylist,
-                    icon: const Icon(Icons.add_circle_outline),
-                  ),
-                  const SizedBox(width: 6),
-                  FilledButton.tonal(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: selectedReaction == 'fire'
-                          ? scheme.primaryContainer
-                          : null,
-                      foregroundColor: selectedReaction == 'fire'
-                          ? scheme.onPrimaryContainer
-                          : null,
-                    ),
-                    onPressed: (!canVote || isVoting)
-                        ? null
-                        : () => onReact('fire'),
-                    child: isVoting
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('🔥'),
-                  ),
-                ],
+              SyncedLyricsPanel(
+                songId: track.id,
+                positionStream: audioPlayer.positionStream,
+                currentPosition: () => audioPlayer.position,
               ),
               SizedBox(height: afterProgressGap),
               RadioUpNextQueue(

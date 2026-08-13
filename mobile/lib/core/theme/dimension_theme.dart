@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'dimension_tokens.dart';
+import 'networx_theme.dart';
 
-/// Theme extension for Dimension / Emergent UI typography and surfaces.
+/// Theme extension for shared typography and surface fills.
 class DimensionTheme extends ThemeExtension<DimensionTheme> {
   const DimensionTheme({
     required this.headlineStyle,
@@ -25,64 +25,60 @@ class DimensionTheme extends ThemeExtension<DimensionTheme> {
         (Theme.of(context).brightness == Brightness.light ? light() : dark());
   }
 
-  static DimensionTheme dark() {
-    DimensionTokens.bindBrightness(Brightness.dark);
-    return DimensionTheme(
-      headlineStyle: GoogleFonts.unbounded(
-        color: DimensionTokens.textPrimary,
-        fontWeight: FontWeight.w900,
-        letterSpacing: -0.5,
-      ),
-      sectionLabelStyle: GoogleFonts.jetBrainsMono(
-        color: DimensionTokens.cyan300,
-        fontSize: 10,
-        letterSpacing: 3.2,
-        fontWeight: FontWeight.w500,
-      ),
-      monoLabelStyle: GoogleFonts.jetBrainsMono(
-        color: DimensionTokens.textSecondary,
-        fontSize: 10,
-        letterSpacing: 2.5,
-      ),
-      bodyStyle: GoogleFonts.outfit(
-        color: DimensionTokens.textSecondary,
-        fontSize: 15,
-        height: 1.5,
-      ),
-      glassColor: DimensionTokens.bgSurface.withValues(alpha: 0.55),
-      glassStrongColor: const Color(0xFF08080A).withValues(alpha: 0.8),
+  static TextStyle _inter(
+    double size,
+    FontWeight weight, {
+    double tracking = 0,
+    double? height,
+    required Color color,
+  }) {
+    return TextStyle(
+      fontFamily: kNetworxFontFamily,
+      fontSize: size,
+      fontWeight: weight,
+      letterSpacing: tracking,
+      height: height,
+      color: color,
     );
   }
 
-  /// Web `.light [data-dimension]` — cool slate canvas, teal accents.
-  static DimensionTheme light() {
-    DimensionTokens.bindBrightness(Brightness.light);
+  static DimensionTheme _build(Brightness brightness) {
+    DimensionTokens.bindBrightness(brightness);
+    final isDark = brightness == Brightness.dark;
     return DimensionTheme(
-      headlineStyle: GoogleFonts.unbounded(
+      headlineStyle: _inter(
+        28,
+        FontWeight.w700,
+        tracking: -0.6,
+        height: 1.15,
         color: DimensionTokens.textPrimary,
-        fontWeight: FontWeight.w900,
-        letterSpacing: -0.5,
       ),
-      sectionLabelStyle: GoogleFonts.jetBrainsMono(
-        color: DimensionTokens.cyan300,
-        fontSize: 10,
-        letterSpacing: 3.2,
-        fontWeight: FontWeight.w500,
-      ),
-      monoLabelStyle: GoogleFonts.jetBrainsMono(
+      sectionLabelStyle: _inter(
+        13,
+        FontWeight.w600,
         color: DimensionTokens.textSecondary,
-        fontSize: 10,
-        letterSpacing: 2.5,
       ),
-      bodyStyle: GoogleFonts.outfit(
+      monoLabelStyle: _inter(
+        12,
+        FontWeight.w500,
+        tracking: 0.2,
+        color: DimensionTokens.textMuted,
+      ),
+      bodyStyle: _inter(
+        15,
+        FontWeight.w400,
+        height: 1.45,
         color: DimensionTokens.textSecondary,
-        fontSize: 15,
-        height: 1.5,
       ),
-      glassColor: const Color(0xFFF1F5F9).withValues(alpha: 0.82),
-      glassStrongColor: const Color(0xFFE2E8F0).withValues(alpha: 0.95),
+      glassColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+      glassStrongColor:
+          isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
     );
   }
+
+  static DimensionTheme dark() => _build(Brightness.dark);
+
+  static DimensionTheme light() => _build(Brightness.light);
 
   @override
   DimensionTheme copyWith({

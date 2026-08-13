@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/dimension_tokens.dart';
+import 'dimension_typography.dart';
 
-/// Web `.glitch` + `.text-glow-pink` RGB-split headline.
+/// A headline.
+///
+/// This used to render three offset copies of the text in cyan, magenta and
+/// white to fake an RGB-split glitch. It made headlines hard to read and
+/// tripled the text layout work, so the effect is gone — the widget stays so
+/// the marketing and hero screens keep compiling, and it now draws one crisp
+/// line of type.
 class GlitchText extends StatelessWidget {
   const GlitchText({
     super.key,
@@ -16,75 +22,26 @@ class GlitchText extends StatelessWidget {
   final String text;
   final TextStyle? style;
   final int? maxLines;
+
+  /// Ignored. Kept so existing call sites compile.
   final List<Shadow>? glowShadows;
+
+  /// Ignored. Kept so existing call sites compile.
   final List<Color>? gradientColors;
 
   @override
   Widget build(BuildContext context) {
-    final base = style ??
-        GoogleFonts.unbounded(
-          color: DimensionTokens.textPrimary,
-          fontWeight: FontWeight.w900,
-          fontSize: 32,
-          height: 1.1,
-        );
+    DimensionTokens.watch(context);
+    final base = style ?? DimensionTypography.pageTitle(fontSize: 32);
 
-    final mainStyle = base.copyWith(
-      color: DimensionTokens.textPrimary,
-      shadows: glowShadows ?? DimensionTokens.textGlowPink,
-    );
-
-    Widget mainText = Text(
+    return Text(
       text,
       maxLines: maxLines,
       overflow: TextOverflow.ellipsis,
-      style: mainStyle,
-    );
-
-    if (gradientColors != null && gradientColors!.length >= 2) {
-      mainText = ShaderMask(
-        blendMode: BlendMode.srcIn,
-        shaderCallback: (bounds) => LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: gradientColors!,
-        ).createShader(bounds),
-        child: Text(
-          text,
-          maxLines: maxLines,
-          overflow: TextOverflow.ellipsis,
-          style: mainStyle.copyWith(color: Colors.white),
-        ),
-      );
-    }
-
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Transform.translate(
-          offset: const Offset(-2, 0),
-          child: Text(
-            text,
-            maxLines: maxLines,
-            overflow: TextOverflow.ellipsis,
-            style: base.copyWith(
-              color: DimensionTokens.neonCyan.withValues(alpha: 0.75),
-            ),
-          ),
-        ),
-        Transform.translate(
-          offset: const Offset(2, 0),
-          child: Text(
-            text,
-            maxLines: maxLines,
-            overflow: TextOverflow.ellipsis,
-            style: base.copyWith(
-              color: DimensionTokens.neonPink.withValues(alpha: 0.75),
-            ),
-          ),
-        ),
-        mainText,
-      ],
+      style: base.copyWith(
+        color: base.color ?? DimensionTokens.textPrimary,
+        shadows: const <Shadow>[],
+      ),
     );
   }
 }

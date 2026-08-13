@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
@@ -13,7 +12,6 @@ import '../../core/theme/dimension_tokens.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 import '../dimension/floating_album_scene.dart';
-import '../player/widgets/butterfly_swarm_backdrop.dart';
 import '../player/widgets/synced_lyrics_panel.dart';
 
 /// Full-screen on-demand player for Pro-Radio playlists.
@@ -102,35 +100,22 @@ class _ProRadioPlayerScreenState extends State<ProRadioPlayerScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          if (coverUrl != null)
+          // Same single-background treatment as the live radio player: the
+          // artwork, out of focus, under one contrast scrim.
+          if (coverUrl != null) ...[
             Positioned.fill(
               child: FloatingAlbumScene(
                 key: ValueKey('pro-radio-bg-$coverUrl'),
                 imageUrl: coverUrl,
                 fullscreen: true,
-                blurSigma: 1.5,
+                blurSigma: 45,
               ),
-            )
-          else
+            ),
             const Positioned.fill(
-              child: IgnorePointer(
-                child: ButterflySwarmBackdrop(butterflyCount: 22),
-              ),
+              child: IgnorePointer(child: _PearlescentWash()),
             ),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: Opacity(
-                opacity: coverUrl != null ? 1.0 : 0.45,
-                child: const _PearlescentWash(),
-              ),
-            ),
-          ),
-          Positioned.fill(
-            child: Opacity(
-              opacity: coverUrl != null ? 0.42 : 0.18,
-              child: const CyberBackdrop(),
-            ),
-          ),
+          ] else
+            const Positioned.fill(child: CyberBackdrop()),
           Padding(
             padding: EdgeInsets.only(
               top: MediaQuery.paddingOf(context).top + kToolbarHeight,
@@ -220,56 +205,39 @@ class _ProRadioPlayerBody extends StatelessWidget {
       final artworkUrl = BrandAssets.displayArtworkUrl(item.artworkUrl);
       return AspectRatio(
         aspectRatio: 1,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(18),
-          child: artworkUrl != null
-              ? FloatingAlbumScene(
-                  key: ValueKey(artworkUrl),
-                  imageUrl: artworkUrl,
-                )
-              : const ButterflySwarmBackdrop(
-                  butterflyCount: 12,
-                  intensity: 0.9,
-                ),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(DimensionTokens.artworkRadius),
+            boxShadow: DimensionTokens.artworkShadow(blur: 36),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(DimensionTokens.artworkRadius),
+            child: artworkUrl != null
+                ? FloatingAlbumScene(
+                    key: ValueKey(artworkUrl),
+                    imageUrl: artworkUrl,
+                    floatAmplitude: 0,
+                    borderRadius: BorderRadius.zero,
+                  )
+                : ColoredBox(
+                    color: DimensionTokens.bgSurface,
+                    child: Icon(
+                      Icons.queue_music_rounded,
+                      size: 64,
+                      color: DimensionTokens.textMuted,
+                    ),
+                  ),
+          ),
         ),
       );
     }
 
+    // Track details sit on the scrimmed artwork rather than in a floating
+    // frosted card — see the note on the live radio player.
     Widget glassPanel({required Widget child, double padding = 16}) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(
-            sigmaX: surfaces.glassBlur + 4,
-            sigmaY: surfaces.glassBlur + 4,
-          ),
-          child: Container(
-            padding: EdgeInsets.all(padding),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  const Color(0xFF7DD3FC).withValues(alpha: 0.28),
-                  const Color(0xFF38BDF8).withValues(alpha: 0.14),
-                  const Color(0xFFBAE6FD).withValues(alpha: 0.22),
-                ],
-              ),
-              border: Border.all(
-                color: const Color(0xFFA5F3FC).withValues(alpha: 0.40),
-              ),
-              boxShadow: [
-                ...surfaces.glassShadow,
-                BoxShadow(
-                  color: const Color(0xFF38BDF8).withValues(alpha: 0.18),
-                  blurRadius: 24,
-                ),
-              ],
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: child,
-          ),
-        ),
+      return Padding(
+        padding: EdgeInsets.symmetric(horizontal: padding * 0.25),
+        child: child,
       );
     }
 
@@ -576,44 +544,28 @@ class _EmptyQueue extends StatelessWidget {
   }
 }
 
-/// Keeps the glass panel readable over bright cover art (mirrors the radio
-/// player's wash so both players feel like one product).
+/// Contrast wash over the blurred cover (mirrors the radio player so both
+/// players feel like one product).
 class _PearlescentWash extends StatelessWidget {
   const _PearlescentWash();
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                const Color(0xFF0B2740).withValues(alpha: 0.58),
-                const Color(0xFF134E6F).withValues(alpha: 0.42),
-                const Color(0xFF071824).withValues(alpha: 0.72),
-              ],
-            ),
-          ),
+    DimensionTokens.watch(context);
+    final base = DimensionTokens.isDark ? Colors.black : Colors.white;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            base.withValues(alpha: 0.55),
+            base.withValues(alpha: 0.38),
+            base.withValues(alpha: 0.86),
+          ],
+          stops: const [0.0, 0.32, 1.0],
         ),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: RadialGradient(
-              center: const Alignment(-0.45, -0.55),
-              radius: 1.2,
-              colors: [
-                const Color(0xFFA5F3FC).withValues(alpha: 0.20),
-                const Color(0xFF38BDF8).withValues(alpha: 0.08),
-                Colors.transparent,
-              ],
-              stops: const [0.0, 0.45, 1.0],
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

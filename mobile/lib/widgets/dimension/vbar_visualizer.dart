@@ -109,20 +109,15 @@ class _VbarVisualizerState extends State<VbarVisualizer>
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: List.generate(widget.barCount, (i) {
+          // Solid accent rather than a cyan-to-magenta gradient: at this size
+          // a two-stop gradient just reads as muddy.
           return Container(
-            width: 3,
+            width: 2.5,
             height: widget.height * _barScale(i),
             margin: const EdgeInsets.symmetric(horizontal: 1.5),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(2),
-              gradient: LinearGradient(
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-                colors: [
-                  DimensionTokens.neonCyan,
-                  DimensionTokens.neonPink,
-                ],
-              ),
+              borderRadius: BorderRadius.circular(1.5),
+              color: DimensionTokens.neonCyan,
             ),
           );
         }),
