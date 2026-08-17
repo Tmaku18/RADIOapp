@@ -10,6 +10,8 @@ class Song {
   final int creditsRemaining;
   final int playCount;
   final int? listenCount;
+  /// Unique listeners for this song. Prefer this over [playCount] in artist UI.
+  final int? earsReached;
   final int likeCount;
   final int skipCount;
   final String status;
@@ -51,6 +53,7 @@ class Song {
     required this.creditsRemaining,
     required this.playCount,
     this.listenCount,
+    this.earsReached,
     required this.likeCount,
     required this.skipCount,
     required this.status,
@@ -106,9 +109,14 @@ class Song {
       fileSizeBytes: json['file_size_bytes'] ?? json['fileSizeBytes'] as int?,
       creditsRemaining:
           (json['credits_remaining'] ?? json['creditsRemaining'] ?? 0) as int,
-      playCount: (json['play_count'] ?? json['playCount'] ?? 0) as int,
-      listenCount: (json['listen_count'] ?? json['listenCount']) as int?,
-      likeCount: (json['like_count'] ?? json['likeCount'] ?? 0) as int,
+      playCount: parseIntOr(json['play_count'] ?? json['playCount'], 0),
+      listenCount: json['listen_count'] != null || json['listenCount'] != null
+          ? parseIntOr(json['listen_count'] ?? json['listenCount'], 0)
+          : null,
+      earsReached: json['ears_reached'] != null || json['earsReached'] != null
+          ? parseIntOr(json['ears_reached'] ?? json['earsReached'], 0)
+          : null,
+      likeCount: parseIntOr(json['like_count'] ?? json['likeCount'], 0),
       skipCount: (json['skip_count'] ?? json['skipCount'] ?? 0) as int,
       status: json['status']?.toString() ?? 'pending',
       rejectionReason: (json['rejection_reason'] ?? json['rejectionReason'])
@@ -192,6 +200,7 @@ class Song {
       'credits_remaining': creditsRemaining,
       'play_count': playCount,
       'listen_count': listenCount,
+      'ears_reached': earsReached,
       'like_count': likeCount,
       'skip_count': skipCount,
       'status': status,
@@ -218,4 +227,8 @@ class Song {
   }
 
   bool get isBeat => productKind == 'beat';
+
+  /// Unique listeners shown on My Songs. Falls back to listens, then spins,
+  /// so an older payload still has a number instead of a blank.
+  int get earsReachedCount => earsReached ?? listenCount ?? playCount;
 }

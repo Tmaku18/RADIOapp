@@ -53,6 +53,7 @@ interface Song {
   paidPlayCount?: number;
   freePlayCount?: number;
   listenCount?: number;
+  earsReached?: number;
   likeCount: number;
   lastPlayedAt?: string | null;
   trialPlaysUsed?: number;
@@ -650,7 +651,12 @@ export default function MySongsPage() {
           <h1 className="text-2xl font-bold text-foreground">My Songs</h1>
           <p className="text-muted-foreground mt-1">Manage your uploaded songs and track performance</p>
         </div>
-        <Button onClick={() => router.push('/artist/upload')}>Upload New Song</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => router.push('/artist/stats')}>
+            Analytics
+          </Button>
+          <Button onClick={() => router.push('/artist/upload')}>Upload New Song</Button>
+        </div>
       </div>
 
       {error && (
@@ -803,10 +809,10 @@ export default function MySongsPage() {
                         <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
                           <div className="flex items-baseline gap-1">
                             <span className="text-2xl font-bold leading-none text-primary">
-                              {formatNumber(song.playCount)}
+                              {formatNumber(song.earsReached ?? song.listenCount ?? song.playCount)}
                             </span>
                             <span className="text-xs text-muted-foreground">
-                              plays
+                              ears reached
                             </span>
                           </div>
                           <div className="flex items-baseline gap-1">

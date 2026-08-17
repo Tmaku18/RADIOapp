@@ -97,6 +97,7 @@ const ROLE_HOME: Record<
     subtitle: 'Manage songs, users, feed, and platform settings.',
     actions: [
       { href: '/admin', icon: '⚙️', title: 'Admin Overview', desc: 'Platform stats and quick actions.' },
+      { href: '/artist/stats', icon: '📈', title: 'Analytics', desc: 'Track ears reached, listens, and growth.' },
       { href: '/admin/songs', icon: '🎶', title: 'Songs', desc: 'Review and moderate submissions.' },
       { href: '/admin/users', icon: '👥', title: 'Users', desc: 'Manage gems and prospectors.' },
       { href: '/admin/queue', icon: '🧵', title: 'Queue', desc: 'Inspect and control upcoming station queue.' },
@@ -111,6 +112,7 @@ const ROLE_HOME: Record<
     subtitle: "Offer your services to gems and manage your listings.",
     actions: [
       { href: '/artist/upload', icon: '📤', title: 'Upload Music', desc: 'Submit tracks to the radio rotation.' },
+      { href: '/artist/stats', icon: '📈', title: 'Analytics', desc: 'Track ears reached, listens, and growth.' },
       { href: PRO_NETWORX_EXTERNAL_URL, icon: '💼', title: 'Pro-Networx', desc: 'Manage your Catalyst profile and services.', external: true },
       { href: '/artist/live-services', icon: '📅', title: 'Live Services', desc: 'Schedule live sessions.' },
       { href: '/discover', icon: '✨', title: 'Discover', desc: 'Find gems and other providers.' },

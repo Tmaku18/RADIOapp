@@ -776,6 +776,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       subtitle: 'Upload and rotation',
                     onTap: () => Navigator.pushNamed(context, AppRoutes.studio),
                     ),
+                    _navTile(
+                      context,
+                      icon: Icons.show_chart,
+                      title: 'Analytics',
+                      subtitle: 'Ears reached, listens, and growth',
+                      onTap: () =>
+                          Navigator.pushNamed(context, AppRoutes.analytics),
+                    ),
                   ]),
 
                 if (isAdmin)

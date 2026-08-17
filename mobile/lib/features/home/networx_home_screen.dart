@@ -119,6 +119,12 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
           () => Navigator.pushNamed(context, AppRoutes.adminDashboard),
         ),
         _HomeAction(
+          Icons.show_chart,
+          'Analytics',
+          'Track ears reached, listens, and growth.',
+          () => Navigator.pushNamed(context, AppRoutes.analytics),
+        ),
+        _HomeAction(
           Icons.radio,
           'Listen',
           'Tune in to the radio.',
@@ -140,6 +146,12 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
           'Upload Music',
           'Submit tracks to the radio rotation.',
           () => Navigator.pushNamed(context, AppRoutes.upload),
+        ),
+        _HomeAction(
+          Icons.show_chart,
+          'Analytics',
+          'Track ears reached, listens, and growth.',
+          () => Navigator.pushNamed(context, AppRoutes.analytics),
         ),
         _HomeAction(
           Icons.work_outline,

@@ -453,6 +453,16 @@ class _StudioScreenState extends State<StudioScreen>
                                 OutlinedButton.icon(
                                   onPressed: () {
                                     Navigator.pushNamed(
+                                      context,
+                                      AppRoutes.analytics,
+                                    );
+                                  },
+                                  icon: const Icon(Icons.show_chart),
+                                  label: const Text('Analytics'),
+                                ),
+                                OutlinedButton.icon(
+                                  onPressed: () {
+                                    Navigator.pushNamed(
                                             context, AppRoutes.liveServices)
                                         .then((_) => _load());
                                   },
@@ -541,7 +551,7 @@ class _StudioScreenState extends State<StudioScreen>
                                           ),
                                           const SizedBox(height: 4),
                                           Text(
-                                            '${s.status} · ${s.playCount} discoveries · ${s.likeCount} likes',
+                                            '${s.status} · ${s.earsReachedCount} ears reached · ${s.likeCount} likes',
                                             maxLines: 2,
                                             overflow: TextOverflow.ellipsis,
                                             style: TextStyle(

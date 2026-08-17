@@ -1140,6 +1140,10 @@ export class SongsController {
     const listenCountBySongId = new Map<string, number>();
     const likeCountBySongId = new Map<string, number>();
     const playsCountBySongId = new Map<string, number>();
+    const earsReachedBySongId =
+      songIds.length > 0
+        ? await this.songsService.getEarsReachedBySongId(songIds)
+        : new Map<string, number>();
     if (songIds.length > 0) {
       const { data: statsRows, error: statsError } = await supabase.rpc(
         'get_artist_song_stats',
@@ -1198,6 +1202,7 @@ export class SongsController {
           (song.paid_play_count || 0),
       ),
       listenCount: listenCountBySongId.get(song.id) ?? 0,
+      earsReached: earsReachedBySongId.get(song.id) ?? 0,
       likeCount: likeCountBySongId.get(song.id) ?? (song.like_count || 0),
       lastPlayedAt: song.last_played_at ?? null,
       trialPlaysUsed: song.trial_plays_used || 0,

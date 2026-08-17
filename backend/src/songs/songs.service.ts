@@ -2181,7 +2181,7 @@ export class SongsService {
    * the platform-wide ears definition. Best-effort: returns an empty map if the
    * function is unavailable (callers default to 0).
    */
-  private async getEarsReachedBySongId(
+  async getEarsReachedBySongId(
     songIds: string[],
   ): Promise<Map<string, number>> {
     const result = new Map<string, number>();
