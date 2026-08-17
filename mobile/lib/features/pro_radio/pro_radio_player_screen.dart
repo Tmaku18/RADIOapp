@@ -12,6 +12,7 @@ import '../../core/theme/dimension_tokens.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 import '../dimension/floating_album_scene.dart';
+import '../player/widgets/butterfly_swarm_backdrop.dart';
 import '../player/widgets/synced_lyrics_panel.dart';
 
 /// Full-screen on-demand player for Pro-Radio playlists.
@@ -114,7 +115,13 @@ class _ProRadioPlayerScreenState extends State<ProRadioPlayerScreen> {
             const Positioned.fill(
               child: IgnorePointer(child: _PearlescentWash()),
             ),
-          ] else
+          ] else if (current != null)
+            const Positioned.fill(
+              child: IgnorePointer(
+                child: ButterflySwarmBackdrop(butterflyCount: 22),
+              ),
+            )
+          else
             const Positioned.fill(child: CyberBackdrop()),
           Padding(
             padding: EdgeInsets.only(
@@ -219,13 +226,9 @@ class _ProRadioPlayerBody extends StatelessWidget {
                     floatAmplitude: 0,
                     borderRadius: BorderRadius.zero,
                   )
-                : ColoredBox(
-                    color: DimensionTokens.bgSurface,
-                    child: Icon(
-                      Icons.queue_music_rounded,
-                      size: 64,
-                      color: DimensionTokens.textMuted,
-                    ),
+                : const ButterflySwarmBackdrop(
+                    butterflyCount: 12,
+                    intensity: 0.9,
                   ),
           ),
         ),

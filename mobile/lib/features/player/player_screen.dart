@@ -35,6 +35,7 @@ import '../../core/theme/networx_tokens.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 import '../dimension/floating_album_scene.dart';
+import 'widgets/butterfly_swarm_backdrop.dart';
 import 'widgets/radio_up_next_queue.dart';
 import 'widgets/chat_panel.dart';
 import 'widgets/synced_lyrics_panel.dart';
@@ -1500,6 +1501,12 @@ class _PlayerScreenState extends State<PlayerScreen>
                       blurSigma: 45,
                     ),
                   )
+                else if (showCoverBackdrop)
+                  const Positioned.fill(
+                    child: IgnorePointer(
+                      child: ButterflySwarmBackdrop(butterflyCount: 22),
+                    ),
+                  )
                 else
                   const Positioned.fill(child: CyberBackdrop()),
                 // A single scrim carries text contrast, densest at the bottom
@@ -2140,13 +2147,9 @@ class _PlayerBody extends StatelessWidget {
                     borderRadius: BorderRadius.zero,
                   )
                 else
-                  ColoredBox(
-                    color: DimensionTokens.bgSurface,
-                    child: Icon(
-                      Icons.radio_rounded,
-                      size: 64,
-                      color: DimensionTokens.textMuted,
-                    ),
+                  const ButterflySwarmBackdrop(
+                    butterflyCount: 12,
+                    intensity: 0.9,
                   ),
                 if (track.isLiveBroadcast)
                   Positioned(
