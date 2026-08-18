@@ -17,6 +17,7 @@ import { CopyrightService } from '../copyright/copyright.service';
 import { LyricsService } from '../lyrics/lyrics.service';
 import { PushNotificationService } from '../push-notifications/push-notification.service';
 import { EmailService } from '../email/email.service';
+import { promoteListenerToArtist } from '../users/promote-listener';
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegStatic from 'ffmpeg-static';
 import { existsSync, promises as fs } from 'node:fs';
@@ -1352,15 +1353,19 @@ export class SongsService {
       );
     }
 
-    // Everyone except listeners can upload songs.
     const { data: user } = await supabase
       .from('users')
       .select('role, email, display_name')
       .eq('id', userId)
       .single();
 
-    if (
-      !user ||
+    if (!user) {
+      throw new ForbiddenException('User not found');
+    }
+    // A listener who starts an upload is promoted to artist automatically.
+    if (user.role === 'listener') {
+      await promoteListenerToArtist(userId);
+    } else if (
       ![
         'artist',
         'service_provider',
@@ -1369,9 +1374,7 @@ export class SongsService {
         'musician',
       ].includes(user.role)
     ) {
-      throw new ForbiddenException(
-        'Listeners cannot upload songs. Switch to Artist or Producer in settings.',
-      );
+      throw new ForbiddenException('This account cannot upload songs.');
     }
 
     const discoverStartRaw = createSongDto.discoverClipStartSeconds;

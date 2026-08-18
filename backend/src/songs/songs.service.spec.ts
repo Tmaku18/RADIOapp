@@ -5,6 +5,11 @@ import { LyricsService } from '../lyrics/lyrics.service';
 import { PushNotificationService } from '../push-notifications/push-notification.service';
 import { EmailService } from '../email/email.service';
 import { getSupabaseClient } from '../config/supabase.config';
+import { promoteListenerToArtist } from '../users/promote-listener';
+
+jest.mock('../users/promote-listener', () => ({
+  promoteListenerToArtist: jest.fn().mockResolvedValue(undefined),
+}));
 
 jest.mock('../config/supabase.config', () => ({
   getSupabaseClient: jest.fn(),
@@ -72,7 +77,7 @@ describe('SongsService', () => {
     jest.clearAllMocks();
   });
 
-  it('rejects non-artist uploads', async () => {
+  it('promotes listeners to artist instead of blocking the upload', async () => {
     const service = createSongsService();
     const usersBuilder = createBuilder();
     usersBuilder.single.mockResolvedValue({
@@ -84,9 +89,8 @@ describe('SongsService', () => {
       from: jest.fn(() => usersBuilder),
     });
 
-    await expect(
-      service.createSong('user-id', baseSongDto),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+    await service.createSong('user-id', baseSongDto);
+    expect(promoteListenerToArtist).toHaveBeenCalledWith('user-id');
   });
 
   it('rejects uploads without full-song radio opt-in', async () => {

@@ -376,6 +376,10 @@ export default function ProNetworxOnboardingPage() {
     setSaving(true);
     setError(null);
     try {
+      if (profile?.role === 'listener') {
+        await usersApi.upgradeToArtist();
+        await refreshProfile();
+      }
       await proNetworxApi.updateMeProfile({
         availableForWork,
         currentTitle: currentTitle.trim() || undefined,

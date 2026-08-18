@@ -10,7 +10,7 @@ import '../../core/theme/networx_tokens.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 import 'nearby_grouping.dart';
 
-enum _NearbyKindFilter { all, studios, artists, catalysts, listeners }
+enum _NearbyKindFilter { all, studios, artists, catalysts }
 
 class NearbyPeopleScreen extends StatefulWidget {
   const NearbyPeopleScreen({super.key});
@@ -72,7 +72,6 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
       final role = switch (_kindFilter) {
         _NearbyKindFilter.artists => 'artist',
         _NearbyKindFilter.catalysts => 'service_provider',
-        _NearbyKindFilter.listeners => 'listener',
         _ => null,
       };
       final res = await _service.listDirectory(
@@ -351,7 +350,6 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
                         _NearbyKindFilter.studios => 'Studios',
                         _NearbyKindFilter.artists => 'Artists',
                         _NearbyKindFilter.catalysts => 'Catalysts',
-                        _NearbyKindFilter.listeners => 'Listeners',
                       }),
                       selected: _kindFilter == f,
                       onSelected: _loading

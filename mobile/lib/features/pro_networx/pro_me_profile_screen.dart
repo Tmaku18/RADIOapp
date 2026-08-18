@@ -160,6 +160,10 @@ class _ProNetworxMeProfileScreenState extends State<ProNetworxMeProfileScreen> {
       _error = null;
     });
     try {
+      if (_me?.role == 'listener') {
+        final auth = Provider.of<AuthService>(context, listen: false);
+        await auth.requestArtistUpgrade();
+      }
       final skills = _parseSkills(_skills.text);
       await _service.updateMeProfile(
         availableForWork: _availableForWork,

@@ -3,6 +3,7 @@ import { getSupabaseClient } from '../config/supabase.config';
 import { UpdateProProfileDto } from './dto/update-pro-profile.dto';
 import { UploadsService } from '../uploads/uploads.service';
 import { ProNetworkSubscriptionService } from '../pro-network-subscription/pro-network-subscription.service';
+import { promoteListenerToArtist } from '../users/promote-listener';
 
 export type ExperienceItem = {
   title: string;
@@ -459,6 +460,7 @@ export class ProNetworxService {
   ): Promise<ProProfileResponse> {
     const supabase = getSupabaseClient();
     const userId = await this.getUserId(firebaseUid);
+    await promoteListenerToArtist(userId);
     const now = new Date().toISOString();
 
     const upsertPayload: Record<string, unknown> = {

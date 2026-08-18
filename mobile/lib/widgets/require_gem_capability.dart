@@ -5,8 +5,9 @@ import '../core/auth/role_helpers.dart';
 import '../core/models/user.dart' as app_user;
 import '../features/apply/apply_screen.dart';
 
-/// Upload capability guard — everyone except listeners (matches web `hasArtistCapability`).
-class RequireGemCapability extends StatelessWidget {
+/// Upload capability guard. Listeners are promoted to artist automatically
+/// so they can upload without visiting Settings.
+class RequireGemCapability extends StatefulWidget {
   const RequireGemCapability({super.key, required this.child});
 
   final Widget child;
@@ -14,10 +15,34 @@ class RequireGemCapability extends StatelessWidget {
   static bool allowsRole(String? role) => hasArtistCapability(role);
 
   @override
-  Widget build(BuildContext context) {
+  State<RequireGemCapability> createState() => _RequireGemCapabilityState();
+}
+
+class _RequireGemCapabilityState extends State<RequireGemCapability> {
+  late final Future<app_user.User?> _ready;
+
+  @override
+  void initState() {
+    super.initState();
     final auth = Provider.of<AuthService>(context, listen: false);
+    _ready = _ensureArtist(auth);
+  }
+
+  Future<app_user.User?> _ensureArtist(AuthService auth) async {
+    final profile = await auth.getUserProfile();
+    if (RequireGemCapability.allowsRole(profile?.role)) return profile;
+    try {
+      await auth.requestArtistUpgrade();
+      return await auth.getUserProfile();
+    } catch (_) {
+      return profile;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return FutureBuilder<app_user.User?>(
-      future: auth.getUserProfile(),
+      future: _ready,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
@@ -25,10 +50,10 @@ class RequireGemCapability extends StatelessWidget {
           );
         }
         final role = snapshot.data?.role;
-        if (!allowsRole(role)) {
+        if (!RequireGemCapability.allowsRole(role)) {
           return const ApplyScreen();
         }
-        return child;
+        return widget.child;
       },
     );
   }

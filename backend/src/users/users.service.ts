@@ -18,6 +18,7 @@ import { UpdateArtistLikeNotificationSettingsDto } from './dto/update-artist-lik
 import { geocodeCityZip } from '../common/geocode.util';
 import { PushNotificationService } from '../push-notifications/push-notification.service';
 import { ProRadioSubscriptionService } from '../pro-radio-subscription/pro-radio-subscription.service';
+import { promoteListenerToArtist } from './promote-listener';
 
 // Transform snake_case DB response to camelCase for frontend
 export interface UserResponse {
@@ -991,30 +992,15 @@ export class UsersService {
       throw new BadRequestException('Admin users cannot be upgraded to artist');
     }
 
-    // Update role to artist (legacy listener upgrade path)
-    const { data, error: updateError } = await supabase
+    await promoteListenerToArtist(user.id);
+
+    const { data, error: reloadError } = await supabase
       .from('users')
-      .update({
-        role: 'artist',
-        updated_at: new Date().toISOString(),
-      })
+      .select('*')
       .eq('id', user.id)
-      .select()
       .single();
-
-    if (updateError) {
-      throw new BadRequestException(`Failed to upgrade user: ${updateError.message}`);
-    }
-
-    // Initialize credits record for new artist
-    const { error: creditsError } = await supabase.from('credits').insert({
-      artist_id: user.id,
-      balance: 0,
-    });
-
-    // If credits record already exists (shouldn't happen), that's fine
-    if (creditsError && creditsError.code !== '23505') {
-      console.error('Failed to create credits record:', creditsError);
+    if (reloadError || !data) {
+      throw new BadRequestException('Failed to upgrade user');
     }
 
     return transformUser(data);

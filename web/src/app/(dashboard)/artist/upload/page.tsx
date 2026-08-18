@@ -128,6 +128,33 @@ export default function UploadPage() {
     };
   }, []);
 
+  const didPromoteRef = useRef(false);
+  useEffect(() => {
+    if (!profile || hasArtistCapability(profile.role) || didPromoteRef.current) {
+      return;
+    }
+    didPromoteRef.current = true;
+    let cancelled = false;
+    setUpgradeBusy(true);
+    setUpgradeError(null);
+    (async () => {
+      try {
+        await usersApi.upgradeToArtist();
+        if (!cancelled) await refreshProfile();
+      } catch (err) {
+        if (!cancelled) {
+          didPromoteRef.current = false;
+          setUpgradeError(errorMessage(err, 'Could not switch this account to Artist.'));
+        }
+      } finally {
+        if (!cancelled) setUpgradeBusy(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [profile, refreshProfile]);
+
   useEffect(() => {
     if (!audioFile) {
       setDiscoverPreviewUrl(null);
@@ -503,52 +530,31 @@ export default function UploadPage() {
     }
   };
 
-  const becomeProducer = async () => {
-    setUpgradeBusy(true);
-    setUpgradeError(null);
-    try {
-      await usersApi.upgradeToCatalyst();
-      await refreshProfile();
-    } catch (err) {
-      setUpgradeError(errorMessage(err, 'Could not upgrade to Producer.'));
-    } finally {
-      setUpgradeBusy(false);
-    }
-  };
-
   if (profile && !hasArtistCapability(profile.role)) {
     return (
       <div className="max-w-2xl mx-auto">
         <Card className="glass-panel border-border/80">
           <CardContent className="pt-8 pb-8 space-y-4">
             <h2 className="heading-serif text-2xl font-semibold text-foreground">
-              Join Trial by Fire?
+              Setting up your artist account
             </h2>
             <p className="text-muted-foreground">
-              Listeners can&apos;t upload yet. Join Trial by Fire to become an Artist
-              and submit tracks — or upgrade to Producer to offer services on
-              Pro-Networx (Producers can upload too).
+              {upgradeBusy
+                ? 'Switching this account to Artist so you can upload…'
+                : 'This account needs to be an Artist to upload. Retry if this did not finish.'}
             </p>
             {upgradeError && (
               <Alert variant="destructive">
                 <AlertDescription>{upgradeError}</AlertDescription>
               </Alert>
             )}
-            <div className="flex flex-col sm:flex-row gap-3 pt-2">
-              <Button onClick={() => void joinTrialByFire()} disabled={upgradeBusy}>
-                {upgradeBusy ? 'Upgrading…' : 'Join Trial by Fire'}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => void becomeProducer()}
-                disabled={upgradeBusy}
-              >
-                Become a Producer
-              </Button>
-              <Button variant="ghost" asChild>
-                <Link href="/competition">View competition</Link>
-              </Button>
-            </div>
+            {!upgradeBusy && (
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <Button onClick={() => void joinTrialByFire()} disabled={upgradeBusy}>
+                  Try again
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
