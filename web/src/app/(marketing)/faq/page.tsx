@@ -70,7 +70,7 @@ const faqs = [
       },
       {
         q: 'Can I see analytics for my tracks?',
-        a: 'Yes! The Wake (in your gem dashboard) shows detailed analytics including discoveries, engagement metrics, votes and downvotes, placement delivery, preview-to-purchase conversion, and Prospector activity over time.',
+        a: 'Yes! The Wake (in your gem dashboard) shows detailed analytics including live listeners, engagement metrics, votes and downvotes, placement delivery, preview-to-purchase conversion, and Prospector activity over time.',
       },
       {
         q: 'What is ProNetworx and why should I use it?',

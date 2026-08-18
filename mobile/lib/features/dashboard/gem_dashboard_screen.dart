@@ -31,7 +31,7 @@ class GemDashboardScreen extends StatelessWidget {
             ? 'Upload music, manage the platform, and grow the network.'
             : role == 'service_provider'
                 ? 'Upload music, offer services, and grow with artists.'
-                : 'Upload music and grow your discoveries.';
+                : 'Upload music and grow your live listeners.';
 
         return Scaffold(
           backgroundColor: Colors.transparent,

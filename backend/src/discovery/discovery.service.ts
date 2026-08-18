@@ -5,11 +5,18 @@ import {
   geocodeCityZip,
   LOCATION_VICINITY_RADIUS_KM,
 } from '../common/geocode.util';
+import {
+  parseDirectoryInclude,
+  publishStudioLocation,
+  startingAtFromRates,
+  normalizePrecision,
+} from '../studios/studio-public.util';
 import { isExplicitFilteredStation } from '../radio/station.constants';
 import { UsersService } from '../users/users.service';
 import { PushNotificationService } from '../push-notifications/push-notification.service';
 
 export interface DiscoveryProfile {
+  kind?: 'person' | 'studio';
   id: string;
   userId: string;
   displayName: string | null;
@@ -30,6 +37,14 @@ export interface DiscoveryProfile {
   mentorOptIn?: boolean;
   distanceKm?: number;
   isFollowing?: boolean;
+  /** Studio-only extras. */
+  name?: string | null;
+  tagline?: string | null;
+  heroImageUrl?: string | null;
+  locationPrecision?: 'exact' | 'approximate';
+  startingAtCents?: number | null;
+  startingAtUnit?: string | null;
+  ownerUserId?: string | null;
 }
 
 export interface PeopleDirectoryGroup {
@@ -626,6 +641,8 @@ export class DiscoveryService {
     lng?: number;
     radiusKm?: number;
     limit?: number;
+    include?: string;
+    role?: 'artist' | 'service_provider' | 'listener';
   }): Promise<{
     items: DiscoveryProfile[];
     byCity: PeopleDirectoryGroup[];
@@ -633,19 +650,26 @@ export class DiscoveryService {
     total: number;
   }> {
     const limit = Math.min(Math.max(params.limit ?? 200, 1), 500);
+    const include = parseDirectoryInclude(params.include);
     const supabase = getSupabaseClient();
 
-    const { data: users, error } = await supabase
-      .from('users')
-      .select(
-        'id, display_name, headline, avatar_url, bio, location_region, city, zip_code, artist_lat, artist_lng, role, created_at',
-      )
-      .eq('discoverable', true)
-      .eq('is_banned', false)
-      .in('role', ['artist', 'service_provider', 'listener'])
-      .or('city.not.is.null,zip_code.not.is.null,location_region.not.is.null')
-      .order('city', { ascending: true, nullsFirst: false })
-      .limit(limit);
+    const roles = params.role
+      ? [params.role]
+      : (['artist', 'service_provider', 'listener'] as const);
+
+    const { data: users, error } = include.people
+      ? await supabase
+          .from('users')
+          .select(
+            'id, display_name, headline, avatar_url, bio, location_region, city, zip_code, artist_lat, artist_lng, role, created_at',
+          )
+          .eq('discoverable', true)
+          .eq('is_banned', false)
+          .in('role', [...roles])
+          .or('city.not.is.null,zip_code.not.is.null,location_region.not.is.null')
+          .order('city', { ascending: true, nullsFirst: false })
+          .limit(limit)
+      : { data: [], error: null };
 
     if (error) {
       throw new Error(`Failed to load people directory: ${error.message}`);
@@ -788,6 +812,7 @@ export class DiscoveryService {
         distanceKm = this.haversineKm(params.lat, params.lng, lat, lng);
       }
       return {
+        kind: 'person' as const,
         id: u.id,
         userId: u.id,
         displayName: u.display_name ?? null,
@@ -806,6 +831,16 @@ export class DiscoveryService {
         distanceKm,
       };
     });
+
+    if (include.studios) {
+      const studioItems = await this.listStudioDirectoryItems({
+        viewerUserId: params.viewerUserId,
+        lat: params.lat,
+        lng: params.lng,
+        limit,
+      });
+      items = items.concat(studioItems);
+    }
 
     if (
       params.lat != null &&
@@ -866,6 +901,111 @@ export class DiscoveryService {
       .sort((a, b) => a.label.localeCompare(b.label));
 
     return { items, byCity, byZip, total: items.length };
+  }
+
+  private async listStudioDirectoryItems(params: {
+    viewerUserId?: string;
+    lat?: number;
+    lng?: number;
+    limit: number;
+  }): Promise<DiscoveryProfile[]> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('studios')
+      .select(
+        `
+        id,
+        owner_user_id,
+        name,
+        tagline,
+        hero_image_url,
+        city,
+        zip_code,
+        lat,
+        lng,
+        location_precision,
+        is_published,
+        created_at,
+        studio_rates ( price_cents, unit )
+      `,
+      )
+      .eq('is_published', true)
+      .order('name', { ascending: true })
+      .limit(params.limit);
+    if (error) {
+      this.logger.warn(`Studio directory failed: ${error.message}`);
+      return [];
+    }
+
+    const rows = (data ?? []) as Array<{
+      id: string;
+      owner_user_id: string;
+      name: string;
+      tagline: string | null;
+      hero_image_url: string | null;
+      city: string | null;
+      zip_code: string | null;
+      lat: number | null;
+      lng: number | null;
+      location_precision: string;
+      created_at: string;
+      studio_rates?: Array<{ price_cents: number | null; unit: string | null }>;
+    }>;
+
+    return rows
+      .filter((s) => !params.viewerUserId || s.owner_user_id !== params.viewerUserId)
+      .map((s) => {
+        const precision = normalizePrecision(s.location_precision);
+        const rawLat =
+          s.lat != null && Number.isFinite(Number(s.lat)) ? Number(s.lat) : null;
+        const rawLng =
+          s.lng != null && Number.isFinite(Number(s.lng)) ? Number(s.lng) : null;
+        let lat: number | null = null;
+        let lng: number | null = null;
+        let vicinityRadiusKm: number | null = null;
+        if (rawLat != null && rawLng != null) {
+          const pub = publishStudioLocation(rawLat, rawLng, s.id, precision);
+          lat = pub.lat;
+          lng = pub.lng;
+          vicinityRadiusKm = pub.vicinityRadiusKm;
+        }
+        const starting = startingAtFromRates(s.studio_rates ?? []);
+        let distanceKm: number | undefined;
+        if (
+          params.lat != null &&
+          params.lng != null &&
+          lat != null &&
+          lng != null
+        ) {
+          distanceKm = this.haversineKm(params.lat, params.lng, lat, lng);
+        }
+        return {
+          kind: 'studio' as const,
+          id: s.id,
+          userId: s.owner_user_id,
+          ownerUserId: s.owner_user_id,
+          displayName: s.name,
+          name: s.name,
+          headline: s.tagline,
+          tagline: s.tagline,
+          avatarUrl: s.hero_image_url,
+          heroImageUrl: s.hero_image_url,
+          bio: null,
+          locationRegion: null,
+          city: (s.city ?? '').trim() || null,
+          zipCode: (s.zip_code ?? '').trim() || null,
+          lat,
+          lng,
+          vicinityRadiusKm,
+          locationPrecision: precision,
+          startingAtCents: starting.cents,
+          startingAtUnit: starting.unit,
+          role: 'service_provider' as const,
+          serviceTypes: [] as string[],
+          createdAt: s.created_at,
+          distanceKm,
+        };
+      });
   }
 
   async listPeople(params: {

@@ -56,8 +56,39 @@ describe('DiscoveryController', () => {
       lng: -84.4,
       radiusKm: 40,
       limit: 100,
+      include: undefined,
+      role: undefined,
     });
     expect(result.total).toBe(0);
+  });
+
+  it('forwards include and role filters to the directory', async () => {
+    const controller = new DiscoveryController(
+      discovery as any,
+      uploads as any,
+      durationService as any,
+      proNetworkSubscription as any,
+    );
+
+    await controller.listPeopleDirectory(
+      { uid: 'firebase-1' } as any,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      'studios',
+      'artist',
+    );
+
+    expect(discovery.listPeopleDirectory).toHaveBeenCalledWith({
+      viewerUserId: 'user-1',
+      lat: undefined,
+      lng: undefined,
+      radiusKm: undefined,
+      limit: undefined,
+      include: 'studios',
+      role: 'artist',
+    });
   });
 
   it('likes a feed post', async () => {

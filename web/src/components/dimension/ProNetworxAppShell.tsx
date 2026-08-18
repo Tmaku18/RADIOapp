@@ -9,6 +9,7 @@ import {
   ClipboardList,
   Compass,
   Home,
+  Building2,
   Library,
   LogOut,
   Radio,
@@ -43,8 +44,11 @@ export function ProNetworxAppShell({ children }: ProNetworxAppShellProps) {
 
   const activeTab = TABS.find((t) => pathname?.startsWith(t.href));
   const isMyProfile = pathname?.startsWith('/pro-networx/me');
+  const isStudios = pathname?.startsWith('/pro-networx/studios') ||
+    pathname?.startsWith('/pro-networx/me/studio');
   const sectionLabel =
-    activeTab?.label ?? (isMyProfile ? 'My profile' : 'Pro-Networx');
+    activeTab?.label ??
+    (isStudios ? 'Studios' : isMyProfile ? 'My profile' : 'Pro-Networx');
 
   return (
     <div className="relative pt-4 min-h-[calc(100vh-5rem)]" data-testid="pro-app-shell">
@@ -86,6 +90,21 @@ export function ProNetworxAppShell({ children }: ProNetworxAppShellProps) {
               </Link>
             );
           })}
+
+          <Link
+            href="/pro-networx/studios"
+            data-testid="pro-tab-studios"
+            title="Studios"
+            className={cn(
+              'relative flex items-center gap-3 px-3 py-2.5 rounded-lg font-dim-mono text-[11px] tracking-[0.2em] uppercase transition-colors',
+              isStudios
+                ? 'bg-cyan-400 text-black font-bold'
+                : 'text-white/70 hover:bg-white/5 hover:text-cyan-300',
+            )}
+          >
+            <Building2 className="w-4 h-4 shrink-0" />
+            <span className="hidden lg:inline truncate">Studios</span>
+          </Link>
 
           <Link
             href="/pro-networx/me"

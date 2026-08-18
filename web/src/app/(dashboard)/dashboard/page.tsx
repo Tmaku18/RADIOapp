@@ -79,7 +79,7 @@ const ROLE_HOME: Record<
   },
   artist: {
     title: "Gem Home",
-    subtitle: 'Upload music and grow your discoveries.',
+    subtitle: 'Upload music and grow your live listeners.',
     actions: [
       { href: '/artist/upload', icon: '📤', title: 'Upload Music', desc: 'Submit tracks to the radio rotation.' },
       { href: '/artist/songs', icon: '🎵', title: 'My Songs', desc: 'Manage your songs.' },

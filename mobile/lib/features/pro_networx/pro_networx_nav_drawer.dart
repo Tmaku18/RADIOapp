@@ -129,6 +129,12 @@ class ProNetworxNavDrawer extends StatelessWidget {
                     active: false,
                     onTap: () => _openRoute(context, AppRoutes.proMeProfile),
                   ),
+                  _ProNavRow(
+                    icon: Icons.apartment,
+                    label: 'My studio',
+                    active: false,
+                    onTap: () => _openRoute(context, AppRoutes.myStudio),
+                  ),
                   // Song library (saved songs) — consolidated from the main
                   // drawer into Pro-Networx.
                   _ProNavRow(

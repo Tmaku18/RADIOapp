@@ -36,12 +36,18 @@ class NearbyService {
     double? lng,
     double? radiusKm,
     int limit = 200,
+    String? include,
+    String? role,
   }) async {
     final q = <String>[
       'limit=$limit',
       if (lat != null) 'lat=$lat',
       if (lng != null) 'lng=$lng',
       if (radiusKm != null) 'radiusKm=$radiusKm',
+      if (include != null && include.trim().isNotEmpty)
+        'include=${Uri.encodeQueryComponent(include.trim())}',
+      if (role != null && role.trim().isNotEmpty)
+        'role=${Uri.encodeQueryComponent(role.trim())}',
     ].join('&');
     final res = await _api.get('discovery/people/directory?$q');
     if (res is Map<String, dynamic>) return res;

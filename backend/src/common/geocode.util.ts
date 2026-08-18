@@ -1,9 +1,10 @@
 /**
- * Best-effort place → lat/lng using Open-Meteo (no API key).
+ * Best-effort place → lat/lng using Open-Meteo (no API key) for people, and
+ * Nominatim for opt-in studio street addresses.
  *
- * Map pins are ZIP-based, then deliberately distorted before any client sees
- * them. City is only a fallback when ZIP is missing, and street/GPS is never
- * accepted as a public location.
+ * People pins are ZIP-based, then deliberately distorted before any client
+ * sees them. Street/GPS is never accepted as a *person* location. Studios
+ * that opt into `location_precision = exact` may geocode a street address.
  */
 
 export type GeocodeResult = { lat: number; lng: number };
@@ -92,6 +93,82 @@ export async function geocodeCityZip(
   }
   geocodeCache.set(cacheKey, null);
   return null;
+}
+
+export type AddressParts = {
+  addressLine1?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zip?: string | null;
+  country?: string | null;
+};
+
+/** Join address bits for Nominatim. Returns null when there is nothing useful. */
+export function buildAddressQuery(parts: AddressParts): string | null {
+  const line1 = (parts.addressLine1 ?? '').trim();
+  const city = (parts.city ?? '').trim();
+  const state = (parts.state ?? '').trim();
+  const zip = (parts.zip ?? '').trim();
+  const country = (parts.country ?? '').trim();
+  const bits = [line1, city, state, zip, country].filter((b) => b.length > 0);
+  if (bits.length === 0) return null;
+  // A country-only query is too coarse to be useful.
+  if (bits.length === 1 && !line1 && !city && !zip) return null;
+  return bits.join(', ');
+}
+
+/**
+ * Geocode a studio street address via Nominatim. Falls back to ZIP/city
+ * Open-Meteo when Nominatim misses or is unavailable.
+ */
+export async function geocodeAddress(
+  parts: AddressParts,
+): Promise<GeocodeResult | null> {
+  const query = buildAddressQuery(parts);
+  if (query) {
+    const cacheKey = `addr:${query.toLowerCase()}`;
+    if (geocodeCache.has(cacheKey)) {
+      const cached = geocodeCache.get(cacheKey);
+      if (cached) return cached;
+    } else {
+      try {
+        const url =
+          'https://nominatim.openstreetmap.org/search?' +
+          new URLSearchParams({
+            q: query,
+            format: 'json',
+            limit: '1',
+          }).toString();
+        const res = await fetch(url, {
+          headers: {
+            Accept: 'application/json',
+            'User-Agent':
+              'NetworxRadio/1.0 (studios; https://www.networxradio.com)',
+          },
+          signal: AbortSignal.timeout(6000),
+        });
+        if (res.ok) {
+          const body = (await res.json()) as Array<{
+            lat?: string;
+            lon?: string;
+          }>;
+          const hit = body?.[0];
+          const lat = hit?.lat != null ? Number(hit.lat) : NaN;
+          const lng = hit?.lon != null ? Number(hit.lon) : NaN;
+          if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            const result = { lat, lng };
+            geocodeCache.set(cacheKey, result);
+            return result;
+          }
+        }
+        geocodeCache.set(cacheKey, null);
+      } catch {
+        geocodeCache.set(cacheKey, null);
+      }
+    }
+  }
+
+  return geocodeCityZip(parts.city ?? '', parts.zip);
 }
 
 /**

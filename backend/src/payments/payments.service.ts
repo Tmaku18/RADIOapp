@@ -1658,7 +1658,7 @@ export class PaymentsService {
 
     const session = await this.stripeService.createCheckoutSessionSongPlays(
       option.totalCents,
-      `${dto.plays} discovery placement${dto.plays === 1 ? '' : 's'} – ${price.title}`,
+      `${dto.plays} live listener placement${dto.plays === 1 ? '' : 's'} – ${price.title}`,
       `$${price.pricePerPlacementDollars}/placement · ~${option.exposures.toLocaleString()} verified exposures ($${option.totalDollars} total)`,
       {
         userId,

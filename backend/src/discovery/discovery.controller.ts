@@ -81,6 +81,8 @@ export class DiscoveryController {
     @Query('lng') lngStr?: string,
     @Query('radiusKm') radiusKmStr?: string,
     @Query('limit') limitStr?: string,
+    @Query('include') include?: string,
+    @Query('role') role?: 'artist' | 'service_provider' | 'listener',
   ) {
     const viewerUserId = await this.getUserId(user.uid);
     const lat = latStr != null ? parseFloat(latStr) : undefined;
@@ -100,6 +102,8 @@ export class DiscoveryController {
           ? radiusKm
           : undefined,
       limit,
+      include,
+      role,
     });
   }
 

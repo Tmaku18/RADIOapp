@@ -134,7 +134,7 @@ export default function BuyPlaysPage() {
         <Button variant="ghost" onClick={() => router.push('/artist/songs')} className="mb-4">
           ← Back to My Songs
         </Button>
-        <h1 className="text-2xl font-bold text-foreground">Buy discovery placements</h1>
+        <h1 className="text-2xl font-bold text-foreground">Buy live listener placements</h1>
         <p className="text-muted-foreground mt-1">
           {price.title} · {formatDuration(price.durationSeconds)}
         </p>
@@ -142,7 +142,7 @@ export default function BuyPlaysPage() {
 
       {success && (
         <Alert>
-          <AlertDescription>Payment successful. Your discovery placements have been added to this song.</AlertDescription>
+          <AlertDescription>Payment successful. Your live listener placements have been added to this song.</AlertDescription>
         </Alert>
       )}
       {canceled && (

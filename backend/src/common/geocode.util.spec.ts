@@ -1,5 +1,6 @@
 import {
   approximatePublicCoords,
+  buildAddressQuery,
   LOCATION_VICINITY_RADIUS_KM,
   resolveGeocodeQuery,
 } from './geocode.util';
@@ -24,6 +25,25 @@ describe('resolveGeocodeQuery', () => {
 
   it('keeps non-US postal strings as-is', () => {
     expect(resolveGeocodeQuery('Toronto', 'M5V 2T6')).toBe('M5V 2T6');
+  });
+});
+
+describe('buildAddressQuery', () => {
+  it('joins street, city, state, and ZIP', () => {
+    expect(
+      buildAddressQuery({
+        addressLine1: '123 Main St',
+        city: 'Atlanta',
+        state: 'GA',
+        zip: '30318',
+        country: 'US',
+      }),
+    ).toBe('123 Main St, Atlanta, GA, 30318, US');
+  });
+
+  it('returns null for an empty or country-only address', () => {
+    expect(buildAddressQuery({})).toBeNull();
+    expect(buildAddressQuery({ country: 'US' })).toBeNull();
   });
 });
 

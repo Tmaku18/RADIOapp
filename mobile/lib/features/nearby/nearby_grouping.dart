@@ -39,6 +39,22 @@ String? personId(Map<String, dynamic> item) {
   return id.isEmpty ? null : id;
 }
 
+String itemKind(Map<String, dynamic> item) {
+  final kind = (item['kind'] ?? 'person').toString().trim().toLowerCase();
+  return kind == 'studio' ? 'studio' : 'person';
+}
+
+bool isStudioItem(Map<String, dynamic> item) => itemKind(item) == 'studio';
+
+/// Directory row id: studio id for studios, user id for people.
+String? directoryItemId(Map<String, dynamic> item) {
+  if (isStudioItem(item)) {
+    final id = (item['id'] ?? '').toString().trim();
+    return id.isEmpty ? null : id;
+  }
+  return personId(item);
+}
+
 List<Map<String, dynamic>> groupNearbyByCity(List<Map<String, dynamic>> items) {
   final map = <String, List<Map<String, dynamic>>>{};
   for (final person in items) {

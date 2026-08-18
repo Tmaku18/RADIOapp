@@ -1603,6 +1603,91 @@ export interface ProNetworkAccess {
   betaFree?: boolean;
 }
 
+export type StudioRateUnit = 'hour' | 'day' | 'half_day' | 'session';
+
+export type StudioRate = {
+  id: string;
+  label: string;
+  priceCents: number;
+  unit: StudioRateUnit;
+  notes: string | null;
+  sortOrder: number;
+};
+
+export type Studio = {
+  kind: 'studio';
+  id: string;
+  ownerUserId: string;
+  ownerDisplayName: string | null;
+  name: string;
+  tagline: string | null;
+  about: string | null;
+  heroImageUrl: string | null;
+  photos: string[];
+  amenities: string[];
+  city: string | null;
+  state: string | null;
+  zipCode: string | null;
+  country: string | null;
+  addressLine1: string | null;
+  addressLine2: string | null;
+  lat: number | null;
+  lng: number | null;
+  vicinityRadiusKm: number | null;
+  locationPrecision: 'exact' | 'approximate';
+  startingAtCents: number | null;
+  startingAtUnit: StudioRateUnit | null;
+  bookingLink: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  isPublished: boolean;
+  rates: StudioRate[];
+  distanceKm?: number;
+};
+
+export type UpsertStudioPayload = {
+  name?: string;
+  tagline?: string;
+  about?: string;
+  heroImageUrl?: string;
+  photos?: string[];
+  amenities?: string[];
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  country?: string;
+  locationPrecision?: 'exact' | 'approximate';
+  contactEmail?: string;
+  contactPhone?: string;
+  bookingLink?: string;
+  isPublished?: boolean;
+  rates?: Array<{
+    label: string;
+    priceCents: number;
+    unit: StudioRateUnit;
+    notes?: string;
+  }>;
+};
+
+export const studiosApi = {
+  list: (params?: {
+    search?: string;
+    city?: string;
+    lat?: number;
+    lng?: number;
+    radiusKm?: number;
+    limit?: number;
+  }) => api.get<{ items: Studio[]; total: number }>('/studios', { params }),
+  getOne: (id: string) => api.get<Studio>(`/studios/${id}`),
+  listMine: () => api.get<{ items: Studio[] }>('/studios/me'),
+  create: (data: UpsertStudioPayload) => api.post<Studio>('/studios', data),
+  update: (id: string, data: UpsertStudioPayload) =>
+    api.patch<Studio>(`/studios/${id}`, data),
+  remove: (id: string) => api.delete<{ ok: true }>(`/studios/${id}`),
+};
+
 export const proNetworkSubscriptionApi = {
   getAccess: () =>
     api.get<ProNetworkAccess>('/pro-network-subscription/access'),

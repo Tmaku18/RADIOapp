@@ -10,6 +10,8 @@ import '../../core/theme/networx_tokens.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 import 'nearby_grouping.dart';
 
+enum _NearbyKindFilter { all, studios, artists, catalysts, listeners }
+
 class NearbyPeopleScreen extends StatefulWidget {
   const NearbyPeopleScreen({super.key});
 
@@ -33,6 +35,7 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
   bool _loading = false;
   String? _error;
   double _radiusMiles = 25;
+  _NearbyKindFilter _kindFilter = _NearbyKindFilter.all;
   Position? _pos;
 
   List<Map<String, dynamic>> _items = const [];
@@ -61,6 +64,17 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
 
     try {
       final pos = await LocationPermissionService.instance.getPositionIfAllowed();
+      final include = switch (_kindFilter) {
+        _NearbyKindFilter.studios => 'studios',
+        _NearbyKindFilter.all => 'all',
+        _ => 'people',
+      };
+      final role = switch (_kindFilter) {
+        _NearbyKindFilter.artists => 'artist',
+        _NearbyKindFilter.catalysts => 'service_provider',
+        _NearbyKindFilter.listeners => 'listener',
+        _ => null,
+      };
       final res = await _service.listDirectory(
         lat: pos?.latitude,
         lng: pos?.longitude,
@@ -68,6 +82,8 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
             ? _radiusMiles * _kmPerMile
             : null,
         limit: 300,
+        include: include,
+        role: role,
       );
 
       final items = asMapList(res['items']);
@@ -124,7 +140,11 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
   }
 
   String _name(Map<String, dynamic> item) =>
-      (item['displayName'] ?? item['display_name'] ?? 'Unknown').toString();
+      (item['displayName'] ??
+              item['display_name'] ??
+              item['name'] ??
+              'Unknown')
+          .toString();
 
   String _headline(Map<String, dynamic> item) =>
       (item['headline'] ?? '').toString();
@@ -137,9 +157,13 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
     return null;
   }
 
-  void _openPersonProfile(Map<String, dynamic> person) {
-    final id = personId(person);
+  void _openDirectoryItem(Map<String, dynamic> item) {
+    final id = directoryItemId(item);
     if (id == null) return;
+    if (isStudioItem(item)) {
+      Navigator.pushNamed(context, AppRoutes.studioProfile, arguments: id);
+      return;
+    }
     Navigator.pushNamed(
       context,
       AppRoutes.artistProfile,
@@ -158,13 +182,18 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
       final lat = _asDouble(item['lat']);
       final lng = _asDouble(item['lng']);
       if (lat == null || lng == null) continue;
+      // Exact studios publish a street pin — no vicinity circle.
+      if (isStudioItem(item) && item['vicinityRadiusKm'] == null) continue;
+      final color = isStudioItem(item)
+          ? NetworxTokens.warning
+          : NetworxTokens.electricCyan;
       circles.add(
         CircleMarker(
           point: LatLng(lat, lng),
           radius: _vicinityKm(item) * 1000,
           useRadiusInMeter: true,
-          color: NetworxTokens.electricCyan.withValues(alpha: 0.14),
-          borderColor: NetworxTokens.electricCyan.withValues(alpha: 0.65),
+          color: color.withValues(alpha: 0.14),
+          borderColor: color.withValues(alpha: 0.65),
           borderStrokeWidth: 1.5,
         ),
       );
@@ -178,6 +207,10 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
       final lat = _asDouble(item['lat']);
       final lng = _asDouble(item['lng']);
       if (lat == null || lng == null) continue;
+      final studio = isStudioItem(item);
+      final accent = studio
+          ? NetworxTokens.warning
+          : NetworxTokens.electricCyan;
       markers.add(
         Marker(
           point: LatLng(lat, lng),
@@ -185,19 +218,19 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
           height: 34,
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: () => _openPersonProfile(item),
+            onTap: () => _openDirectoryItem(item),
             child: Container(
               decoration: BoxDecoration(
                 color: Colors.black.withValues(alpha: 0.75),
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: NetworxTokens.electricCyan,
+                  color: accent,
                   width: 2,
                 ),
               ),
-              child: const Icon(
-                Icons.person,
-                color: NetworxTokens.electricCyan,
+              child: Icon(
+                studio ? Icons.apartment : Icons.person,
+                color: accent,
                 size: 18,
               ),
             ),
@@ -225,7 +258,7 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
   @override
   Widget build(BuildContext context) {
     return DimensionScreenShell(
-      title: 'Nearby People',
+      title: 'Nearby',
       showNeonLine: true,
       actions: [
         IconButton(
@@ -270,8 +303,8 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
                   context,
                   groups: _byCity,
                   emptyLabel:
-                      'No one nearby yet. Set your ZIP in Profile to appear '
-                      'on the map (approximate area only).',
+                      'No one nearby yet. Set your ZIP in Profile, or add a '
+                      'studio page so it can appear on the map.',
                 ),
                 _buildGroupList(
                   context,
@@ -299,13 +332,37 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Each circle is a general area from ZIP code — the person is '
-                'somewhere inside it, not at the centre. Never exact addresses '
-                'or live GPS. '
+                'People pins are a general ZIP area — never an exact address. '
+                'Studios may publish an exact street pin if the owner opts in. '
                 '${_pos != null ? 'Green mark is you (for centering only).' : 'Enable location to center the map on you.'}',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: scheme.onSurface.withValues(alpha: 0.7),
                     ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  for (final f in _NearbyKindFilter.values)
+                    ChoiceChip(
+                      label: Text(switch (f) {
+                        _NearbyKindFilter.all => 'All',
+                        _NearbyKindFilter.studios => 'Studios',
+                        _NearbyKindFilter.artists => 'Artists',
+                        _NearbyKindFilter.catalysts => 'Catalysts',
+                        _NearbyKindFilter.listeners => 'Listeners',
+                      }),
+                      selected: _kindFilter == f,
+                      onSelected: _loading
+                          ? null
+                          : (on) {
+                              if (!on) return;
+                              setState(() => _kindFilter = f);
+                              _loadDirectory();
+                            },
+                    ),
+                ],
               ),
               Row(
                 children: [
@@ -346,7 +403,7 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             child: Text(
               _items.isEmpty
-                  ? 'No discoverable people found. Try Show all, or set your ZIP in Profile.'
+                  ? 'Nothing nearby yet. Try Show all, or set your ZIP in Profile.'
                   : 'People are listed by city, but map areas aren’t ready yet. Pull refresh in a moment.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: scheme.onSurface.withValues(alpha: 0.65),
@@ -429,23 +486,30 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
                 title,
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
-              subtitle: Text('$count ${count == 1 ? 'person' : 'people'}'),
+              subtitle: Text('$count ${count == 1 ? 'listing' : 'listings'}'),
               children: people.map((person) {
                 final name = _name(person);
                 final headline = _headline(person);
                 final zip = personZip(person);
                 final cityName = personCity(person);
                 final dist = _distText(person);
+                final studio = isStudioItem(person);
+                final accent = studio
+                    ? NetworxTokens.warning
+                    : NetworxTokens.electricCyan;
                 final locationBits = [
+                  if (studio) 'Studio',
                   if (!isZip && zip.isNotEmpty) zip,
                   if (isZip && cityName.isNotEmpty) cityName,
                 ].join(' · ');
 
                 return ListTile(
                   leading: CircleAvatar(
-                    backgroundColor:
-                        NetworxTokens.electricCyan.withValues(alpha: 0.15),
-                    child: const Icon(Icons.person_outline),
+                    backgroundColor: accent.withValues(alpha: 0.15),
+                    child: Icon(
+                      studio ? Icons.apartment : Icons.person_outline,
+                      color: accent,
+                    ),
                   ),
                   title: Text(name),
                   subtitle: Text(
@@ -463,7 +527,7 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
                               ),
                         )
                       : const Icon(Icons.chevron_right),
-                  onTap: () => _openPersonProfile(person),
+                  onTap: () => _openDirectoryItem(person),
                 );
               }).toList(),
             ),

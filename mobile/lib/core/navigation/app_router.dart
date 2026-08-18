@@ -37,6 +37,8 @@ import '../../features/studio/allocate_plays_screen.dart';
 import '../../features/studio/buy_plays_screen.dart';
 import '../../features/studio/live_services_screen.dart';
 import '../../features/studio/studio_screen.dart';
+import '../../features/studios/my_studio_screen.dart';
+import '../../features/studios/studio_profile_screen.dart';
 import '../../features/discovery/discover_create_video_screen.dart';
 import '../../features/upload/upload_screen.dart';
 import '../../features/yield/yield_screen.dart';
@@ -150,6 +152,12 @@ class AppRouter {
         return _route(const SavedLikedPostsScreen(mode: 'liked'), settings);
       case AppRoutes.nearbyPeople:
         return _route(const NearbyPeopleScreen(), settings);
+      case AppRoutes.studioProfile:
+        final studioId = args?.toString() ?? '';
+        if (studioId.isEmpty) return _unknown(settings);
+        return _route(StudioProfileScreen(studioId: studioId), settings);
+      case AppRoutes.myStudio:
+        return _route(const MyStudioScreen(), settings);
       case AppRoutes.refinery:
         return _route(const RefineryScreen(), settings);
       case AppRoutes.refineryAnalytics:

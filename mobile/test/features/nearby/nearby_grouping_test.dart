@@ -32,5 +32,20 @@ void main() {
       expect(personId({'id': 'b'}), 'b');
       expect(personId({}), isNull);
     });
+
+    test('directoryItemId uses studio id, not owner id', () {
+      expect(
+        directoryItemId({
+          'kind': 'studio',
+          'id': 'studio-1',
+          'userId': 'owner-9',
+        }),
+        'studio-1',
+      );
+      expect(
+        directoryItemId({'kind': 'person', 'userId': 'u1', 'id': 'u1'}),
+        'u1',
+      );
+    });
   });
 }

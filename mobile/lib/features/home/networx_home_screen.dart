@@ -93,7 +93,7 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
       return 'Offer your services to artists and manage your listings.';
     }
     if (hasArtistCapability(role)) {
-      return 'Upload music and grow your discoveries.';
+      return 'Upload music and grow your live listeners.';
     }
     return 'Discover artists, tune in to the radio, and refine songs into signal.';
   }
