@@ -27,7 +27,13 @@ function formatStartingAt(studio: Studio): string {
   return `Starting at $${dollars}${suffix}`;
 }
 
-export default function StudiosDirectoryPage() {
+export default function StudiosDirectoryPage({
+  studioPrefix = '/pro-networx/studios',
+  newStudioHref = '/pro-networx/me/studio?new=1',
+}: {
+  studioPrefix?: string;
+  newStudioHref?: string;
+}) {
   const { profile } = useAuth();
   const searchParams = useSearchParams();
   const canCreate =
@@ -70,8 +76,8 @@ export default function StudiosDirectoryPage() {
         </div>
         {canCreate && (
           <Button asChild>
-            <Link href="/pro-networx/me/studio" className="inline-flex items-center gap-1">
-              <Plus className="h-4 w-4" /> My studio
+            <Link href={newStudioHref} className="inline-flex items-center gap-1">
+              <Plus className="h-4 w-4" /> New studio
             </Link>
           </Button>
         )}
@@ -104,7 +110,7 @@ export default function StudiosDirectoryPage() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {items.map((studio) => (
-                <Link key={studio.id} href={`/pro-networx/studios/${studio.id}`}>
+                <Link key={studio.id} href={`${studioPrefix}/${studio.id}`}>
                   <Card className="overflow-hidden h-full hover:border-cyan-400/50 transition-colors p-0">
                     {studio.heroImageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -140,7 +146,7 @@ export default function StudiosDirectoryPage() {
           )}
         </TabsContent>
         <TabsContent value="nearby" className="mt-6">
-          <NearbyStudiosPanel />
+          <NearbyStudiosPanel studioPrefix={studioPrefix} />
         </TabsContent>
       </Tabs>
     </div>

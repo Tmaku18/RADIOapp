@@ -1754,6 +1754,11 @@ export const studiosApi = {
   remove: (id: string) => api.delete<{ ok: true }>(`/studios/${id}`),
   searchPeople: (q: string) =>
     api.get<{ items: StudioMember[] }>('/studios/people-search', { params: { q } }),
+  uploadPhoto: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return directBackendUpload<{ url: string }>('/studios/photos', formData);
+  },
 };
 
 export const proNetworkSubscriptionApi = {

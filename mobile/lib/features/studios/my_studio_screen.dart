@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../core/models/studio_models.dart';
 import '../../core/navigation/app_routes.dart';
@@ -25,7 +28,10 @@ const _rateUnits = ['hour', 'day', 'half_day', 'session'];
 const _weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 class MyStudioScreen extends StatefulWidget {
-  const MyStudioScreen({super.key});
+  const MyStudioScreen({super.key, this.openCreate = false});
+
+  /// Skip the list and open a blank studio form.
+  final bool openCreate;
 
   @override
   State<MyStudioScreen> createState() => _MyStudioScreenState();
@@ -41,6 +47,11 @@ class _MyStudioScreenState extends State<MyStudioScreen> {
   void initState() {
     super.initState();
     _load();
+    if (widget.openCreate) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _openEditor();
+      });
+    }
   }
 
   Future<void> _load() async {
@@ -63,7 +74,7 @@ class _MyStudioScreenState extends State<MyStudioScreen> {
   Future<void> _openEditor({Studio? existing}) async {
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => _StudioEditorScreen(existing: existing),
+        builder: (_) => StudioEditorScreen(existing: existing),
       ),
     );
     if (saved == true) await _load();
@@ -179,22 +190,25 @@ class _HourDraft {
   }
 }
 
-class _StudioEditorScreen extends StatefulWidget {
-  const _StudioEditorScreen({this.existing});
+class StudioEditorScreen extends StatefulWidget {
+  const StudioEditorScreen({super.key, this.existing});
   final Studio? existing;
 
   @override
-  State<_StudioEditorScreen> createState() => _StudioEditorScreenState();
+  State<StudioEditorScreen> createState() => _StudioEditorScreenState();
 }
 
-class _StudioEditorScreenState extends State<_StudioEditorScreen> {
+class _StudioEditorScreenState extends State<StudioEditorScreen> {
   final StudioService _service = StudioService();
+  final ImagePicker _picker = ImagePicker();
   final _name = TextEditingController();
   final _tagline = TextEditingController();
   final _about = TextEditingController();
-  final _hero = TextEditingController();
-  final _photos = TextEditingController();
   final _memberQuery = TextEditingController();
+  String? _heroUrl;
+  List<String> _photoUrls = [];
+  bool _uploadingHero = false;
+  bool _uploadingPhoto = false;
   final _address1 = TextEditingController();
   final _city = TextEditingController();
   final _state = TextEditingController();
@@ -224,8 +238,8 @@ class _StudioEditorScreenState extends State<_StudioEditorScreen> {
       _name.text = s.name;
       _tagline.text = s.tagline ?? '';
       _about.text = s.about ?? '';
-      _hero.text = s.heroImageUrl ?? '';
-      _photos.text = s.photos.join('\n');
+      _heroUrl = s.heroImageUrl;
+      _photoUrls = List<String>.from(s.photos);
       for (final h in s.hours) {
         _hours[h.day] = _HourDraft(
           open: h.open ?? '',
@@ -271,8 +285,6 @@ class _StudioEditorScreenState extends State<_StudioEditorScreen> {
     _name.dispose();
     _tagline.dispose();
     _about.dispose();
-    _hero.dispose();
-    _photos.dispose();
     _memberQuery.dispose();
     for (final h in _hours.values) {
       h.dispose();
@@ -303,12 +315,8 @@ class _StudioEditorScreenState extends State<_StudioEditorScreen> {
       'name': _name.text.trim(),
       'tagline': _tagline.text.trim(),
       'about': _about.text.trim(),
-      'heroImageUrl': _hero.text.trim(),
-      'photos': _photos.text
-          .split(RegExp(r'[\n,]'))
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList(),
+      'heroImageUrl': _heroUrl ?? '',
+      'photos': _photoUrls,
       'hours': _weekDays.map((d) {
         final h = _hours[d]!;
         return h.toPayload(d);
@@ -328,6 +336,58 @@ class _StudioEditorScreenState extends State<_StudioEditorScreen> {
       'amenities': _amenities.toList(),
       'rates': rates,
     };
+  }
+
+  Future<String?> _pickAndUpload() async {
+    final picked = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
+    if (picked == null) return null;
+    final file = File(picked.path);
+    final sizeBytes = await file.length();
+    if (sizeBytes > 15 * 1024 * 1024) {
+      if (!mounted) return null;
+      setState(() => _error = 'Image must be 15MB or smaller.');
+      return null;
+    }
+    return _service.uploadPhoto(file);
+  }
+
+  Future<void> _uploadHero() async {
+    if (_uploadingHero) return;
+    setState(() {
+      _uploadingHero = true;
+      _error = null;
+    });
+    try {
+      final url = await _pickAndUpload();
+      if (!mounted || url == null) return;
+      setState(() => _heroUrl = url);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _uploadingHero = false);
+    }
+  }
+
+  Future<void> _uploadGalleryPhoto() async {
+    if (_uploadingPhoto || _photoUrls.length >= 12) return;
+    setState(() {
+      _uploadingPhoto = true;
+      _error = null;
+    });
+    try {
+      final url = await _pickAndUpload();
+      if (!mounted || url == null) return;
+      setState(() => _photoUrls = [..._photoUrls, url]);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
+    }
   }
 
   Future<void> _searchMembers(String raw) async {
@@ -436,17 +496,122 @@ class _StudioEditorScreenState extends State<_StudioEditorScreen> {
             maxLines: 4,
             decoration: const InputDecoration(labelText: 'About'),
           ),
-          TextField(
-            controller: _hero,
-            decoration: const InputDecoration(labelText: 'Banner image URL'),
-          ),
-          TextField(
-            controller: _photos,
-            maxLines: 3,
-            decoration: const InputDecoration(
-              labelText: 'Studio photos (one image URL per line)',
+          const SizedBox(height: 16),
+          Text(
+            'Banner photo',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
             ),
           ),
+          const SizedBox(height: 8),
+          AspectRatio(
+            aspectRatio: 16 / 7,
+            child: InkWell(
+              onTap: _uploadingHero ? null : _uploadHero,
+              borderRadius: BorderRadius.circular(12),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: _heroUrl != null && _heroUrl!.isNotEmpty
+                    ? Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Image.network(_heroUrl!, fit: BoxFit.cover),
+                          if (_uploadingHero)
+                            const ColoredBox(
+                              color: Colors.black38,
+                              child: Center(child: CircularProgressIndicator()),
+                            ),
+                          Positioned(
+                            right: 8,
+                            top: 8,
+                            child: IconButton.filled(
+                              tooltip: 'Remove banner',
+                              onPressed: () => setState(() => _heroUrl = null),
+                              icon: const Icon(Icons.close),
+                            ),
+                          ),
+                        ],
+                      )
+                    : ColoredBox(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest,
+                        child: Center(
+                          child: _uploadingHero
+                              ? const CircularProgressIndicator()
+                              : const Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.add_a_photo_outlined),
+                                    SizedBox(height: 6),
+                                    Text('Upload banner'),
+                                  ],
+                                ),
+                        ),
+                      ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Text(
+                'Studio photos',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: _uploadingPhoto || _photoUrls.length >= 12
+                    ? null
+                    : _uploadGalleryPhoto,
+                icon: _uploadingPhoto
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.add),
+                label: const Text('Add photo'),
+              ),
+            ],
+          ),
+          if (_photoUrls.isNotEmpty)
+            SizedBox(
+              height: 96,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _photoUrls.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                itemBuilder: (context, i) {
+                  return Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          _photoUrls[i],
+                          width: 128,
+                          height: 96,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        child: IconButton(
+                          tooltip: 'Remove',
+                          onPressed: () => setState(
+                            () => _photoUrls = [..._photoUrls]..removeAt(i),
+                          ),
+                          icon: const Icon(Icons.close, size: 18),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
           const SizedBox(height: 20),
           Text(
             'Hours',

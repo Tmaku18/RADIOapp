@@ -31,6 +31,7 @@ import { Separator } from '@/components/ui/separator';
 import { HugeiconsIcon } from '@hugeicons/react';
 import { ComputerSettingsIcon } from '@hugeicons/core-free-icons';
 import {
+  Building2,
   FileSearch,
   Flame,
   Headphones,
@@ -86,6 +87,7 @@ const listenerNavigation: MainNavItem[] = [
   { name: 'DMs', href: '/messages', icon: MessageCircle },
   { name: 'Live DJ', href: '/dj', icon: Headphones },
   { name: 'Live Performances', href: '/performances', icon: Mic2 },
+  { name: 'Studios', href: '/studios', icon: Building2 },
   { name: 'Feed', href: '/social', icon: Rss },
   { name: 'Discover', href: '/social/discover', icon: Flame },
   { name: 'Vote', href: '/competition', icon: Megaphone },
@@ -99,6 +101,7 @@ const artistNavigation: MainNavItem[] = [
   { name: 'DMs', href: '/messages', icon: MessageCircle },
   { name: 'Live DJ', href: '/dj', icon: Headphones },
   { name: 'Live Performances', href: '/performances', icon: Mic2 },
+  { name: 'Studios', href: '/studios', icon: Building2 },
   { name: 'Feed', href: '/social', icon: Rss },
   { name: 'Discover', href: '/social/discover', icon: Flame },
   { name: 'My Uploaded Songs', href: '/artist/songs', icon: UploadCloud },

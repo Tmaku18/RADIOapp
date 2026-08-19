@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -8,8 +9,11 @@ import {
   Post,
   Query,
   UnauthorizedException,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { FirebaseAuthGuard } from '../auth/guards/firebase-auth.guard';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
@@ -17,12 +21,16 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { getSupabaseClient } from '../config/supabase.config';
 import { StudiosService } from './studios.service';
+import { UploadsService } from '../uploads/uploads.service';
 import { CreateStudioDto, UpdateStudioDto } from './dto/upsert-studio.dto';
 
 @Controller('studios')
 @UseGuards(FirebaseAuthGuard)
 export class StudiosController {
-  constructor(private readonly studios: StudiosService) {}
+  constructor(
+    private readonly studios: StudiosService,
+    private readonly uploads: UploadsService,
+  ) {}
 
   private async getUserId(firebaseUid: string): Promise<string> {
     const supabase = getSupabaseClient();
@@ -76,6 +84,29 @@ export class StudiosController {
   @Roles('artist', 'service_provider', 'admin')
   async searchPeople(@Query('q') q?: string) {
     return { items: await this.studios.searchBookablePeople(q ?? '') };
+  }
+
+  /** JPEG, PNG, or WebP up to 15MB — same path as profile / cover photos. */
+  @Post('photos')
+  @UseGuards(RolesGuard)
+  @Roles('artist', 'service_provider', 'admin')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 15 * 1024 * 1024 },
+    }),
+  )
+  async uploadPhoto(
+    @CurrentUser() user: FirebaseUser,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException(
+        'No file uploaded. Send a file in the "file" field.',
+      );
+    }
+    const userId = await this.getUserId(user.uid);
+    const url = await this.uploads.uploadHeroImage(file, userId);
+    return { url };
   }
 
   @Get(':id')

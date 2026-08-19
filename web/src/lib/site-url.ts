@@ -78,6 +78,7 @@ export const NOINDEX_PATH_PREFIXES = [
   '/competition',
   '/refinery',
   '/studio',
+  '/studios',
   '/watch',
   '/yield',
   '/library',

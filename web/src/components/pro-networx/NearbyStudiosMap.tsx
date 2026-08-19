@@ -53,10 +53,12 @@ export function NearbyStudiosMap({
   items,
   userLat,
   userLng,
+  studioPrefix = '/pro-networx/studios',
 }: {
   items: PeopleDirectoryItem[];
   userLat: number | null;
   userLng: number | null;
+  studioPrefix?: string;
 }) {
   const mappable = useMemo(
     () =>
@@ -123,7 +125,7 @@ export function NearbyStudiosMap({
                     </div>
                   )}
                   <Link
-                    href={`/pro-networx/studios/${item.id}`}
+                    href={`${studioPrefix}/${item.id}`}
                     className="text-xs text-cyan-600 underline mt-1 inline-block"
                   >
                     Open studio

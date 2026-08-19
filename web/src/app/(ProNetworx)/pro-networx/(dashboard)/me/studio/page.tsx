@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { studiosApi, type Studio, type StudioHour, type StudioMember, type StudioRateUnit } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { StudioPhotoUploader } from '@/components/studios/StudioPhotoUploader';
 import { hasArtistCapability } from '@/lib/roles';
 
 const AMENITIES = [
@@ -38,7 +40,12 @@ function defaultHours(existing?: StudioHour[]): StudioHour[] {
   });
 }
 
-export default function MyStudioPage() {
+export default function MyStudioPage({
+  viewPrefix = '/pro-networx/studios',
+}: {
+  viewPrefix?: string;
+}) {
+  const searchParams = useSearchParams();
   const { profile, loading: authLoading } = useAuth();
   const allowed =
     !!profile &&
@@ -48,7 +55,7 @@ export default function MyStudioPage() {
 
   const [items, setItems] = useState<Studio[]>([]);
   const [editing, setEditing] = useState<Studio | null>(null);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState(searchParams.get('new') === '1');
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
@@ -130,7 +137,7 @@ export default function MyStudioPage() {
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" asChild>
-                  <Link href={`/pro-networx/studios/${s.id}`}>View</Link>
+                  <Link href={`${viewPrefix}/${s.id}`}>View</Link>
                 </Button>
                 <Button variant="outline" onClick={() => setEditing(s)}>
                   Edit
@@ -157,7 +164,7 @@ function StudioForm({
   const [tagline, setTagline] = useState(existing?.tagline ?? '');
   const [about, setAbout] = useState(existing?.about ?? '');
   const [heroImageUrl, setHeroImageUrl] = useState(existing?.heroImageUrl ?? '');
-  const [photos, setPhotos] = useState((existing?.photos ?? []).join('\n'));
+  const [photos, setPhotos] = useState<string[]>(existing?.photos ?? []);
   const [hours, setHours] = useState<StudioHour[]>(defaultHours(existing?.hours));
   const [members, setMembers] = useState<StudioMember[]>(existing?.members ?? []);
   const [memberQuery, setMemberQuery] = useState('');
@@ -196,7 +203,7 @@ function StudioForm({
       tagline: tagline.trim(),
       about: about.trim(),
       heroImageUrl: heroImageUrl.trim(),
-      photos: photos.split(/[\n,]/).map((s) => s.trim()).filter(Boolean),
+      photos,
       hours,
       members: members.map((m) => ({ userId: m.userId, title: m.title ?? undefined })),
       addressLine1: addressLine1.trim(),
@@ -244,12 +251,12 @@ function StudioForm({
         <Field label="About">
           <Textarea value={about} onChange={(e) => setAbout(e.target.value)} rows={4} />
         </Field>
-        <Field label="Banner image URL">
-          <Input value={heroImageUrl} onChange={(e) => setHeroImageUrl(e.target.value)} />
-        </Field>
-        <Field label="Studio photos (one image URL per line)">
-          <Textarea value={photos} onChange={(e) => setPhotos(e.target.value)} rows={3} />
-        </Field>
+        <StudioPhotoUploader
+          heroUrl={heroImageUrl}
+          photos={photos}
+          onHeroChange={setHeroImageUrl}
+          onPhotosChange={setPhotos}
+        />
         <div className="space-y-2">
           <Label>Hours</Label>
           {hours.map((h, i) => (

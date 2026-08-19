@@ -66,6 +66,8 @@ class AppRoutes {
   static const savedPosts = '/saved-posts';
   static const likedPosts = '/liked-posts';
   static const nearbyPeople = '/nearby-people';
+  /// Public studio directory + Nearby (Radio and Pro-Networx).
+  static const studios = '/studios';
   /// Public studio profile. Distinct from [studio] (My Songs).
   static const studioProfile = '/studios/view';
   /// Owner editor for recording-studio pages.

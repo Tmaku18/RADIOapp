@@ -5,6 +5,7 @@ import '../../core/navigation/app_routes.dart';
 import '../../core/services/studio_service.dart';
 import '../../core/theme/networx_tokens.dart';
 import '../nearby/nearby_people_screen.dart';
+import '../studios/my_studio_screen.dart';
 
 /// Pro-Networx Studios tab — directory plus Nearby (list / map).
 class ProStudiosScreen extends StatefulWidget {
@@ -104,11 +105,17 @@ class _ProStudiosScreenState extends State<ProStudiosScreen>
               ),
               const SizedBox(width: 8),
               IconButton(
-                tooltip: 'My studio',
-                onPressed: () =>
-                    Navigator.pushNamed(context, AppRoutes.myStudio)
-                        .then((_) => _load()),
-                icon: const Icon(Icons.edit_outlined),
+                tooltip: 'New studio',
+                onPressed: () => Navigator.of(context)
+                    .push<bool>(
+                      MaterialPageRoute(
+                        builder: (_) => const StudioEditorScreen(),
+                      ),
+                    )
+                    .then((saved) {
+                      if (saved == true) _load();
+                    }),
+                icon: const Icon(Icons.add),
               ),
             ],
           ),

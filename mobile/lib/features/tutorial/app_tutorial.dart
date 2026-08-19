@@ -101,10 +101,10 @@ class AppTutorial {
       nav: TutorialNavTarget.voteOrPro,
     ),
     TutorialStep(
-      title: 'Nearby Studios',
+      title: 'Studios',
       body:
-          'In Pro-Networx → Studios, open Nearby to browse rooms by list or '
-          'map. Tap a banner for hours, rates, and who you can book.',
+          'Open Studios in the Radio menu to browse rooms. Nearby has a list '
+          'and a map. Tap + to add your studio with photos from your camera roll.',
       nav: TutorialNavTarget.nearby,
     ),
     TutorialStep(
@@ -217,10 +217,10 @@ class AppTutorial {
       nav: TutorialNavTarget.studio,
     ),
     TutorialStep(
-      title: 'Nearby Studios',
+      title: 'Studios',
       body:
-          'In Pro-Networx → Studios → Nearby, browse rooms by list or map. '
-          'Open a studio for hours, pricing, and bookable producers.',
+          'Open Studios in the Radio menu (or Pro-Networx). Nearby has a list '
+          'and a map. Tap + to publish your room with uploaded photos.',
       nav: TutorialNavTarget.nearby,
     ),
     TutorialStep(
@@ -380,7 +380,7 @@ class _TutorialOverlayState extends State<_TutorialOverlay> {
         if (!_openedNearby) {
           await _popExtraRoutes();
           _openedNearby = true;
-          await widget.openRoute(AppRoutes.nearbyPeople);
+          await widget.openRoute(AppRoutes.studios);
         }
       case TutorialNavTarget.none:
         break;

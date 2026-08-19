@@ -40,7 +40,11 @@ function formatDistance(item: PeopleDirectoryItem): string | null {
   return `${(item.distanceKm / KM_PER_MILE).toFixed(1)} mi`;
 }
 
-export function NearbyStudiosPanel() {
+export function NearbyStudiosPanel({
+  studioPrefix = '/pro-networx/studios',
+}: {
+  studioPrefix?: string;
+}) {
   const [items, setItems] = useState<PeopleDirectoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -157,7 +161,7 @@ export function NearbyStudiosPanel() {
                 const price = formatStartingAt(item);
                 const dist = formatDistance(item);
                 return (
-                  <Link key={item.id} href={`/pro-networx/studios/${item.id}`}>
+                  <Link key={item.id} href={`${studioPrefix}/${item.id}`}>
                     <Card className="overflow-hidden h-full hover:border-cyan-400/50 transition-colors p-0">
                       {hero ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -208,6 +212,7 @@ export function NearbyStudiosPanel() {
               items={items}
               userLat={userLat}
               userLng={userLng}
+              studioPrefix={studioPrefix}
             />
           )}
         </TabsContent>

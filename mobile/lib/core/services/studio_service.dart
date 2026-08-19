@@ -1,3 +1,8 @@
+import 'dart:io';
+
+import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
+
 import '../models/studio_models.dart';
 import 'api_service.dart';
 
@@ -61,6 +66,36 @@ class StudioService {
 
   Future<void> remove(String id) async {
     await _api.delete('studios/${Uri.encodeComponent(id)}');
+  }
+
+  Future<String> uploadPhoto(File file) async {
+    String contentType;
+    final lowerPath = file.path.toLowerCase();
+    if (lowerPath.endsWith('.jpg') || lowerPath.endsWith('.jpeg')) {
+      contentType = 'image/jpeg';
+    } else if (lowerPath.endsWith('.png')) {
+      contentType = 'image/png';
+    } else if (lowerPath.endsWith('.webp')) {
+      contentType = 'image/webp';
+    } else {
+      throw Exception('Please choose a JPEG, PNG, or WebP image.');
+    }
+    final parts = contentType.split('/');
+    final multipartFile = await http.MultipartFile.fromPath(
+      'file',
+      file.path,
+      contentType: MediaType(parts[0], parts[1]),
+    );
+    final res = await _api.postMultipart(
+      'studios/photos',
+      const {},
+      [multipartFile],
+    );
+    if (res is Map) {
+      final url = (res['url'] ?? '').toString().trim();
+      if (url.isNotEmpty) return url;
+    }
+    throw Exception('Failed to upload studio photo');
   }
 
   Future<List<StudioMember>> searchPeople(String query) async {
