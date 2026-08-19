@@ -153,12 +153,12 @@ export class EmailService {
       html: `
         <h2>Good news!</h2>
         <p>Your song <strong>${songTitle}</strong> has been approved and is now live on RadioApp.</p>
-        <p>Don't forget to allocate credits to get airtime!</p>
+        <p>Buy placements for this track from My Songs to get it into radio rotation.</p>
         <p><a href="https://radioapp.com/artist/songs">Manage your songs</a></p>
         <br>
         <p>- The RadioApp Team</p>
       `,
-      text: `Your song "${songTitle}" has been approved and is now live on RadioApp. Don't forget to allocate credits to get airtime!`,
+      text: `Your song "${songTitle}" has been approved and is now live on RadioApp. Buy placements for this track from My Songs to get it into radio rotation.`,
     });
   }
 

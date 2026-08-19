@@ -193,7 +193,7 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
                         AppRoutes.proMeProfile,
                       ),
                       if (widget.isArtist) ...[
-                        _subRow('Credits', AppRoutes.credits),
+                        _subRow('Placements', AppRoutes.credits),
                       ],
                       if (widget.isStreamerRole) ...[
                         _subRow('Stream settings', AppRoutes.streamSettings),

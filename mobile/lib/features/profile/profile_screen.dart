@@ -1544,7 +1544,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       ListTile(
                         leading: const Icon(Icons.library_music_outlined),
-                        title: const Text('Credits'),
+                        title: const Text('Placements'),
                         subtitle: const Text('Balance and history'),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () {

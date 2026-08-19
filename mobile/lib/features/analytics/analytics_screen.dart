@@ -108,12 +108,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Guaranteed Signals Remaining',
+                          'Placement plays remaining',
                           style: TextStyle(color: surfaces.textSecondary),
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          (_balance['balance'] ?? 0).toString(),
+                          (_data?.creditsRemaining ??
+                                  _balance['balance'] ??
+                                  0)
+                              .toString(),
                           style: Theme.of(context)
                               .textTheme
                               .displaySmall
@@ -124,7 +127,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Plays we’ve promised your tracks',
+                          'Paid radio plays still queued for your tracks',
                           style: TextStyle(color: surfaces.textMuted),
                         ),
                       ],
@@ -216,10 +219,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       _StatCard(
                         label: 'Likes This Month',
                         value: _data!.likesThisMonth.toString(),
-                      ),
-                      _StatCard(
-                        label: 'Credits Used',
-                        value: _data!.totalCreditsUsed.toString(),
                       ),
                       _StatCard(
                         label: 'Paid Plays',

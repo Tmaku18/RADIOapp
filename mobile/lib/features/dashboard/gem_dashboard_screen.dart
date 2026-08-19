@@ -142,9 +142,9 @@ class GemDashboardScreen extends StatelessWidget {
               ),
               _DashTile(
                 icon: Icons.payments_outlined,
-                title: 'Credits',
-                desc: 'Buy plays and manage credits.',
-                onTap: () => Navigator.pushNamed(context, AppRoutes.credits),
+                title: 'Placements',
+                desc: 'Buy radio placements for your songs.',
+                onTap: () => Navigator.pushNamed(context, AppRoutes.studio),
               ),
               _DashTile(
                 icon: Icons.science_outlined,

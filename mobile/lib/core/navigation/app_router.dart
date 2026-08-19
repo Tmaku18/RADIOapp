@@ -33,7 +33,6 @@ import '../../features/refinery/refinery_screen.dart';
 import '../../features/refinery/refinery_analytics_screen.dart';
 import '../../features/room/room_screen.dart';
 import '../../features/settings/settings_screen.dart';
-import '../../features/studio/allocate_plays_screen.dart';
 import '../../features/studio/buy_plays_screen.dart';
 import '../../features/studio/live_services_screen.dart';
 import '../../features/studio/studio_screen.dart';
@@ -225,7 +224,7 @@ class AppRouter {
         );
       case AppRoutes.allocatePlays:
         if (args is Song) {
-          return _route(AllocatePlaysScreen(song: args), settings);
+          return _route(BuyPlaysScreen(song: args), settings);
         }
         return _unknown(settings);
       case AppRoutes.discoverCreateVideo:

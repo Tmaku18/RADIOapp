@@ -110,12 +110,9 @@ export class PaymentsService {
         `Invalid catalog amountCents for ${storeLabel} product: ${productId}`,
       );
     }
-    if (
-      product.type === 'credits' &&
-      (!product.credits || product.credits <= 0)
-    ) {
-      throw new Error(
-        `Invalid credits mapping for ${storeLabel} product: ${productId}`,
+    if (product.type === 'credits') {
+      throw new BadRequestException(
+        'Credit packages are no longer sold. Buy placements for a song from My Songs.',
       );
     }
     if (
@@ -910,51 +907,14 @@ export class PaymentsService {
   }
 
   async createPaymentIntent(
-    userId: string,
-    dto: CreatePaymentIntentDto,
+    _userId: string,
+    _dto: CreatePaymentIntentDto,
     platform?: string | null,
   ) {
     this.assertStripeAllowedForDigitalGoods(platform);
-    const supabase = getSupabaseClient();
-
-    // Create transaction record
-    const { data: transaction, error: txError } = await supabase
-      .from('transactions')
-      .insert({
-        user_id: userId,
-        amount_cents: dto.amount,
-        credits_purchased: dto.credits,
-        status: 'pending',
-      })
-      .select()
-      .single();
-
-    if (txError) {
-      throw new Error(`Failed to create transaction: ${txError.message}`);
-    }
-
-    // Create Stripe payment intent
-    const paymentIntent = await this.stripeService.createPaymentIntent(
-      dto.amount,
-      {
-        userId,
-        transactionId: transaction.id,
-        credits: dto.credits.toString(),
-      },
+    throw new BadRequestException(
+      'Credit packages are no longer sold. Buy placements for a song from My Songs.',
     );
-
-    // Update transaction with payment intent ID
-    await supabase
-      .from('transactions')
-      .update({
-        stripe_payment_intent_id: paymentIntent.id,
-      })
-      .eq('id', transaction.id);
-
-    return {
-      clientSecret: paymentIntent.client_secret,
-      transactionId: transaction.id,
-    };
   }
 
   /**
@@ -1741,54 +1701,13 @@ export class PaymentsService {
    * Create a Stripe Checkout Session for web payments.
    * This is used by the web app instead of PaymentIntents.
    */
-  async createCheckoutSession(userId: string, dto: CreateCheckoutSessionDto) {
-    const supabase = getSupabaseClient();
-    const webUrl =
-      this.configService.get<string>('WEB_URL') || 'http://localhost:3001';
-
-    // Create transaction record
-    const { data: transaction, error: txError } = await supabase
-      .from('transactions')
-      .insert({
-        user_id: userId,
-        amount_cents: dto.amount,
-        credits_purchased: dto.credits,
-        status: 'pending',
-        payment_method: 'checkout_session',
-      })
-      .select()
-      .single();
-
-    if (txError) {
-      throw new Error(`Failed to create transaction: ${txError.message}`);
-    }
-
-    // Create Stripe Checkout Session
-    const session = await this.stripeService.createCheckoutSession(
-      dto.amount,
-      dto.credits,
-      {
-        userId,
-        transactionId: transaction.id,
-        credits: dto.credits.toString(),
-      },
-      `${webUrl}/artist/credits?success=true&session_id={CHECKOUT_SESSION_ID}`,
-      `${webUrl}/artist/credits?canceled=true`,
+  async createCheckoutSession(
+    _userId: string,
+    _dto: CreateCheckoutSessionDto,
+  ) {
+    throw new BadRequestException(
+      'Credit packages are no longer sold. Buy placements for a song from My Songs.',
     );
-
-    // Update transaction with checkout session ID
-    await supabase
-      .from('transactions')
-      .update({
-        stripe_checkout_session_id: session.id,
-      })
-      .eq('id', transaction.id);
-
-    return {
-      sessionId: session.id,
-      url: session.url,
-      transactionId: transaction.id,
-    };
   }
 
   /**

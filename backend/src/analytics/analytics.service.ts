@@ -661,13 +661,6 @@ export class AnalyticsService {
     );
     const totalFreePlays = Math.max(0, totalSongPlayCount - totalPaidPlays);
 
-    // Get artist's credits
-    const { data: credits } = await supabase
-      .from('credits')
-      .select('balance, total_used')
-      .eq('artist_id', artistId)
-      .single();
-
     // Total plays = sum of real per-song plays (RPC); fall back to a count query
     // when the RPC is unavailable.
     let totalPlays = 0;
@@ -751,8 +744,7 @@ export class AnalyticsService {
           totalListens: listenCountBySongId.get(song.id) ?? 0,
           paidPlays: song.paid_play_count || 0,
           freePlays: Math.max(0, realPlays - (song.paid_play_count || 0)),
-          creditsUsed:
-            realPlays * Math.ceil((song.duration_seconds || 180) / 5),
+          creditsUsed: song.paid_play_count || 0,
           creditsRemaining: song.credits_remaining || 0,
           likeCount: likeCountBySongId.get(song.id) ?? (song.like_count || 0),
           trialPlaysUsed: song.trial_plays_used || 0,
@@ -793,10 +785,11 @@ export class AnalyticsService {
       totalFreePlays,
       totalSongs: scopedSongs.length,
       totalLikes,
-      totalCreditsUsed: credits?.total_used || 0,
-      creditsRemaining: scopedSongId
-        ? scopedSongs[0]?.credits_remaining || 0
-        : credits?.balance || 0,
+      totalCreditsUsed: totalPaidPlays,
+      creditsRemaining: scopedSongs.reduce(
+        (sum, song) => sum + (song.credits_remaining || 0),
+        0,
+      ),
       dailyPlays,
       topSongs,
       catalogSongs,

@@ -1108,7 +1108,7 @@ export default function AdminSongsPage() {
                 </th>
                 <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Artist</th>
                 <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Duration</th>
-                <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Credits</th>
+                <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Plays left</th>
                 <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Listens</th>
                 <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Likes</th>
                 <th 

@@ -59,7 +59,7 @@ export default function CreditsPage() {
             There is no credit bank — you buy placements for each approved song.
           </p>
           <p className="text-muted-foreground mb-2">
-            Go to <strong className="text-foreground">My Songs</strong>, then click <strong className="text-foreground">Buy plays</strong> on an approved track to choose 1, 3, 5, 10, 25, 50, or 100 placements.
+            Go to <strong className="text-foreground">My Songs</strong>, then click <strong className="text-foreground">Buy placements</strong> on an approved track to choose 1, 3, 5, 10, 25, 50, or 100 placements.
           </p>
           <Button variant="default" asChild>
             <Link href="/artist/songs">Open My Songs →</Link>
@@ -78,7 +78,7 @@ export default function CreditsPage() {
           <h2 className="text-xl font-semibold text-foreground mb-6">Transaction history</h2>
           {transactions.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground">
-              No transactions yet. Buy plays for an approved song from My Songs to get started.
+              No transactions yet. Buy placements for an approved song from My Songs to get started.
             </div>
           ) : (
             <div className="divide-y divide-border">

@@ -227,9 +227,9 @@ export default function StatsPage() {
       )}
       <Card className="border-primary/30 bg-primary/5">
         <CardContent className="pt-6">
-          <div className="text-sm text-muted-foreground font-medium">Guaranteed Signals Remaining</div>
-          <div className="text-4xl font-bold text-primary mt-1">{credits.balance.toLocaleString()}</div>
-          <p className="text-sm text-muted-foreground mt-2">Plays we&apos;ve promised your tracks</p>
+          <div className="text-sm text-muted-foreground font-medium">Placement plays remaining</div>
+          <div className="text-4xl font-bold text-primary mt-1">{(analytics?.creditsRemaining ?? credits.balance).toLocaleString()}</div>
+          <p className="text-sm text-muted-foreground mt-2">Paid radio plays still queued for your tracks</p>
         </CardContent>
       </Card>
 
@@ -312,9 +312,9 @@ export default function StatsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <Card>
           <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground font-medium">Credits Used</div>
+            <div className="text-sm text-muted-foreground font-medium">Placement plays used</div>
             <div className="text-3xl font-bold text-foreground mt-1">{(analytics?.totalCreditsUsed ?? credits.totalUsed).toLocaleString()}</div>
-            <div className="text-sm text-primary mt-2">{credits.balance} remaining</div>
+            <div className="text-sm text-primary mt-2">{(analytics?.creditsRemaining ?? credits.balance).toLocaleString()} remaining</div>
           </CardContent>
         </Card>
 
@@ -517,7 +517,7 @@ export default function StatsPage() {
                     </p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-sm text-muted-foreground">{song.creditsUsed.toLocaleString()} credits used</p>
+                    <p className="text-sm text-muted-foreground">{song.creditsUsed.toLocaleString()} placement plays used</p>
                     <p className="text-xs text-muted-foreground">{song.creditsRemaining} remaining</p>
                   </div>
                 </div>

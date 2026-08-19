@@ -1,100 +1,42 @@
-import {
-  Injectable,
-  BadRequestException,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 
 /**
- * Service for managing credit allocations between artist bank and songs.
- * Uses PostgreSQL RPC functions for atomic transactions.
+ * Placement budget lives on `songs.credits_remaining`.
+ * The old credit bank + allocate/withdraw flow is retired.
  */
 @Injectable()
 export class CreditsService {
   /**
-   * Allocate credits from artist's bank to a specific song.
-   * Uses atomic RPC function to ensure consistency.
-   *
-   * @param artistId - The artist's Supabase user ID
-   * @param songId - The target song ID
-   * @param amount - Number of credits to allocate
+   * Retired: artists buy placements per song instead of allocating a bank.
    */
   async allocateCreditsToSong(
-    artistId: string,
-    songId: string,
+    _artistId: string,
+    _songId: string,
     amount: number,
   ) {
     if (amount <= 0) {
       throw new BadRequestException('Amount must be positive');
     }
-
-    const supabase = getSupabaseClient();
-
-    const { data, error } = await supabase.rpc('allocate_credits', {
-      p_artist_id: artistId,
-      p_song_id: songId,
-      p_amount: amount,
-    });
-
-    if (error) {
-      throw new BadRequestException(
-        `Failed to allocate credits: ${error.message}`,
-      );
-    }
-
-    if (!data.success) {
-      throw new BadRequestException(data.error);
-    }
-
-    return {
-      success: true,
-      balanceBefore: data.balance_before,
-      balanceAfter: data.balance_after,
-      songCredits: data.song_credits,
-    };
+    throw new BadRequestException(
+      'Credits are no longer used. Buy placements for a song from My Songs.',
+    );
   }
 
   /**
-   * Withdraw credits from a song back to artist's bank.
-   * Uses atomic RPC function to ensure consistency.
-   *
-   * @param artistId - The artist's Supabase user ID
-   * @param songId - The source song ID
-   * @param amount - Number of credits to withdraw
+   * Retired: artists buy placements per song instead of withdrawing a bank.
    */
   async withdrawCreditsFromSong(
-    artistId: string,
-    songId: string,
+    _artistId: string,
+    _songId: string,
     amount: number,
   ) {
     if (amount <= 0) {
       throw new BadRequestException('Amount must be positive');
     }
-
-    const supabase = getSupabaseClient();
-
-    const { data, error } = await supabase.rpc('withdraw_credits', {
-      p_artist_id: artistId,
-      p_song_id: songId,
-      p_amount: amount,
-    });
-
-    if (error) {
-      throw new BadRequestException(
-        `Failed to withdraw credits: ${error.message}`,
-      );
-    }
-
-    if (!data.success) {
-      throw new BadRequestException(data.error);
-    }
-
-    return {
-      success: true,
-      balanceBefore: data.balance_before,
-      balanceAfter: data.balance_after,
-      songCredits: data.song_credits,
-    };
+    throw new BadRequestException(
+      'Credits are no longer used. Buy placements for a song from My Songs.',
+    );
   }
 
   /**
@@ -111,16 +53,27 @@ export class CreditsService {
       .eq('artist_id', artistId)
       .single();
 
+    const { data: songs } = await supabase
+      .from('songs')
+      .select('credits_remaining')
+      .eq('artist_id', artistId);
+    const placementBudget = (songs ?? []).reduce(
+      (sum, song) => sum + (Number(song.credits_remaining) || 0),
+      0,
+    );
+
     if (!credits) {
       return {
-        balance: 0,
+        balance: placementBudget,
+        placementBudget,
         totalPurchased: 0,
         totalUsed: 0,
       };
     }
 
     return {
-      balance: credits.balance,
+      balance: placementBudget,
+      placementBudget,
       totalPurchased: credits.total_purchased,
       totalUsed: credits.total_used,
     };

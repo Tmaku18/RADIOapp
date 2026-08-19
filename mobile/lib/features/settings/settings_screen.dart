@@ -754,9 +754,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _navTile(
                     context,
                     icon: Icons.credit_card_outlined,
-                    title: 'Payments',
-                    subtitle: 'Payment methods, billing',
-                    onTap: () => Navigator.pushNamed(context, AppRoutes.payment),
+                    title: 'Placements',
+                    subtitle: 'Buy radio placements and view purchases',
+                    onTap: () => Navigator.pushNamed(context, AppRoutes.credits),
                   ),
                   _navTile(
                     context,

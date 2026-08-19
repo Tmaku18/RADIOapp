@@ -576,7 +576,7 @@ class _StudioScreenState extends State<StudioScreen>
                                           ),
                                         ),
                                         Text(
-                                          'plays',
+                                          'plays left',
                                           style: TextStyle(
                                             color: surfaces.textMuted,
                                             fontSize: 11,
@@ -618,16 +618,6 @@ class _StudioScreenState extends State<StudioScreen>
                                     spacing: 8,
                                     runSpacing: 8,
                                     children: [
-                                      OutlinedButton(
-                                        onPressed: () {
-                                          Navigator.pushNamed(
-                                            context,
-                                            AppRoutes.allocatePlays,
-                                            arguments: s,
-                                          ).then((_) => _load());
-                                        },
-                                        child: const Text('Allocate'),
-                                      ),
                                       FilledButton(
                                         onPressed: () {
                                           Navigator.pushNamed(
@@ -638,7 +628,7 @@ class _StudioScreenState extends State<StudioScreen>
                                             if (result == true) _load();
                                           });
                                         },
-                                        child: const Text('Buy plays'),
+                                        child: const Text('Buy placements'),
                                       ),
                                     ],
                                   ),

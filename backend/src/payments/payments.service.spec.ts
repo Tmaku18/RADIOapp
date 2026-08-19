@@ -1,18 +1,9 @@
 import { PaymentsService } from './payments.service';
-import { getSupabaseClient } from '../config/supabase.config';
-import { createSupabaseMock } from '../test-utils/supabase-mock';
-
-jest.mock('../config/supabase.config', () => ({
-  getSupabaseClient: jest.fn(),
-}));
 
 describe('PaymentsService', () => {
-  it('creates payment intent and returns client secret', async () => {
+  it('rejects credit-package payment intents', async () => {
     const stripeService = {
-      createPaymentIntent: jest.fn().mockResolvedValue({
-        id: 'pi_test',
-        client_secret: 'secret',
-      }),
+      createPaymentIntent: jest.fn(),
     };
     const configService = { get: jest.fn() };
     const creatorNetwork = {};
@@ -36,21 +27,16 @@ describe('PaymentsService', () => {
       appStoreBillingService as any,
       refineryService as any,
     );
-    const supabase = createSupabaseMock();
 
-    supabase.__builder.single.mockResolvedValue({
-      data: { id: 'tx-1' },
-      error: null,
+    await expect(
+      service.createPaymentIntent('user-id', {
+        amount: 500,
+        credits: 25,
+      }),
+    ).rejects.toMatchObject({
+      message:
+        'Credit packages are no longer sold. Buy placements for a song from My Songs.',
     });
-
-    (getSupabaseClient as jest.Mock).mockReturnValue(supabase);
-
-    const result = await service.createPaymentIntent('user-id', {
-      amount: 500,
-      credits: 25,
-    });
-
-    expect(result.clientSecret).toBe('secret');
-    expect(stripeService.createPaymentIntent).toHaveBeenCalled();
+    expect(stripeService.createPaymentIntent).not.toHaveBeenCalled();
   });
 });

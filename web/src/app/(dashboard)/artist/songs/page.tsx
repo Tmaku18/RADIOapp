@@ -841,6 +841,9 @@ export default function MySongsPage() {
                           </button>
                         </div>
                         <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+                          <span>
+                            {formatNumber(song.creditsRemaining)} plays left
+                          </span>
                           {(song.paidPlayCount ?? 0) > 0 && (
                             <span>
                               {formatNumber(song.paidPlayCount ?? 0)} paid /{' '}
@@ -918,6 +921,13 @@ export default function MySongsPage() {
                                 </span>
                               )}
                             </DropdownMenuItem>
+                            {isApproved && (
+                              <DropdownMenuItem asChild>
+                                <Link href={`/artist/songs/${song.id}/buy-plays`}>
+                                  Buy placements
+                                </Link>
+                              </DropdownMenuItem>
+                            )}
                             {isApproved && (
                               <DropdownMenuItem
                                 disabled={!song.audioUrl}

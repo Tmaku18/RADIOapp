@@ -175,6 +175,7 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith('/settings')) return 'Settings';
   if (pathname === '/artist' || pathname.startsWith('/artist/songs')) return 'My Uploaded Songs';
   if (pathname.startsWith('/artist/upload')) return 'Upload';
+  if (pathname.startsWith('/artist/credits')) return 'Placements';
   if (pathname.startsWith('/artist/stats')) return 'Analytics';
   if (pathname.startsWith('/artist/live-services')) return 'Live services';
   if (pathname.startsWith('/artist/services')) return 'Pro-Networx';
