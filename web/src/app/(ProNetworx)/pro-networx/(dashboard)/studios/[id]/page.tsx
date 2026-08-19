@@ -94,9 +94,9 @@ export default function StudioProfilePage() {
         {location && <p className="text-sm text-muted-foreground mt-2">{location}</p>}
       </div>
 
-      {studio.photos?.length > 0 && (
+      {(studio.photos?.length ?? 0) > 0 && (
         <div className="flex gap-2 overflow-x-auto">
-          {studio.photos.map((src) => (
+          {(studio.photos ?? []).map((src) => (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               key={src}
@@ -140,7 +140,7 @@ export default function StudioProfilePage() {
       {(studio.hours?.length ?? 0) > 0 && (
         <Card className="p-5 space-y-1">
           <h2 className="font-semibold mb-2">Hours</h2>
-          {studio.hours.map((h) => (
+          {(studio.hours ?? []).map((h) => (
             <div key={h.day} className="flex justify-between text-sm">
               <span>{h.day}</span>
               <span className="text-muted-foreground">
@@ -154,7 +154,7 @@ export default function StudioProfilePage() {
       {(studio.members?.length ?? 0) > 0 && (
         <Card className="p-5 space-y-3">
           <h2 className="font-semibold">Book a producer or artist</h2>
-          {studio.members.map((m) => (
+          {(studio.members ?? []).map((m) => (
             <div key={m.userId} className="flex items-center justify-between gap-3">
               <div>
                 <div className="font-medium">{m.displayName || 'Creator'}</div>
@@ -174,9 +174,9 @@ export default function StudioProfilePage() {
         </Card>
       )}
 
-      {studio.amenities.length > 0 && (
+      {(studio.amenities?.length ?? 0) > 0 && (
         <div className="flex flex-wrap gap-2">
-          {studio.amenities.map((a) => (
+          {(studio.amenities ?? []).map((a) => (
             <Badge key={a} variant="secondary">
               {a}
             </Badge>
@@ -186,10 +186,10 @@ export default function StudioProfilePage() {
 
       <Card className="p-5 space-y-3">
         <h2 className="font-semibold">Rates</h2>
-        {studio.rates.length === 0 ? (
+        {(studio.rates?.length ?? 0) === 0 ? (
           <p className="text-sm text-muted-foreground">Contact the owner for pricing.</p>
         ) : (
-          studio.rates.map((r) => (
+          (studio.rates ?? []).map((r) => (
             <div key={r.id} className="flex items-start justify-between gap-4">
               <div>
                 <div className="font-medium">{r.label}</div>
