@@ -2118,7 +2118,10 @@ export const notificationsApi = {
 
 export const analyticsApi = {
   // Artist analytics (authenticated)
-  getMyAnalytics: (days?: number) => api.get('/analytics/me', { params: { days } }),
+  getMyAnalytics: (days?: number, songId?: string) =>
+    api.get('/analytics/me', {
+      params: { days, ...(songId ? { songId } : {}) },
+    }),
   getMyRoi: (days?: number) => api.get('/analytics/me/roi', { params: { days } }),
   getMyPlaysByRegion: (days?: number) => api.get('/analytics/me/plays-by-region', { params: { days } }),
   getSongAnalytics: (songId: string, days?: number) =>

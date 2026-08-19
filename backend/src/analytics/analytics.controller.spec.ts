@@ -30,6 +30,7 @@ describe('AnalyticsController', () => {
     expect(analyticsService.getArtistAnalytics).toHaveBeenCalledWith(
       'artist-id',
       7,
+      undefined,
     );
     expect(result).toEqual({ totalPlays: 10 });
   });

@@ -25,11 +25,14 @@ class AnalyticsMetrics {
     shortSub: 'unique accounts',
   );
 
-  static const spins = AnalyticsMetricDef(
-    label: 'Spins',
+  static const plays = AnalyticsMetricDef(
+    label: 'Plays',
     description: 'Total radio play events',
     shortSub: 'play events',
   );
+
+  /// @deprecated Use [plays].
+  static const spins = plays;
 
   static const liveListeners = AnalyticsMetricDef(
     label: 'Live Listeners',

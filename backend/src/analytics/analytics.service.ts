@@ -68,6 +68,8 @@ export interface ArtistAnalytics {
   creditsRemaining: number;
   dailyPlays: DailyPlayCount[];
   topSongs: SongAnalytics[];
+  /** Full catalog titles for the song/profile picker. */
+  catalogSongs: Array<{ songId: string; title: string }>;
   recentPlays: any[];
 }
 
@@ -546,6 +548,7 @@ export class AnalyticsService {
   async getArtistAnalytics(
     artistId: string,
     days: number = 30,
+    songId?: string,
   ): Promise<ArtistAnalytics> {
     const supabase = getSupabaseClient();
 
@@ -574,11 +577,23 @@ export class AnalyticsService {
         creditsRemaining: 0,
         dailyPlays: [],
         topSongs: [],
+        catalogSongs: [],
         recentPlays: [],
       };
     }
 
-    const songIds = songs.map((s) => s.id);
+    const scopedSongId = songId?.trim() || '';
+    const scopedSongs = scopedSongId
+      ? songs.filter((s) => s.id === scopedSongId)
+      : songs;
+    if (scopedSongId && scopedSongs.length === 0) {
+      return this.getArtistAnalytics(artistId, days);
+    }
+    const catalogSongs = songs.map((s) => ({
+      songId: s.id as string,
+      title: (s.title as string) || 'Untitled',
+    }));
+    const songIds = scopedSongs.map((s) => s.id);
 
     // Real per-song stats: aggregate from `plays` and `likes` via RPC so the
     // numbers reflect actual activity (cached counters on `songs` can drift,
@@ -607,10 +622,6 @@ export class AnalyticsService {
         }>) {
           if (!row.song_id) continue;
           playsCountBySongId.set(row.song_id, Number(row.plays_count) || 0);
-          listenCountBySongId.set(
-            row.song_id,
-            Number(row.listener_count_sum) || 0,
-          );
           likeCountBySongId.set(row.song_id, Number(row.like_count) || 0);
         }
       }
@@ -618,34 +629,32 @@ export class AnalyticsService {
 
     const earsBySongId = await this.getEarsReachedBySongId(songIds);
     const listensBySongId = await this.getListenCountBySongId(songIds);
-    for (const songId of songIds) {
-      const listens = listensBySongId.get(songId);
-      if (listens != null) {
-        listenCountBySongId.set(songId, listens);
-        continue;
-      }
-      const ears = earsBySongId.get(songId);
-      if (ears != null) {
-        listenCountBySongId.set(songId, ears);
-      }
+    listenCountBySongId.clear();
+    for (const id of songIds) {
+      listenCountBySongId.set(id, listensBySongId.get(id) ?? 0);
     }
 
-    const artistEarsReached = await this.getArtistEarsReached(artistId);
-    const artistListenCount = await this.getArtistListenCount(artistId);
     const summedSongListens = [...listenCountBySongId.values()].reduce(
       (sum, value) => sum + value,
       0,
     );
-    const totalListenCount = Math.max(
-      artistListenCount ?? 0,
-      summedSongListens,
+    const summedSongEars = [...earsBySongId.values()].reduce(
+      (sum, value) => sum + value,
+      0,
     );
-    const earsReached = artistEarsReached ?? 0;
-    const totalPaidPlays = (songs || []).reduce(
+    const artistEarsReached = scopedSongId
+      ? (earsBySongId.get(songIds[0]) ?? 0)
+      : await this.getArtistEarsReached(artistId);
+    const artistListenCount = scopedSongId
+      ? (listensBySongId.get(songIds[0]) ?? 0)
+      : await this.getArtistListenCount(artistId);
+    const totalListenCount = artistListenCount ?? summedSongListens;
+    const earsReached = artistEarsReached ?? summedSongEars;
+    const totalPaidPlays = scopedSongs.reduce(
       (sum, song) => sum + (song.paid_play_count || 0),
       0,
     );
-    const totalSongPlayCount = (songs || []).reduce(
+    const totalSongPlayCount = scopedSongs.reduce(
       (sum, song) =>
         sum + (playsCountBySongId.get(song.id) ?? song.play_count ?? 0),
       0,
@@ -696,12 +705,19 @@ export class AnalyticsService {
       earsReachedThisMonth,
       listensThisWeek,
       listensThisMonth,
-    ] = await Promise.all([
-      this.getArtistEarsReachedSince(artistId, weekStart),
-      this.getArtistEarsReachedSince(artistId, startDate),
-      this.getArtistListenCountSince(artistId, weekStart),
-      this.getArtistListenCountSince(artistId, startDate),
-    ]);
+    ] = scopedSongId
+      ? [
+          dailyPlays.slice(-7).reduce((sum, day) => sum + (day.ears ?? 0), 0),
+          dailyPlays.reduce((sum, day) => sum + (day.ears ?? 0), 0),
+          dailyPlays.slice(-7).reduce((sum, day) => sum + (day.listens ?? 0), 0),
+          dailyPlays.reduce((sum, day) => sum + (day.listens ?? 0), 0),
+        ]
+      : await Promise.all([
+          this.getArtistEarsReachedSince(artistId, weekStart),
+          this.getArtistEarsReachedSince(artistId, startDate),
+          this.getArtistListenCountSince(artistId, weekStart),
+          this.getArtistListenCountSince(artistId, startDate),
+        ]);
 
     const likesThisWeek = dailyPlays
       .slice(-7)
@@ -712,7 +728,7 @@ export class AnalyticsService {
     );
 
     // Top songs ranked by ears reached, then play count, with real likes.
-    const topSongs: SongAnalytics[] = songs
+    const topSongs: SongAnalytics[] = scopedSongs
       .slice()
       .sort((a, b) => {
         const listenDelta =
@@ -724,7 +740,6 @@ export class AnalyticsService {
           (playsCountBySongId.get(a.id) ?? a.play_count ?? 0)
         );
       })
-      .slice(0, 5)
       .map((song) => {
         const realPlays =
           playsCountBySongId.get(song.id) ?? (song.play_count || 0);
@@ -776,12 +791,15 @@ export class AnalyticsService {
       earsReachedThisMonth: earsReachedThisMonth ?? 0,
       totalPaidPlays,
       totalFreePlays,
-      totalSongs: songs.length,
+      totalSongs: scopedSongs.length,
       totalLikes,
       totalCreditsUsed: credits?.total_used || 0,
-      creditsRemaining: credits?.balance || 0,
+      creditsRemaining: scopedSongId
+        ? scopedSongs[0]?.credits_remaining || 0
+        : credits?.balance || 0,
       dailyPlays,
       topSongs,
+      catalogSongs,
       recentPlays: recentPlays || [],
     };
   }

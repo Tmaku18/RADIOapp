@@ -29,6 +29,7 @@ export class AnalyticsController {
   async getMyAnalytics(
     @CurrentUser() user: FirebaseUser,
     @Query('days') days?: string,
+    @Query('songId') songId?: string,
   ) {
     const supabase = getSupabaseClient();
     const { data: userData } = await supabase
@@ -42,7 +43,11 @@ export class AnalyticsController {
     }
 
     const daysNum = days ? parseInt(days, 10) : 30;
-    return this.analyticsService.getArtistAnalytics(userData.id, daysNum);
+    return this.analyticsService.getArtistAnalytics(
+      userData.id,
+      daysNum,
+      songId?.trim() || undefined,
+    );
   }
 
   /**

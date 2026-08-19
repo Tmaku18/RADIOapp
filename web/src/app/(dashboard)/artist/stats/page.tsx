@@ -47,6 +47,7 @@ interface ArtistAnalytics {
   creditsRemaining: number;
   dailyPlays: DailyPlayCount[];
   topSongs: TopSong[];
+  catalogSongs?: Array<{ songId: string; title: string }>;
 }
 
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -87,10 +88,12 @@ export default function StatsPage() {
   const [roi, setRoi] = useState<RoiStats | null>(null);
   const [regions, setRegions] = useState<RegionCount[]>([]);
   const [discoverSwipes, setDiscoverSwipes] = useState<DiscoverSwipeAnalytics | null>(null);
+  const [songId, setSongId] = useState('');
+  const [catalogSongs, setCatalogSongs] = useState<Array<{ songId: string; title: string }>>([]);
 
   useEffect(() => {
-    loadStats();
-  }, []);
+    void loadStats();
+  }, [songId]);
 
   useEffect(() => {
     if (playIdFromQuery) {
@@ -104,10 +107,11 @@ export default function StatsPage() {
 
   const loadStats = async () => {
     try {
+      if (!analytics) setLoading(true);
       const [creditsRes, analyticsRes, roiRes, regionsRes, discoverRes] =
         await Promise.allSettled([
           creditsApi.getBalance(),
-          analyticsApi.getMyAnalytics(30),
+          analyticsApi.getMyAnalytics(30, songId || undefined),
           analyticsApi.getMyRoi(30),
           analyticsApi.getMyPlaysByRegion(30),
           analyticsApi.getMyDiscoverSwipes(30),
@@ -117,7 +121,11 @@ export default function StatsPage() {
         setCredits(creditsRes.value.data);
       }
       if (analyticsRes.status === 'fulfilled') {
-        setAnalytics(analyticsRes.value.data as ArtistAnalytics);
+        const next = analyticsRes.value.data as ArtistAnalytics;
+        setAnalytics(next);
+        if (next.catalogSongs?.length) {
+          setCatalogSongs(next.catalogSongs);
+        }
       }
       if (roiRes.status === 'fulfilled') {
         setRoi(roiRes.value.data as RoiStats);
@@ -174,9 +182,28 @@ export default function StatsPage() {
 
   return (
     <div className="space-y-8">
-      <div className="mb-2">
-        <h1 className="text-2xl font-bold text-foreground tracking-tight">Analytics</h1>
-        <p className="text-muted-foreground mt-1">Track ears reached, engagement, and audience growth.</p>
+      <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Analytics</h1>
+          <p className="text-muted-foreground mt-1">Track ears reached, listens, plays, and audience growth.</p>
+        </div>
+        {catalogSongs.length > 0 && (
+          <label className="block sm:w-72">
+            <span className="mb-1 block text-sm text-muted-foreground">View</span>
+            <select
+              value={songId}
+              onChange={(e) => setSongId(e.target.value)}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+            >
+              <option value="">Whole profile</option>
+              {catalogSongs.map((song) => (
+                <option key={song.songId} value={song.songId}>
+                  {song.title}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
       {playDetail && (
         <Card className="border-primary/30 bg-primary/5">
@@ -219,12 +246,15 @@ export default function StatsPage() {
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground font-medium">Listens</div>
             <div className="text-3xl font-bold text-foreground mt-1">{totalListens.toLocaleString()}</div>
-            <div className="text-sm text-primary mt-2">People who heard your songs (once per song)</div>
-            {totalListens === totalEars && (analytics?.totalSongs ?? 0) <= 1 && (
-              <div className="text-xs text-muted-foreground mt-1">
-                With one song, each listener counts once in both metrics.
-              </div>
-            )}
+            <div className="text-sm text-primary mt-2">Once per song per person</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-sm text-muted-foreground font-medium">Plays</div>
+            <div className="text-3xl font-bold text-foreground mt-1">{(analytics?.totalPlays ?? 0).toLocaleString()}</div>
+            <div className="text-sm text-primary mt-2">Radio play events</div>
           </CardContent>
         </Card>
 
@@ -483,7 +513,7 @@ export default function StatsPage() {
                   <div className="flex-1 min-w-0">
                     <Link href={`/artist/songs/${song.songId}`} className="font-medium text-foreground hover:underline block truncate">{song.title}</Link>
                     <p className="text-sm text-muted-foreground">
-                      {(song.totalListens ?? 0).toLocaleString()} listens · {song.totalPlays.toLocaleString()} spins · {song.paidPlays.toLocaleString()} paid · {song.freePlays.toLocaleString()} free · {song.likeCount} ripples
+                      {(song.totalListens ?? 0).toLocaleString()} listens · {song.totalPlays.toLocaleString()} plays · {song.paidPlays.toLocaleString()} paid · {song.freePlays.toLocaleString()} free · {song.likeCount} ripples
                     </p>
                   </div>
                   <div className="text-right shrink-0">

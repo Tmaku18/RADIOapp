@@ -4,8 +4,15 @@ import 'api_service.dart';
 class AnalyticsService {
   final ApiService _api = ApiService();
 
-  Future<ArtistAnalytics?> getMyAnalytics({int days = 30}) async {
-    final res = await _api.get('analytics/me?days=$days');
+  Future<ArtistAnalytics?> getMyAnalytics({
+    int days = 30,
+    String? songId,
+  }) async {
+    final query = <String>['days=$days'];
+    if (songId != null && songId.isNotEmpty) {
+      query.add('songId=${Uri.encodeQueryComponent(songId)}');
+    }
+    final res = await _api.get('analytics/me?${query.join('&')}');
     if (res is Map<String, dynamic>) return ArtistAnalytics.fromJson(res);
     return null;
   }

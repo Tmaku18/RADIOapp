@@ -87,6 +87,7 @@ class ArtistAnalytics {
   final int creditsRemaining;
   final List<DailyPlayCount> dailyPlays;
   final List<TopSong> topSongs;
+  final List<CatalogSong> catalogSongs;
 
   ArtistAnalytics({
     required this.totalPlays,
@@ -106,12 +107,14 @@ class ArtistAnalytics {
     required this.creditsRemaining,
     required this.dailyPlays,
     required this.topSongs,
+    required this.catalogSongs,
   });
 
   factory ArtistAnalytics.fromJson(Map<String, dynamic> json) {
     int toInt(dynamic v) => v is int ? v : int.tryParse(v.toString()) ?? 0;
     final dp = (json['dailyPlays'] ?? json['daily_plays']) as List? ?? const [];
     final ts = (json['topSongs'] ?? json['top_songs']) as List? ?? const [];
+    final cs = (json['catalogSongs'] ?? json['catalog_songs']) as List? ?? const [];
     return ArtistAnalytics(
       totalPlays: toInt(json['totalPlays'] ?? json['total_plays']),
       totalListenCount:
@@ -149,6 +152,25 @@ class ArtistAnalytics {
           .map((e) =>
               TopSong.fromJson(e.map((k, v) => MapEntry(k.toString(), v))))
           .toList(),
+      catalogSongs: cs
+          .whereType<Map>()
+          .map((e) =>
+              CatalogSong.fromJson(e.map((k, v) => MapEntry(k.toString(), v))))
+          .toList(),
+    );
+  }
+}
+
+class CatalogSong {
+  final String songId;
+  final String title;
+
+  CatalogSong({required this.songId, required this.title});
+
+  factory CatalogSong.fromJson(Map<String, dynamic> json) {
+    return CatalogSong(
+      songId: (json['songId'] ?? json['song_id'] ?? '').toString(),
+      title: (json['title'] ?? 'Untitled').toString(),
     );
   }
 }

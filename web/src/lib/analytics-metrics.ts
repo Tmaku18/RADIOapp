@@ -10,8 +10,13 @@ export const ANALYTICS_METRICS = {
     description: 'Unique listeners — each account or device counts once',
     shortSub: 'unique accounts',
   },
+  plays: {
+    label: 'Plays',
+    description: 'Total radio play events',
+    shortSub: 'play events',
+  },
   spins: {
-    label: 'Spins',
+    label: 'Plays',
     description: 'Total radio play events',
     shortSub: 'play events',
   },

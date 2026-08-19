@@ -19,6 +19,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   bool _loading = true;
   ArtistAnalytics? _data;
+  List<CatalogSong> _catalog = const [];
+  String? _songId;
   Map<String, dynamic> _balance = const {};
   Map<String, dynamic>? _playDetail;
   Map<String, dynamic>? _roi;
@@ -57,7 +59,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     try {
       final results = await Future.wait([
         _credits.getBalance(),
-        _analytics.getMyAnalytics(days: 30),
+        _analytics.getMyAnalytics(days: 30, songId: _songId),
         _analytics.getMyRoi(days: 30),
         _analytics.getMyPlaysByRegion(days: 30),
         _analytics.getMyDiscoverSwipes(days: 30),
@@ -66,6 +68,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       setState(() {
         _balance = results[0] as Map<String, dynamic>;
         _data = results[1] as ArtistAnalytics?;
+        if (_data != null && _data!.catalogSongs.isNotEmpty) {
+          _catalog = _data!.catalogSongs;
+        }
         _roi = results[2] as Map<String, dynamic>?;
         _regions = (results[3] as List<Map<String, dynamic>>);
         _discoverSwipes = results[4] as Map<String, dynamic>?;
@@ -126,6 +131,39 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     ),
                 ),
                 const SizedBox(height: 16),
+                if (_catalog.isNotEmpty)
+                  DropdownButtonFormField<String>(
+                    value: _songId ?? '',
+                    decoration: const InputDecoration(
+                      labelText: 'View',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    items: [
+                      const DropdownMenuItem(
+                        value: '',
+                        child: Text('Whole profile'),
+                      ),
+                      ..._catalog.map(
+                        (s) => DropdownMenuItem(
+                          value: s.songId,
+                          child: Text(
+                            s.title,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                    ],
+                    onChanged: _loading
+                        ? null
+                        : (id) {
+                            final next = (id == null || id.isEmpty) ? null : id;
+                            if (next == _songId) return;
+                            setState(() => _songId = next);
+                            _load();
+                          },
+                  ),
+                if (_catalog.isNotEmpty) const SizedBox(height: 16),
                 if (_data == null)
                   Text(
                     'No analytics yet.',
@@ -143,10 +181,17 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       _StatCard(
                         label: AnalyticsMetrics.earsReached.label,
                         value: _data!.earsReached.toString(),
+                        subtitle: AnalyticsMetrics.earsReached.shortSub,
                       ),
                       _StatCard(
                         label: AnalyticsMetrics.listens.label,
                         value: _data!.totalListenCount.toString(),
+                        subtitle: AnalyticsMetrics.listens.shortSub,
+                      ),
+                      _StatCard(
+                        label: AnalyticsMetrics.plays.label,
+                        value: _data!.totalPlays.toString(),
+                        subtitle: AnalyticsMetrics.plays.shortSub,
                       ),
                       _StatCard(
                         label: 'Songs',
@@ -390,7 +435,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                                   fontWeight: FontWeight.w600),
                                             ),
                                             Text(
-                              '${s.totalListens} listens · ${s.totalPlays} spins · ${s.paidPlays} paid · ${s.freePlays} free · ${s.likeCount} likes',
+                              '${s.totalListens} listens · ${s.totalPlays} plays · ${s.paidPlays} paid · ${s.freePlays} free · ${s.likeCount} likes',
                                               style: TextStyle(
                                                   color: surfaces.textSecondary,
                                                   fontSize: 12),
@@ -640,7 +685,12 @@ class _MiniStat extends StatelessWidget {
 class _StatCard extends StatelessWidget {
   final String label;
   final String value;
-  const _StatCard({required this.label, required this.value});
+  final String? subtitle;
+  const _StatCard({
+    required this.label,
+    required this.value,
+    this.subtitle,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -652,6 +702,13 @@ class _StatCard extends StatelessWidget {
           Text(label, style: DimensionTypography.bodyMuted(fontSize: 12)),
           const Spacer(),
           Text(value, style: DimensionTypography.statValue(fontSize: 22)),
+          if (subtitle != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              subtitle!,
+              style: DimensionTypography.bodyMuted(fontSize: 11),
+            ),
+          ],
         ],
       ),
     );
