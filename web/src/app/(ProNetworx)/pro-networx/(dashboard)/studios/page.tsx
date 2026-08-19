@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Plus, Search as SearchIcon } from 'lucide-react';
@@ -28,6 +28,29 @@ function formatStartingAt(studio: Studio): string {
 }
 
 export default function StudiosDirectoryPage({
+  studioPrefix = '/pro-networx/studios',
+  newStudioHref = '/pro-networx/me/studio?new=1',
+}: {
+  studioPrefix?: string;
+  newStudioHref?: string;
+}) {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center py-24">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
+        </div>
+      }
+    >
+      <StudiosDirectoryPageInner
+        studioPrefix={studioPrefix}
+        newStudioHref={newStudioHref}
+      />
+    </Suspense>
+  );
+}
+
+function StudiosDirectoryPageInner({
   studioPrefix = '/pro-networx/studios',
   newStudioHref = '/pro-networx/me/studio?new=1',
 }: {

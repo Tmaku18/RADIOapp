@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { Suspense, useCallback, useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { studiosApi, type Studio, type StudioHour, type StudioMember, type StudioRateUnit } from '@/lib/api';
@@ -40,7 +40,27 @@ function defaultHours(existing?: StudioHour[]): StudioHour[] {
   });
 }
 
+function StudioPageFallback() {
+  return (
+    <div className="flex items-center justify-center py-24">
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
+    </div>
+  );
+}
+
 export default function MyStudioPage({
+  viewPrefix = '/pro-networx/studios',
+}: {
+  viewPrefix?: string;
+}) {
+  return (
+    <Suspense fallback={<StudioPageFallback />}>
+      <MyStudioPageInner viewPrefix={viewPrefix} />
+    </Suspense>
+  );
+}
+
+function MyStudioPageInner({
   viewPrefix = '/pro-networx/studios',
 }: {
   viewPrefix?: string;
