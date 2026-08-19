@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:just_audio/just_audio.dart';
 import 'package:provider/provider.dart';
 import '../../core/auth/auth_service.dart';
 import '../../core/auth/role_helpers.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/services/refinery_service.dart';
-import '../../core/services/radio_service.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 
 class RefineryScreen extends StatefulWidget {
@@ -17,7 +15,6 @@ class RefineryScreen extends StatefulWidget {
 
 class _RefineryScreenState extends State<RefineryScreen> {
   final RefineryService _refinery = RefineryService();
-  final RadioService _radio = RadioService();
 
   bool _loading = true;
   bool _signingUp = false;
@@ -26,29 +23,11 @@ class _RefineryScreenState extends State<RefineryScreen> {
   String? _error;
   RefineryReviewerStatus? _reviewer;
   List<RefinerySong> _songs = [];
-  final Map<String, List<RefineryComment>> _comments = {};
-  final Map<String, String> _newComment = {};
-  final Map<String, int> _rank = {};
-  final Map<String, Map<String, dynamic>> _survey = {};
-  String? _playingId;
-  final AudioPlayer _player = AudioPlayer();
-  final Map<String, String> _submitting = {};
 
   @override
   void initState() {
     super.initState();
     _load();
-    _player.playerStateStream.listen((state) {
-      if (state.processingState == ProcessingState.completed) {
-        if (mounted) setState(() => _playingId = null);
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _player.dispose();
-    super.dispose();
   }
 
   Future<void> _load() async {
@@ -100,54 +79,23 @@ class _RefineryScreenState extends State<RefineryScreen> {
     }
   }
 
-  Future<void> _loadComments(String songId) async {
-    try {
-      final list = await _refinery.getComments(songId);
-      if (mounted) setState(() => _comments[songId] = list);
-    } catch (_) {}
-  }
-
-  Future<void> _play(RefinerySong song) async {
-    if (_playingId == song.id) {
-      await _player.stop();
-      setState(() => _playingId = null);
-      return;
+  Future<void> _openReview(RefinerySong song) async {
+    if (song.id.isEmpty) return;
+    final done = await Navigator.pushNamed(
+      context,
+      AppRoutes.refineryReview,
+      arguments: song.id,
+    );
+    if (done == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Review submitted. You earned \$${RefineryProgram.reviewRewardUsd}.',
+          ),
+        ),
+      );
+      await _load();
     }
-    setState(() => _playingId = song.id);
-    await _player.setUrl(song.audioUrl);
-    await _player.play();
-  }
-
-  Future<void> _submitRank(String songId) async {
-    final score = _rank[songId];
-    if (score == null || score < 1 || score > 10) return;
-    setState(() => _submitting[songId] = 'rank');
-    try {
-      await _radio.submitRefinement(songId: songId, score: score);
-    } catch (_) {}
-    if (mounted) setState(() => _submitting.remove(songId));
-  }
-
-  Future<void> _submitSurvey(String songId) async {
-    final s = _survey[songId];
-    if (s == null || s.isEmpty) return;
-    setState(() => _submitting[songId] = 'survey');
-    try {
-      await _radio.submitSurvey(songId: songId, responses: s);
-    } catch (_) {}
-    if (mounted) setState(() => _submitting.remove(songId));
-  }
-
-  Future<void> _submitComment(String songId) async {
-    final body = (_newComment[songId] ?? '').trim();
-    if (body.isEmpty) return;
-    setState(() => _submitting[songId] = 'comment');
-    try {
-      await _refinery.addComment(songId, body);
-      _newComment[songId] = '';
-      await _loadComments(songId);
-    } catch (_) {}
-    if (mounted) setState(() => _submitting.remove(songId));
   }
 
   @override
@@ -282,27 +230,7 @@ class _RefineryScreenState extends State<RefineryScreen> {
                       ..._songs.map(
                         (song) => _RefinerySongCard(
                           song: song,
-                          isPlaying: _playingId == song.id,
-                          rank: _rank[song.id] ?? 5,
-                          onRankChanged: (v) =>
-                              setState(() => _rank[song.id] = v),
-                          onRankSubmit: () => _submitRank(song.id),
-                          survey: _survey[song.id] ?? {},
-                          onSurveyChanged: (k, v) => setState(() {
-                            _survey[song.id] = {
-                              ...?_survey[song.id],
-                              k: v,
-                            };
-                          }),
-                          onSurveySubmit: () => _submitSurvey(song.id),
-                          comments: _comments[song.id],
-                          newComment: _newComment[song.id] ?? '',
-                          onNewCommentChanged: (v) =>
-                              setState(() => _newComment[song.id] = v),
-                          onCommentSubmit: () => _submitComment(song.id),
-                          onLoadComments: () => _loadComments(song.id),
-                          submitting: _submitting[song.id],
-                          onPlay: () => _play(song),
+                          onReview: () => _openReview(song),
                         ),
                       ),
                   ],
@@ -470,161 +398,58 @@ class _ReviewerSignupCard extends StatelessWidget {
 }
 
 class _RefinerySongCard extends StatelessWidget {
-  final RefinerySong song;
-  final bool isPlaying;
-  final int rank;
-  final ValueChanged<int> onRankChanged;
-  final VoidCallback onRankSubmit;
-  final Map<String, dynamic> survey;
-  final void Function(String key, dynamic value) onSurveyChanged;
-  final VoidCallback onSurveySubmit;
-  final List<RefineryComment>? comments;
-  final String newComment;
-  final ValueChanged<String> onNewCommentChanged;
-  final VoidCallback onCommentSubmit;
-  final VoidCallback onLoadComments;
-  final String? submitting;
-  final VoidCallback onPlay;
-
   const _RefinerySongCard({
     required this.song,
-    required this.isPlaying,
-    required this.rank,
-    required this.onRankChanged,
-    required this.onRankSubmit,
-    required this.survey,
-    required this.onSurveyChanged,
-    required this.onSurveySubmit,
-    required this.comments,
-    required this.newComment,
-    required this.onNewCommentChanged,
-    required this.onCommentSubmit,
-    required this.onLoadComments,
-    required this.submitting,
-    required this.onPlay,
+    required this.onReview,
   });
+
+  final RefinerySong song;
+  final VoidCallback onReview;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Card(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Row(
-              children: [
-                if (song.artworkUrl != null && song.artworkUrl!.isNotEmpty)
-                  Image.network(
-                    song.artworkUrl!,
-                    width: 56,
-                    height: 56,
-                    fit: BoxFit.cover,
-                  )
-                else
-                  const SizedBox(
-                    width: 56,
-                    height: 56,
-                    child: Icon(Icons.music_note, size: 32),
-                  ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(song.title, style: theme.textTheme.titleMedium),
-                      Text(
-                        song.artistName,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton.filled(
-                  onPressed: onPlay,
-                  icon: Icon(isPlaying ? Icons.stop : Icons.play_arrow),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Text('Rank 1–10:', style: theme.textTheme.labelMedium),
-                const SizedBox(width: 8),
-                DropdownButton<int>(
-                  value: rank.clamp(1, 10),
-                  items: List.generate(10, (i) => i + 1)
-                      .map((v) => DropdownMenuItem(value: v, child: Text('$v')))
-                      .toList(),
-                  onChanged: (v) => v != null ? onRankChanged(v) : null,
-                ),
-                const SizedBox(width: 8),
-                FilledButton.tonal(
-                  onPressed: submitting == 'rank' ? null : onRankSubmit,
-                  child: Text(submitting == 'rank' ? '…' : 'Submit'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text('Survey (optional)', style: theme.textTheme.labelSmall),
-            const SizedBox(height: 4),
-            TextField(
-              decoration:
-                  const InputDecoration(labelText: 'Genre', isDense: true),
-              onChanged: (v) => onSurveyChanged('genre', v),
-            ),
-            const SizedBox(height: 4),
-            TextField(
-              decoration:
-                  const InputDecoration(labelText: 'Mood', isDense: true),
-              onChanged: (v) => onSurveyChanged('mood', v),
-            ),
-            const SizedBox(height: 4),
-            FilledButton.tonal(
-              onPressed: submitting == 'survey' ? null : onSurveySubmit,
-              child:
-                  Text(submitting == 'survey' ? 'Submitting…' : 'Submit survey'),
-            ),
-            const SizedBox(height: 12),
-            Text('Comments', style: theme.textTheme.labelMedium),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    decoration: const InputDecoration(
-                      hintText: 'Leave a comment…',
-                      isDense: true,
-                    ),
-                    onChanged: onNewCommentChanged,
-                    onSubmitted: (_) => onCommentSubmit(),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                FilledButton.tonal(
-                  onPressed: submitting == 'comment' ? null : onCommentSubmit,
-                  child: Text(submitting == 'comment' ? '…' : 'Post'),
-                ),
-              ],
-            ),
-            if (comments != null)
-              ...comments!.map(
-                (c) => Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    '${c.displayName ?? 'Listener'}: ${c.body}',
-                    style: theme.textTheme.bodySmall,
-                  ),
+            if (song.artworkUrl != null && song.artworkUrl!.isNotEmpty)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  song.artworkUrl!,
+                  width: 56,
+                  height: 56,
+                  fit: BoxFit.cover,
                 ),
               )
             else
-              TextButton(
-                onPressed: onLoadComments,
-                child: const Text('Load comments'),
+              const SizedBox(
+                width: 56,
+                height: 56,
+                child: Icon(Icons.music_note, size: 32),
               ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(song.title, style: theme.textTheme.titleMedium),
+                  Text(
+                    song.artistName,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            FilledButton(
+              onPressed: onReview,
+              child: const Text('Review'),
+            ),
           ],
         ),
       ),

@@ -77,6 +77,11 @@ export default function ReviewPage() {
   const allSurveyAnswered = REFINERY_SURVEY_QUESTIONS.every(
     (q) => typeof survey[q.key] === 'string' && survey[q.key].length > 0,
   );
+  const allCustomAnswered =
+    !form ||
+    form.customQuestions.every(
+      (q) => (customAnswers[q.id] ?? '').trim().length > 0,
+    );
 
   const handleSubmit = async () => {
     if (!songId) return;
@@ -249,7 +254,7 @@ export default function ReviewPage() {
                       [q.id]: e.target.value,
                     }))
                   }
-                  placeholder="Your answer…"
+                  placeholder="Your answer (required)…"
                 />
               </div>
             ))}
@@ -278,7 +283,7 @@ export default function ReviewPage() {
         </Button>
         <Button
           onClick={() => void handleSubmit()}
-          disabled={submitting || !allSurveyAnswered}
+          disabled={submitting || !allSurveyAnswered || !allCustomAnswered}
           size="lg"
         >
           {submitting
@@ -286,9 +291,9 @@ export default function ReviewPage() {
             : `Submit review (+$${(REFINERY_REVIEW_REWARD_CENTS / 100).toFixed(2)})`}
         </Button>
       </div>
-      {!allSurveyAnswered && (
+      {(!allSurveyAnswered || !allCustomAnswered) && (
         <p className="text-xs text-muted-foreground text-right">
-          Please answer every survey question to submit.
+          Please answer every required question to submit.
         </p>
       )}
     </div>

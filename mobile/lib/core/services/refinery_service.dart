@@ -21,13 +21,71 @@ class RefinerySong {
 
   factory RefinerySong.fromJson(Map<String, dynamic> json) {
     return RefinerySong(
-      id: json['id'] as String? ?? '',
+      id: (json['songId'] ?? json['id'])?.toString() ?? '',
       title: json['title'] as String? ?? '',
-      artistName: json['artist_name'] as String? ?? '',
-      artworkUrl: json['artwork_url'] as String?,
-      audioUrl: json['audio_url'] as String? ?? '',
-      durationSeconds: json['duration_seconds'] as int?,
-      createdAt: json['created_at'] as String? ?? '',
+      artistName:
+          (json['artistName'] ?? json['artist_name'])?.toString() ?? '',
+      artworkUrl:
+          (json['artworkUrl'] ?? json['artwork_url'])?.toString(),
+      audioUrl: (json['audioUrl'] ?? json['audio_url'])?.toString() ?? '',
+      durationSeconds: json['durationSeconds'] as int? ??
+          json['duration_seconds'] as int?,
+      createdAt:
+          (json['submittedAt'] ?? json['created_at'])?.toString() ?? '',
+    );
+  }
+}
+
+class RefineryCustomQuestion {
+  final String id;
+  final String questionText;
+
+  const RefineryCustomQuestion({
+    required this.id,
+    required this.questionText,
+  });
+
+  factory RefineryCustomQuestion.fromJson(Map<String, dynamic> json) {
+    return RefineryCustomQuestion(
+      id: json['id']?.toString() ?? '',
+      questionText:
+          (json['questionText'] ?? json['question_text'])?.toString() ?? '',
+    );
+  }
+}
+
+class RefineryReviewForm {
+  final RefinerySong song;
+  final List<RefineryCustomQuestion> customQuestions;
+  final int reviewRewardCents;
+
+  const RefineryReviewForm({
+    required this.song,
+    required this.customQuestions,
+    required this.reviewRewardCents,
+  });
+
+  factory RefineryReviewForm.fromJson(Map<String, dynamic> json) {
+    final songJson = json['song'] is Map
+        ? Map<String, dynamic>.from(json['song'] as Map)
+        : <String, dynamic>{};
+    final custom = <RefineryCustomQuestion>[];
+    if (json['customQuestions'] is List) {
+      for (final e in json['customQuestions'] as List) {
+        if (e is Map) {
+          custom.add(
+            RefineryCustomQuestion.fromJson(Map<String, dynamic>.from(e)),
+          );
+        }
+      }
+    }
+    return RefineryReviewForm(
+      song: RefinerySong.fromJson({
+        ...songJson,
+        'songId': songJson['id'] ?? songJson['songId'],
+      }),
+      customQuestions: custom,
+      reviewRewardCents: _toInt(json['reviewRewardCents'], 10),
     );
   }
 }
@@ -343,6 +401,36 @@ class RefineryService {
 
   Future<void> addComment(String songId, String body) async {
     await _api.post('refinery/songs/$songId/comments', {'body': body});
+  }
+
+  Future<RefineryReviewForm> getReviewForm(String songId) async {
+    final res = await _api.get('refinery/songs/$songId/review-form');
+    if (res is Map<String, dynamic>) return RefineryReviewForm.fromJson(res);
+    throw Exception('Failed to load review form');
+  }
+
+  Future<void> submitReview({
+    required String songId,
+    required int overallRating,
+    required int beatRating,
+    required int lyricsRating,
+    required int chorusRating,
+    required int openingEndingRating,
+    required Map<String, String> surveyResponses,
+    Map<String, String>? customResponses,
+    String? comment,
+  }) async {
+    await _api.post('refinery/songs/$songId/review', {
+      'overallRating': overallRating,
+      'beatRating': beatRating,
+      'lyricsRating': lyricsRating,
+      'chorusRating': chorusRating,
+      'openingEndingRating': openingEndingRating,
+      'surveyResponses': surveyResponses,
+      if (customResponses != null) 'customResponses': customResponses,
+      if (comment != null && comment.trim().isNotEmpty)
+        'comment': comment.trim(),
+    });
   }
 
   /// Artist adds their own approved song to The Refinery.

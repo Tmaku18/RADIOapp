@@ -30,6 +30,7 @@ import '../../features/pro_networx/pro_service_detail_screen.dart';
 import '../../features/pro_networx/saved_liked_posts_screen.dart';
 import '../../features/profile/profile_screen.dart';
 import '../../features/refinery/refinery_screen.dart';
+import '../../features/refinery/refinery_review_screen.dart';
 import '../../features/refinery/refinery_analytics_screen.dart';
 import '../../features/room/room_screen.dart';
 import '../../features/help_legal/help_legal_screen.dart';
@@ -162,6 +163,10 @@ class AppRouter {
         return _route(const MyStudioScreen(), settings);
       case AppRoutes.refinery:
         return _route(const RefineryScreen(), settings);
+      case AppRoutes.refineryReview:
+        final songId = args?.toString();
+        if (songId == null || songId.isEmpty) return _unknown(settings);
+        return _route(RefineryReviewScreen(songId: songId), settings);
       case AppRoutes.refineryAnalytics:
         final songId = args?.toString();
         if (songId == null || songId.isEmpty) return _unknown(settings);

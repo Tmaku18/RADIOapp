@@ -610,19 +610,26 @@ export class RefineryService {
       }
     }
 
+    const { data: customQs } = await supabase
+      .from('refinery_custom_questions')
+      .select('id')
+      .eq('song_id', songId);
+    const allowedCustomIds = new Set(
+      (customQs ?? []).map((q: { id: string }) => q.id),
+    );
     const customResponses: Record<string, string> = {};
     if (dto.customResponses) {
-      const { data: customQs } = await supabase
-        .from('refinery_custom_questions')
-        .select('id')
-        .eq('song_id', songId);
-      const allowedCustomIds = new Set(
-        (customQs ?? []).map((q: { id: string }) => q.id),
-      );
       for (const [key, value] of Object.entries(dto.customResponses)) {
         if (allowedCustomIds.has(key) && typeof value === 'string') {
           customResponses[key] = value.slice(0, 1000);
         }
+      }
+    }
+    for (const id of allowedCustomIds) {
+      if (!(customResponses[id] ?? '').trim()) {
+        throw new BadRequestException(
+          'Please answer every question from the artist.',
+        );
       }
     }
 

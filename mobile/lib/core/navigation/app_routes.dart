@@ -71,6 +71,7 @@ class AppRoutes {
   /// Owner editor for recording-studio pages.
   static const myStudio = '/studios/me';
   static const refinery = '/refinery';
+  static const refineryReview = '/refinery-review';
   static const refineryAnalytics = '/refinery-analytics';
   static const yield = '/yield';
   static const about = '/about';
