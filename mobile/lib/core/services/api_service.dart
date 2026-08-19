@@ -38,6 +38,31 @@ class ApiException implements Exception {
 
   @override
   String toString() => message;
+
+  /// User-facing text for any thrown API/network error.
+  static String userMessage(Object error) {
+    if (error is ApiException && error.message.trim().isNotEmpty) {
+      return error.message;
+    }
+    if (isTlsError(error)) {
+      return 'Couldn’t reach Networx securely. Check your connection and tap Refresh.';
+    }
+    return error.toString().replaceFirst('Exception: ', '');
+  }
+}
+
+/// TLS failures from dart:io or package:http. The site proxy can fail
+/// certificate checks on some networks while the Railway host still works.
+bool isTlsError(Object error) {
+  if (error is HandshakeException ||
+      error is CertificateException ||
+      error is TlsException) {
+    return true;
+  }
+  final text = error.toString();
+  return text.contains('CERTIFICATE_VERIFY_FAILED') ||
+      text.contains('HandshakeException') ||
+      text.contains('CERTIFICATE_VERIFY');
 }
 
 /// Multipart request that reports bytes as the socket consumes them, so uploads
@@ -219,16 +244,20 @@ class ApiService {
     if (!preferDirectBackend) {
       add(_directBackendFallback);
     }
-    add('http://10.0.2.2:3000');
-    add('http://10.0.2.2:3005');
-    add('http://localhost:3000');
-    add('http://localhost:3005');
+    if (!kReleaseMode) {
+      add('http://10.0.2.2:3000');
+      add('http://10.0.2.2:3005');
+      add('http://localhost:3000');
+      add('http://localhost:3005');
+    }
     return urls;
   }
 
   bool _shouldTryNextBaseUrl(Object error) {
     if (error is TimeoutException) return true;
+    if (error is SocketException) return true;
     if (error is http.ClientException) return true;
+    if (isTlsError(error)) return true;
     // Vercel / edge proxies return 413 for large multipart bodies.
     if (error is ApiException && error.statusCode == 413) return true;
     return false;
@@ -295,6 +324,12 @@ class ApiService {
     }
 
     if (lastError != null) {
+      if (isTlsError(lastError)) {
+        throw ApiException(
+          statusCode: 0,
+          message: ApiException.userMessage(lastError),
+        );
+      }
       throw lastError;
     }
     throw ApiException(

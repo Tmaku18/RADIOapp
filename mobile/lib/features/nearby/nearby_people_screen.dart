@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart' show Position;
 import 'package:latlong2/latlong.dart';
 
 import '../../core/navigation/app_routes.dart';
+import '../../core/services/api_service.dart';
 import '../../core/services/location_permission_service.dart';
 import '../../core/services/nearby_service.dart';
 import '../../core/theme/networx_tokens.dart';
@@ -116,7 +117,7 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e.toString().replaceFirst('Exception: ', '');
+        _error = ApiException.userMessage(e);
       });
     } finally {
       if (mounted) setState(() => _loading = false);
