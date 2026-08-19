@@ -1224,6 +1224,50 @@ export const discoveryApi = {
     limit?: number;
     offset?: number;
   }) => api.get<{ items: DiscoveryMapArtistMarker[]; total: number }>('/discovery/map/artists', { params }),
+  listPeopleDirectory: (params?: {
+    lat?: number;
+    lng?: number;
+    radiusKm?: number;
+    limit?: number;
+    include?: 'all' | 'studios' | 'people';
+    role?: 'artist' | 'service_provider' | 'listener';
+  }) =>
+    api.get<{
+      items: PeopleDirectoryItem[];
+      byCity: PeopleDirectoryGroup[];
+      byZip: PeopleDirectoryGroup[];
+      total: number;
+    }>('/discovery/people/directory', { params }),
+};
+
+export type PeopleDirectoryItem = {
+  kind?: 'studio' | 'person';
+  id: string;
+  userId?: string;
+  displayName?: string | null;
+  name?: string | null;
+  headline?: string | null;
+  tagline?: string | null;
+  heroImageUrl?: string | null;
+  avatarUrl?: string | null;
+  city?: string | null;
+  zipCode?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  vicinityRadiusKm?: number | null;
+  startingAtCents?: number | null;
+  startingAtUnit?: string | null;
+  hoursSummary?: string | null;
+  distanceKm?: number;
+};
+
+export type PeopleDirectoryGroup = {
+  key?: string;
+  label?: string;
+  city?: string | null;
+  zipCode?: string | null;
+  count?: number;
+  people?: PeopleDirectoryItem[];
 };
 
 export interface DiscoverFeedPost {

@@ -21,9 +21,13 @@ class ProNetworxShellScreen extends StatefulWidget {
   const ProNetworxShellScreen({
     super.key,
     this.initialTab = 0,
+    this.studiosOpenNearby = false,
     this.onExitToRadio,
   });
   final int initialTab;
+
+  /// When opening Studios from the Nearby deep link, land on Nearby.
+  final bool studiosOpenNearby;
 
   /// When hosted as an inline tab (artists), the parent passes this to switch
   /// back to the Networx Radio player tab. When null (pushed as its own route
@@ -141,15 +145,15 @@ class _ProNetworxShellScreenState extends State<ProNetworxShellScreen> {
               Expanded(
                 child: IndexedStack(
                   index: _index,
-                  children: const [
-                    ProHomeFeedScreen(),
-                    SocialFeedScreen(embeddedInProShell: true),
-                    ProSearchScreen(),
-                    ProBeatsMarketplaceScreen(),
-                    ProServicesScreen(),
-                    ProStudiosScreen(),
-                    JobBoardScreen(embedded: true),
-                    ProRadioScreen(),
+                  children: [
+                    const ProHomeFeedScreen(),
+                    const SocialFeedScreen(embeddedInProShell: true),
+                    const ProSearchScreen(),
+                    const ProBeatsMarketplaceScreen(),
+                    const ProServicesScreen(),
+                    ProStudiosScreen(initialNearby: widget.studiosOpenNearby),
+                    const JobBoardScreen(embedded: true),
+                    const ProRadioScreen(),
                   ],
                 ),
               ),

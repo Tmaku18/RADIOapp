@@ -111,11 +111,6 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
         route: AppRoutes.livePerformances,
       ),
       const _NavSpec(
-        icon: Icons.public,
-        label: 'Nearby Studios',
-        route: AppRoutes.nearbyPeople,
-      ),
-      const _NavSpec(
         icon: Icons.people_alt_outlined,
         label: 'Feed',
         tabIndex: 2,

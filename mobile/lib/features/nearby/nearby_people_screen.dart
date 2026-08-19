@@ -14,7 +14,17 @@ import 'nearby_grouping.dart';
 enum _NearbyKindFilter { all, studios, artists, catalysts }
 
 class NearbyPeopleScreen extends StatefulWidget {
-  const NearbyPeopleScreen({super.key});
+  const NearbyPeopleScreen({
+    super.key,
+    this.embedded = false,
+    this.studiosOnly = false,
+  });
+
+  /// When true, render as a panel inside Pro-Networx Studios (no page chrome).
+  final bool embedded;
+
+  /// Lock the directory to recording studios (used inside Studios).
+  final bool studiosOnly;
 
   @override
   State<NearbyPeopleScreen> createState() => _NearbyPeopleScreenState();
@@ -257,6 +267,48 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
 
   @override
   Widget build(BuildContext context) {
+    final body = Column(
+      children: [
+        _buildFilters(context),
+        TabBar(
+          controller: _tabs,
+          tabs: const [
+            Tab(text: 'List'),
+            Tab(text: 'Map'),
+          ],
+        ),
+        if (_error != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.redAccent.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.redAccent.withValues(alpha: 0.55),
+                ),
+              ),
+              child: Text(_error!),
+            ),
+          ),
+        if (_loading) const LinearProgressIndicator(),
+        Expanded(
+          child: TabBarView(
+            controller: _tabs,
+            physics: const NeverScrollableScrollPhysics(),
+            children: [
+              _buildBannerList(context),
+              _buildMapTab(context),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    if (widget.embedded) return body;
+
     return DimensionScreenShell(
       title: 'Nearby Studios',
       showNeonLine: true,
@@ -267,44 +319,7 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
           icon: const Icon(Icons.refresh),
         ),
       ],
-      body: Column(
-        children: [
-          _buildFilters(context),
-          TabBar(
-            controller: _tabs,
-            tabs: const [
-              Tab(text: 'Map'),
-              Tab(text: 'List'),
-            ],
-          ),
-          if (_error != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.redAccent.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.redAccent.withValues(alpha: 0.55),
-                  ),
-                ),
-                child: Text(_error!),
-              ),
-            ),
-          if (_loading) const LinearProgressIndicator(),
-          Expanded(
-            child: TabBarView(
-              controller: _tabs,
-              children: [
-                _buildMapTab(context),
-                _buildBannerList(context),
-              ],
-            ),
-          ),
-        ],
-      ),
+      body: body,
     );
   }
 
@@ -315,29 +330,30 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            children: [
-              for (final f in _NearbyKindFilter.values)
-                ChoiceChip(
-                  label: Text(switch (f) {
-                    _NearbyKindFilter.all => 'All',
-                    _NearbyKindFilter.studios => 'Studios',
-                    _NearbyKindFilter.artists => 'Artists',
-                    _NearbyKindFilter.catalysts => 'Catalysts',
-                  }),
-                  selected: _kindFilter == f,
-                  onSelected: _loading
-                      ? null
-                      : (on) {
-                          if (!on) return;
-                          setState(() => _kindFilter = f);
-                          _loadDirectory();
-                        },
-                ),
-            ],
-          ),
+          if (!widget.studiosOnly)
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                for (final f in _NearbyKindFilter.values)
+                  ChoiceChip(
+                    label: Text(switch (f) {
+                      _NearbyKindFilter.all => 'All',
+                      _NearbyKindFilter.studios => 'Studios',
+                      _NearbyKindFilter.artists => 'Artists',
+                      _NearbyKindFilter.catalysts => 'Catalysts',
+                    }),
+                    selected: _kindFilter == f,
+                    onSelected: _loading
+                        ? null
+                        : (on) {
+                            if (!on) return;
+                            setState(() => _kindFilter = f);
+                            _loadDirectory();
+                          },
+                  ),
+              ],
+            ),
           Row(
             children: [
               Expanded(
@@ -370,8 +386,11 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
                 : (_) => _loadDirectory(applyRadius: true),
           ),
           Text(
-            'Studios can publish an exact pin. People stay a ZIP area. '
-            '${_pos != null ? 'Green mark is you.' : 'Enable location to center the map.'}',
+            widget.studiosOnly
+                ? 'Studios can publish an exact pin. '
+                    '${_pos != null ? 'Green mark is you.' : 'Enable location to center the map.'}'
+                : 'Studios can publish an exact pin. People stay a ZIP area. '
+                    '${_pos != null ? 'Green mark is you.' : 'Enable location to center the map.'}',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: scheme.onSurface.withValues(alpha: 0.7),
                 ),

@@ -53,7 +53,7 @@ class AppTutorial {
       title: 'Welcome to Networx',
       body:
           'This is your home. Tap the menu (☰) anytime to open Radio, Feed, '
-          'Discover, Vote, Pro-Radio, Nearby, and more.',
+          'Discover, Vote, Pro-Radio, Pro-Networx, and more.',
       nav: TutorialNavTarget.home,
     ),
     TutorialStep(
@@ -103,8 +103,8 @@ class AppTutorial {
     TutorialStep(
       title: 'Nearby Studios',
       body:
-          'Browse recording studios on a map or list. Filter by studios, '
-          'then tap a banner to see hours, rates, and who you can book.',
+          'In Pro-Networx → Studios, open Nearby to browse rooms by list or '
+          'map. Tap a banner for hours, rates, and who you can book.',
       nav: TutorialNavTarget.nearby,
     ),
     TutorialStep(
@@ -219,8 +219,8 @@ class AppTutorial {
     TutorialStep(
       title: 'Nearby Studios',
       body:
-          'Find rooms on the map or in a list. Open a studio for hours, '
-          'pricing, and bookable producers — contact needs Pro-Networx.',
+          'In Pro-Networx → Studios → Nearby, browse rooms by list or map. '
+          'Open a studio for hours, pricing, and bookable producers.',
       nav: TutorialNavTarget.nearby,
     ),
     TutorialStep(

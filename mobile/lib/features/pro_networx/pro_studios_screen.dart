@@ -4,29 +4,41 @@ import '../../core/models/studio_models.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/services/studio_service.dart';
 import '../../core/theme/networx_tokens.dart';
+import '../nearby/nearby_people_screen.dart';
 
-/// Pro-Networx Studios tab — banner cards with pricing and hours.
+/// Pro-Networx Studios tab — directory plus Nearby (list / map).
 class ProStudiosScreen extends StatefulWidget {
-  const ProStudiosScreen({super.key});
+  const ProStudiosScreen({super.key, this.initialNearby = false});
+
+  /// Open the Nearby section (used by the `/nearby-people` deep link).
+  final bool initialNearby;
 
   @override
   State<ProStudiosScreen> createState() => _ProStudiosScreenState();
 }
 
-class _ProStudiosScreenState extends State<ProStudiosScreen> {
+class _ProStudiosScreenState extends State<ProStudiosScreen>
+    with SingleTickerProviderStateMixin {
   final StudioService _service = StudioService();
   final TextEditingController _query = TextEditingController();
   List<Studio> _items = const [];
   bool _loading = true;
+  late final TabController _tabs;
 
   @override
   void initState() {
     super.initState();
+    _tabs = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: widget.initialNearby ? 1 : 0,
+    );
     _load();
   }
 
   @override
   void dispose() {
+    _tabs.dispose();
     _query.dispose();
     super.dispose();
   }
@@ -50,6 +62,30 @@ class _ProStudiosScreenState extends State<ProStudiosScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return Column(
+      children: [
+        TabBar(
+          controller: _tabs,
+          tabs: const [
+            Tab(text: 'Directory'),
+            Tab(text: 'Nearby'),
+          ],
+        ),
+        Expanded(
+          child: TabBarView(
+            controller: _tabs,
+            physics: const NeverScrollableScrollPhysics(),
+            children: [
+              _buildDirectory(),
+              const NearbyPeopleScreen(embedded: true, studiosOnly: true),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDirectory() {
     return Column(
       children: [
         Padding(

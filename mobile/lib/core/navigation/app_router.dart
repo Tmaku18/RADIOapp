@@ -14,7 +14,6 @@ import '../../features/livestream/live_sessions_screen.dart';
 import '../../features/livestream/stream_settings_screen.dart';
 import '../../features/livestream/watch_live_screen.dart';
 import '../../features/messages/messages_screen.dart';
-import '../../features/nearby/nearby_people_screen.dart';
 import '../../features/notifications/notifications_screen.dart';
 import '../../features/payment/payment_screen.dart';
 import '../../features/player/player_screen.dart';
@@ -154,7 +153,13 @@ class AppRouter {
       case AppRoutes.likedPosts:
         return _route(const SavedLikedPostsScreen(mode: 'liked'), settings);
       case AppRoutes.nearbyPeople:
-        return _route(const NearbyPeopleScreen(), settings);
+        return _route(
+          const ProNetworxShellScreen(
+            initialTab: ProNetworxShellScreen.tabStudios,
+            studiosOpenNearby: true,
+          ),
+          settings,
+        );
       case AppRoutes.studioProfile:
         final studioId = args?.toString() ?? '';
         if (studioId.isEmpty) return _unknown(settings);
