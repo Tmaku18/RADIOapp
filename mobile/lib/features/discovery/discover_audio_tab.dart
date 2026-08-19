@@ -18,7 +18,8 @@ class DiscoverAudioTab extends StatefulWidget {
   DiscoverAudioTabState createState() => DiscoverAudioTabState();
 }
 
-class DiscoverAudioTabState extends State<DiscoverAudioTab> {
+class DiscoverAudioTabState extends State<DiscoverAudioTab>
+    with SingleTickerProviderStateMixin {
   static const int _pageSize = 12;
   static const String _selectedStationPrefKey = 'selected_radio_station_id';
   static const String _defaultStationId = 'us-ready-now-rap';
@@ -41,6 +42,7 @@ class DiscoverAudioTabState extends State<DiscoverAudioTab> {
   bool _clipIsPlaying = false;
   double _dragDx = 0;
   bool _dragActive = false;
+  late final AnimationController _coverMotion;
 
   static const double _swipeActionThreshold = 120;
   static const double _swipeMaxDx = 220;
@@ -62,11 +64,16 @@ class DiscoverAudioTabState extends State<DiscoverAudioTab> {
       _syncClipPlayingState();
     });
     _syncClipPlayingState();
+    _coverMotion = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 14),
+    )..repeat(reverse: true);
     _loadPage(append: false);
   }
 
   @override
   void dispose() {
+    _coverMotion.dispose();
     _clipStopTimer?.cancel();
     _playerStateSub?.cancel();
     _sequenceStateSub?.cancel();
@@ -467,24 +474,43 @@ class DiscoverAudioTabState extends State<DiscoverAudioTab> {
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
-                              if (card.backgroundUrl != null &&
-                                  card.backgroundUrl!.isNotEmpty)
-                                Image.network(
-                                  card.backgroundUrl!,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      Container(
+                              AnimatedBuilder(
+                                animation: _coverMotion,
+                                builder: (context, child) {
+                                  final t = Curves.easeInOut.transform(
+                                    _coverMotion.value,
+                                  );
+                                  return Transform.translate(
+                                    offset: Offset(
+                                      (t - 0.5) * 18,
+                                      (0.5 - t) * 12,
+                                    ),
+                                    child: Transform.scale(
+                                      scale: 1.0 + (0.1 * t),
+                                      child: child,
+                                    ),
+                                  );
+                                },
+                                child: (card.backgroundUrl != null &&
+                                        card.backgroundUrl!.isNotEmpty)
+                                    ? Image.network(
+                                        card.backgroundUrl!,
+                                        fit: BoxFit.cover,
+                                        errorBuilder:
+                                            (context, error, stackTrace) =>
+                                                Container(
+                                          decoration: BoxDecoration(
+                                            gradient:
+                                                surfaces.signatureGradient,
+                                          ),
+                                        ),
+                                      )
+                                    : Container(
                                         decoration: BoxDecoration(
                                           gradient: surfaces.signatureGradient,
                                         ),
                                       ),
-                                )
-                              else
-                                Container(
-                                  decoration: BoxDecoration(
-                                    gradient: surfaces.signatureGradient,
-                                  ),
-                                ),
+                              ),
                               Container(
                                 color: Colors.black.withValues(alpha: 0.35),
                               ),
@@ -558,8 +584,9 @@ class DiscoverAudioTabState extends State<DiscoverAudioTab> {
                           ),
                         ),
                         Padding(
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.fromLTRB(8, 10, 8, 12),
                           child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: [
                               IconButton(
                                 tooltip: 'Add to playlist',
@@ -571,42 +598,33 @@ class DiscoverAudioTabState extends State<DiscoverAudioTab> {
                                           songTitle: card.title,
                                         ),
                                 icon: const Icon(Icons.add_circle_outline),
+                                iconSize: 28,
                               ),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: _busySwipe
-                                      ? null
-                                      : _toggleCurrentClipPlayback,
-                                  icon: Icon(
-                                    _clipIsPlaying
-                                        ? Icons.pause_circle_outline
-                                        : Icons.play_circle_outline,
-                                  ),
-                                  label: Text(
-                                    _clipIsPlaying ? 'Pause clip' : 'Play clip',
-                                  ),
-                                ),
+                              _SwipeCircleButton(
+                                tooltip: 'Dislike',
+                                icon: Icons.thumb_down_alt_outlined,
+                                onPressed: _busySwipe
+                                    ? null
+                                    : () => _applySwipe('left_skip'),
                               ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: _busySwipe
-                                      ? null
-                                      : () => _applySwipe('left_skip'),
-                                  icon: const Icon(Icons.thumb_down_alt_outlined),
-                                  label: const Text('Dislike'),
-                                ),
+                              _SwipeCircleButton(
+                                tooltip: _clipIsPlaying ? 'Pause' : 'Play',
+                                icon: _clipIsPlaying
+                                    ? Icons.pause
+                                    : Icons.play_arrow,
+                                filled: true,
+                                large: true,
+                                onPressed: _busySwipe
+                                    ? null
+                                    : _toggleCurrentClipPlayback,
                               ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: FilledButton.icon(
-                                  onPressed: _busySwipe
-                                      ? null
-                                      : () => _applySwipe('right_like'),
-                                  icon: const Icon(Icons.favorite),
-                                  label: const Text('Like'),
-                                ),
+                              _SwipeCircleButton(
+                                tooltip: 'Like',
+                                icon: Icons.favorite,
+                                filled: true,
+                                onPressed: _busySwipe
+                                    ? null
+                                    : () => _applySwipe('right_like'),
                               ),
                             ],
                           ),
@@ -624,6 +642,46 @@ class DiscoverAudioTabState extends State<DiscoverAudioTab> {
               child: Center(child: CircularProgressIndicator()),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _SwipeCircleButton extends StatelessWidget {
+  const _SwipeCircleButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+    this.filled = false,
+    this.large = false,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final bool filled;
+  final bool large;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final size = large ? 58.0 : 48.0;
+    final bg = filled ? scheme.primary : scheme.surfaceContainerHighest;
+    final fg = filled ? scheme.onPrimary : scheme.onSurface;
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: bg,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onPressed,
+          child: SizedBox(
+            width: size,
+            height: size,
+            child: Icon(icon, color: fg, size: large ? 30 : 22),
+          ),
+        ),
       ),
     );
   }
