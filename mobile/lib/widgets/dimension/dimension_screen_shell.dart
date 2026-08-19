@@ -18,6 +18,7 @@ class DimensionScreenShell extends StatelessWidget {
     this.showNeonLine = true,
     this.loading = false,
     this.centerTitle,
+    this.backdrop,
   });
 
   final String? title;
@@ -29,12 +30,16 @@ class DimensionScreenShell extends StatelessWidget {
   final bool showNeonLine;
   final bool loading;
   final bool? centerTitle;
+  /// Full-screen background. Defaults to [CyberBackdrop].
+  final Widget? backdrop;
 
   @override
   Widget build(BuildContext context) {
     DimensionTokens.watch(context);
-    return Scaffold(
-      backgroundColor: DimensionTokens.bgBase,
+    final customBackdrop = backdrop;
+    final scaffold = Scaffold(
+      backgroundColor:
+          customBackdrop != null ? Colors.transparent : DimensionTokens.bgBase,
       appBar: title == null
           ? null
           : AppBar(
@@ -54,7 +59,8 @@ class DimensionScreenShell extends StatelessWidget {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          const Positioned.fill(child: CyberBackdrop()),
+          if (customBackdrop == null)
+            const Positioned.fill(child: CyberBackdrop()),
           if (loading)
             const Center(child: CircularProgressIndicator())
           else
@@ -67,6 +73,15 @@ class DimensionScreenShell extends StatelessWidget {
             ),
         ],
       ),
+    );
+
+    if (customBackdrop == null) return scaffold;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Positioned.fill(child: customBackdrop),
+        scaffold,
+      ],
     );
   }
 }

@@ -20,6 +20,8 @@ class ChatPanel extends StatefulWidget {
   final VoidCallback? onToggleExpand;
   final bool fillHeightWhenExpanded;
   final double expandedHeight;
+  /// When true, the panel is glass so a backdrop (e.g. butterflies) shows through.
+  final bool transparentBackground;
 
   const ChatPanel({
     super.key,
@@ -30,6 +32,7 @@ class ChatPanel extends StatefulWidget {
     this.onToggleExpand,
     this.fillHeightWhenExpanded = false,
     this.expandedHeight = 350,
+    this.transparentBackground = false,
   });
 
   @override
@@ -396,9 +399,13 @@ class _ChatPanelState extends State<ChatPanel> {
         // Expanded view - full chat panel
         final expandedPanel = Container(
           decoration: BoxDecoration(
-            color: scheme.surface,
+            color: widget.transparentBackground
+                ? Colors.transparent
+                : scheme.surface,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            border: Border(top: BorderSide(color: surfaces.border)),
+            border: widget.transparentBackground
+                ? null
+                : Border(top: BorderSide(color: surfaces.border)),
           ),
           child: Column(
             children: [
@@ -427,8 +434,9 @@ class _ChatPanelState extends State<ChatPanel> {
                       const SizedBox(width: 8),
                       _buildConnectionIndicator(chatService.connectionState),
                       const Spacer(),
-                      Icon(Icons.keyboard_arrow_down,
-                          color: surfaces.textSecondary),
+                      if (widget.onToggleExpand != null)
+                        Icon(Icons.keyboard_arrow_down,
+                            color: surfaces.textSecondary),
                     ],
                   ),
                 ),
