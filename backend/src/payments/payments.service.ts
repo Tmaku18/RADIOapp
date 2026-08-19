@@ -135,7 +135,6 @@ export class PaymentsService {
       );
     }
     if (
-      product.type !== 'credits' &&
       product.type !== 'song_plays' &&
       product.type !== 'tip' &&
       product.type !== 'pro_networx_subscription' &&
