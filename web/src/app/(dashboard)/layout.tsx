@@ -111,6 +111,7 @@ const moreNav = [
   { name: 'Profile', href: '/profile' },
   { name: 'Live', href: '/live' },
   { name: 'Rewards', href: '/yield' },
+  { name: 'Help & Legal', href: '/help-legal' },
   { name: 'Settings', href: '/settings' },
 ];
 const streamerNav = { name: 'Stream settings', href: '/stream-settings' };
@@ -172,6 +173,7 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith('/profile')) return 'Profile';
   if (pathname.startsWith('/live')) return 'Live';
   if (pathname.startsWith('/stream-settings')) return 'Stream settings';
+  if (pathname.startsWith('/help-legal')) return 'Help & Legal';
   if (pathname.startsWith('/settings')) return 'Settings';
   if (pathname === '/artist' || pathname.startsWith('/artist/songs')) return 'My Uploaded Songs';
   if (pathname.startsWith('/artist/upload')) return 'Upload';

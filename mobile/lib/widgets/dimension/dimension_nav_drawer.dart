@@ -183,6 +183,7 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
                     open: _moreOpen,
                     onToggle: () => setState(() => _moreOpen = !_moreOpen),
                     children: [
+                      _subRow('Help & Legal', AppRoutes.helpLegal),
                       _subRow('Rewards', AppRoutes.yield),
                       if (widget.isArtist)
                         _subRow('Analytics', AppRoutes.analytics),
