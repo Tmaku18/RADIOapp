@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { adminApi } from '@/lib/api';
+import { DiscoverClipDialog } from '@/components/songs/DiscoverClipDialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,6 +33,8 @@ type SwipeCard = {
   artistName: string | null;
   artistDisplayName: string | null;
   status: string | null;
+  durationSeconds: number | null;
+  audioUrl: string | null;
   discoverEnabled: boolean;
   clipUrl: string | null;
   backgroundUrl: string | null;
@@ -55,11 +58,40 @@ export default function AdminSwipePage() {
   const [search, setSearch] = useState('');
   const [deletingSongId, setDeletingSongId] = useState<string | null>(null);
   const [confirmSongId, setConfirmSongId] = useState<string | null>(null);
+  const [editingSongId, setEditingSongId] = useState<string | null>(null);
+  const [playingSongId, setPlayingSongId] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const selectedCard = useMemo(
     () => cards.find((card) => card.songId === confirmSongId) ?? null,
     [cards, confirmSongId],
   );
+  const editingCard = useMemo(
+    () => cards.find((card) => card.songId === editingSongId) ?? null,
+    [cards, editingSongId],
+  );
+
+  const stopPreview = () => {
+    audioRef.current?.pause();
+    if (audioRef.current) audioRef.current.currentTime = 0;
+    setPlayingSongId(null);
+  };
+
+  const togglePlay = (card: SwipeCard) => {
+    const src = card.clipUrl || card.audioUrl;
+    if (!src) return;
+    if (playingSongId === card.songId) {
+      stopPreview();
+      return;
+    }
+    if (!audioRef.current) {
+      audioRef.current = new Audio();
+      audioRef.current.addEventListener('ended', () => setPlayingSongId(null));
+    }
+    audioRef.current.src = src;
+    void audioRef.current.play();
+    setPlayingSongId(card.songId);
+  };
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -91,7 +123,15 @@ export default function AdminSwipePage() {
     void loadCards();
   }, [search]);
 
+  useEffect(() => {
+    return () => {
+      audioRef.current?.pause();
+      audioRef.current = null;
+    };
+  }, []);
+
   const handleDeleteClip = async (songId: string) => {
+    if (playingSongId === songId) stopPreview();
     setDeletingSongId(songId);
     setConfirmSongId(null);
     try {
@@ -126,7 +166,7 @@ export default function AdminSwipePage() {
             <div>
               <h2 className="text-lg font-semibold text-foreground">Swipe</h2>
               <p className="text-sm text-muted-foreground">
-                All discover cards with 15-second clips. Remove clips from here.
+                Play and edit Discover clips, or remove them from Swipe.
               </p>
             </div>
             <Badge variant="secondary">{total} cards</Badge>
@@ -159,7 +199,7 @@ export default function AdminSwipePage() {
                   <TableHead>Clip Range</TableHead>
                   <TableHead>Duration</TableHead>
                   <TableHead>Updated</TableHead>
-                  <TableHead className="w-[180px]">Actions</TableHead>
+                  <TableHead className="w-[280px]">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -194,16 +234,37 @@ export default function AdminSwipePage() {
                           : '-'}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          disabled={!hasClip || deletingSongId === card.songId}
-                          onClick={() => setConfirmSongId(card.songId)}
-                        >
-                          {deletingSongId === card.songId
-                            ? 'Deleting...'
-                            : 'Delete clip'}
-                        </Button>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            disabled={!hasClip && !card.audioUrl}
+                            onClick={() => togglePlay(card)}
+                          >
+                            {playingSongId === card.songId ? 'Pause' : 'Play'}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={!card.audioUrl}
+                            onClick={() => {
+                              stopPreview();
+                              setEditingSongId(card.songId);
+                            }}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            disabled={!hasClip || deletingSongId === card.songId}
+                            onClick={() => setConfirmSongId(card.songId)}
+                          >
+                            {deletingSongId === card.songId
+                              ? 'Deleting...'
+                              : 'Delete clip'}
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -241,6 +302,44 @@ export default function AdminSwipePage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <DiscoverClipDialog
+        open={Boolean(editingCard)}
+        onOpenChange={(open) => {
+          if (!open) setEditingSongId(null);
+        }}
+        song={
+          editingCard
+            ? {
+                id: editingCard.songId,
+                title: editingCard.title || 'Untitled',
+                audioUrl: editingCard.audioUrl,
+                durationSeconds: editingCard.durationSeconds,
+                discoverEnabled: editingCard.discoverEnabled,
+                discoverClipStartSeconds: editingCard.clipStartSeconds,
+                discoverClipEndSeconds: editingCard.clipEndSeconds,
+              }
+            : null
+        }
+        onSaved={(result) => {
+          setCards((prev) =>
+            prev.map((card) =>
+              card.songId === editingCard?.songId
+                ? {
+                    ...card,
+                    discoverEnabled: result.discoverEnabled,
+                    clipUrl: result.discoverClipUrl ?? card.clipUrl,
+                    clipStartSeconds: result.discoverClipStartSeconds,
+                    clipEndSeconds: result.discoverClipEndSeconds,
+                    clipDurationSeconds:
+                      result.discoverClipEndSeconds -
+                      result.discoverClipStartSeconds,
+                  }
+                : card,
+            ),
+          );
+        }}
+      />
     </div>
   );
 }

@@ -1914,6 +1914,8 @@ export const adminApi = {
         artistName: string | null;
         artistDisplayName: string | null;
         status: string | null;
+        durationSeconds: number | null;
+        audioUrl: string | null;
         discoverEnabled: boolean;
         clipUrl: string | null;
         backgroundUrl: string | null;

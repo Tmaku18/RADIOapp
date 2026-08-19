@@ -897,7 +897,7 @@ export class AdminService {
     let query = supabase
       .from('songs')
       .select(
-        'id, title, artist_id, artist_name, status, discover_enabled, discover_clip_url, discover_background_url, discover_clip_start_seconds, discover_clip_end_seconds, discover_clip_duration_seconds, created_at, updated_at',
+        'id, title, artist_id, artist_name, status, duration_seconds, audio_url, discover_enabled, discover_clip_url, discover_background_url, discover_clip_start_seconds, discover_clip_end_seconds, discover_clip_duration_seconds, created_at, updated_at',
         { count: 'exact' },
       )
       .not('discover_clip_url', 'is', null)
@@ -921,6 +921,8 @@ export class AdminService {
       artist_id: string;
       artist_name: string;
       status: string | null;
+      duration_seconds: number | null;
+      audio_url: string | null;
       discover_enabled: boolean | null;
       discover_clip_url: string | null;
       discover_background_url: string | null;
@@ -953,6 +955,8 @@ export class AdminService {
           artistName: row.artist_name,
           artistDisplayName: artistNameById.get(row.artist_id) ?? null,
           status: row.status ?? null,
+          durationSeconds: row.duration_seconds,
+          audioUrl: (await signSongAudioUrl(row.audio_url ?? null)) ?? null,
           discoverEnabled: row.discover_enabled === true,
           clipUrl:
             (await signSongAudioUrl(row.discover_clip_url ?? null)) ?? null,

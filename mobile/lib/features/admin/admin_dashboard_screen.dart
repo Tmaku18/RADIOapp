@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../core/analytics/analytics_metrics.dart';
@@ -26,6 +28,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final SongsService _songsApi = SongsService();
   /// Dedicated preview player so admin listen doesn't fight the live radio bar.
   final AudioPlayer _previewPlayer = AudioPlayer();
+  StreamSubscription<PlayerState>? _previewSub;
 
   bool _loading = true;
   /// True while the non-Overview tabs are still filling in behind first paint.
@@ -74,11 +77,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
   void initState() {
     super.initState();
+    _previewSub = _previewPlayer.playerStateStream.listen((_) {
+      if (mounted) setState(() {});
+    });
     _loadInitial();
   }
 
   @override
   void dispose() {
+    _previewSub?.cancel();
     _previewPlayer.dispose();
     _songSearchCtrl.dispose();
     _userSearchCtrl.dispose();
@@ -433,6 +440,94 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       if (b != null && '$b'.isNotEmpty) return '$b';
     }
     return '';
+  }
+
+  double? _asDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse('$value');
+  }
+
+  Future<void> _refreshSwipeCards() async {
+    final cards = await _admin.getSwipeCards(limit: 100);
+    if (!mounted) return;
+    setState(() => _swipeCards = cards);
+  }
+
+  Future<void> _deleteSwipeClip(String songId) async {
+    try {
+      await _admin.deleteSwipeClip(songId);
+      await _refreshSwipeCards();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Discover clip deleted.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Couldn’t delete clip: $e')),
+      );
+    }
+  }
+
+  Future<void> _openSwipeClipEditor(Map<String, dynamic> card) async {
+    final id = '${card['songId'] ?? ''}';
+    final title = '${card['title'] ?? 'Untitled'}';
+    final audioUrl = _songField(card, 'audio_url', 'audioUrl');
+    if (id.isEmpty || audioUrl.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No full-track audio to edit this clip.')),
+      );
+      return;
+    }
+
+    final durationRaw = card['durationSeconds'] ?? card['duration_seconds'];
+    final durationSeconds = (durationRaw is num)
+        ? durationRaw.toInt()
+        : int.tryParse('$durationRaw');
+    final start = _asDouble(
+          card['clipStartSeconds'] ?? card['clip_start_seconds'],
+        ) ??
+        0;
+    final parsedEnd = _asDouble(
+      card['clipEndSeconds'] ?? card['clip_end_seconds'],
+    );
+    final end = (parsedEnd != null && parsedEnd > start)
+        ? parsedEnd
+        : start + _kAdminDiscoverMaxSeconds;
+
+    final updated = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => ClipWindowSheet(
+        audioUrl: audioUrl,
+        displayTitle: title,
+        durationSeconds: durationSeconds,
+        heading: 'Edit Discover clip',
+        saveLabel: 'Save clip',
+        savedMessage: 'Discover clip saved. Rendering…',
+        minLength: _kAdminDiscoverMinSeconds,
+        maxLength: _kAdminDiscoverMaxSeconds,
+        initialStart: start,
+        initialEnd: end,
+        alreadySet: true,
+        overwriteWarning:
+            'A Discover clip is already set (${clipFmtTime(start)} – ${clipFmtTime(end)}). Saving overwrites it.',
+        onSave: (s, e) => _songsApi.publishDiscover(
+          id,
+          clipStartSeconds: s,
+          clipEndSeconds: e,
+        ),
+      ),
+    );
+    if (updated == true && mounted) {
+      await _refreshSwipeCards();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Discover clip updated.')),
+      );
+    }
   }
 
   Future<void> _togglePreview(Map<String, dynamic> song) async {
@@ -2066,24 +2161,83 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       padding: const EdgeInsets.all(12),
       children: [
         const Text('Swipe cards', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        Text(
+          'Play the published Discover clip or edit the 5–15s window.',
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.65)),
+        ),
         const SizedBox(height: 8),
-        ..._swipeCards.map(
-          (card) => Card(
-            child: ListTile(
-              title: Text('${card['title'] ?? 'Untitled'}'),
-              subtitle: Text('${card['artistName'] ?? ''}'),
-              trailing: TextButton(
-                onPressed: () async {
-                  await _admin.deleteSwipeClip('${card['songId']}');
-                  final cards = await _admin.getSwipeCards(limit: 100);
-                  if (!mounted) return;
-                  setState(() => _swipeCards = cards);
-                },
-                child: const Text('Delete Clip'),
+        if (_swipeCards.isEmpty)
+          Text(
+            'No swipe clips yet.',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.65)),
+          ),
+        ..._swipeCards.map((card) {
+          final songId = '${card['songId'] ?? ''}';
+          final title = '${card['title'] ?? 'Untitled'}';
+          final artist =
+              '${card['artistDisplayName'] ?? card['artistName'] ?? ''}';
+          final clipUrl = _songField(card, 'clip_url', 'clipUrl');
+          final audioUrl = _songField(card, 'audio_url', 'audioUrl');
+          final start = _asDouble(
+            card['clipStartSeconds'] ?? card['clip_start_seconds'],
+          );
+          final end = _asDouble(
+            card['clipEndSeconds'] ?? card['clip_end_seconds'],
+          );
+          final range = start != null && end != null && end > start
+              ? '${clipFmtTime(start)} – ${clipFmtTime(end)}'
+              : 'Range not set';
+          final isPreviewing =
+              _previewingSongId == songId && _previewPlayer.playing;
+          return Card(
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+                  Text(
+                    artist.isEmpty ? range : '$artist · $range',
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.65)),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      FilledButton.tonalIcon(
+                        onPressed: clipUrl.isEmpty && audioUrl.isEmpty
+                            ? null
+                            : () => _togglePreview({
+                                  'id': songId,
+                                  'audioUrl':
+                                      clipUrl.isNotEmpty ? clipUrl : audioUrl,
+                                }),
+                        icon: Icon(
+                          isPreviewing ? Icons.pause : Icons.play_arrow,
+                        ),
+                        label: Text(isPreviewing ? 'Pause' : 'Play clip'),
+                      ),
+                      OutlinedButton(
+                        onPressed: audioUrl.isEmpty
+                            ? null
+                            : () => _openSwipeClipEditor(card),
+                        child: const Text('Edit clip'),
+                      ),
+                      TextButton(
+                        onPressed: songId.isEmpty
+                            ? null
+                            : () => _deleteSwipeClip(songId),
+                        child: const Text('Delete clip'),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-          ),
-        ),
+          );
+        }),
         const SizedBox(height: 14),
         const Text('Feed media moderation', style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
