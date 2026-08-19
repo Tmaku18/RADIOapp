@@ -6,7 +6,7 @@ export default function ProNetworxDirectoryPage() {
   return (
     <ProNetworxDirectoryContent
       title="Directory"
-      subtitle="Find Catalysts by skill, availability, and location."
+      subtitle="Find creatives by type, availability, and location."
       showEditProfile
     />
   );

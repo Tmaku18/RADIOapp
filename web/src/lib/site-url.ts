@@ -31,7 +31,7 @@ export function getProNetworxAppUrl(): string {
   }
 }
 
-/** Default in-app landing after Pro-Networx sign-in (Discover Catalysts). */
+/** Default in-app landing after Pro-Networx sign-in (Discover Creatives). */
 export const PRO_NETWORX_APP_HOME = '/pro-networx/home';
 
 export function isProNetworxAppHost(hostname?: string): boolean {

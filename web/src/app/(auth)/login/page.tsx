@@ -39,7 +39,7 @@ function LoginForm() {
   const [redirectTo, setRedirectTo] = useState(redirectParam || '/dashboard');
   const sessionExpired = searchParams.get('session_expired') === 'true';
 
-  // On pro-networx.com, land in the app home (Discover Catalysts) after login
+  // On pro-networx.com, land in the app home (Discover Creatives) after login
   useEffect(() => {
     if (redirectParam) return;
     if (isProNetworxAppHost()) {

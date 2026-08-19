@@ -40,7 +40,7 @@ function SignupForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [oauthRedirectPending, setOauthRedirectPending] = useState(false);
 
-  // On pro-networx.com, land in the app home (Discover Catalysts) after signup
+  // On pro-networx.com, land in the app home (Discover Creatives) after signup
   useEffect(() => {
     if (redirectParam) return;
     if (isProNetworxAppHost()) {

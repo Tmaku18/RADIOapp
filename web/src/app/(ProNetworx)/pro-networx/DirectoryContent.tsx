@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { NETWORX_LOGO } from '@/lib/brand-assets';
 import { Reveal } from '@/components/dimension/Reveal';
 import { cn } from '@/lib/utils';
+import { PRO_NETWORX_CREATIVE_TYPES } from '@/data/pro-networx-creative-types';
 
 export type DirectoryItem = {
   userId: string;
@@ -94,7 +95,7 @@ type Props = {
 
 export function ProNetworxDirectoryContent({
   title = 'Directory',
-  subtitle = 'Find Catalysts by skill, availability, and location.',
+  subtitle = 'Find creatives by type, availability, and location.',
   showEditProfile = true,
   smartRanking = false,
 }: Props) {
@@ -212,7 +213,7 @@ export function ProNetworxDirectoryContent({
 
       <Reveal delay={0.08}>
         <div className="rounded-2xl glass p-5 sm:p-6 space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <input
               type="text"
               placeholder="Search name or headline…"
@@ -227,18 +228,48 @@ export function ProNetworxDirectoryContent({
               onChange={(e) => setLocation(e.target.value)}
               className={dimInputClass}
             />
-            <input
-              type="text"
-              placeholder="Skill (e.g. producer, studio)"
-              value={skill}
-              onChange={(e) => setSkill(e.target.value)}
-              className={dimInputClass}
-            />
             <div className="flex items-center gap-2 px-1">
               <Switch id="available-only" checked={availableOnly} onCheckedChange={setAvailableOnly} />
               <Label htmlFor="available-only" className="text-sm text-white/80">
                 Available for work
               </Label>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <p className="font-dim-mono text-[10px] tracking-[0.2em] text-white/50 uppercase">
+              Creative type
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className={cn(
+                  'rounded-full px-3 py-1.5 font-dim-mono text-[10px] tracking-[0.15em] uppercase transition-colors',
+                  !skill
+                    ? 'bg-cyan-400 text-black font-bold'
+                    : 'border border-white/15 text-white/70 hover:border-cyan-400/50 hover:text-cyan-300',
+                )}
+                onClick={() => setSkill('')}
+              >
+                All
+              </button>
+              {PRO_NETWORX_CREATIVE_TYPES.map((t) => {
+                const selected = skill === t.value;
+                return (
+                  <button
+                    key={t.value}
+                    type="button"
+                    className={cn(
+                      'rounded-full px-3 py-1.5 font-dim-mono text-[10px] tracking-[0.15em] uppercase transition-colors',
+                      selected
+                        ? 'bg-cyan-400 text-black font-bold'
+                        : 'border border-white/15 text-white/70 hover:border-cyan-400/50 hover:text-cyan-300',
+                    )}
+                    onClick={() => setSkill(selected ? '' : t.value)}
+                  >
+                    {t.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">

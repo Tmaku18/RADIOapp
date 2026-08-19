@@ -670,6 +670,9 @@ export class ProNetworxService {
     }
 
     const requestedSkill = params.skill?.trim().toLowerCase();
+    const skillAliases = requestedSkill
+      ? skillFilterAliases(requestedSkill)
+      : [];
 
     // Provider signals (optional): hero image, mentor badge, starting price, portfolio preview
     const { data: providerRows } = await supabase
@@ -781,7 +784,7 @@ export class ProNetworxService {
 
     let filtered = requestedSkill
       ? items.filter((i) =>
-          i.skills.some((s) => s.toLowerCase() === requestedSkill),
+          matchesCreativeTypeFilter(i, requestedSkill, skillAliases),
         )
       : items;
 
@@ -1078,4 +1081,66 @@ export class ProNetworxService {
       disciplinesBreakdown,
     };
   }
+}
+
+/** Skill names that count as a match for a directory type chip. */
+export function skillFilterAliases(requested: string): string[] {
+  const map: Record<string, string[]> = {
+    artist: ['artist'],
+    producer: ['producer'],
+    photographer: ['photographer', 'photography'],
+    photography: ['photographer', 'photography'],
+    videographer: ['videographer', 'videography'],
+    videography: ['videographer', 'videography'],
+    graphic_designer: ['graphic_designer', 'graphic_design', 'designer'],
+    graphic_design: ['graphic_designer', 'graphic_design', 'designer'],
+    illustrator: ['illustrator', 'illustration'],
+    illustration: ['illustrator', 'illustration'],
+    lyricist: ['lyricist', 'songwriter'],
+    beat_maker: ['beat_maker'],
+    mixing: ['mixing', 'mastering', 'mix_master', 'engineer'],
+    mastering: ['mixing', 'mastering', 'mix_master', 'engineer'],
+    studio: ['studio'],
+    stylist: ['stylist'],
+    mentor: ['mentor'],
+    social_media_manager: ['social_media_manager', 'social'],
+    manager: ['manager'],
+    booking: ['booking'],
+  };
+  return map[requested] ?? [requested];
+}
+
+function skillFilterKeywords(requested: string): string[] {
+  const map: Record<string, string[]> = {
+    photographer: ['photograph', 'photo'],
+    videographer: ['videograph', 'videography', 'filmmaker'],
+    graphic_designer: ['graphic design', 'graphic designer'],
+    illustrator: ['illustrat', 'draw', 'sketch'],
+    lyricist: ['lyric', 'songwriter', 'poet'],
+    beat_maker: ['beat maker', 'beatmaker', 'beats'],
+    mixing: ['mix engineer', 'audio engineer', 'mastering'],
+    stylist: ['stylist', 'fashion', 'wardrobe', 'makeup'],
+  };
+  return map[requested] ?? [];
+}
+
+function matchesCreativeTypeFilter(
+  item: ProDirectoryItem,
+  requested: string,
+  aliases: string[],
+): boolean {
+  if (requested === 'mentor') return !!item.mentorOptIn;
+  if (item.skills.some((s) => aliases.includes(s.toLowerCase()))) return true;
+  const keywords = skillFilterKeywords(requested);
+  if (keywords.length === 0) return false;
+  const haystack = [
+    item.skillsHeadline ?? '',
+    item.headline ?? '',
+    item.currentTitle ?? '',
+    item.serviceTitle ?? '',
+    ...item.skills,
+  ]
+    .join(' ')
+    .toLowerCase();
+  return keywords.some((kw) => haystack.includes(kw));
 }

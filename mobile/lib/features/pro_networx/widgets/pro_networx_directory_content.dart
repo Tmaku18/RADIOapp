@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/auth/auth_service.dart';
 import '../../../core/brand/brand_assets.dart';
+import '../../../core/constants/pro_networx_creative_types.dart';
 import '../../../core/models/pro_networx_models.dart';
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/services/pro_networx_service.dart';
@@ -18,7 +19,7 @@ class ProNetworxDirectoryContent extends StatefulWidget {
   const ProNetworxDirectoryContent({
     super.key,
     this.title = 'Directory',
-    this.subtitle = 'Find Producers by skill, availability, and location.',
+    this.subtitle = 'Find creatives by type, availability, and location.',
     this.showEditProfile = true,
     this.smartRanking = false,
   });
@@ -38,7 +39,7 @@ class _ProNetworxDirectoryContentState extends State<ProNetworxDirectoryContent>
   final UsersService _usersService = UsersService();
   final TextEditingController _search = TextEditingController();
   final TextEditingController _location = TextEditingController();
-  final TextEditingController _skill = TextEditingController();
+  String? _selectedType;
 
   List<ProDirectoryItem> _allItems = [];
   List<ProDirectoryItem> _visibleItems = [];
@@ -66,7 +67,6 @@ class _ProNetworxDirectoryContentState extends State<ProNetworxDirectoryContent>
   void dispose() {
     _search.dispose();
     _location.dispose();
-    _skill.dispose();
     super.dispose();
   }
 
@@ -99,9 +99,7 @@ class _ProNetworxDirectoryContentState extends State<ProNetworxDirectoryContent>
       final res = await _proService.listDirectory(
         search: _search.text.trim().isEmpty ? null : _search.text.trim(),
         location: _location.text.trim().isEmpty ? null : _location.text.trim(),
-        skill: _skill.text.trim().isEmpty
-            ? null
-            : _skill.text.trim().toLowerCase().replaceAll(' ', '_'),
+        skill: _selectedType,
         availableForWork: _availableOnly ? true : null,
         sort: 'desc',
         mode: _mode,
@@ -181,8 +179,10 @@ class _ProNetworxDirectoryContentState extends State<ProNetworxDirectoryContent>
   void _clearFilters() {
     _search.clear();
     _location.clear();
-    _skill.clear();
-    setState(() => _availableOnly = false);
+    setState(() {
+      _selectedType = null;
+      _availableOnly = false;
+    });
     _load(reset: true);
   }
 
@@ -249,14 +249,42 @@ class _ProNetworxDirectoryContentState extends State<ProNetworxDirectoryContent>
                     ),
                     onSubmitted: (_) => _load(reset: true),
                   ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: _skill,
-                    decoration: const InputDecoration(
-                      labelText: 'Skill',
-                      hintText: 'producer, studio…',
+                  const SizedBox(height: 12),
+                  Text(
+                    'CREATIVE TYPE',
+                    style: DimensionTypography.monoCaps(
+                      fontSize: 10,
+                      color: DimensionTokens.textSecondary,
                     ),
-                    onSubmitted: (_) => _load(reset: true),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _TypeChip(
+                        label: 'All',
+                        selected: _selectedType == null,
+                        onTap: () {
+                          if (_selectedType == null) return;
+                          setState(() => _selectedType = null);
+                          _load(reset: true);
+                        },
+                      ),
+                      ...kProNetworxCreativeTypes.map(
+                        (t) => _TypeChip(
+                          label: t.label,
+                          selected: _selectedType == t.value,
+                          onTap: () {
+                            setState(() {
+                              _selectedType =
+                                  _selectedType == t.value ? null : t.value;
+                            });
+                            _load(reset: true);
+                          },
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   SwitchListTile(
@@ -686,6 +714,53 @@ class _FallbackPreview extends StatelessWidget {
               BrandAssets.logoCyanAsset,
               height: 72,
               fit: BoxFit.contain,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TypeChip extends StatelessWidget {
+  const _TypeChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    DimensionTokens.watch(context);
+    return Material(
+      color: selected
+          ? DimensionTokens.neonCyan
+          : DimensionTokens.bgSurface.withValues(alpha: 0.4),
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: selected
+                  ? DimensionTokens.neonCyan
+                  : DimensionTokens.textSecondary.withValues(alpha: 0.35),
+            ),
+          ),
+          child: Text(
+            label.toUpperCase(),
+            style: DimensionTypography.monoCaps(
+              fontSize: 10,
+              color: selected
+                  ? Colors.black
+                  : DimensionTokens.textSecondary,
             ),
           ),
         ),

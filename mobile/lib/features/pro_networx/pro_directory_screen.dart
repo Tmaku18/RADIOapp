@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../core/constants/pro_networx_creative_types.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/models/pro_networx_models.dart';
 import '../../core/services/pro_networx_service.dart';
@@ -22,7 +23,7 @@ class _ProNetworxDirectoryScreenState extends State<ProNetworxDirectoryScreen> {
   String? _error;
 
   final TextEditingController _search = TextEditingController();
-  final TextEditingController _skill = TextEditingController();
+  String? _selectedType;
   bool _availableOnly = false;
 
   @override
@@ -34,7 +35,6 @@ class _ProNetworxDirectoryScreenState extends State<ProNetworxDirectoryScreen> {
   @override
   void dispose() {
     _search.dispose();
-    _skill.dispose();
     super.dispose();
   }
 
@@ -46,7 +46,7 @@ class _ProNetworxDirectoryScreenState extends State<ProNetworxDirectoryScreen> {
     try {
       final res = await _service.listDirectory(
         search: _search.text.trim().isEmpty ? null : _search.text.trim(),
-        skill: _skill.text.trim().isEmpty ? null : _skill.text.trim(),
+        skill: _selectedType,
         availableForWork: _availableOnly ? true : null,
         sort: 'desc',
       );
@@ -133,31 +133,47 @@ class _ProNetworxDirectoryScreenState extends State<ProNetworxDirectoryScreen> {
                   onSubmitted: (_) => _load(),
                 ),
                 const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _skill,
-                        decoration: const InputDecoration(
-                          labelText: 'Skill',
-                          hintText: 'mixing, mastering, graphic design…',
-                        ),
-                        onSubmitted: (_) => _load(),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      FilterChip(
+                        label: const Text('All'),
+                        selected: _selectedType == null,
+                        onSelected: (_) {
+                          setState(() => _selectedType = null);
+                          _load();
+                        },
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Column(
-                      children: [
-                        Switch(
-                          value: _availableOnly,
-                          onChanged: (v) {
-                            setState(() => _availableOnly = v);
+                      ...kProNetworxCreativeTypes.map(
+                        (t) => FilterChip(
+                          label: Text(t.label),
+                          selected: _selectedType == t.value,
+                          onSelected: (_) {
+                            setState(() {
+                              _selectedType =
+                                  _selectedType == t.value ? null : t.value;
+                            });
                             _load();
                           },
                         ),
-                        Text('Available', style: TextStyle(color: surfaces.textMuted, fontSize: 12)),
-                      ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Switch(
+                      value: _availableOnly,
+                      onChanged: (v) {
+                        setState(() => _availableOnly = v);
+                        _load();
+                      },
                     ),
+                    Text('Available', style: TextStyle(color: surfaces.textMuted, fontSize: 12)),
                   ],
                 ),
               ],
