@@ -25,6 +25,13 @@ class AdminService {
     await _api.post('admin/live/stop', {});
   }
 
+  /// Email every user the TestFlight beta invite.
+  Future<Map<String, dynamic>> sendTestFlightBetaInvite() async {
+    final res = await _api.post('admin/emails/testflight-beta', {});
+    if (res is Map<String, dynamic>) return res;
+    return {};
+  }
+
   /// Publish an app release and optionally push “update available” to devices.
   Future<Map<String, dynamic>> publishAppRelease({
     required String latestVersion,

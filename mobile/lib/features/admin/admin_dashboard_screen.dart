@@ -1025,6 +1025,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         const SizedBox(height: 12),
         Card(
           child: ListTile(
+            leading: const Icon(Icons.mail_outline),
+            title: const Text('Email TestFlight beta invite'),
+            subtitle: const Text(
+              'Send every user the iPhone beta link — join, upload songs, send feedback.',
+            ),
+            trailing: FilledButton.tonal(
+              onPressed: _sendTestFlightBetaInvite,
+              child: const Text('Email all'),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: ListTile(
             leading: const Icon(Icons.system_update_alt_outlined),
             title: const Text('Notify users of an app update'),
             subtitle: const Text(
@@ -1038,6 +1052,50 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ),
       ],
     );
+  }
+
+  Future<void> _sendTestFlightBetaInvite() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Email every user?'),
+        content: const Text(
+          'This sends the TestFlight beta link to every account email on the platform. Ask them to join, upload songs, and send feedback.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Send emails'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final result = await _admin.sendTestFlightBetaInvite();
+      if (!mounted) return;
+      final already = result['alreadyRunning'] == true;
+      final queued = result['queued'];
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            already
+                ? 'A TestFlight invite send is already running.'
+                : 'Queued TestFlight invites for $queued user${queued == 1 ? '' : 's'}.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Couldn’t send TestFlight emails: $e')),
+      );
+    }
   }
 
   Future<void> _publishAppUpdate() async {

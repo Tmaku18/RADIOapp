@@ -1,11 +1,22 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+export const TESTFLIGHT_PUBLIC_URL =
+  'https://testflight.apple.com/join/Pxbsqkww';
+
 export interface SendEmailOptions {
   to: string;
   subject: string;
   text?: string;
   html?: string;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 /**
@@ -28,6 +39,17 @@ export class EmailService {
       this.configService.get<string>('EMAIL_PROVIDER') || 'console';
     this.fromEmail =
       this.configService.get<string>('EMAIL_FROM') || 'noreply@radioapp.com';
+  }
+
+  /** True when a real provider + API key are set (not console logging). */
+  canDeliver(): boolean {
+    if (this.provider === 'sendgrid') {
+      return Boolean(this.configService.get<string>('SENDGRID_API_KEY'));
+    }
+    if (this.provider === 'resend') {
+      return Boolean(this.configService.get<string>('RESEND_API_KEY'));
+    }
+    return false;
   }
 
   async send(options: SendEmailOptions): Promise<boolean> {
@@ -195,6 +217,38 @@ export class EmailService {
       text: `New song pending review: "${params.songTitle}" by ${params.artistName}${
         params.artistEmail ? ` (${params.artistEmail})` : ''
       }. Song ID: ${params.songId}. Open Admin → Songs to review.`,
+    });
+  }
+
+  async sendTestFlightBetaInvite(
+    to: string,
+    displayName?: string | null,
+  ): Promise<boolean> {
+    const rawName = displayName?.trim() || 'there';
+    const name = escapeHtml(rawName);
+    const link = TESTFLIGHT_PUBLIC_URL;
+    return this.send({
+      to,
+      subject: 'NETWORX Radio is in beta — join TestFlight',
+      html: `
+        <h2>NETWORX Radio is in beta</h2>
+        <p>Hi ${name},</p>
+        <p>The NETWORX Radio iPhone app is in TestFlight beta. Join, upload your songs, and send us feedback so we can make the station better with you.</p>
+        <p><a href="${link}">Join the TestFlight beta</a></p>
+        <p>Install Apple’s <strong>TestFlight</strong> app first, then tap the link.</p>
+        <p>You can also upload songs on the web at <a href="https://www.networxradio.com">networxradio.com</a>.</p>
+        <p>Reply to this email or write <a href="mailto:support@networxradio.com">support@networxradio.com</a> with what works, what’s broken, and what you want next.</p>
+        <br>
+        <p>— The NETWORX Team</p>
+      `,
+      text:
+        `Hi ${rawName},\n\n` +
+        `NETWORX Radio is in TestFlight beta. Join, upload your songs, and send us feedback.\n\n` +
+        `${link}\n\n` +
+        `Install Apple’s TestFlight app first, then open the link.\n` +
+        `You can also upload songs at https://www.networxradio.com\n\n` +
+        `Reply to this email or write support@networxradio.com with feedback.\n\n` +
+        `— The NETWORX Team`,
     });
   }
 

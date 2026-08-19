@@ -714,4 +714,14 @@ export class AdminController {
       createdBy: adminId,
     });
   }
+
+  /**
+   * Email every user the TestFlight beta invite (join, upload songs, send feedback).
+   */
+  @Post('emails/testflight-beta')
+  async broadcastTestFlightBetaInvite(@CurrentUser() admin: FirebaseUser) {
+    const adminId = await this.getAdminDbId(admin.uid, admin.email);
+    if (!adminId) throw new BadRequestException('Admin user not found');
+    return this.adminService.broadcastTestFlightBetaInvite();
+  }
 }

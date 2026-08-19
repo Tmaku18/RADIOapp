@@ -35,6 +35,7 @@ export class AdminService {
   private readonly queueCache = new Map<string, { data: any; updatedAt: number }>();
   private readonly cacheTtlMs = 5 * 60 * 1000;
   private readonly minRejectionReasonLength = 10;
+  private testFlightInviteInFlight = false;
 
   constructor(
     private readonly emailService: EmailService,
@@ -2973,5 +2974,91 @@ export class AdminService {
     }
 
     this.logger.log(`Deleted discover feed post ${postId} by admin ${adminId}`);
+  }
+
+  /**
+   * Email every user with a valid address the TestFlight beta invite.
+   * Sends in the background so the admin request does not time out.
+   */
+  async broadcastTestFlightBetaInvite(): Promise<{
+    queued: number;
+    alreadyRunning: boolean;
+  }> {
+    if (!this.emailService.canDeliver()) {
+      throw new BadRequestException(
+        'Email is not configured. Set EMAIL_PROVIDER to resend or sendgrid and the matching API key on the backend, then retry.',
+      );
+    }
+    if (this.testFlightInviteInFlight) {
+      return { queued: 0, alreadyRunning: true };
+    }
+
+    const recipients = await this.listUniqueUserEmails();
+    if (recipients.length === 0) {
+      return { queued: 0, alreadyRunning: false };
+    }
+
+    this.testFlightInviteInFlight = true;
+    void this.sendTestFlightInvites(recipients).finally(() => {
+      this.testFlightInviteInFlight = false;
+    });
+    return { queued: recipients.length, alreadyRunning: false };
+  }
+
+  private async listUniqueUserEmails(): Promise<
+    Array<{ email: string; displayName: string | null }>
+  > {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('users')
+      .select('email, display_name')
+      .not('email', 'is', null)
+      .limit(5000);
+    if (error) {
+      throw new BadRequestException(
+        `Failed to load user emails: ${error.message}`,
+      );
+    }
+
+    const seen = new Set<string>();
+    const recipients: Array<{ email: string; displayName: string | null }> = [];
+    for (const row of data ?? []) {
+      const email = String(row.email ?? '')
+        .trim()
+        .toLowerCase();
+      if (!email || !email.includes('@') || !email.includes('.') || seen.has(email)) {
+        continue;
+      }
+      seen.add(email);
+      recipients.push({
+        email,
+        displayName:
+          typeof row.display_name === 'string' ? row.display_name : null,
+      });
+    }
+    return recipients;
+  }
+
+  private async sendTestFlightInvites(
+    recipients: Array<{ email: string; displayName: string | null }>,
+  ): Promise<void> {
+    let sent = 0;
+    let failed = 0;
+    for (const recipient of recipients) {
+      try {
+        const ok = await this.emailService.sendTestFlightBetaInvite(
+          recipient.email,
+          recipient.displayName,
+        );
+        if (ok) sent += 1;
+        else failed += 1;
+      } catch {
+        failed += 1;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    this.logger.log(
+      `TestFlight beta invite finished: sent=${sent} failed=${failed} total=${recipients.length}`,
+    );
   }
 }
