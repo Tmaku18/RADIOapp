@@ -1416,6 +1416,7 @@ class _PlayerScreenState extends State<PlayerScreen>
       context: providerContext,
       isScrollControlled: true,
       showDragHandle: true,
+      backgroundColor: Colors.transparent,
       builder: (context) {
         return ChangeNotifierProvider.value(
           value: chatService,

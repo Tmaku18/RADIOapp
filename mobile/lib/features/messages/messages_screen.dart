@@ -165,6 +165,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
     return DimensionScreenShell(
       title: 'DMs',
       showNeonLine: true,
+      backdrop: const ChatBackdrop(),
       loading: _loading,
       actions: [
         IconButton(
@@ -791,6 +792,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
     return DimensionScreenShell(
       title: widget.otherDisplayName ?? 'Thread',
       showNeonLine: true,
+      backdrop: const ChatBackdrop(),
       actions: [
         IconButton(
           onPressed: _loading ? null : _load,

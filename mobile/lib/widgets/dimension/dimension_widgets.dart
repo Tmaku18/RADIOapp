@@ -7,6 +7,7 @@ export 'dimension_screen_shell.dart';
 export 'dimension_section_header.dart';
 export 'dimension_surface.dart';
 export 'dimension_typography.dart';
+export 'chat_backdrop.dart';
 export 'cyber_backdrop.dart';
 export 'dimension_cta_button.dart';
 export 'glass_card.dart';

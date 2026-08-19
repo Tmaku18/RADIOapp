@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { DmPaywallCard } from '@/components/pro-networx/PaywallCard';
 import { PRO_NETWORX_MESSAGING_BETA_PROMO } from '@/data/pro-networx-pricing';
+import { ChatWallpaper } from '@/components/chat/ChatWallpaper';
 
 interface ConversationSummary {
   otherUserId: string;
@@ -423,8 +424,9 @@ export default function MessagesPage() {
   return (
     <div className="container max-w-4xl py-6">
       <div className="grid gap-4 md:grid-cols-[280px_1fr] min-h-[60vh]">
-        <Card className="md:col-span-1">
-          <CardContent className="p-0">
+        <Card className="md:col-span-1 relative overflow-hidden rounded-2xl glass border-white/10">
+          <ChatWallpaper />
+          <CardContent className="relative z-10 p-0">
             <div className="p-2 border-b">
               <h2 className="font-semibold text-sm">DMs</h2>
               <div className="mt-2 flex gap-1">
@@ -493,8 +495,9 @@ export default function MessagesPage() {
           </CardContent>
         </Card>
 
-        <Card className="flex flex-col min-h-[400px]">
-          <CardContent className="flex flex-col flex-1 p-0 flex min-h-0">
+        <Card className="relative flex flex-col min-h-[400px] overflow-hidden rounded-2xl glass border-white/10">
+          <ChatWallpaper />
+          <CardContent className="relative z-10 flex flex-col flex-1 p-0 min-h-0">
             {!selectedOther ? (
               <div className="flex-1 flex items-center justify-center text-muted-foreground p-6">
                 Select a conversation or <Link href="/discover" className="text-primary underline ml-1">discover people</Link> to message.
@@ -532,7 +535,7 @@ export default function MessagesPage() {
                   </div>
                 )}
 
-                <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
+                <div className="relative flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
                   {loadingThread ? (
                     <div className="flex justify-center py-8 text-muted-foreground">Loading messages...</div>
                   ) : (

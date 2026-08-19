@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { ChatWallpaper } from '@/components/chat/ChatWallpaper';
 
 interface ChatMessage {
   id: string;
@@ -522,9 +523,10 @@ export default function ChatSidebar({
       <div
         ref={messagesViewportRef}
         onScroll={handleMessagesScroll}
-        className="flex-1 overflow-y-auto p-3"
+        className="relative flex-1 overflow-y-auto p-3"
       >
-        <div className="space-y-1.5">
+        <ChatWallpaper />
+        <div className="relative z-10 space-y-1.5">
         {isLoading ? (
           <div className="flex justify-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>

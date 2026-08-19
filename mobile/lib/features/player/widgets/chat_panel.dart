@@ -4,6 +4,7 @@ import '../../../core/auth/auth_service.dart';
 import '../../../core/services/chat_service.dart';
 import '../../../core/models/chat_message.dart';
 import '../../../core/theme/networx_extensions.dart';
+import '../../../widgets/dimension/chat_backdrop.dart';
 
 /// Chat panel widget with production-grade UX features:
 /// - Connection indicator (green/yellow/gray dot)
@@ -399,9 +400,7 @@ class _ChatPanelState extends State<ChatPanel> {
         // Expanded view - full chat panel
         final expandedPanel = Container(
           decoration: BoxDecoration(
-            color: widget.transparentBackground
-                ? Colors.transparent
-                : scheme.surface,
+            color: Colors.transparent,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
             border: widget.transparentBackground
                 ? null
@@ -701,13 +700,27 @@ class _ChatPanelState extends State<ChatPanel> {
           ),
         );
 
+        final pane = widget.transparentBackground
+            ? expandedPanel
+            : ClipRRect(
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(16)),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    const Positioned.fill(child: ChatBackdrop()),
+                    expandedPanel,
+                  ],
+                ),
+              );
+
         if (widget.fillHeightWhenExpanded) {
-          return expandedPanel;
+          return pane;
         }
 
         return SizedBox(
           height: widget.expandedHeight,
-          child: expandedPanel,
+          child: pane,
         );
       },
     );
