@@ -1373,21 +1373,33 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _radios.map((r) {
-            final selected = r.id == _selectedRadioId;
-            return ChoiceChip(
-              label: Text(r.label),
-              selected: selected,
-              onSelected: (_) async {
-                setState(() => _selectedRadioId = r.id);
-                await _refreshQueue();
-              },
-            );
-          }).toList(),
-        ),
+        if (_radios.isNotEmpty)
+          DropdownButtonFormField<String>(
+            value: _radios.any((r) => r.id == _selectedRadioId)
+                ? _selectedRadioId
+                : _radios.first.id,
+            decoration: const InputDecoration(
+              labelText: 'Station',
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+            items: _radios
+                .map(
+                  (r) => DropdownMenuItem(
+                    value: r.id,
+                    child: Text(
+                      r.label.isNotEmpty ? r.label : r.id,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                )
+                .toList(),
+            onChanged: (id) async {
+              if (id == null || id == _selectedRadioId) return;
+              setState(() => _selectedRadioId = id);
+              await _refreshQueue();
+            },
+          ),
         const SizedBox(height: 16),
         Card(
           child: Padding(
