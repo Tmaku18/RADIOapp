@@ -22,6 +22,7 @@ const _amenityOptions = [
 ];
 
 const _rateUnits = ['hour', 'day', 'half_day', 'session'];
+const _weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 class MyStudioScreen extends StatefulWidget {
   const MyStudioScreen({super.key});
@@ -157,6 +158,27 @@ class _RateDraft {
   }
 }
 
+class _HourDraft {
+  _HourDraft({String open = '10:00', String close = '22:00', this.closed = true})
+    : open = TextEditingController(text: open),
+      close = TextEditingController(text: close);
+  final TextEditingController open;
+  final TextEditingController close;
+  bool closed;
+
+  Map<String, dynamic> toPayload(String day) => {
+        'day': day,
+        'open': closed ? null : open.text.trim(),
+        'close': closed ? null : close.text.trim(),
+        'closed': closed,
+      };
+
+  void dispose() {
+    open.dispose();
+    close.dispose();
+  }
+}
+
 class _StudioEditorScreen extends StatefulWidget {
   const _StudioEditorScreen({this.existing});
   final Studio? existing;
@@ -171,6 +193,8 @@ class _StudioEditorScreenState extends State<_StudioEditorScreen> {
   final _tagline = TextEditingController();
   final _about = TextEditingController();
   final _hero = TextEditingController();
+  final _photos = TextEditingController();
+  final _memberQuery = TextEditingController();
   final _address1 = TextEditingController();
   final _city = TextEditingController();
   final _state = TextEditingController();
@@ -185,6 +209,12 @@ class _StudioEditorScreenState extends State<_StudioEditorScreen> {
   String? _error;
   final Set<String> _amenities = {};
   final List<_RateDraft> _rates = [];
+  final Map<String, _HourDraft> _hours = {
+    for (final d in _weekDays) d: _HourDraft(),
+  };
+  final List<StudioMember> _members = [];
+  List<StudioMember> _memberHits = const [];
+  bool _searchingMembers = false;
 
   @override
   void initState() {
@@ -195,6 +225,17 @@ class _StudioEditorScreenState extends State<_StudioEditorScreen> {
       _tagline.text = s.tagline ?? '';
       _about.text = s.about ?? '';
       _hero.text = s.heroImageUrl ?? '';
+      _photos.text = s.photos.join('\n');
+      for (final h in s.hours) {
+        _hours[h.day] = _HourDraft(
+          open: h.open ?? '',
+          close: h.close ?? '',
+          closed: h.closed,
+        );
+      }
+      _members
+        ..clear()
+        ..addAll(s.members);
       _address1.text = s.addressLine1 ?? '';
       _city.text = s.city ?? '';
       _state.text = s.state ?? '';
@@ -231,6 +272,11 @@ class _StudioEditorScreenState extends State<_StudioEditorScreen> {
     _tagline.dispose();
     _about.dispose();
     _hero.dispose();
+    _photos.dispose();
+    _memberQuery.dispose();
+    for (final h in _hours.values) {
+      h.dispose();
+    }
     _address1.dispose();
     _city.dispose();
     _state.dispose();
@@ -258,6 +304,18 @@ class _StudioEditorScreenState extends State<_StudioEditorScreen> {
       'tagline': _tagline.text.trim(),
       'about': _about.text.trim(),
       'heroImageUrl': _hero.text.trim(),
+      'photos': _photos.text
+          .split(RegExp(r'[\n,]'))
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList(),
+      'hours': _weekDays.map((d) {
+        final h = _hours[d]!;
+        return h.toPayload(d);
+      }).toList(),
+      'members': _members
+          .map((m) => {'userId': m.userId, if ((m.title ?? '').isNotEmpty) 'title': m.title})
+          .toList(),
       'addressLine1': _address1.text.trim(),
       'city': _city.text.trim(),
       'state': _state.text.trim(),
@@ -270,6 +328,25 @@ class _StudioEditorScreenState extends State<_StudioEditorScreen> {
       'amenities': _amenities.toList(),
       'rates': rates,
     };
+  }
+
+  Future<void> _searchMembers(String raw) async {
+    final q = raw.trim();
+    if (q.length < 2) {
+      setState(() => _memberHits = const []);
+      return;
+    }
+    setState(() => _searchingMembers = true);
+    try {
+      final hits = await _service.searchPeople(q);
+      if (!mounted) return;
+      setState(() => _memberHits = hits);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _memberHits = const []);
+    } finally {
+      if (mounted) setState(() => _searchingMembers = false);
+    }
   }
 
   Future<void> _save() async {
@@ -361,8 +438,88 @@ class _StudioEditorScreenState extends State<_StudioEditorScreen> {
           ),
           TextField(
             controller: _hero,
-            decoration: const InputDecoration(labelText: 'Hero image URL'),
+            decoration: const InputDecoration(labelText: 'Banner image URL'),
           ),
+          TextField(
+            controller: _photos,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              labelText: 'Studio photos (one image URL per line)',
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Hours',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          for (final day in _weekDays)
+            Row(
+              children: [
+                SizedBox(width: 44, child: Text(day)),
+                Expanded(
+                  child: TextField(
+                    enabled: !_hours[day]!.closed,
+                    controller: _hours[day]!.open,
+                    decoration: const InputDecoration(labelText: 'Open'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    enabled: !_hours[day]!.closed,
+                    controller: _hours[day]!.close,
+                    decoration: const InputDecoration(labelText: 'Close'),
+                  ),
+                ),
+                Checkbox(
+                  value: _hours[day]!.closed,
+                  onChanged: (v) =>
+                      setState(() => _hours[day]!.closed = v ?? true),
+                ),
+                const Text('Closed'),
+              ],
+            ),
+          const SizedBox(height: 20),
+          Text(
+            'Bookable producers & artists',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          TextField(
+            controller: _memberQuery,
+            decoration: const InputDecoration(
+              labelText: 'Search people on Networx',
+            ),
+            onChanged: _searchMembers,
+          ),
+          if (_searchingMembers) const LinearProgressIndicator(),
+          for (final hit in _memberHits)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(hit.displayName ?? 'Creator'),
+              subtitle: Text(hit.headline ?? hit.role ?? ''),
+              trailing: TextButton(
+                onPressed: () {
+                  if (_members.any((m) => m.userId == hit.userId)) return;
+                  setState(() => _members.add(hit));
+                },
+                child: const Text('Add'),
+              ),
+            ),
+          for (final m in _members)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(m.displayName ?? 'Creator'),
+              subtitle: Text(m.title ?? m.role ?? ''),
+              trailing: IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () =>
+                    setState(() => _members.removeWhere((e) => e.userId == m.userId)),
+              ),
+            ),
           const SizedBox(height: 16),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,

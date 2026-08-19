@@ -112,7 +112,7 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
       ),
       const _NavSpec(
         icon: Icons.public,
-        label: 'Nearby People',
+        label: 'Nearby Studios',
         route: AppRoutes.nearbyPeople,
       ),
       const _NavSpec(

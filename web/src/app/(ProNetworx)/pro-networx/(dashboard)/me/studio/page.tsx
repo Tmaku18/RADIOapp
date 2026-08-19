@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { studiosApi, type Studio, type StudioRateUnit } from '@/lib/api';
+import { studiosApi, type Studio, type StudioHour, type StudioMember, type StudioRateUnit } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -29,6 +29,14 @@ const AMENITIES = [
 type RateDraft = { label: string; dollars: string; unit: StudioRateUnit };
 
 const EMPTY_RATE: RateDraft = { label: 'Studio time', dollars: '', unit: 'hour' };
+const WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+function defaultHours(existing?: StudioHour[]): StudioHour[] {
+  return WEEK_DAYS.map((day) => {
+    const found = existing?.find((h) => h.day === day);
+    return found ?? { day, open: '10:00', close: '22:00', closed: true };
+  });
+}
 
 export default function MyStudioPage() {
   const { profile, loading: authLoading } = useAuth();
@@ -149,6 +157,11 @@ function StudioForm({
   const [tagline, setTagline] = useState(existing?.tagline ?? '');
   const [about, setAbout] = useState(existing?.about ?? '');
   const [heroImageUrl, setHeroImageUrl] = useState(existing?.heroImageUrl ?? '');
+  const [photos, setPhotos] = useState((existing?.photos ?? []).join('\n'));
+  const [hours, setHours] = useState<StudioHour[]>(defaultHours(existing?.hours));
+  const [members, setMembers] = useState<StudioMember[]>(existing?.members ?? []);
+  const [memberQuery, setMemberQuery] = useState('');
+  const [memberHits, setMemberHits] = useState<StudioMember[]>([]);
   const [addressLine1, setAddressLine1] = useState(existing?.addressLine1 ?? '');
   const [city, setCity] = useState(existing?.city ?? '');
   const [state, setState] = useState(existing?.state ?? '');
@@ -183,6 +196,9 @@ function StudioForm({
       tagline: tagline.trim(),
       about: about.trim(),
       heroImageUrl: heroImageUrl.trim(),
+      photos: photos.split(/[\n,]/).map((s) => s.trim()).filter(Boolean),
+      hours,
+      members: members.map((m) => ({ userId: m.userId, title: m.title ?? undefined })),
       addressLine1: addressLine1.trim(),
       city: city.trim(),
       state: state.trim(),
@@ -228,9 +244,100 @@ function StudioForm({
         <Field label="About">
           <Textarea value={about} onChange={(e) => setAbout(e.target.value)} rows={4} />
         </Field>
-        <Field label="Hero image URL">
+        <Field label="Banner image URL">
           <Input value={heroImageUrl} onChange={(e) => setHeroImageUrl(e.target.value)} />
         </Field>
+        <Field label="Studio photos (one image URL per line)">
+          <Textarea value={photos} onChange={(e) => setPhotos(e.target.value)} rows={3} />
+        </Field>
+        <div className="space-y-2">
+          <Label>Hours</Label>
+          {hours.map((h, i) => (
+            <div key={h.day} className="grid grid-cols-[48px_1fr_1fr_auto] gap-2 items-center">
+              <span className="text-sm">{h.day}</span>
+              <Input
+                disabled={h.closed}
+                value={h.open ?? ''}
+                onChange={(e) =>
+                  setHours((prev) =>
+                    prev.map((x, idx) => (idx === i ? { ...x, open: e.target.value } : x)),
+                  )
+                }
+              />
+              <Input
+                disabled={h.closed}
+                value={h.close ?? ''}
+                onChange={(e) =>
+                  setHours((prev) =>
+                    prev.map((x, idx) => (idx === i ? { ...x, close: e.target.value } : x)),
+                  )
+                }
+              />
+              <label className="text-xs flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={h.closed}
+                  onChange={(e) =>
+                    setHours((prev) =>
+                      prev.map((x, idx) => (idx === i ? { ...x, closed: e.target.checked } : x)),
+                    )
+                  }
+                />
+                Closed
+              </label>
+            </div>
+          ))}
+        </div>
+        <div className="space-y-2">
+          <Label>Bookable producers &amp; artists</Label>
+          <Input
+            value={memberQuery}
+            placeholder="Search people on Networx"
+            onChange={async (e) => {
+              const q = e.target.value;
+              setMemberQuery(q);
+              if (q.trim().length < 2) {
+                setMemberHits([]);
+                return;
+              }
+              try {
+                const res = await studiosApi.searchPeople(q.trim());
+                setMemberHits(res.data.items);
+              } catch {
+                setMemberHits([]);
+              }
+            }}
+          />
+          {memberHits.map((hit) => (
+            <div key={hit.userId} className="flex items-center justify-between text-sm">
+              <span>{hit.displayName || 'Creator'}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  if (members.some((m) => m.userId === hit.userId)) return;
+                  setMembers((prev) => [...prev, hit]);
+                }}
+              >
+                Add
+              </Button>
+            </div>
+          ))}
+          {members.map((m) => (
+            <div key={m.userId} className="flex items-center justify-between text-sm">
+              <span>{m.displayName || 'Creator'}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setMembers((prev) => prev.filter((x) => x.userId !== m.userId))}
+              >
+                Remove
+              </Button>
+            </div>
+          ))}
+        </div>
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"

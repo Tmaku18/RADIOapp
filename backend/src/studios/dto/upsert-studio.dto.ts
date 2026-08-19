@@ -121,9 +121,29 @@ export class CreateStudioDto {
 
   @IsOptional()
   @IsArray()
+  hours?: unknown[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => StudioMemberDto)
+  members?: StudioMemberDto[];
+
+  @IsOptional()
+  @IsArray()
   @ValidateNested({ each: true })
   @Type(() => StudioRateDto)
   rates?: StudioRateDto[];
+}
+
+export class StudioMemberDto {
+  @IsString()
+  userId!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  title?: string;
 }
 
 export class UpdateStudioDto {
@@ -210,6 +230,16 @@ export class UpdateStudioDto {
   @IsOptional()
   @IsBoolean()
   isPublished?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  hours?: unknown[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => StudioMemberDto)
+  members?: StudioMemberDto[];
 
   @IsOptional()
   @IsArray()

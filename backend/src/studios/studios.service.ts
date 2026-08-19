@@ -5,16 +5,21 @@ import {
 } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 import { geocodeAddress, geocodeCityZip } from '../common/geocode.util';
+import { ProNetworkSubscriptionService } from '../pro-network-subscription/pro-network-subscription.service';
 import {
   CreateStudioDto,
+  StudioMemberDto,
   StudioRateDto,
   UpdateStudioDto,
 } from './dto/upsert-studio.dto';
 import {
+  hoursSummary,
   normalizePrecision,
   normalizeRateUnit,
   publishStudioLocation,
+  sanitizeHours,
   startingAtFromRates,
+  type StudioHour,
   type StudioLocationPrecision,
   type StudioRateUnit,
 } from './studio-public.util';
@@ -28,6 +33,15 @@ export interface StudioRate {
   sortOrder: number;
 }
 
+export interface StudioMemberPublic {
+  userId: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  role: string | null;
+  headline: string | null;
+  title: string | null;
+}
+
 export interface StudioPublic {
   kind: 'studio';
   id: string;
@@ -39,6 +53,9 @@ export interface StudioPublic {
   heroImageUrl: string | null;
   photos: string[];
   amenities: string[];
+  hours: StudioHour[];
+  hoursSummary: string | null;
+  members: StudioMemberPublic[];
   city: string | null;
   state: string | null;
   zipCode: string | null;
@@ -54,6 +71,7 @@ export interface StudioPublic {
   bookingLink: string | null;
   contactEmail: string | null;
   contactPhone: string | null;
+  contactLocked: boolean;
   isPublished: boolean;
   rates: StudioRate[];
   distanceKm?: number;
@@ -77,6 +95,7 @@ type RawStudio = {
   lat: number | null;
   lng: number | null;
   location_precision: string;
+  hours?: unknown;
   contact_email: string | null;
   contact_phone: string | null;
   booking_link: string | null;
@@ -112,6 +131,7 @@ const STUDIO_SELECT = `
   lat,
   lng,
   location_precision,
+  hours,
   contact_email,
   contact_phone,
   booking_link,
@@ -131,6 +151,10 @@ const STUDIO_SELECT = `
 
 @Injectable()
 export class StudiosService {
+  constructor(
+    private readonly proNetworkSub: ProNetworkSubscriptionService,
+  ) {}
+
   async list(params: {
     search?: string;
     city?: string;
@@ -160,7 +184,11 @@ export class StudiosService {
     if (error) throw new Error(`Failed to list studios: ${error.message}`);
 
     let items = ((data ?? []) as RawStudio[]).map((row) =>
-      this.toPublic(row, { includePrivateAddress: false }),
+      this.toPublic(row, {
+        includePrivateAddress: false,
+        revealContact: false,
+        members: [],
+      }),
     );
 
     if (
@@ -211,7 +239,17 @@ export class StudiosService {
     if (!row.is_published && !isOwner) {
       throw new NotFoundException('Studio not found');
     }
-    return this.toPublic(row, { includePrivateAddress: isOwner });
+    const members = await this.loadMembers(id);
+    let revealContact = isOwner;
+    if (!revealContact && viewerUserId) {
+      const access = await this.proNetworkSub.getAccess(viewerUserId);
+      revealContact = access.hasAccess === true;
+    }
+    return this.toPublic(row, {
+      includePrivateAddress: isOwner,
+      revealContact,
+      members,
+    });
   }
 
   async listMine(userId: string): Promise<StudioPublic[]> {
@@ -222,8 +260,14 @@ export class StudiosService {
       .eq('owner_user_id', userId)
       .order('created_at', { ascending: false });
     if (error) throw new Error(`Failed to load my studios: ${error.message}`);
-    return ((data ?? []) as RawStudio[]).map((row) =>
-      this.toPublic(row, { includePrivateAddress: true }),
+    const rows = (data ?? []) as RawStudio[];
+    const memberMap = await this.loadMembersForStudios(rows.map((r) => r.id));
+    return rows.map((row) =>
+      this.toPublic(row, {
+        includePrivateAddress: true,
+        revealContact: true,
+        members: memberMap.get(row.id) ?? [],
+      }),
     );
   }
 
@@ -251,6 +295,7 @@ export class StudiosService {
       contact_phone: trimOrNull(dto.contactPhone),
       booking_link: trimOrNull(dto.bookingLink),
       is_published: dto.isPublished ?? true,
+      hours: sanitizeHours(dto.hours),
     };
 
     const { data, error } = await supabase
@@ -263,6 +308,9 @@ export class StudiosService {
     }
     if (dto.rates) {
       await this.replaceRates(data.id as string, dto.rates);
+    }
+    if (dto.members) {
+      await this.replaceMembers(data.id as string, dto.members);
     }
     return this.getOne(data.id as string, userId);
   }
@@ -346,6 +394,9 @@ export class StudiosService {
     if (dto.isPublished !== undefined) {
       updateRow.is_published = dto.isPublished;
     }
+    if (dto.hours !== undefined) {
+      updateRow.hours = sanitizeHours(dto.hours);
+    }
     if (locationTouched) {
       updateRow.lat = geo?.lat ?? null;
       updateRow.lng = geo?.lng ?? null;
@@ -356,6 +407,9 @@ export class StudiosService {
 
     if (dto.rates !== undefined) {
       await this.replaceRates(id, dto.rates);
+    }
+    if (dto.members !== undefined) {
+      await this.replaceMembers(id, dto.members);
     }
     return this.getOne(id, userId);
   }
@@ -369,7 +423,11 @@ export class StudiosService {
 
   toPublic(
     row: RawStudio,
-    opts: { includePrivateAddress: boolean },
+    opts: {
+      includePrivateAddress: boolean;
+      revealContact: boolean;
+      members: StudioMemberPublic[];
+    },
   ): StudioPublic {
     const precision = normalizePrecision(row.location_precision);
     const ratesRaw = Array.isArray(row.studio_rates) ? row.studio_rates : [];
@@ -404,6 +462,7 @@ export class StudiosService {
     const showStreet =
       precision === 'exact' || opts.includePrivateAddress;
     const owner = Array.isArray(row.users) ? row.users[0] : row.users;
+    const hours = sanitizeHours(row.hours);
 
     return {
       kind: 'studio',
@@ -416,6 +475,9 @@ export class StudiosService {
       heroImageUrl: row.hero_image_url,
       photos: asStringList(row.photos),
       amenities: asStringList(row.amenities),
+      hours,
+      hoursSummary: hoursSummary(hours),
+      members: opts.members,
       city: row.city,
       state: row.state,
       zipCode: row.zip_code,
@@ -428,12 +490,42 @@ export class StudiosService {
       locationPrecision: precision,
       startingAtCents: starting.cents,
       startingAtUnit: starting.unit,
-      bookingLink: row.booking_link,
-      contactEmail: row.contact_email,
-      contactPhone: row.contact_phone,
+      bookingLink: opts.revealContact ? row.booking_link : null,
+      contactEmail: opts.revealContact ? row.contact_email : null,
+      contactPhone: opts.revealContact ? row.contact_phone : null,
+      contactLocked: !opts.revealContact,
       isPublished: row.is_published,
       rates,
     };
+  }
+
+  async searchBookablePeople(query: string): Promise<StudioMemberPublic[]> {
+    const q = query.trim();
+    if (q.length < 2) return [];
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, display_name, avatar_url, role, headline')
+      .in('role', ['artist', 'service_provider', 'admin'])
+      .ilike('display_name', `%${q}%`)
+      .limit(12);
+    if (error) {
+      throw new Error(`Failed to search people: ${error.message}`);
+    }
+    return ((data ?? []) as Array<{
+      id: string;
+      display_name: string | null;
+      avatar_url: string | null;
+      role: string | null;
+      headline: string | null;
+    }>).map((u) => ({
+      userId: u.id,
+      displayName: u.display_name,
+      avatarUrl: u.avatar_url,
+      role: u.role,
+      headline: u.headline,
+      title: null,
+    }));
   }
 
   private async requireOwned(userId: string, id: string): Promise<RawStudio> {
@@ -496,6 +588,102 @@ export class StudiosService {
     }));
     const { error } = await supabase.from('studio_rates').insert(rows);
     if (error) throw new Error(`Failed to save rates: ${error.message}`);
+  }
+
+  private async replaceMembers(
+    studioId: string,
+    members: StudioMemberDto[],
+  ): Promise<void> {
+    const supabase = getSupabaseClient();
+    const { error: delError } = await supabase
+      .from('studio_members')
+      .delete()
+      .eq('studio_id', studioId);
+    if (delError) {
+      throw new Error(`Failed to replace members: ${delError.message}`);
+    }
+    const seen = new Set<string>();
+    const rows: Array<{
+      studio_id: string;
+      user_id: string;
+      title: string | null;
+      sort_order: number;
+    }> = [];
+    for (const m of members) {
+      const userId = (m.userId ?? '').trim();
+      if (!userId || seen.has(userId)) continue;
+      seen.add(userId);
+      rows.push({
+        studio_id: studioId,
+        user_id: userId,
+        title: trimOrNull(m.title),
+        sort_order: rows.length,
+      });
+      if (rows.length >= 24) break;
+    }
+    if (rows.length === 0) return;
+    const { error } = await supabase.from('studio_members').insert(rows);
+    if (error) throw new Error(`Failed to save members: ${error.message}`);
+  }
+
+  private async loadMembers(studioId: string): Promise<StudioMemberPublic[]> {
+    const map = await this.loadMembersForStudios([studioId]);
+    return map.get(studioId) ?? [];
+  }
+
+  private async loadMembersForStudios(
+    studioIds: string[],
+  ): Promise<Map<string, StudioMemberPublic[]>> {
+    const out = new Map<string, StudioMemberPublic[]>();
+    if (studioIds.length === 0) return out;
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('studio_members')
+      .select(
+        `
+        studio_id,
+        user_id,
+        title,
+        sort_order,
+        users ( display_name, avatar_url, role, headline )
+      `,
+      )
+      .in('studio_id', studioIds)
+      .order('sort_order', { ascending: true });
+    if (error) {
+      throw new Error(`Failed to load studio members: ${error.message}`);
+    }
+    for (const row of (data ?? []) as Array<{
+      studio_id: string;
+      user_id: string;
+      title: string | null;
+      users?:
+        | {
+            display_name?: string | null;
+            avatar_url?: string | null;
+            role?: string | null;
+            headline?: string | null;
+          }
+        | Array<{
+            display_name?: string | null;
+            avatar_url?: string | null;
+            role?: string | null;
+            headline?: string | null;
+          }>;
+    }>) {
+      const user = Array.isArray(row.users) ? row.users[0] : row.users;
+      const list = out.get(row.studio_id) ?? [];
+      list.push({
+        userId: row.user_id,
+        displayName: user?.display_name ?? null,
+        avatarUrl: user?.avatar_url ?? null,
+        role: user?.role ?? null,
+        headline: user?.headline ?? null,
+        title: row.title,
+      });
+      out.set(row.studio_id, list);
+    }
+    return out;
   }
 }
 

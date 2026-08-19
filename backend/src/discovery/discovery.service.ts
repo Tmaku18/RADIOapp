@@ -6,8 +6,10 @@ import {
   LOCATION_VICINITY_RADIUS_KM,
 } from '../common/geocode.util';
 import {
+  hoursSummary,
   parseDirectoryInclude,
   publishStudioLocation,
+  sanitizeHours,
   startingAtFromRates,
   normalizePrecision,
 } from '../studios/studio-public.util';
@@ -45,6 +47,7 @@ export interface DiscoveryProfile {
   startingAtCents?: number | null;
   startingAtUnit?: string | null;
   ownerUserId?: string | null;
+  hoursSummary?: string | null;
 }
 
 export interface PeopleDirectoryGroup {
@@ -919,6 +922,7 @@ export class DiscoveryService {
         name,
         tagline,
         hero_image_url,
+        hours,
         city,
         zip_code,
         lat,
@@ -943,6 +947,7 @@ export class DiscoveryService {
       name: string;
       tagline: string | null;
       hero_image_url: string | null;
+      hours?: unknown;
       city: string | null;
       zip_code: string | null;
       lat: number | null;
@@ -1000,6 +1005,7 @@ export class DiscoveryService {
           locationPrecision: precision,
           startingAtCents: starting.cents,
           startingAtUnit: starting.unit,
+          hoursSummary: hoursSummary(sanitizeHours(s.hours)),
           role: 'service_provider' as const,
           serviceTypes: [] as string[],
           createdAt: s.created_at,

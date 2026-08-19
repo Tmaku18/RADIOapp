@@ -101,10 +101,10 @@ class AppTutorial {
       nav: TutorialNavTarget.voteOrPro,
     ),
     TutorialStep(
-      title: 'Nearby People',
+      title: 'Nearby Studios',
       body:
-          'Find creators near you on the map. Add your ZIP in Profile — the '
-          'map shows an approximate area only, never your exact address.',
+          'Browse recording studios on a map or list. Filter by studios, '
+          'then tap a banner to see hours, rates, and who you can book.',
       nav: TutorialNavTarget.nearby,
     ),
     TutorialStep(
@@ -217,10 +217,10 @@ class AppTutorial {
       nav: TutorialNavTarget.studio,
     ),
     TutorialStep(
-      title: 'Nearby People',
+      title: 'Nearby Studios',
       body:
-          'Show up near other creators. Set your ZIP in Profile — the map uses '
-          'an approximate area only, not your exact address.',
+          'Find rooms on the map or in a list. Open a studio for hours, '
+          'pricing, and bookable producers — contact needs Pro-Networx.',
       nav: TutorialNavTarget.nearby,
     ),
     TutorialStep(

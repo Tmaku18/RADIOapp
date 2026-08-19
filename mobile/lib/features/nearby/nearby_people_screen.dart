@@ -36,7 +36,7 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
   bool _loading = false;
   String? _error;
   double _radiusMiles = 25;
-  _NearbyKindFilter _kindFilter = _NearbyKindFilter.all;
+  _NearbyKindFilter _kindFilter = _NearbyKindFilter.studios;
   Position? _pos;
 
   List<Map<String, dynamic>> _items = const [];
@@ -46,7 +46,7 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 3, vsync: this);
+    _tabs = TabController(length: 2, vsync: this);
     _loadDirectory();
   }
 
@@ -258,7 +258,7 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
   @override
   Widget build(BuildContext context) {
     return DimensionScreenShell(
-      title: 'Nearby',
+      title: 'Nearby Studios',
       showNeonLine: true,
       actions: [
         IconButton(
@@ -269,12 +269,12 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
       ],
       body: Column(
         children: [
+          _buildFilters(context),
           TabBar(
             controller: _tabs,
             tabs: const [
               Tab(text: 'Map'),
-              Tab(text: 'By city'),
-              Tab(text: 'By ZIP'),
+              Tab(text: 'List'),
             ],
           ),
           if (_error != null)
@@ -299,24 +299,84 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
               controller: _tabs,
               children: [
                 _buildMapTab(context),
-                _buildGroupList(
-                  context,
-                  groups: _byCity,
-                  emptyLabel:
-                      'No one nearby yet. Set your ZIP in Profile, or add a '
-                      'studio page so it can appear on the map.',
-                ),
-                _buildGroupList(
-                  context,
-                  groups: _byZip,
-                  emptyLabel:
-                      'No ZIP codes yet. Add your ZIP in Profile to show up '
-                      'here as an approximate area.',
-                  isZip: true,
-                ),
+                _buildBannerList(context),
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilters(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              for (final f in _NearbyKindFilter.values)
+                ChoiceChip(
+                  label: Text(switch (f) {
+                    _NearbyKindFilter.all => 'All',
+                    _NearbyKindFilter.studios => 'Studios',
+                    _NearbyKindFilter.artists => 'Artists',
+                    _NearbyKindFilter.catalysts => 'Catalysts',
+                  }),
+                  selected: _kindFilter == f,
+                  onSelected: _loading
+                      ? null
+                      : (on) {
+                          if (!on) return;
+                          setState(() => _kindFilter = f);
+                          _loadDirectory();
+                        },
+                ),
+            ],
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Within ${_radiusMiles.toStringAsFixed(0)} mi',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ),
+              TextButton(
+                onPressed: _loading
+                    ? null
+                    : () => _loadDirectory(applyRadius: false),
+                child: const Text('Show all'),
+              ),
+            ],
+          ),
+          Slider(
+            value: _radiusMiles,
+            min: 5,
+            max: 100,
+            divisions: 19,
+            label: '${_radiusMiles.toStringAsFixed(0)} mi',
+            onChanged: _loading
+                ? null
+                : (v) => setState(() => _radiusMiles = v),
+            onChangeEnd: _loading
+                ? null
+                : (_) => _loadDirectory(applyRadius: true),
+          ),
+          Text(
+            'Studios can publish an exact pin. People stay a ZIP area. '
+            '${_pos != null ? 'Green mark is you.' : 'Enable location to center the map.'}',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurface.withValues(alpha: 0.7),
+                ),
+          ),
+          const SizedBox(height: 4),
         ],
       ),
     );
@@ -326,77 +386,6 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
     final scheme = Theme.of(context).colorScheme;
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'People pins are a general ZIP area — never an exact address. '
-                'Studios may publish an exact street pin if the owner opts in. '
-                '${_pos != null ? 'Green mark is you (for centering only).' : 'Enable location to center the map on you.'}',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurface.withValues(alpha: 0.7),
-                    ),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: [
-                  for (final f in _NearbyKindFilter.values)
-                    ChoiceChip(
-                      label: Text(switch (f) {
-                        _NearbyKindFilter.all => 'All',
-                        _NearbyKindFilter.studios => 'Studios',
-                        _NearbyKindFilter.artists => 'Artists',
-                        _NearbyKindFilter.catalysts => 'Catalysts',
-                      }),
-                      selected: _kindFilter == f,
-                      onSelected: _loading
-                          ? null
-                          : (on) {
-                              if (!on) return;
-                              setState(() => _kindFilter = f);
-                              _loadDirectory();
-                            },
-                    ),
-                ],
-              ),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Nearby filter: ${_radiusMiles.toStringAsFixed(0)} mi',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: _loading
-                        ? null
-                        : () => _loadDirectory(applyRadius: false),
-                    child: const Text('Show all'),
-                  ),
-                ],
-              ),
-              Slider(
-                value: _radiusMiles,
-                min: 5,
-                max: 100,
-                divisions: 19,
-                label: '${_radiusMiles.toStringAsFixed(0)} mi',
-                onChanged: _loading
-                    ? null
-                    : (v) => setState(() => _radiusMiles = v),
-                onChangeEnd: _loading
-                    ? null
-                    : (_) => _loadDirectory(applyRadius: true),
-              ),
-            ],
-          ),
-        ),
         if (!_loading && _items.where((i) => _asDouble(i['lat']) != null).isEmpty)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -433,6 +422,139 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildBannerList(BuildContext context) {
+    if (!_loading && _items.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'No studios nearby yet. Publish a studio page from Pro-Networx, or tap Show all.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .onSurface
+                      .withValues(alpha: 0.7),
+                ),
+          ),
+        ),
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: () => _loadDirectory(),
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        itemCount: _items.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          final item = _items[index];
+          final studio = isStudioItem(item);
+          final name = _name(item);
+          final headline = _headline(item);
+          final dist = _distText(item);
+          final hero = (item['heroImageUrl'] ??
+                  item['hero_image_url'] ??
+                  item['avatarUrl'] ??
+                  '')
+              .toString();
+          final startingCents = item['startingAtCents'] ?? item['starting_at_cents'];
+          final startingUnit =
+              (item['startingAtUnit'] ?? item['starting_at_unit'] ?? 'hour')
+                  .toString();
+          String? price;
+          if (startingCents is num) {
+            final dollars = (startingCents / 100).toStringAsFixed(
+              startingCents % 100 == 0 ? 0 : 2,
+            );
+            price = 'Starting at \$$dollars';
+            if (startingUnit == 'day') price = '$price/day';
+            if (startingUnit == 'session') price = '$price/session';
+            if (startingUnit == 'hour') price = '$price/hr';
+          }
+          final hours = (item['hoursSummary'] ?? item['hours_summary'] ?? '')
+              .toString();
+          final city = (item['city'] ?? '').toString();
+          return InkWell(
+            onTap: () => _openDirectoryItem(item),
+            borderRadius: BorderRadius.circular(16),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  AspectRatio(
+                    aspectRatio: 16 / 7,
+                    child: hero.isNotEmpty
+                        ? Image.network(
+                            hero,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => _bannerFallback(studio),
+                          )
+                        : _bannerFallback(studio),
+                  ),
+                  Container(
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                          ),
+                        ),
+                        if (headline.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(headline, maxLines: 2, overflow: TextOverflow.ellipsis),
+                        ],
+                        if (price != null) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            price,
+                            style: const TextStyle(
+                              color: NetworxTokens.electricCyan,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                        if (hours.isNotEmpty || city.isNotEmpty || dist != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              [
+                                if (hours.isNotEmpty) hours,
+                                if (city.isNotEmpty) city,
+                                if (dist != null) dist,
+                              ].join(' · '),
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _bannerFallback(bool studio) {
+    return ColoredBox(
+      color: (studio ? NetworxTokens.warning : NetworxTokens.electricCyan)
+          .withValues(alpha: 0.18),
+      child: Icon(
+        studio ? Icons.apartment : Icons.person,
+        color: studio ? NetworxTokens.warning : NetworxTokens.electricCyan,
+        size: 40,
+      ),
     );
   }
 

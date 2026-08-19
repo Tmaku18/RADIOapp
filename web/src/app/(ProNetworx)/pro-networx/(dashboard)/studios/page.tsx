@@ -92,21 +92,34 @@ export default function StudiosDirectoryPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {items.map((studio) => (
             <Link key={studio.id} href={`/pro-networx/studios/${studio.id}`}>
-              <Card className="p-4 h-full hover:border-cyan-400/50 transition-colors">
-                <div className="text-xs uppercase tracking-widest text-cyan-300 mb-2">
-                  Studio
-                </div>
-                <div className="font-semibold text-foreground">{studio.name}</div>
-                {studio.tagline && (
-                  <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                    {studio.tagline}
-                  </p>
+              <Card className="overflow-hidden h-full hover:border-cyan-400/50 transition-colors p-0">
+                {studio.heroImageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={studio.heroImageUrl}
+                    alt=""
+                    className="w-full h-36 object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-36 bg-cyan-400/10" />
                 )}
-                <p className="text-sm text-cyan-300 mt-3">{formatStartingAt(studio)}</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {[studio.city, studio.zipCode].filter(Boolean).join(' · ') ||
-                    'Location coming soon'}
-                </p>
+                <div className="p-4">
+                  <div className="text-xs uppercase tracking-widest text-cyan-300 mb-2">
+                    Studio
+                  </div>
+                  <div className="font-semibold text-foreground">{studio.name}</div>
+                  {studio.tagline && (
+                    <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                      {studio.tagline}
+                    </p>
+                  )}
+                  <p className="text-sm text-cyan-300 mt-3">{formatStartingAt(studio)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {[studio.hoursSummary, studio.city, studio.zipCode]
+                      .filter(Boolean)
+                      .join(' · ') || 'Location coming soon'}
+                  </p>
+                </div>
               </Card>
             </Link>
           ))}

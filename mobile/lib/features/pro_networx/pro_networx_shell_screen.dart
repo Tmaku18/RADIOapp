@@ -12,6 +12,7 @@ import 'pro_networx_nav_drawer.dart';
 import 'pro_radio_screen.dart';
 import 'pro_search_screen.dart';
 import 'pro_services_screen.dart';
+import 'pro_studios_screen.dart';
 
 /// Authenticated Pro-Networx app shell — side menu parity with web
 /// [ProNetworxAppShell] (Home / Discover / Search / Beats / Services /
@@ -34,9 +35,10 @@ class ProNetworxShellScreen extends StatefulWidget {
   static const int tabSearch = 2;
   static const int tabBeats = 3;
   static const int tabServices = 4;
-  static const int tabProjects = 5;
-  static const int tabRadio = 6;
-  static const int tabCount = 7;
+  static const int tabStudios = 5;
+  static const int tabProjects = 6;
+  static const int tabRadio = 7;
+  static const int tabCount = 8;
 
   @override
   State<ProNetworxShellScreen> createState() => _ProNetworxShellScreenState();
@@ -145,6 +147,7 @@ class _ProNetworxShellScreenState extends State<ProNetworxShellScreen> {
                     ProSearchScreen(),
                     ProBeatsMarketplaceScreen(),
                     ProServicesScreen(),
+                    ProStudiosScreen(),
                     JobBoardScreen(embedded: true),
                     ProRadioScreen(),
                   ],

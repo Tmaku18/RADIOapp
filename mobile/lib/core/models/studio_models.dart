@@ -82,6 +82,67 @@ class StudioRate {
   }
 }
 
+class StudioHour {
+  const StudioHour({
+    required this.day,
+    this.open,
+    this.close,
+    this.closed = false,
+  });
+
+  final String day;
+  final String? open;
+  final String? close;
+  final bool closed;
+
+  Map<String, dynamic> toPayload() => {
+        'day': day,
+        'open': open,
+        'close': close,
+        'closed': closed,
+      };
+
+  factory StudioHour.fromJson(Map<String, dynamic> json) {
+    return StudioHour(
+      day: (json['day'] ?? '').toString(),
+      open: json['open']?.toString(),
+      close: json['close']?.toString(),
+      closed: json['closed'] == true,
+    );
+  }
+}
+
+class StudioMember {
+  const StudioMember({
+    required this.userId,
+    this.displayName,
+    this.avatarUrl,
+    this.role,
+    this.headline,
+    this.title,
+  });
+
+  final String userId;
+  final String? displayName;
+  final String? avatarUrl;
+  final String? role;
+  final String? headline;
+  final String? title;
+
+  factory StudioMember.fromJson(Map<String, dynamic> json) {
+    return StudioMember(
+      userId: (json['userId'] ?? json['user_id'] ?? '').toString(),
+      displayName: json['displayName']?.toString() ??
+          json['display_name']?.toString(),
+      avatarUrl:
+          json['avatarUrl']?.toString() ?? json['avatar_url']?.toString(),
+      role: json['role']?.toString(),
+      headline: json['headline']?.toString(),
+      title: json['title']?.toString(),
+    );
+  }
+}
+
 class Studio {
   const Studio({
     required this.id,
@@ -93,6 +154,9 @@ class Studio {
     this.heroImageUrl,
     this.photos = const [],
     this.amenities = const [],
+    this.hours = const [],
+    this.hoursSummary,
+    this.members = const [],
     this.city,
     this.state,
     this.zipCode,
@@ -108,6 +172,7 @@ class Studio {
     this.bookingLink,
     this.contactEmail,
     this.contactPhone,
+    this.contactLocked = false,
     this.isPublished = true,
     this.rates = const [],
     this.distanceKm,
@@ -122,6 +187,9 @@ class Studio {
   final String? heroImageUrl;
   final List<String> photos;
   final List<String> amenities;
+  final List<StudioHour> hours;
+  final String? hoursSummary;
+  final List<StudioMember> members;
   final String? city;
   final String? state;
   final String? zipCode;
@@ -137,6 +205,7 @@ class Studio {
   final String? bookingLink;
   final String? contactEmail;
   final String? contactPhone;
+  final bool contactLocked;
   final bool isPublished;
   final List<StudioRate> rates;
   final double? distanceKm;
@@ -177,6 +246,20 @@ class Studio {
           json['heroImageUrl']?.toString() ?? json['hero_image_url']?.toString(),
       photos: _asStringList(json['photos']),
       amenities: _asStringList(json['amenities']),
+      hours: (json['hours'] is List)
+          ? (json['hours'] as List)
+              .whereType<Map>()
+              .map((e) => StudioHour.fromJson(Map<String, dynamic>.from(e)))
+              .toList()
+          : const [],
+      hoursSummary: json['hoursSummary']?.toString() ??
+          json['hours_summary']?.toString(),
+      members: (json['members'] is List)
+          ? (json['members'] as List)
+              .whereType<Map>()
+              .map((e) => StudioMember.fromJson(Map<String, dynamic>.from(e)))
+              .toList()
+          : const [],
       city: json['city']?.toString(),
       state: json['state']?.toString(),
       zipCode: json['zipCode']?.toString() ?? json['zip_code']?.toString(),
@@ -211,6 +294,8 @@ class Studio {
       contactPhone:
           json['contactPhone']?.toString() ??
           json['contact_phone']?.toString(),
+      contactLocked: json['contactLocked'] == true ||
+          json['contact_locked'] == true,
       isPublished: json['isPublished'] != false && json['is_published'] != false,
       rates: ratesRaw is List
           ? ratesRaw

@@ -49,7 +49,7 @@ class LocationPermissionService {
                 title: const Text('Find people near you'),
                 content: Text(
                   servicesOn
-                      ? 'Allow location so Nearby People can show who’s around '
+                      ? 'Allow location so Nearby Studios can show rooms around '
                           'you and place you on the local map.'
                       : 'Turn on Location Services, then allow access so Nearby '
                           'People can show who’s around you.',
@@ -89,7 +89,7 @@ class LocationPermissionService {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
-                'You can enable location anytime in Settings for Nearby People.',
+                'You can enable location anytime in Settings for Nearby Studios.',
               ),
             ),
           );

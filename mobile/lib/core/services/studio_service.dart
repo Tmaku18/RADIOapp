@@ -62,4 +62,18 @@ class StudioService {
   Future<void> remove(String id) async {
     await _api.delete('studios/${Uri.encodeComponent(id)}');
   }
+
+  Future<List<StudioMember>> searchPeople(String query) async {
+    final q = query.trim();
+    if (q.length < 2) return const [];
+    final res = await _api.get(
+      'studios/people-search?q=${Uri.encodeQueryComponent(q)}',
+    );
+    final items = res is Map ? res['items'] : null;
+    if (items is! List) return const [];
+    return items
+        .whereType<Map>()
+        .map((e) => StudioMember.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+  }
 }

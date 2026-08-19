@@ -6,6 +6,7 @@ import '../../core/navigation/app_routes.dart';
 import '../../core/services/studio_service.dart';
 import '../../core/theme/networx_tokens.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
+import '../pro_networx/widgets/pro_network_paywall_sheet.dart';
 
 class StudioProfileScreen extends StatefulWidget {
   const StudioProfileScreen({super.key, required this.studioId});
@@ -45,9 +46,26 @@ class _StudioProfileScreenState extends State<StudioProfileScreen> {
     }
   }
 
-  void _messageOwner() {
+  Future<bool> _requireSubscription() async {
+    if (_studio?.contactLocked != true) return true;
+    final ok = await ProNetworkPaywallSheet.show(
+      context,
+      title: 'Contact this studio',
+      description:
+          'A Pro-Networx subscription is required to message or contact studios.',
+    );
+    if (ok == true && mounted) {
+      await _load();
+      return _studio?.contactLocked != true;
+    }
+    return false;
+  }
+
+  Future<void> _messageOwner() async {
     final studio = _studio;
     if (studio == null || studio.ownerUserId.isEmpty) return;
+    if (!await _requireSubscription()) return;
+    if (!mounted) return;
     Navigator.pushNamed(
       context,
       AppRoutes.thread,
@@ -59,10 +77,33 @@ class _StudioProfileScreenState extends State<StudioProfileScreen> {
     );
   }
 
-  Future<void> _book() async {
-    final link = _studio?.bookingLink?.trim() ?? '';
-    if (link.isEmpty) return;
-    final uri = Uri.tryParse(link);
+  Future<void> _contactMember(StudioMember member) async {
+    if (member.userId.isEmpty) return;
+    if (!await _requireSubscription()) return;
+    if (!mounted) return;
+    Navigator.pushNamed(
+      context,
+      AppRoutes.thread,
+      arguments: {
+        'myUserId': '',
+        'otherUserId': member.userId,
+        'otherDisplayName': member.displayName ?? member.title ?? 'Producer',
+      },
+    );
+  }
+
+  Future<void> _launchContact() async {
+    if (!await _requireSubscription()) return;
+    final studio = _studio;
+    if (studio == null) return;
+    final email = studio.contactEmail?.trim() ?? '';
+    final phone = studio.contactPhone?.trim() ?? '';
+    final link = studio.bookingLink?.trim() ?? '';
+    final uri = email.isNotEmpty
+        ? Uri(scheme: 'mailto', path: email)
+        : phone.isNotEmpty
+            ? Uri(scheme: 'tel', path: phone)
+            : Uri.tryParse(link);
     if (uri == null) return;
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
@@ -117,6 +158,13 @@ class _StudioProfileScreenState extends State<StudioProfileScreen> {
                     ),
                   ),
                 ],
+                if ((studio.hoursSummary ?? '').isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    studio.hoursSummary!,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ],
                 if (studio.locationLine.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Text(
@@ -128,40 +176,115 @@ class _StudioProfileScreenState extends State<StudioProfileScreen> {
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
+                if (studio.photos.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    height: 120,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: studio.photos.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 8),
+                      itemBuilder: (_, i) => ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          studio.photos[i],
+                          width: 160,
+                          height: 120,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => Container(
+                            width: 160,
+                            color: Colors.black26,
+                            child: const Icon(Icons.image_not_supported),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: studio.ownerUserId.isEmpty
-                            ? null
-                            : _messageOwner,
-                        icon: const Icon(Icons.mail_outline),
-                        label: const Text('Message'),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: (studio.bookingLink ?? '').isEmpty
-                            ? null
-                            : _book,
-                        icon: const Icon(Icons.event_available_outlined),
-                        label: const Text('Book'),
-                      ),
-                    ),
-                  ],
+                FilledButton.icon(
+                  onPressed: studio.ownerUserId.isEmpty ? null : _launchContact,
+                  icon: const Icon(Icons.call_outlined),
+                  label: Text(
+                    studio.contactLocked
+                        ? 'Contact us (Pro-Networx)'
+                        : 'Contact us',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed:
+                      studio.ownerUserId.isEmpty ? null : _messageOwner,
+                  icon: const Icon(Icons.mail_outline),
+                  label: const Text('Message studio'),
                 ),
                 if ((studio.about ?? '').isNotEmpty) ...[
                   const SizedBox(height: 24),
                   Text(
-                    'About',
+                    'About us',
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(studio.about!),
+                ],
+                if (studio.hours.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  Text(
+                    'Hours',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...studio.hours.map(
+                    (h) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(
+                        children: [
+                          SizedBox(width: 44, child: Text(h.day)),
+                          Text(
+                            h.closed || h.open == null
+                                ? 'Closed'
+                                : '${h.open}–${h.close}',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+                if (studio.members.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  Text(
+                    'Book a producer or artist',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ...studio.members.map(
+                    (m) => ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: CircleAvatar(
+                        backgroundImage: (m.avatarUrl ?? '').isNotEmpty
+                            ? NetworkImage(m.avatarUrl!)
+                            : null,
+                        child: (m.avatarUrl ?? '').isEmpty
+                            ? const Icon(Icons.person_outline)
+                            : null,
+                      ),
+                      title: Text(m.displayName ?? 'Creator'),
+                      subtitle: Text(
+                        [
+                          if ((m.title ?? '').isNotEmpty) m.title,
+                          if ((m.headline ?? '').isNotEmpty) m.headline,
+                        ].join(' · '),
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => _contactMember(m),
+                    ),
+                  ),
                 ],
                 if (studio.amenities.isNotEmpty) ...[
                   const SizedBox(height: 24),

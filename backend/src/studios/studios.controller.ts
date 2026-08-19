@@ -71,6 +71,13 @@ export class StudiosController {
     return { items: await this.studios.listMine(userId) };
   }
 
+  @Get('people-search')
+  @UseGuards(RolesGuard)
+  @Roles('artist', 'service_provider', 'admin')
+  async searchPeople(@Query('q') q?: string) {
+    return { items: await this.studios.searchBookablePeople(q ?? '') };
+  }
+
   @Get(':id')
   async getOne(
     @CurrentUser() user: FirebaseUser,

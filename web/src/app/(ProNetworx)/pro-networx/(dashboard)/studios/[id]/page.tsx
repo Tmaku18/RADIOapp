@@ -7,6 +7,7 @@ import { studiosApi, type Studio } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { ContactInfoLockedCard } from '@/components/pro-networx/PaywallCard';
 
 function formatRate(cents: number, unit: string): string {
   const dollars = (cents / 100).toFixed(2);
@@ -93,23 +94,83 @@ export default function StudioProfilePage() {
         {location && <p className="text-sm text-muted-foreground mt-2">{location}</p>}
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Button asChild>
-          <Link href={`/messages?with=${studio.ownerUserId}`}>Message owner</Link>
-        </Button>
-        {studio.bookingLink && (
-          <Button variant="outline" asChild>
-            <a href={studio.bookingLink} target="_blank" rel="noreferrer">
-              Book
-            </a>
+      {studio.photos?.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto">
+          {studio.photos.map((src) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={src}
+              src={src}
+              alt=""
+              className="h-28 w-40 object-cover rounded-xl shrink-0"
+            />
+          ))}
+        </div>
+      )}
+
+      {studio.contactLocked ? (
+        <ContactInfoLockedCard caption="A Pro-Networx subscription is required to contact this studio." />
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          <Button asChild>
+            <Link href={`/messages?with=${studio.ownerUserId}`}>Contact us</Link>
           </Button>
-        )}
-      </div>
+          {studio.bookingLink && (
+            <Button variant="outline" asChild>
+              <a href={studio.bookingLink} target="_blank" rel="noreferrer">
+                Book
+              </a>
+            </Button>
+          )}
+          {studio.contactEmail && (
+            <Button variant="outline" asChild>
+              <a href={`mailto:${studio.contactEmail}`}>Email</a>
+            </Button>
+          )}
+        </div>
+      )}
 
       {studio.about && (
         <Card className="p-5">
-          <h2 className="font-semibold mb-2">About</h2>
+          <h2 className="font-semibold mb-2">About us</h2>
           <p className="text-sm text-muted-foreground whitespace-pre-wrap">{studio.about}</p>
+        </Card>
+      )}
+
+      {(studio.hours?.length ?? 0) > 0 && (
+        <Card className="p-5 space-y-1">
+          <h2 className="font-semibold mb-2">Hours</h2>
+          {studio.hours.map((h) => (
+            <div key={h.day} className="flex justify-between text-sm">
+              <span>{h.day}</span>
+              <span className="text-muted-foreground">
+                {h.closed || !h.open ? 'Closed' : `${h.open}–${h.close}`}
+              </span>
+            </div>
+          ))}
+        </Card>
+      )}
+
+      {(studio.members?.length ?? 0) > 0 && (
+        <Card className="p-5 space-y-3">
+          <h2 className="font-semibold">Book a producer or artist</h2>
+          {studio.members.map((m) => (
+            <div key={m.userId} className="flex items-center justify-between gap-3">
+              <div>
+                <div className="font-medium">{m.displayName || 'Creator'}</div>
+                <div className="text-xs text-muted-foreground">
+                  {[m.title, m.headline].filter(Boolean).join(' · ')}
+                </div>
+              </div>
+              {studio.contactLocked ? (
+                <span className="text-xs text-muted-foreground">Pro-Networx required</span>
+              ) : (
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={`/messages?with=${m.userId}`}>Contact</Link>
+                </Button>
+              )}
+            </div>
+          ))}
         </Card>
       )}
 

@@ -1614,6 +1614,22 @@ export type StudioRate = {
   sortOrder: number;
 };
 
+export type StudioHour = {
+  day: string;
+  open: string | null;
+  close: string | null;
+  closed: boolean;
+};
+
+export type StudioMember = {
+  userId: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  role: string | null;
+  headline: string | null;
+  title: string | null;
+};
+
 export type Studio = {
   kind: 'studio';
   id: string;
@@ -1625,6 +1641,9 @@ export type Studio = {
   heroImageUrl: string | null;
   photos: string[];
   amenities: string[];
+  hours?: StudioHour[];
+  hoursSummary?: string | null;
+  members?: StudioMember[];
   city: string | null;
   state: string | null;
   zipCode: string | null;
@@ -1640,6 +1659,7 @@ export type Studio = {
   bookingLink: string | null;
   contactEmail: string | null;
   contactPhone: string | null;
+  contactLocked?: boolean;
   isPublished: boolean;
   rates: StudioRate[];
   distanceKm?: number;
@@ -1663,6 +1683,8 @@ export type UpsertStudioPayload = {
   contactPhone?: string;
   bookingLink?: string;
   isPublished?: boolean;
+  hours?: StudioHour[];
+  members?: Array<{ userId: string; title?: string }>;
   rates?: Array<{
     label: string;
     priceCents: number;
@@ -1686,6 +1708,8 @@ export const studiosApi = {
   update: (id: string, data: UpsertStudioPayload) =>
     api.patch<Studio>(`/studios/${id}`, data),
   remove: (id: string) => api.delete<{ ok: true }>(`/studios/${id}`),
+  searchPeople: (q: string) =>
+    api.get<{ items: StudioMember[] }>('/studios/people-search', { params: { q } }),
 };
 
 export const proNetworkSubscriptionApi = {

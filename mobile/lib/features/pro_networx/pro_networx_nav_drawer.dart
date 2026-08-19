@@ -29,6 +29,7 @@ class ProNetworxNavDrawer extends StatelessWidget {
     'Search',
     'Beats',
     'Services',
+    'Studios',
     'Projects',
     'Radio',
   ];
@@ -39,6 +40,7 @@ class ProNetworxNavDrawer extends StatelessWidget {
     _ProNavTab(icon: Icons.search, label: 'Search'),
     _ProNavTab(icon: Icons.graphic_eq, label: 'Beats'),
     _ProNavTab(icon: Icons.work_outline, label: 'Services'),
+    _ProNavTab(icon: Icons.apartment, label: 'Studios'),
     _ProNavTab(icon: Icons.assignment_outlined, label: 'Projects'),
     _ProNavTab(icon: Icons.radio, label: 'Radio'),
   ];
