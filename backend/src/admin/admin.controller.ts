@@ -207,9 +207,12 @@ export class AdminController {
   @Patch('streamer-applications/:userId')
   async setStreamerApproval(
     @Param('userId') userId: string,
-    @Body() body: { action: 'approve' | 'reject' },
+    @Body() body: { action: 'approve' | 'reject' | 'revoke' },
   ) {
-    const action = body?.action === 'reject' ? 'reject' : 'approve';
+    const action =
+      body?.action === 'reject' || body?.action === 'revoke'
+        ? body.action
+        : 'approve';
     return this.adminService.setStreamerApproval(userId, action);
   }
 

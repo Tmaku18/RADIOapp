@@ -1897,7 +1897,33 @@ export class AdminService {
       throw new BadRequestException(`Failed to fetch users: ${error.message}`);
     }
 
-    return data;
+    const rows = data ?? [];
+    const userIds = rows.map((u) => u.id as string).filter(Boolean);
+    const canStreamById = new Map<string, { canStream: boolean; streamingApprovedAt: string | null }>();
+    if (userIds.length) {
+      const { data: profiles } = await supabase
+        .from('artist_live_profiles')
+        .select('user_id, streaming_approved_at, streaming_rejected_at')
+        .in('user_id', userIds);
+      for (const profile of profiles ?? []) {
+        const approvedAt = (profile.streaming_approved_at as string | null) ?? null;
+        const rejectedAt = profile.streaming_rejected_at;
+        canStreamById.set(profile.user_id as string, {
+          canStream: Boolean(approvedAt) && !rejectedAt,
+          streamingApprovedAt: approvedAt,
+        });
+      }
+    }
+
+    return rows.map((user) => {
+      const stream = canStreamById.get(user.id as string);
+      const isAdmin = user.role === 'admin';
+      return {
+        ...user,
+        canStream: isAdmin || stream?.canStream === true,
+        streamingApprovedAt: stream?.streamingApprovedAt ?? null,
+      };
+    });
   }
 
   async updateUserRole(
@@ -2737,23 +2763,72 @@ export class AdminService {
 
   async setStreamerApproval(
     userId: string,
-    action: 'approve' | 'reject',
+    action: 'approve' | 'reject' | 'revoke',
   ): Promise<{ approved: boolean; approvedAt?: string; rejectedAt?: string }> {
     const supabase = getSupabaseClient();
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', userId)
+      .maybeSingle();
+    if (userError || !user?.id) {
+      throw new NotFoundException('User not found');
+    }
+
     const now = new Date().toISOString();
-    const updates: Record<string, unknown> =
-      action === 'approve'
-        ? { streaming_approved_at: now, streaming_rejected_at: null }
+    const { data: existing, error: loadError } = await supabase
+      .from('artist_live_profiles')
+      .select('user_id, streaming_applied_at')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (loadError) {
+      throw new BadRequestException(
+        `Failed to load streamer profile: ${loadError.message}`,
+      );
+    }
+
+    if (action === 'approve') {
+      const payload = {
+        user_id: userId,
+        streaming_applied_at: existing?.streaming_applied_at ?? now,
+        streaming_approved_at: now,
+        streaming_rejected_at: null,
+      };
+      const { error } = existing
+        ? await supabase
+            .from('artist_live_profiles')
+            .update(payload)
+            .eq('user_id', userId)
+        : await supabase.from('artist_live_profiles').insert(payload);
+      if (error) {
+        throw new BadRequestException(`Failed to approve: ${error.message}`);
+      }
+      this.logger.log(`Granted streamer access to ${userId}`);
+      return { approved: true, approvedAt: now };
+    }
+
+    if (!existing) {
+      if (action === 'revoke') {
+        return { approved: false };
+      }
+      throw new BadRequestException('User has no streamer application to reject.');
+    }
+
+    const updates =
+      action === 'revoke'
+        ? {
+            streaming_approved_at: null,
+            streaming_rejected_at: now,
+          }
         : { streaming_rejected_at: now };
     const { error } = await supabase
       .from('artist_live_profiles')
       .update(updates)
       .eq('user_id', userId);
-    if (error)
+    if (error) {
       throw new BadRequestException(`Failed to ${action}: ${error.message}`);
-    return action === 'approve'
-      ? { approved: true, approvedAt: now }
-      : { approved: false, rejectedAt: now };
+    }
+    return { approved: false, rejectedAt: now };
   }
 
   // ========== Discover feed reports (posts + users) ==========

@@ -30,6 +30,8 @@ interface User {
   created_at: string;
   is_banned?: boolean;
   is_shadow_banned?: boolean;
+  canStream?: boolean;
+  streamingApprovedAt?: string | null;
 }
 
 type SortField = 'name' | 'email' | 'role' | 'created_at';
@@ -96,6 +98,28 @@ export default function AdminUsersPage() {
   const SortIcon = ({ field }: { field: SortField }) => {
     if (sortBy !== field) return <span className="text-gray-300 ml-1">↕</span>;
     return <span className="text-primary ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>;
+  };
+
+  const handleStreamerAccess = async (user: User, grant: boolean) => {
+    setActionLoading(user.id);
+    try {
+      await adminApi.setStreamerApproval(user.id, grant ? 'approve' : 'revoke');
+      setUsers(users.map((u) =>
+        u.id === user.id
+          ? {
+              ...u,
+              canStream: grant,
+              streamingApprovedAt: grant ? new Date().toISOString() : null,
+            }
+          : u,
+      ));
+      toast.success(grant ? 'Streamer access granted' : 'Streamer access revoked');
+    } catch (err) {
+      console.error('Failed to update streamer access:', err);
+      toast.error('Failed to update streamer access');
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const handleRoleChange = async (userId: string, newRole: 'listener' | 'artist' | 'admin' | 'dj' | 'musician') => {
@@ -331,6 +355,11 @@ export default function AdminUsersPage() {
                           Banned
                         </span>
                       )}
+                      {(user.canStream || user.role === 'admin') && (
+                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-teal-100 text-teal-800">
+                          {user.role === 'admin' ? 'Streamer (admin)' : 'Streamer'}
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="px-6 py-4 text-gray-600 text-sm whitespace-nowrap">
@@ -379,6 +408,18 @@ export default function AdminUsersPage() {
                         >
                           Set as Admin
                         </DropdownMenuItem>
+                        {user.role !== 'admin' && (
+                          <DropdownMenuItem
+                            onClick={() =>
+                              void handleStreamerAccess(user, !user.canStream)
+                            }
+                            className="text-foreground focus:text-foreground focus:bg-accent cursor-pointer"
+                          >
+                            {user.canStream
+                              ? 'Revoke Streamer Access'
+                              : 'Grant Streamer Access'}
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuSeparator />
                         {!user.is_shadow_banned && (
                           <DropdownMenuItem

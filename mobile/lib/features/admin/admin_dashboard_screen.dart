@@ -2014,6 +2014,54 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
   }
 
+  Future<void> _setUserStreamerAccess(
+    Map<String, dynamic> user, {
+    required bool grant,
+  }) async {
+    final userId = '${user['id']}';
+    if (userId.isEmpty) return;
+    final name = _userLabel(user);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(grant ? 'Grant streamer access?' : 'Revoke streamer access?'),
+        content: Text(
+          grant
+              ? '$name will be able to go live without applying first.'
+              : '$name will no longer be able to start a livestream.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(grant ? 'Grant access' : 'Revoke'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await _admin.setStreamerApproval(userId, grant ? 'approve' : 'revoke');
+      await _refreshUsers();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            grant ? 'Streamer access granted.' : 'Streamer access revoked.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Streamer update failed: $e')),
+      );
+    }
+  }
+
   Widget _buildUsersTab() {
     final roles = const ['all', 'artist', 'listener', 'admin', 'dj', 'musician'];
     return ListView(
@@ -2065,6 +2113,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           final role = '${user['role'] ?? 'listener'}';
           final isShadowBanned = user['is_shadow_banned'] == true;
           final isBanned = user['is_banned'] == true;
+          final canStream = user['canStream'] == true || role == 'admin';
           return Card(
             child: Padding(
               padding: const EdgeInsets.all(10),
@@ -2076,12 +2125,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   Text('${user['email'] ?? ''} · $role'),
-                  if (isShadowBanned || isBanned) ...[
+                  if (isShadowBanned || isBanned || canStream) ...[
                     const SizedBox(height: 6),
                     Wrap(
                       spacing: 6,
                       runSpacing: 6,
                       children: [
+                        if (canStream)
+                          Chip(
+                            label: Text(
+                              role == 'admin'
+                                  ? 'Streamer (admin)'
+                                  : 'Streamer',
+                            ),
+                            visualDensity: VisualDensity.compact,
+                            backgroundColor: Colors.teal.withValues(alpha: 0.25),
+                          ),
                         if (isShadowBanned)
                           Chip(
                             label: const Text('Shadow banned'),
@@ -2127,6 +2186,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           role == 'artist' ? 'Make Listener' : 'Make Artist',
                         ),
                       ),
+                      if (role != 'admin')
+                        OutlinedButton(
+                          onPressed: () => _setUserStreamerAccess(
+                            user,
+                            grant: !canStream,
+                          ),
+                          child: Text(
+                            canStream ? 'Revoke Streamer' : 'Grant Streamer',
+                          ),
+                        ),
                       if (!isShadowBanned)
                         OutlinedButton(
                           onPressed: () => _confirmShadowBan(user),

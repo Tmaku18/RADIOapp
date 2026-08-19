@@ -2053,8 +2053,10 @@ export const adminApi = {
     api.delete(`/admin/discover-feed-posts/${postId}`),
   getStreamerApplications: () =>
     api.get<{ applications: Array<{ userId: string; displayName: string | null; email: string | null; role: string | null; appliedAt: string }> }>('/admin/streamer-applications'),
-  setStreamerApproval: (userId: string, action: 'approve' | 'reject') =>
-    api.patch(`/admin/streamer-applications/${userId}`, { action }),
+  setStreamerApproval: (
+    userId: string,
+    action: 'approve' | 'reject' | 'revoke',
+  ) => api.patch(`/admin/streamer-applications/${userId}`, { action }),
 };
 
 export const djBoothApi = {
