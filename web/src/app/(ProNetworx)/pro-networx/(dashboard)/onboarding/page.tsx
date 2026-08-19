@@ -81,6 +81,7 @@ export default function ProNetworxOnboardingPage() {
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
+  const [removingCover, setRemovingCover] = useState(false);
   const [uploadingResume, setUploadingResume] = useState(false);
   const [resumeUrl, setResumeUrl] = useState<string | null>(null);
   const [resumeFilename, setResumeFilename] = useState<string | null>(null);
@@ -336,6 +337,21 @@ export default function ProNetworxOnboardingPage() {
     }
   };
 
+  const handleCoverRemove = async () => {
+    if (!coverPreviewUrl) return;
+    if (!window.confirm('Remove your cover photo?')) return;
+    setError(null);
+    setRemovingCover(true);
+    try {
+      await serviceProvidersApi.deleteCover();
+      await loadMe();
+    } catch (err) {
+      setError((err as Error)?.message ?? 'Failed to remove cover photo');
+    } finally {
+      setRemovingCover(false);
+    }
+  };
+
   const sanitizeExperience = (list: ExperienceItem[]): ExperienceItem[] =>
     list
       .filter((e) => e.title.trim() || e.company.trim())
@@ -498,15 +514,28 @@ export default function ProNetworxOnboardingPage() {
                       className="sr-only"
                       onChange={handleCoverUpload}
                     />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={uploadingCover}
-                      onClick={() => coverInputRef.current?.click()}
-                    >
-                      {uploadingCover ? 'Uploading…' : 'Upload cover'}
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={uploadingCover || removingCover}
+                        onClick={() => coverInputRef.current?.click()}
+                      >
+                        {uploadingCover ? 'Uploading…' : 'Upload cover'}
+                      </Button>
+                      {coverPreviewUrl && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={uploadingCover || removingCover}
+                          onClick={() => void handleCoverRemove()}
+                        >
+                          {removingCover ? 'Removing…' : 'Remove cover'}
+                        </Button>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground">JPEG, PNG, WebP, max 15MB</p>
                   </div>
                 </div>

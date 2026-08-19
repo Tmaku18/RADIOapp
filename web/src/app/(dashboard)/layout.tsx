@@ -38,6 +38,7 @@ import {
   ListMusic,
   Megaphone,
   MessageCircle,
+  MessageSquare,
   Mic2,
   Music,
   Network,
@@ -83,6 +84,7 @@ type MainNavItem = { name: string; href: string; icon: LucideIcon; external?: bo
 const listenerNavigation: MainNavItem[] = [
   { name: 'Radio', href: '/listen', icon: Music },
   { name: 'Pro-Radio', href: '/pro-radio', icon: ListMusic },
+  { name: 'The Chat Room', href: '/room', icon: MessageSquare },
   { name: 'Pro-Networx', href: PRO_NETWORX_INTERNAL_URL, icon: Network },
   { name: 'DMs', href: '/messages', icon: MessageCircle },
   { name: 'Live DJ', href: '/dj', icon: Headphones },
@@ -97,6 +99,7 @@ const listenerNavigation: MainNavItem[] = [
 const artistNavigation: MainNavItem[] = [
   { name: 'Radio', href: '/listen', icon: Music },
   { name: 'Pro-Radio', href: '/pro-radio', icon: ListMusic },
+  { name: 'The Chat Room', href: '/room', icon: MessageSquare },
   { name: 'Pro-Networx', href: PRO_NETWORX_INTERNAL_URL, icon: Network },
   { name: 'DMs', href: '/messages', icon: MessageCircle },
   { name: 'Live DJ', href: '/dj', icon: Headphones },

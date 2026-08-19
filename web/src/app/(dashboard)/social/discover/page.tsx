@@ -7,10 +7,14 @@ import Link from 'next/link';
 import Image from 'next/image';
 import {
   discoverAudioApi,
+  proRadioPlaylistsApi,
   songsApi,
   usersApi,
   type DiscoverAudioSongCard,
+  type ProRadioPlaylist,
 } from '@/lib/api';
+import { DEFAULT_STATION_ID } from '@/data/station-map';
+import { getLastRadioStationId } from '@/lib/playback-preferences';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -76,6 +80,11 @@ export default function SocialDiscoverSwipePage() {
   const [publishBusy, setPublishBusy] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [forgiveBusy, setForgiveBusy] = useState(false);
+  const [playlistOpen, setPlaylistOpen] = useState(false);
+  const [playlists, setPlaylists] = useState<ProRadioPlaylist[]>([]);
+  const [playlistsLoading, setPlaylistsLoading] = useState(false);
+  const [playlistBusyId, setPlaylistBusyId] = useState<string | null>(null);
+  const [newPlaylistTitle, setNewPlaylistTitle] = useState('');
   const [libraryScopeLabel, setLibraryScopeLabel] = useState('your saved library');
   const [selectedSongId, setSelectedSongId] = useState('');
   const [clipStart, setClipStart] = useState(0);
@@ -105,10 +114,12 @@ export default function SocialDiscoverSwipePage() {
       let cursor: string | undefined;
       let pageGuard = 0;
       while (pageGuard < 500) {
+        const stationId = getLastRadioStationId() || DEFAULT_STATION_ID;
         const res = await discoverAudioApi.getFeed({
           limit: PAGE_SIZE,
           cursor,
           seed: discoverSeedRef.current,
+          stationId,
         });
         const data = res.data;
         for (const card of data.items ?? []) {
@@ -249,6 +260,7 @@ export default function SocialDiscoverSwipePage() {
           songId: currentCard.songId,
           direction,
           decisionMs,
+          stationId: getLastRadioStationId() || DEFAULT_STATION_ID,
         });
         setCards((prev) => prev.slice(1));
         setDragX(0);
@@ -261,6 +273,53 @@ export default function SocialDiscoverSwipePage() {
     },
     [busySwipe, currentCard, shownAt],
   );
+
+  const openPlaylistDialog = useCallback(async () => {
+    if (!currentCard) return;
+    setPlaylistOpen(true);
+    setPlaylistsLoading(true);
+    try {
+      const res = await proRadioPlaylistsApi.listMine();
+      setPlaylists(res.data?.playlists ?? []);
+    } catch {
+      setError('Could not load playlists.');
+    } finally {
+      setPlaylistsLoading(false);
+    }
+  }, [currentCard]);
+
+  const addCurrentToPlaylist = useCallback(
+    async (playlistId: string) => {
+      if (!currentCard) return;
+      setPlaylistBusyId(playlistId);
+      try {
+        await proRadioPlaylistsApi.addTrack(playlistId, currentCard.songId);
+        setPlaylistOpen(false);
+      } catch {
+        setError('Could not add this track to the playlist.');
+      } finally {
+        setPlaylistBusyId(null);
+      }
+    },
+    [currentCard],
+  );
+
+  const createPlaylistAndAdd = useCallback(async () => {
+    if (!currentCard) return;
+    const title = newPlaylistTitle.trim();
+    if (!title) return;
+    setPlaylistBusyId('new');
+    try {
+      const created = await proRadioPlaylistsApi.create({ title });
+      await proRadioPlaylistsApi.addTrack(created.data.id, currentCard.songId);
+      setNewPlaylistTitle('');
+      setPlaylistOpen(false);
+    } catch {
+      setError('Could not create playlist.');
+    } finally {
+      setPlaylistBusyId(null);
+    }
+  }, [currentCard, newPlaylistTitle]);
 
   const loadLibrarySongs = useCallback(async () => {
     setLibraryLoading(true);
@@ -579,7 +638,7 @@ export default function SocialDiscoverSwipePage() {
             </DialogContent>
           </Dialog>
           <Button asChild>
-            <Link href="/social/discover/list">Discover list</Link>
+            <Link href="/social/discover/list">Discover library</Link>
           </Button>
         </div>
       </div>
@@ -603,7 +662,7 @@ export default function SocialDiscoverSwipePage() {
             <div className="flex justify-center gap-2">
               <Button onClick={() => void loadFeed()}>Refresh feed</Button>
               <Button variant="outline" asChild>
-                <Link href="/social/discover/list">Open Discover list</Link>
+                <Link href="/social/discover/list">Open Discover library</Link>
               </Button>
             </div>
           </CardContent>
@@ -767,7 +826,63 @@ export default function SocialDiscoverSwipePage() {
             <Button disabled={busySwipe || !currentCard} onClick={() => void applySwipe('right_like')}>
               Like Right
             </Button>
+            <Button
+              variant="outline"
+              disabled={!currentCard}
+              onClick={() => void openPlaylistDialog()}
+            >
+              Add to playlist
+            </Button>
           </div>
+          <Dialog open={playlistOpen} onOpenChange={setPlaylistOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add to playlist</DialogTitle>
+              </DialogHeader>
+              {playlistsLoading ? (
+                <p className="text-sm text-muted-foreground">Loading playlists…</p>
+              ) : (
+                <div className="space-y-3">
+                  {playlists.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No playlists yet. Create one below.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {playlists.map((playlist) => (
+                        <Button
+                          key={playlist.id}
+                          variant="outline"
+                          className="w-full justify-between"
+                          disabled={playlistBusyId != null}
+                          onClick={() => void addCurrentToPlaylist(playlist.id)}
+                        >
+                          <span className="truncate">{playlist.title}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {playlistBusyId === playlist.id ? 'Adding…' : 'Add'}
+                          </span>
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <Input
+                      value={newPlaylistTitle}
+                      onChange={(e) => setNewPlaylistTitle(e.target.value)}
+                      placeholder="New playlist name"
+                    />
+                    <Button
+                      type="button"
+                      disabled={!newPlaylistTitle.trim() || playlistBusyId != null}
+                      onClick={() => void createPlaylistAndAdd()}
+                    >
+                      {playlistBusyId === 'new' ? 'Creating…' : 'Create'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
         </div>
       )}
       <Card className="border-border/80">

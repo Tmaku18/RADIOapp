@@ -42,7 +42,7 @@ function mapProNetworxPath(pathname: string): string {
     return pathname;
   }
   if (pathname === '/job-board' || pathname.startsWith('/job-board/')) {
-    return '/pro-networx/directory';
+    return '/pro-networx/jobs';
   }
   if (
     pathname === '/artist/services' ||

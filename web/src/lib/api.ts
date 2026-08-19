@@ -478,6 +478,48 @@ export const refineryApi = {
     api.post(`/refinery/songs/${songId}/comments`, { body }),
 };
 
+export type LibrarySong = {
+  id: string;
+  title: string;
+  artistName: string;
+  artistId: string;
+  artworkUrl: string | null;
+  audioUrl: string | null;
+  sampleUrl: string | null;
+  durationSeconds: number;
+  likeCount: number;
+  playCount: number;
+  priceCents: number;
+  forSale: boolean;
+  owned: boolean;
+  discoverEnabled: boolean;
+  discoverClipUrl: string | null;
+  discoverClipStartSeconds: number | null;
+  discoverClipEndSeconds: number | null;
+  fireVotes?: number;
+  shitVotes?: number;
+  temperaturePercent?: number;
+  likedAt: string;
+};
+
+export type MarketplaceBeat = {
+  id: string;
+  title: string;
+  artistName: string;
+  artistId: string;
+  artworkUrl: string | null;
+  durationSeconds: number | null;
+  likeCount: number;
+  playCount: number;
+  listenCount: number;
+  priceCents: number;
+  forSale: boolean;
+  productKind: 'beat';
+  status: string;
+  createdAt: string;
+  previewUrl: string | null;
+};
+
 export const venueAdsApi = {
   getCurrent: (stationId?: string) => api.get<{ id: string; imageUrl: string; linkUrl: string | null; stationId: string } | null>('/venue-ads/current', { params: stationId ? { stationId } : {} }),
 };
@@ -514,31 +556,15 @@ export const songsApi = {
       updatedAt?: string;
     }>(`/songs/${songId}/lyrics`, payload),
   getLibrary: () =>
-    api.get<
-      Array<{
-        id: string;
-        title: string;
-        artistName: string;
-        artistId: string;
-        artworkUrl: string | null;
-        audioUrl: string | null;
-        sampleUrl: string | null;
-        durationSeconds: number;
-        likeCount: number;
-        playCount: number;
-        priceCents: number;
-        forSale: boolean;
-        owned: boolean;
-        discoverEnabled: boolean;
-        discoverClipUrl: string | null;
-        discoverClipStartSeconds: number | null;
-        discoverClipEndSeconds: number | null;
-        fireVotes: number;
-        shitVotes: number;
-        temperaturePercent: number;
-        likedAt: string;
-      }>
-    >('/songs/library'),
+    api.get<LibrarySong[]>('/songs/library'),
+  getFavorites: () => api.get<LibrarySong[]>('/songs/favorites'),
+  removeFavorite: (id: string) => api.delete(`/songs/${id}/favorite`),
+  listMarketplaceBeats: (params?: {
+    q?: string;
+    artistId?: string;
+    limit?: number;
+    offset?: number;
+  }) => api.get<MarketplaceBeat[]>('/songs/beats/marketplace', { params }),
   getUploadUrl: (data: { filename: string; contentType: string; bucket: 'songs' | 'artwork' }) => 
     api.post('/songs/upload-url', data),
   create: (data: {
@@ -564,6 +590,9 @@ export const songsApi = {
     optInDjArchivedMixes?: boolean;
     albumId?: string;
     trackNumber?: number;
+    productKind?: 'song' | 'beat';
+    forSale?: boolean;
+    priceCents?: number;
   }) => 
     api.post<{ id?: string }>('/songs', data),
   like: (id: string) => api.post(`/songs/${id}/like`),
@@ -775,7 +804,12 @@ export interface ArtistLikeNotificationSettings {
 }
 
 export const discoverAudioApi = {
-  getFeed: (params?: { limit?: number; cursor?: string; seed?: string }) =>
+  getFeed: (params?: {
+    limit?: number;
+    cursor?: string;
+    seed?: string;
+    stationId?: string;
+  }) =>
     api.get<{ items: DiscoverAudioSongCard[]; nextCursor: string | null }>(
       '/songs/discover/feed',
       { params },
@@ -784,10 +818,33 @@ export const discoverAudioApi = {
     songId: string;
     direction: 'left_skip' | 'right_like';
     decisionMs?: number;
+    stationId?: string;
   }) => api.post<{ direction: 'left_skip' | 'right_like'; liked: boolean }>(
     '/songs/discover/swipe',
     data,
   ),
+  getHistory: (params?: {
+    direction?: 'left_skip' | 'right_like';
+    limit?: number;
+    offset?: number;
+  }) =>
+    api.get<{
+      items: Array<DiscoverAudioSongCard & { likedAt: string; direction: 'left_skip' | 'right_like' }>;
+      total: number;
+    }>('/songs/discover/history', { params }),
+  getLikedArtists: (params?: { limit?: number; offset?: number }) =>
+    api.get<{
+      items: Array<{
+        userId: string;
+        displayName: string | null;
+        username: string | null;
+        avatarUrl: string | null;
+        headline: string | null;
+        likedSongCount: number;
+        lastLikedAt: string | null;
+      }>;
+      total: number;
+    }>('/songs/discover/liked-artists', { params }),
   getLikedList: (params?: { limit?: number; offset?: number }) =>
     api.get<{
       items: Array<DiscoverAudioSongCard & { likedAt: string }>;
@@ -1403,6 +1460,7 @@ export const serviceProvidersApi = {
       formData,
     );
   },
+  deleteCover: () => api.delete('/service-providers/me/cover'),
   createListing: (data: {
     serviceType: string;
     title: string;
@@ -2217,6 +2275,8 @@ export const chatApi = {
   getHistory: (params?: { limit?: number; radioId?: string }) =>
     api.get('/chat/history', { params, timeout: 10000 }),
   getStatus: () => api.get('/chat/status', { timeout: 10000 }),
+  sendEmoji: (emoji: string, radioId?: string) =>
+    api.post('/chat/emoji', { emoji, radioId }, { timeout: 10000 }),
 };
 
 export const pushNotificationsApi = {

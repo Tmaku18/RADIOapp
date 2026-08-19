@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   ArrowLeft,
+  AudioLines,
   Briefcase,
   ClipboardList,
   Compass,
@@ -12,6 +13,7 @@ import {
   Building2,
   Library,
   LogOut,
+  MessageCircle,
   Radio,
   Search,
   User as UserIcon,
@@ -24,7 +26,9 @@ const TABS = [
   { href: '/pro-networx/home', label: 'Home', icon: Home },
   { href: '/pro-networx/feed', label: 'Discover', icon: Compass },
   { href: '/pro-networx/search', label: 'Search', icon: Search },
+  { href: '/pro-networx/beats', label: 'Beats', icon: AudioLines },
   { href: '/pro-networx/services', label: 'Services', icon: Briefcase },
+  { href: '/pro-networx/studios', label: 'Studios', icon: Building2 },
   { href: '/pro-networx/jobs', label: 'Projects', icon: ClipboardList },
   { href: '/pro-networx/radio', label: 'Radio', icon: Radio },
 ] as const;
@@ -42,13 +46,21 @@ export function ProNetworxAppShell({ children }: ProNetworxAppShellProps) {
   const pathname = usePathname();
   const { user, profile } = useAuth();
 
-  const activeTab = TABS.find((t) => pathname?.startsWith(t.href));
-  const isMyProfile = pathname?.startsWith('/pro-networx/me');
-  const isStudios = pathname?.startsWith('/pro-networx/studios') ||
-    pathname?.startsWith('/pro-networx/me/studio');
+  const activeTab = TABS.find((t) => {
+    if (t.href === '/pro-networx/studios') {
+      return (
+        pathname?.startsWith('/pro-networx/studios') ||
+        pathname?.startsWith('/pro-networx/me/studio')
+      );
+    }
+    return pathname?.startsWith(t.href);
+  });
+  const isMyProfile = pathname?.startsWith('/pro-networx/me') &&
+    !pathname?.startsWith('/pro-networx/me/studio');
+  const isDms = pathname?.startsWith('/messages');
   const sectionLabel =
     activeTab?.label ??
-    (isStudios ? 'Studios' : isMyProfile ? 'My profile' : 'Pro-Networx');
+    (isMyProfile ? 'My profile' : isDms ? 'DMs' : 'Pro-Networx');
 
   return (
     <div className="relative pt-4 min-h-[calc(100vh-5rem)]" data-testid="pro-app-shell">
@@ -92,21 +104,6 @@ export function ProNetworxAppShell({ children }: ProNetworxAppShellProps) {
           })}
 
           <Link
-            href="/pro-networx/studios"
-            data-testid="pro-tab-studios"
-            title="Studios"
-            className={cn(
-              'relative flex items-center gap-3 px-3 py-2.5 rounded-lg font-dim-mono text-[11px] tracking-[0.2em] uppercase transition-colors',
-              isStudios
-                ? 'bg-cyan-400 text-black font-bold'
-                : 'text-white/70 hover:bg-white/5 hover:text-cyan-300',
-            )}
-          >
-            <Building2 className="w-4 h-4 shrink-0" />
-            <span className="hidden lg:inline truncate">Studios</span>
-          </Link>
-
-          <Link
             href="/pro-networx/me"
             data-testid="pro-tab-profile"
             title="My profile"
@@ -139,6 +136,21 @@ export function ProNetworxAppShell({ children }: ProNetworxAppShellProps) {
             <Library className="w-4 h-4 shrink-0" />
             <span className="hidden lg:inline truncate">Library</span>
           </a>
+
+          <Link
+            href="/messages"
+            data-testid="pro-tab-dms"
+            title="DMs"
+            className={cn(
+              'relative flex items-center gap-3 px-3 py-2.5 rounded-lg font-dim-mono text-[11px] tracking-[0.2em] uppercase transition-colors',
+              isDms
+                ? 'bg-cyan-400 text-black font-bold'
+                : 'text-white/70 hover:bg-white/5 hover:text-cyan-300',
+            )}
+          >
+            <MessageCircle className="w-4 h-4 shrink-0" />
+            <span className="hidden lg:inline truncate">DMs</span>
+          </Link>
 
           <div className="mt-auto space-y-1 pt-3 border-t border-white/10">
             <a

@@ -60,14 +60,20 @@ function mergeMessages(
     .slice(-100);
 }
 
+const EMOJI_BAR = ['❤️', '🔥', '🎵', '👏', '😍', '🙌', '💯', '✨'] as const;
+
+type EmojiFloater = { id: number; emoji: string; left: number };
+
 export default function ChatSidebar({
   radioId = 'global',
   onExitMobile,
   dimensionChrome = false,
+  standalone = false,
 }: {
   radioId?: string;
   onExitMobile?: () => void;
   dimensionChrome?: boolean;
+  standalone?: boolean;
 }) {
   const normalizedRadioId = radioId.trim() || 'global';
   const channelName = `radio-chat:${normalizedRadioId}`;
@@ -83,6 +89,9 @@ export default function ChatSidebar({
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
   const [transparentMode, setTransparentMode] = useState(true);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [floaters, setFloaters] = useState<EmojiFloater[]>([]);
+  const lastEmojiAtRef = useRef(0);
+  const floaterIdRef = useRef(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesViewportRef = useRef<HTMLDivElement>(null);
   const shouldStickToBottomRef = useRef(true);
@@ -279,6 +288,31 @@ export default function ChatSidebar({
           if ((deletedRadioId || normalizedRadioId) !== normalizedRadioId) return;
           setMessages((prev) => prev.filter((m) => m.id !== messageId));
         })
+        .on('broadcast', { event: 'emoji_burst' }, (payload) => {
+          const data = payload.payload as {
+            radioId?: string;
+            emojis?: Record<string, number | string>;
+          };
+          if ((data.radioId || normalizedRadioId) !== normalizedRadioId) return;
+          const next: EmojiFloater[] = [];
+          for (const [emoji, rawCount] of Object.entries(data.emojis ?? {})) {
+            const count = Math.min(6, Math.max(1, Number(rawCount) || 1));
+            for (let i = 0; i < count; i += 1) {
+              floaterIdRef.current += 1;
+              next.push({
+                id: floaterIdRef.current,
+                emoji,
+                left: 8 + Math.random() * 84,
+              });
+            }
+          }
+          if (!next.length) return;
+          setFloaters((prev) => [...prev, ...next].slice(-24));
+          window.setTimeout(() => {
+            const ids = new Set(next.map((item) => item.id));
+            setFloaters((prev) => prev.filter((item) => !ids.has(item.id)));
+          }, 1600);
+        })
         .subscribe((status) => {
           console.log('Chat channel status:', status);
           if (status === 'SUBSCRIBED') {
@@ -353,6 +387,33 @@ export default function ChatSidebar({
       }
     };
   }, [channelName, normalizedRadioId]);
+
+  const spawnLocalFloater = (emoji: string) => {
+    floaterIdRef.current += 1;
+    const floater: EmojiFloater = {
+      id: floaterIdRef.current,
+      emoji,
+      left: 12 + Math.random() * 76,
+    };
+    setFloaters((prev) => [...prev, floater].slice(-24));
+    window.setTimeout(() => {
+      setFloaters((prev) => prev.filter((item) => item.id !== floater.id));
+    }, 1600);
+  };
+
+  const handleSendEmoji = async (emoji: string) => {
+    if (!chatEnabled) return;
+    const now = Date.now();
+    if (now - lastEmojiAtRef.current < 1000) return;
+    lastEmojiAtRef.current = now;
+    spawnLocalFloater(emoji);
+    try {
+      await chatApi.sendEmoji(emoji, normalizedRadioId);
+    } catch {
+      setError('Could not send reaction');
+      setTimeout(() => setError(null), 3000);
+    }
+  };
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -458,7 +519,9 @@ export default function ChatSidebar({
         <div className="flex items-center gap-2">
           <span className="text-base">💬</span>
           <div>
-            <h2 className="font-semibold text-foreground text-sm">Live Chat</h2>
+            <h2 className="font-semibold text-foreground text-sm">
+              {standalone ? 'The Chat Room' : 'Live Chat'}
+            </h2>
             <p className="text-[11px] text-muted-foreground">
               {normalizedRadioId === 'global'
                 ? 'Global channel'
@@ -498,6 +561,7 @@ export default function ChatSidebar({
           >
             {transparentMode ? 'Solid' : 'Glass'}
           </button>
+          {!standalone && (
           <button
             type="button"
             onClick={() => {
@@ -515,6 +579,7 @@ export default function ChatSidebar({
               <span>✕</span>
             </span>
           </button>
+          )}
         </div>
           </>
         )}
@@ -525,7 +590,27 @@ export default function ChatSidebar({
         onScroll={handleMessagesScroll}
         className="relative flex-1 overflow-y-auto p-3"
       >
+        <style>{`
+          @keyframes networx-emoji-float {
+            from { transform: translateY(0) scale(1); opacity: 1; }
+            to { transform: translateY(-88px) scale(1.25); opacity: 0; }
+          }
+        `}</style>
         <ChatWallpaper />
+        <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
+          {floaters.map((floater) => (
+            <span
+              key={floater.id}
+              className="absolute bottom-3 text-xl"
+              style={{
+                left: `${floater.left}%`,
+                animation: 'networx-emoji-float 1.5s ease-out forwards',
+              }}
+            >
+              {floater.emoji}
+            </span>
+          ))}
+        </div>
         <div className="relative z-10 space-y-1.5">
         {isLoading ? (
           <div className="flex justify-center py-8">
@@ -609,22 +694,37 @@ export default function ChatSidebar({
             Chat is currently disabled
           </div>
         ) : (
-          <div className="flex gap-2">
-            <Input
-              ref={inputRef}
-              type="text"
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Send a message..."
-              maxLength={280}
-              disabled={isSending}
-              className={`flex-1 border-white/15 text-foreground placeholder:text-foreground/50 ${
-                transparentMode ? 'bg-black/40' : 'bg-background/80'
-              }`}
-            />
-            <Button type="submit" size="icon" disabled={!newMessage.trim() || isSending}>
-              {isSending ? '...' : '→'}
-            </Button>
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-1">
+              {EMOJI_BAR.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => void handleSendEmoji(emoji)}
+                  className="h-8 w-8 rounded-md text-base hover:bg-white/10"
+                  aria-label={`React with ${emoji}`}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Input
+                ref={inputRef}
+                type="text"
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="Send a message..."
+                maxLength={280}
+                disabled={isSending}
+                className={`flex-1 border-white/15 text-foreground placeholder:text-foreground/50 ${
+                  transparentMode ? 'bg-black/40' : 'bg-background/80'
+                }`}
+              />
+              <Button type="submit" size="icon" disabled={!newMessage.trim() || isSending}>
+                {isSending ? '...' : '→'}
+              </Button>
+            </div>
           </div>
         )}
         <div className="text-right text-xs text-muted-foreground mt-1">

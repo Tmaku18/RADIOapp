@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { Suspense, useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { albumsApi, songsApi, usersApi, type ArtistAlbum } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { hasArtistCapability } from '@/lib/roles';
@@ -16,6 +16,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 type ApiError = { response?: { data?: { message?: string } } };
+
+const BEAT_PRICE_TIERS = [99, 199, 299, 499, 999, 1999, 2999, 4999] as const;
+const BEAT_STATION_ID = 'us-beats';
 
 const US_STATE_OPTIONS = [
   'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
@@ -73,8 +76,29 @@ function errorMessage(err: unknown, fallback: string): string {
 }
 
 export default function UploadPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex justify-center py-16">
+          <div className="h-10 w-10 animate-spin rounded-full border-b-2 border-primary" />
+        </div>
+      }
+    >
+      <UploadPageContent />
+    </Suspense>
+  );
+}
+
+function UploadPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { profile, refreshProfile } = useAuth();
+  const [productKind, setProductKind] = useState<'song' | 'beat'>(
+    searchParams.get('kind') === 'beat' ? 'beat' : 'song',
+  );
+  const [forSale, setForSale] = useState(true);
+  const [priceCents, setPriceCents] = useState(999);
+  const isBeat = productKind === 'beat';
   const audioInputRef = useRef<HTMLInputElement>(null);
   const artworkInputRef = useRef<HTMLInputElement>(null);
   const discoverBackgroundInputRef = useRef<HTMLInputElement>(null);
@@ -378,11 +402,11 @@ export default function UploadPage() {
       setError('Please fill in all required fields');
       return;
     }
-    if (stationIds.length === 0) {
+    if (!isBeat && stationIds.length === 0) {
       setError('Please select at least one station/category');
       return;
     }
-    {
+    if (!isBeat) {
       // The Discover clip is required for every track (it powers the Discover
       // feed). It's a window set on the main track, so the window must always
       // be valid.
@@ -400,7 +424,7 @@ export default function UploadPage() {
         return;
       }
     }
-    {
+    if (!isBeat) {
       const start = parseTimeToSeconds(sampleStartSeconds);
       const end = parseTimeToSeconds(sampleEndSeconds);
       if (start == null || end == null || end <= start) {
@@ -453,7 +477,7 @@ export default function UploadPage() {
       }
 
       let discoverBackgroundPath: string | undefined;
-      if (discoverBackgroundFile) {
+      if (!isBeat && discoverBackgroundFile) {
         try {
           discoverBackgroundPath = await uploadToSignedUrl(discoverBackgroundFile, 'artwork');
         } catch (uploadErr) {
@@ -481,22 +505,25 @@ export default function UploadPage() {
           artistName,
           artistOriginCity: artistOriginCity.trim(),
           artistOriginState: artistOriginState.trim(),
-          stationId: stationIds[0],
-          stationIds,
+          stationId: isBeat ? BEAT_STATION_ID : stationIds[0],
+          stationIds: isBeat ? [BEAT_STATION_ID] : stationIds,
           audioPath,
           artworkPath,
           durationSeconds: durationSeconds ?? undefined,
-          discoverBackgroundPath,
-          discoverClipStartSeconds: parsedStartSeconds ?? undefined,
-          discoverClipEndSeconds: parsedEndSeconds ?? undefined,
-          sampleStartSeconds: parsedSampleStart ?? undefined,
-          sampleEndSeconds: parsedSampleEnd ?? undefined,
+          discoverBackgroundPath: isBeat ? undefined : discoverBackgroundPath,
+          discoverClipStartSeconds: isBeat ? undefined : parsedStartSeconds ?? undefined,
+          discoverClipEndSeconds: isBeat ? undefined : parsedEndSeconds ?? undefined,
+          sampleStartSeconds: isBeat ? undefined : parsedSampleStart ?? undefined,
+          sampleEndSeconds: isBeat ? undefined : parsedSampleEnd ?? undefined,
           isExplicit,
-          lyricsPlainText: lyricsPlainText.trim() || undefined,
-          optInFullSongRadio,
-          optInDjLivestreams: optInDjLivestreams || optInFullSongRadio,
-          optInDjArchivedMixes,
-          albumId: albumId || undefined,
+          lyricsPlainText: isBeat ? undefined : lyricsPlainText.trim() || undefined,
+          optInFullSongRadio: isBeat ? false : optInFullSongRadio,
+          optInDjLivestreams: isBeat ? false : optInDjLivestreams || optInFullSongRadio,
+          optInDjArchivedMixes: isBeat ? false : optInDjArchivedMixes,
+          albumId: isBeat ? undefined : albumId || undefined,
+          productKind: isBeat ? 'beat' : 'song',
+          forSale: isBeat ? forSale : undefined,
+          priceCents: isBeat ? priceCents : undefined,
         });
       } catch (dbErr) {
         throw new Error(
@@ -567,8 +594,14 @@ export default function UploadPage() {
         <Card className="glass-panel border-border/80">
           <CardContent className="pt-8 pb-8 text-center">
             <div className="mx-auto w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center text-4xl mb-4">✓</div>
-            <h2 className="heading-serif text-2xl font-semibold text-foreground">Ready for Rotation</h2>
-            <p className="text-muted-foreground mt-2">Your track is in the queue. We&apos;ll review it and add it to the rotation soon.</p>
+            <h2 className="heading-serif text-2xl font-semibold text-foreground">
+              {isBeat ? 'Beat submitted' : 'Ready for Rotation'}
+            </h2>
+            <p className="text-muted-foreground mt-2">
+              {isBeat
+                ? 'Your beat is in review. Once approved it will appear in the Beat Marketplace.'
+                : 'Your track is in the queue. We\'ll review it and add it to the rotation soon.'}
+            </p>
             {artworkPreview && (
               <div className="mt-6 flex justify-center">
                 <img src={artworkPreview} alt="" className="w-32 h-32 rounded-lg object-cover border border-border" />
@@ -595,8 +628,33 @@ export default function UploadPage() {
     <div className="max-w-2xl mx-auto">
       <Card>
         <CardContent className="pt-6">
-          <h2 className="heading-serif text-xl font-semibold text-foreground">Upload Song</h2>
-          <p className="text-muted-foreground mt-1">Submit your track for review and radio rotation</p>
+          <h2 className="heading-serif text-xl font-semibold text-foreground">
+            {isBeat ? 'Upload Beat' : 'Upload Song'}
+          </h2>
+          <p className="text-muted-foreground mt-1">
+            {isBeat
+              ? 'List a beat for sale. Buyers hear the full track before they purchase.'
+              : 'Submit your track for review and radio rotation'}
+          </p>
+
+          <div className="mt-4 flex gap-2">
+            <Button
+              type="button"
+              variant={isBeat ? 'outline' : 'default'}
+              size="sm"
+              onClick={() => setProductKind('song')}
+            >
+              Song
+            </Button>
+            <Button
+              type="button"
+              variant={isBeat ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setProductKind('beat')}
+            >
+              Beat
+            </Button>
+          </div>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-6">
             {error && (
@@ -674,6 +732,8 @@ export default function UploadPage() {
               </Button>
             </div>
 
+            {!isBeat && (
+            <>
             <div className="space-y-2 rounded-lg border border-border p-4">
               <Label>Sample Clip (Preview)</Label>
               <p className="text-xs text-muted-foreground">
@@ -772,9 +832,11 @@ export default function UploadPage() {
                 )}
               </Button>
             </div>
+            </>
+            )}
 
             <div className="space-y-2">
-              <Label htmlFor="title">Song Title <span className="text-destructive">*</span></Label>
+              <Label htmlFor="title">{isBeat ? 'Beat Title' : 'Song Title'} <span className="text-destructive">*</span></Label>
               <Input id="title" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Enter song title" />
             </div>
 
@@ -813,6 +875,43 @@ export default function UploadPage() {
               </div>
             </div>
 
+            {isBeat && (
+              <div className="space-y-3 rounded-lg border border-border p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <Label htmlFor="forSale">List for sale</Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Buyers hear the full beat before checkout.
+                    </p>
+                  </div>
+                  <input
+                    id="forSale"
+                    type="checkbox"
+                    checked={forSale}
+                    onChange={(e) => setForSale(e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="priceCents">Price</Label>
+                  <select
+                    id="priceCents"
+                    value={priceCents}
+                    onChange={(e) => setPriceCents(Number(e.target.value))}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    {BEAT_PRICE_TIERS.map((cents) => (
+                      <option key={cents} value={cents}>
+                        ${(cents / 100).toFixed(2)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {!isBeat && (
+            <>
             <div className="space-y-2">
               <Label htmlFor="stationIds">
                 Station / Category <span className="text-destructive">*</span>
@@ -859,6 +958,8 @@ export default function UploadPage() {
                 Lyrics are auto-synced to your audio after upload — no timestamps needed.
               </p>
             </div>
+            </>
+            )}
 
             <div className="space-y-2 rounded-lg border border-border p-4">
               <div className="flex items-center justify-between gap-3">
@@ -879,6 +980,7 @@ export default function UploadPage() {
               </div>
             </div>
 
+            {!isBeat && (
             <div className="space-y-4 rounded-lg border border-border p-4">
               <div>
                 <h3 className="font-medium text-foreground">{FULL_SONG_RADIO_OPT_IN.title}</h3>
@@ -924,6 +1026,7 @@ export default function UploadPage() {
                 </span>
               </label>
             </div>
+            )}
 
             {isUploading && (
               <div>
@@ -942,16 +1045,18 @@ export default function UploadPage() {
               disabled={
                 isUploading ||
                 !audioFile ||
-                stationIds.length === 0 ||
-                !optInFullSongRadio
+                (!isBeat && stationIds.length === 0) ||
+                (!isBeat && !optInFullSongRadio)
               }
               className="w-full"
             >
-              {isUploading ? 'Uploading...' : 'Submit for Rotation'}
+              {isUploading ? 'Uploading...' : isBeat ? 'Submit beat for sale' : 'Submit for Rotation'}
             </Button>
 
             <p className="text-sm text-muted-foreground text-center">
-              Your track will be reviewed by our team within 24-48 hours.
+              {isBeat
+                ? 'Approved beats appear in the Beat Marketplace for full listen-before-buy.'
+                : 'Your track will be reviewed by our team within 24-48 hours.'}
             </p>
           </form>
         </CardContent>

@@ -88,6 +88,7 @@ export const NOINDEX_PATH_PREFIXES = [
   '/cross-domain-login',
   '/job-board',
   '/directory',
+  '/room',
   '/api',
 ] as const;
 
@@ -106,6 +107,10 @@ export const NOINDEX_PRO_NETWORX_SUBPATHS = [
   '/pro-networx/explore',
   '/pro-networx/feed',
   '/pro-networx/radio',
+  '/pro-networx/beats',
+  '/pro-networx/studios',
+  '/pro-networx/jobs',
+  '/pro-networx/services',
 ] as const;
 
 /**
