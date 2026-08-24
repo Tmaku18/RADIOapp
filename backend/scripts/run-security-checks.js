@@ -92,6 +92,12 @@ const run = async () => {
     body: {},
   });
   assert(webhookRes.status >= 400, 'Expected webhook to reject missing signature');
+  // A 401 here means the auth guard ate the request before signature
+  // verification, which silently breaks every Stripe fulfillment.
+  assert(
+    webhookRes.status !== 401,
+    'Webhook rejected by auth guard — it must be @Public() and gated on stripe-signature',
+  );
 
   console.log('Signed upload URL expiry check');
   const uploadRes = await request({

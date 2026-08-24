@@ -329,7 +329,12 @@ export class UsersService {
     }
 
     // Seed credits + 10 welcome Discovery placements (locked until beta ends).
-    if (role === 'artist' || role === 'service_provider') {
+    if (
+      role === 'artist' ||
+      role === 'service_provider' ||
+      role === 'dj' ||
+      role === 'musician'
+    ) {
       await ensureWelcomePlacements(data.id);
     }
     if (role === 'service_provider') {
@@ -802,7 +807,9 @@ export class UsersService {
       updatePayload.role = updateUserDto.role;
       grantWelcomePlacements =
         (updateUserDto.role === 'artist' ||
-          updateUserDto.role === 'service_provider') &&
+          updateUserDto.role === 'service_provider' ||
+          updateUserDto.role === 'dj' ||
+          updateUserDto.role === 'musician') &&
         user.role !== updateUserDto.role;
       if (
         updateUserDto.role === 'service_provider' &&

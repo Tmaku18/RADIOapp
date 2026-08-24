@@ -89,8 +89,7 @@ export class PaymentsService {
     const googleRaw = this.configService.get<string>(
       'GOOGLE_PLAY_PRODUCT_CATALOG_JSON',
     );
-    const raw =
-      storeLabel === 'App Store' ? appleRaw || googleRaw : googleRaw || appleRaw;
+    const raw = storeLabel === 'App Store' ? appleRaw : googleRaw;
     const fromEnv = raw
       ? (JSON.parse(raw) as Record<string, IapCatalogEntry>)
       : {};
@@ -241,6 +240,9 @@ export class PaymentsService {
       })
       .select('id')
       .single();
+    if (donationError?.code === '23505') {
+      return { donationId: existing?.id ?? null, alreadyProcessed: true };
+    }
     if (donationError || !donationRow) {
       throw new Error(
         `Failed to record ${params.paymentMethod} tip: ${donationError?.message}`,
@@ -884,7 +886,7 @@ export class PaymentsService {
       }
     };
 
-    if (expireTypes.has(type)) {
+    if (expireTypes.has(type) || tx.revoked) {
       await applyStatus(
         'canceled',
         tx.expiresDate ? new Date(tx.expiresDate) : new Date(),

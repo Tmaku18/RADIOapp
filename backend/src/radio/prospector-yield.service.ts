@@ -66,10 +66,7 @@ export class ProspectorYieldService {
     tier: ProspectorTier;
     songsRefinedCount: number;
   }> {
-    const { id: userId, role } = await this.getUserByFirebaseUid(firebaseUid);
-    if (role !== 'listener') {
-      return { balanceCents: 0, tier: 'none', songsRefinedCount: 0 };
-    }
+    const { id: userId } = await this.getUserByFirebaseUid(firebaseUid);
 
     await this.ensureYieldRow(userId);
 
@@ -539,9 +536,7 @@ export class ProspectorYieldService {
       requestId?: string | null;
     },
   ) {
-    const { id: userId, role } = await this.getUserByFirebaseUid(firebaseUid);
-    if (role !== 'listener')
-      throw new BadRequestException('Only Prospectors can redeem Yield');
+    const { id: userId } = await this.getUserByFirebaseUid(firebaseUid);
 
     const amount = body.amountCents;
     if (!Number.isInteger(amount) || amount <= 0)

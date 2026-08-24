@@ -258,6 +258,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   // report which song they finished; see shouldHonourForceAdvance.
   private readonly lastAdvanceAt = new Map<string, number>();
   private readonly advanceDebounceMs = 8000;
+  // How early a client may report a finished song. Listeners run a few seconds
+  // behind the station clock (fetch + buffer), so this matches the web player's
+  // boundary handoff window.
+  private readonly forceAdvanceGraceMs = 15000;
   // Coalesces concurrent getCurrentTrack passes per radio. At each song boundary
   // the SWR snapshot expires, so every listener's poll would otherwise fire a
   // full (DB-heavy) getCurrentTrack at the same instant — a thundering herd that
@@ -2559,6 +2563,21 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         );
         return false;
       }
+      // Every advance spends a paid placement credit, and this endpoint is
+      // public — so a caller may only claim to have finished the song once the
+      // station clock says it is actually ending. Legitimate clients only force
+      // after their own playback ended; a replay loop mid-song is a credit
+      // drain.
+      if (currentState && currentState.durationMs > 0) {
+        const remainingMs =
+          currentState.startedAt + currentState.durationMs - now;
+        if (remainingMs > this.forceAdvanceGraceMs) {
+          this.logger.log(
+            `Ignoring early force advance for radio ${radioId}: ${Math.round(remainingMs / 1000)}s left on ${afterSongId}`,
+          );
+          return false;
+        }
+      }
       return true;
     }
 
@@ -3050,12 +3069,12 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       );
     }
 
-    // Increment paid_play_count, play_count, last_played_at
+    // deduct_play_credits already increments play_count. Writing it again from
+    // the pre-RPC snapshot would clobber concurrent advances.
     await supabase
       .from('songs')
       .update({
         paid_play_count: (song.paid_play_count || 0) + 1,
-        play_count: (song.play_count || 0) + 1,
         last_played_at: startedAt,
       })
       .eq('id', song.id);

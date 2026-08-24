@@ -102,15 +102,26 @@ export function mapFirebaseAuthError(err: unknown, fallback: string): string {
 export function stashOAuthRedirectPath(path: string) {
   if (typeof window === 'undefined') return;
   try {
-    const safe = path.trim() || '/dashboard';
+    const safe = safeInternalPath(path);
     sessionStorage.setItem(OAUTH_REDIRECT_PATH_KEY, safe);
   } catch {
     // Private mode / blocked storage — redirect will fall back to default.
   }
 }
 
+/** Only same-origin relative paths — blocks `?redirect=https://evil.example`. */
+export function safeInternalPath(
+  path: string | null | undefined,
+  fallback = '/dashboard',
+): string {
+  const raw = (path ?? '').trim();
+  if (raw.startsWith('/') && !raw.startsWith('//')) return raw;
+  return fallback;
+}
+
 export function takeOAuthRedirectPath(fallback = '/dashboard'): string {
-  if (typeof window === 'undefined') return fallback;
+  const safeFallback = safeInternalPath(fallback);
+  if (typeof window === 'undefined') return safeFallback;
   try {
     const path = sessionStorage.getItem(OAUTH_REDIRECT_PATH_KEY);
     sessionStorage.removeItem(OAUTH_REDIRECT_PATH_KEY);
@@ -118,7 +129,7 @@ export function takeOAuthRedirectPath(fallback = '/dashboard'): string {
   } catch {
     // ignore
   }
-  return fallback;
+  return safeFallback;
 }
 
 function markRedirectPending(provider: 'apple' | 'google') {

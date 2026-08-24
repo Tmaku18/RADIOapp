@@ -15,6 +15,7 @@ import {
   takeOAuthRedirectPath,
   peekOAuthRedirectPending,
   mapFirebaseAuthError,
+  safeInternalPath,
 } from '@/lib/firebase-client';
 
 function SignupForm() {
@@ -29,7 +30,9 @@ function SignupForm() {
     error,
   } = useAuth();
   const redirectParam = searchParams.get('redirect');
-  const [redirectTo, setRedirectTo] = useState(redirectParam || '/dashboard');
+  const [redirectTo, setRedirectTo] = useState(
+    safeInternalPath(redirectParam),
+  );
 
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');

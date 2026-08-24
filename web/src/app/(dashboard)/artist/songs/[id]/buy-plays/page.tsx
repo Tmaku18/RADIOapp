@@ -63,12 +63,25 @@ export default function BuyPlaysPage() {
   const [welcomeAvailable, setWelcomeAvailable] = useState(false);
   const [welcomeToApply, setWelcomeToApply] = useState(1);
   const [welcomeNotice, setWelcomeNotice] = useState<string | null>(null);
-
-  const success = searchParams.get('success') === 'true';
-  const canceled = searchParams.get('canceled') === 'true';
+  const [checkoutNotice, setCheckoutNotice] = useState<string | null>(null);
 
   useEffect(() => {
-    if (songId) loadPrice();
+    if (!songId) return;
+    const returnedOk = searchParams.get('success') === 'true';
+    const returnedCanceled = searchParams.get('canceled') === 'true';
+    void (async () => {
+      await loadPrice();
+      if (returnedOk) {
+        setCheckoutNotice(
+          'Checkout completed. If the payment went through, placements will show on this song shortly.',
+        );
+      } else if (returnedCanceled) {
+        setCheckoutNotice('Checkout was canceled. You can try again when ready.');
+      }
+      if (returnedOk || returnedCanceled) {
+        router.replace(`/artist/songs/${songId}/buy-plays`);
+      }
+    })();
   }, [songId]);
 
   const loadPrice = async () => {
@@ -188,14 +201,9 @@ export default function BuyPlaysPage() {
         </p>
       </div>
 
-      {success && (
+      {checkoutNotice && (
         <Alert>
-          <AlertDescription>Payment successful. Your live listener placements have been added to this song.</AlertDescription>
-        </Alert>
-      )}
-      {canceled && (
-        <Alert variant="default">
-          <AlertDescription>Checkout was canceled. You can try again when ready.</AlertDescription>
+          <AlertDescription>{checkoutNotice}</AlertDescription>
         </Alert>
       )}
 

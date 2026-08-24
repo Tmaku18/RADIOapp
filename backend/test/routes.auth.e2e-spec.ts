@@ -52,6 +52,19 @@ describe('API route auth matrix (e2e)', () => {
     expect(routes.length).toBeGreaterThan(50);
   });
 
+  // These are excluded from the auth matrix below, which is how a webhook
+  // stuck behind the Firebase guard (rejecting every Stripe event with a 401)
+  // went unnoticed. Senders authenticate with a signature or shared secret.
+  describe('webhook routes are public', () => {
+    const webhooks = routes.filter(isWebhookOrSpecial);
+
+    it.each(
+      webhooks.map((r) => [`${r.method} ${r.path}`, r] as const),
+    )('%s', (_label, route) => {
+      expect(route.public).toBe(true);
+    });
+  });
+
   describe('unauthenticated access', () => {
     const samples = routes.filter((r) => !isWebhookOrSpecial(r));
 

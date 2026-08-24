@@ -240,7 +240,7 @@ export default function DashboardLayout({
     const check = async () => {
       try {
         const res = await usersApi.checkAdmin();
-        if (!cancelled && res.data?.isAdmin) setAdminRoleHint(true);
+        if (!cancelled) setAdminRoleHint(!!res.data?.isAdmin);
       } catch {
         // Keep previous hint value on transient auth/network failures.
       }
@@ -255,28 +255,17 @@ export default function DashboardLayout({
     };
   }, [user, profile?.role]);
 
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    const cookieRole = document.cookie
-      .split('; ')
-      .find((c) => c.startsWith('user_role='))
-      ?.split('=')[1];
-    if (cookieRole?.toLowerCase() === 'admin') {
-      setAdminRoleHint(true);
-    }
-  }, []);
-
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // Set role cookie for middleware
+  // Persist the real profile role only — never the client-side admin hint.
   useEffect(() => {
-    if (typeof document === 'undefined' || !effectiveRole) return;
-    const role = effectiveRole.toLowerCase();
+    if (typeof document === 'undefined' || !profile?.role) return;
+    const role = profile.role.toLowerCase();
     document.cookie = `user_role=${role}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
-  }, [effectiveRole]);
+  }, [profile?.role]);
 
   useEffect(() => {
     if (loading || pendingProfileSetup || !profile) {

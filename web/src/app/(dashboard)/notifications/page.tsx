@@ -101,6 +101,7 @@ export default function NotificationsPage() {
       setNotifications(prev =>
         prev.map(n => n.id === id ? { ...n, read: true } : n)
       );
+      window.dispatchEvent(new CustomEvent('notifications-changed'));
     } catch (err: unknown) {
       console.error('Failed to mark as read:', err);
     }

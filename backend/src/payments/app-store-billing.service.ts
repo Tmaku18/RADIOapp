@@ -21,6 +21,8 @@ export type AppStoreVerifiedPurchase = {
   environment: string | null;
   quantity: number;
   type: string | null;
+  /** True when Apple refunded or revoked this transaction. */
+  revoked: boolean;
 };
 
 export type AppStoreNotificationResult = {
@@ -133,6 +135,7 @@ export class AppStoreBillingService {
 
   private toVerifiedPurchase(
     decoded: JWSTransactionDecodedPayload,
+    options?: { allowRevoked?: boolean },
   ): AppStoreVerifiedPurchase {
     if (!decoded.transactionId) {
       throw new Error('App Store transaction is missing transactionId');
@@ -140,7 +143,10 @@ export class AppStoreBillingService {
     if (!decoded.productId) {
       throw new Error('App Store transaction is missing productId');
     }
-    if (decoded.revocationDate != null) {
+    const revoked = decoded.revocationDate != null;
+    // Purchase completion must reject refunds. Server notifications always
+    // carry revocationDate for REFUND/REVOKE and need to reach cancel logic.
+    if (revoked && !options?.allowRevoked) {
       throw new Error('App Store transaction has been revoked/refunded');
     }
     return {
@@ -153,6 +159,7 @@ export class AppStoreBillingService {
       environment: decoded.environment ?? null,
       quantity: decoded.quantity ?? 1,
       type: decoded.type ?? null,
+      revoked,
     };
   }
 
@@ -310,7 +317,7 @@ export class AppStoreBillingService {
         const signedTx = notification.data?.signedTransactionInfo;
         if (signedTx) {
           const decoded = await verifier.verifyAndDecodeTransaction(signedTx);
-          transaction = this.toVerifiedPurchase(decoded);
+          transaction = this.toVerifiedPurchase(decoded, { allowRevoked: true });
         }
         return {
           notificationType: notification.notificationType ?? null,

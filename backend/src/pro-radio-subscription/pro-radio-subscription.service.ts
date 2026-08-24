@@ -121,9 +121,14 @@ export class ProRadioSubscriptionService {
     } else if (existing?.intro_coupon_redeemed != null) {
       updateRow.intro_coupon_redeemed = existing.intro_coupon_redeemed;
     }
-    await supabase
+    const { error } = await supabase
       .from('pro_radio_subscriptions')
       .upsert(updateRow, { onConflict: 'user_id' });
+    if (error) {
+      throw new Error(
+        `Failed to persist Pro-Radio subscription: ${error.message}`,
+      );
+    }
   }
 
   async getUserIdByStripeSubscriptionId(

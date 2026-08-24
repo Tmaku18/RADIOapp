@@ -511,7 +511,7 @@ export default function StatsPage() {
                   <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-primary font-bold shrink-0">{index + 1}</div>
                   {song.artworkUrl && <img src={song.artworkUrl} alt="" className="w-10 h-10 rounded object-cover shrink-0" />}
                   <div className="flex-1 min-w-0">
-                    <Link href={`/artist/songs/${song.songId}`} className="font-medium text-foreground hover:underline block truncate">{song.title}</Link>
+                    <Link href={`/artist/songs/${song.songId}/buy-plays`} className="font-medium text-foreground hover:underline block truncate">{song.title}</Link>
                     <p className="text-sm text-muted-foreground">
                       {(song.totalListens ?? 0).toLocaleString()} listens · {song.totalPlays.toLocaleString()} plays · {song.paidPlays.toLocaleString()} paid · {song.freePlays.toLocaleString()} free · {song.likeCount} ripples
                     </p>

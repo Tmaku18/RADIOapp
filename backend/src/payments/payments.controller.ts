@@ -542,6 +542,9 @@ export class PaymentsController {
    * - checkout.session.async_payment_succeeded: Async payment completed (e.g., bank transfers)
    * - checkout.session.async_payment_failed: Async payment failed
    */
+  // Stripe sends no Authorization header — the stripe-signature check inside
+  // verifyWebhookSignature is this route's authentication.
+  @Public()
   @Post('webhook')
   async handleWebhook(
     @Req() req: RawBodyRequest<Request>,

@@ -400,6 +400,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await signOut();
       setProfile(null);
+      if (typeof document !== 'undefined') {
+        document.cookie =
+          'user_role=; path=/; max-age=0; samesite=lax';
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to sign out';
       setError(message);

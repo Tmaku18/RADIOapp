@@ -15,6 +15,7 @@ import {
   takeOAuthRedirectPath,
   peekOAuthRedirectPending,
   mapFirebaseAuthError,
+  safeInternalPath,
 } from '@/lib/firebase-client';
 
 function LoginForm() {
@@ -36,7 +37,9 @@ function LoginForm() {
   const [oauthRedirectPending, setOauthRedirectPending] = useState(false);
 
   const redirectParam = searchParams.get('redirect');
-  const [redirectTo, setRedirectTo] = useState(redirectParam || '/dashboard');
+  const [redirectTo, setRedirectTo] = useState(
+    safeInternalPath(redirectParam),
+  );
   const sessionExpired = searchParams.get('session_expired') === 'true';
 
   // On pro-networx.com, land in the app home (Discover Creatives) after login

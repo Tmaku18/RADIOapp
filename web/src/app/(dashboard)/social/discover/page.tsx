@@ -97,6 +97,8 @@ export default function SocialDiscoverSwipePage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioCapSecondsRef = useRef<number>(15);
   const discoverSeedRef = useRef<string>(generateDiscoverSeed());
+  const nextCursorRef = useRef<string | undefined>(undefined);
+  const prefetchingRef = useRef(false);
 
   const currentCard = cards[0] ?? null;
   const currentCardClipCapSeconds = Math.max(
@@ -107,13 +109,14 @@ export default function SocialDiscoverSwipePage() {
   const loadFeed = useCallback(async () => {
     // New seed on refresh = new random order while keeping pagination stable.
     discoverSeedRef.current = generateDiscoverSeed();
+    nextCursorRef.current = undefined;
     setLoading(true);
     setError(null);
     try {
       const bySongId = new Map<string, DiscoverAudioSongCard>();
       let cursor: string | undefined;
-      let pageGuard = 0;
-      while (pageGuard < 500) {
+      // Two pages is enough to paint and swipe; the rest loads as the deck thins.
+      for (let page = 0; page < 2; page += 1) {
         const stationId = getLastRadioStationId() || DEFAULT_STATION_ID;
         const res = await discoverAudioApi.getFeed({
           limit: PAGE_SIZE,
@@ -127,10 +130,13 @@ export default function SocialDiscoverSwipePage() {
             bySongId.set(card.songId, card);
           }
         }
-        if (!data.nextCursor) break;
+        if (!data.nextCursor) {
+          cursor = undefined;
+          break;
+        }
         cursor = data.nextCursor;
-        pageGuard += 1;
       }
+      nextCursorRef.current = cursor;
       setCards(shuffleCards(Array.from(bySongId.values())));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load discover feed');
@@ -139,9 +145,43 @@ export default function SocialDiscoverSwipePage() {
     }
   }, []);
 
+  const prefetchMore = useCallback(async () => {
+    const cursor = nextCursorRef.current;
+    if (!cursor || prefetchingRef.current) return;
+    prefetchingRef.current = true;
+    try {
+      const stationId = getLastRadioStationId() || DEFAULT_STATION_ID;
+      const res = await discoverAudioApi.getFeed({
+        limit: PAGE_SIZE,
+        cursor,
+        seed: discoverSeedRef.current,
+        stationId,
+      });
+      const data = res.data;
+      nextCursorRef.current = data.nextCursor || undefined;
+      const incoming = data.items ?? [];
+      if (incoming.length === 0) return;
+      setCards((prev) => {
+        const seen = new Set(prev.map((card) => card.songId));
+        const extra = incoming.filter((card) => !seen.has(card.songId));
+        return extra.length ? [...prev, ...extra] : prev;
+      });
+    } catch {
+      // Keep the current deck; the next swipe can retry.
+    } finally {
+      prefetchingRef.current = false;
+    }
+  }, []);
+
   useEffect(() => {
     void loadFeed();
   }, [loadFeed]);
+
+  useEffect(() => {
+    if (cards.length > 0 && cards.length <= PAGE_SIZE) {
+      void prefetchMore();
+    }
+  }, [cards.length, prefetchMore]);
 
   useEffect(() => {
     setShownAt(Date.now());

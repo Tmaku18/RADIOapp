@@ -154,33 +154,6 @@ function UploadPageContent() {
     };
   }, []);
 
-  const didPromoteRef = useRef(false);
-  useEffect(() => {
-    if (!profile || hasArtistCapability(profile.role) || didPromoteRef.current) {
-      return;
-    }
-    didPromoteRef.current = true;
-    let cancelled = false;
-    setUpgradeBusy(true);
-    setUpgradeError(null);
-    (async () => {
-      try {
-        await usersApi.upgradeToArtist();
-        if (!cancelled) await refreshProfile();
-      } catch (err) {
-        if (!cancelled) {
-          didPromoteRef.current = false;
-          setUpgradeError(errorMessage(err, 'Could not switch this account to Artist.'));
-        }
-      } finally {
-        if (!cancelled) setUpgradeBusy(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [profile, refreshProfile]);
-
   useEffect(() => {
     if (!audioFile) {
       setDiscoverPreviewUrl(null);
@@ -565,12 +538,12 @@ function UploadPageContent() {
         <Card className="glass-panel border-border/80">
           <CardContent className="pt-8 pb-8 space-y-4">
             <h2 className="heading-serif text-2xl font-semibold text-foreground">
-              Setting up your artist account
+              Become an artist to upload
             </h2>
             <p className="text-muted-foreground">
               {upgradeBusy
                 ? 'Switching this account to Artist so you can upload…'
-                : 'This account needs to be an Artist to upload. Retry if this did not finish.'}
+                : 'This is a listener account. Confirm below to switch to Artist and unlock uploads. Your Prospector rewards stay on the account.'}
             </p>
             {upgradeError && (
               <Alert variant="destructive">
@@ -580,7 +553,7 @@ function UploadPageContent() {
             {!upgradeBusy && (
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <Button onClick={() => void joinTrialByFire()} disabled={upgradeBusy}>
-                  Try again
+                  Become an artist
                 </Button>
               </div>
             )}

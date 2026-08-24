@@ -61,6 +61,10 @@ interface MessageRow {
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const messagesRealtimeClient =
+  supabaseUrl && supabaseAnonKey
+    ? createClient(supabaseUrl, supabaseAnonKey)
+    : null;
 
 function formatTime(dateString: string): string {
   const d = new Date(dateString);
@@ -116,10 +120,13 @@ export default function MessagesPage() {
     } finally {
       setLoadingConversations(false);
     }
-  }, []);
+  }, [search]);
 
   useEffect(() => {
-    loadConversations();
+    const timer = setTimeout(() => {
+      void loadConversations();
+    }, 300);
+    return () => clearTimeout(timer);
   }, [loadConversations]);
 
   const loadThread = useCallback(
@@ -214,9 +221,8 @@ export default function MessagesPage() {
   }, [messages]);
 
   useEffect(() => {
-    if (!myId || !selectedOther?.userId || !supabaseUrl || !supabaseAnonKey) return;
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    const channel = supabase
+    if (!myId || !selectedOther?.userId || !messagesRealtimeClient) return;
+    const channel = messagesRealtimeClient
       .channel(`dm-updates-${myId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'service_messages', filter: `sender_id=eq.${myId}` }, () => {
         loadConversations();
@@ -229,16 +235,15 @@ export default function MessagesPage() {
       .subscribe();
     channelRef.current = channel;
     return () => {
-      channel.unsubscribe();
+      void messagesRealtimeClient.removeChannel(channel);
       channelRef.current = null;
     };
   }, [myId, selectedOther?.userId, loadConversations, loadThread]);
 
   useEffect(() => {
-    if (!myId || !selectedOther?.userId || !supabaseUrl || !supabaseAnonKey) return;
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    if (!myId || !selectedOther?.userId || !messagesRealtimeClient) return;
     const pair = [myId, selectedOther.userId].sort().join('__');
-    const channel = supabase.channel(`dm-typing-${pair}`);
+    const channel = messagesRealtimeClient.channel(`dm-typing-${pair}`);
     channel
       .on('broadcast', { event: 'typing' }, (payload) => {
         const from = (payload.payload as { fromUserId?: string })?.fromUserId;
@@ -250,7 +255,7 @@ export default function MessagesPage() {
       .subscribe();
     typingChannelRef.current = channel;
     return () => {
-      channel.unsubscribe();
+      void messagesRealtimeClient.removeChannel(channel);
       typingChannelRef.current = null;
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);

@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-08-09T03:55:39.739Z",
-  "count": 370,
+  "generatedAt": "2026-08-24T04:06:58.944Z",
+  "count": 381,
   "routes": [
     {
       "method": "GET",
@@ -307,6 +307,17 @@
         "admin"
       ],
       "file": "dj-booth/dj-booth.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/emails/testflight-beta",
+      "controller": "admin.controller",
+      "handler": "broadcastTestFlightBetaInvite",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
     },
     {
       "method": "GET",
@@ -1467,6 +1478,19 @@
     },
     {
       "method": "POST",
+      "path": "/api/credits/songs/:songId/apply-welcome-placements",
+      "controller": "credits.controller",
+      "handler": "applyWelcomePlacements",
+      "public": false,
+      "roles": [
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "credits/credits.controller.ts"
+    },
+    {
+      "method": "POST",
       "path": "/api/credits/songs/:songId/withdraw",
       "controller": "credits.controller",
       "handler": "withdrawCredits",
@@ -2183,6 +2207,24 @@
     },
     {
       "method": "POST",
+      "path": "/api/payments/create-pro-bundle-checkout-session",
+      "controller": "payments.controller",
+      "handler": "createProBundleCheckoutSession",
+      "public": false,
+      "roles": [],
+      "file": "payments/payments.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/payments/create-pro-bundle-payment-sheet",
+      "controller": "payments.controller",
+      "handler": "createProBundlePaymentSheet",
+      "public": false,
+      "roles": [],
+      "file": "payments/payments.controller.ts"
+    },
+    {
+      "method": "POST",
       "path": "/api/payments/create-pro-networx-checkout-session",
       "controller": "payments.controller",
       "handler": "createProNetworxCheckoutSession",
@@ -2300,7 +2342,7 @@
       "path": "/api/payments/webhook",
       "controller": "payments.controller",
       "handler": "handleWebhook",
-      "public": false,
+      "public": true,
       "roles": [],
       "file": "payments/payments.controller.ts"
     },
@@ -3515,6 +3557,89 @@
       "public": false,
       "roles": [],
       "file": "spotlight/spotlight.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/studios",
+      "controller": "studios.controller",
+      "handler": "list",
+      "public": false,
+      "roles": [],
+      "file": "studios/studios.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/studios",
+      "controller": "studios.controller",
+      "handler": "create",
+      "public": false,
+      "roles": [
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "studios/studios.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/studios/:id",
+      "controller": "studios.controller",
+      "handler": "remove",
+      "public": false,
+      "roles": [
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "studios/studios.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/studios/:id",
+      "controller": "studios.controller",
+      "handler": "getOne",
+      "public": false,
+      "roles": [],
+      "file": "studios/studios.controller.ts"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/studios/:id",
+      "controller": "studios.controller",
+      "handler": "update",
+      "public": false,
+      "roles": [
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "studios/studios.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/studios/me",
+      "controller": "studios.controller",
+      "handler": "listMine",
+      "public": false,
+      "roles": [
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "studios/studios.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/studios/people-search",
+      "controller": "studios.controller",
+      "handler": "searchPeople",
+      "public": false,
+      "roles": [
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "studios/studios.controller.ts"
     },
     {
       "method": "GET",
