@@ -19,6 +19,7 @@ import ffmpegStatic from 'ffmpeg-static';
 import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+import { ensureWelcomePlacements } from '../credits/welcome-placements';
 
 export interface BanResult {
   success: boolean;
@@ -1949,6 +1950,15 @@ export class AdminService {
       throw new BadRequestException(
         `Failed to update user role: ${error.message}`,
       );
+    }
+
+    if (
+      role === 'artist' ||
+      role === 'service_provider' ||
+      role === 'dj' ||
+      role === 'musician'
+    ) {
+      await ensureWelcomePlacements(userId);
     }
 
     return data;
