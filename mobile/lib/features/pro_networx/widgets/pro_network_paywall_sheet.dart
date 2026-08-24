@@ -296,6 +296,15 @@ class _ProNetworkPaywallSheetState extends State<ProNetworkPaywallSheet> {
             if (_error != null) ...[
               const SizedBox(height: 12),
               Text(_error!, style: TextStyle(color: cs.error)),
+              // Prices are only fetched in initState, so without this a failed
+              // load leaves every button permanently disabled.
+              if (storeCheckout && _soloStorePrice == null)
+                TextButton(
+                  onPressed: _busy || _loadingProduct
+                      ? null
+                      : () => unawaited(_prefetchStoreProducts()),
+                  child: const Text('Try again'),
+                ),
             ],
             const SizedBox(height: 16),
             SizedBox(

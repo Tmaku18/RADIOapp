@@ -85,6 +85,13 @@ class Song {
       return int.tryParse(value?.toString() ?? '') ?? fallback;
     }
 
+    int? parseIntOrNull(dynamic value) {
+      if (value == null) return null;
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      return int.tryParse(value.toString());
+    }
+
     double parseDoubleOr(dynamic value, double fallback) {
       if (value is num) return value.toDouble();
       return double.tryParse(value?.toString() ?? '') ?? fallback;
@@ -105,10 +112,14 @@ class Song {
       artistName: (json['artist_name'] ?? json['artistName'])?.toString() ?? '',
       audioUrl: (json['audio_url'] ?? json['audioUrl'])?.toString() ?? '',
       artworkUrl: (json['artwork_url'] ?? json['artworkUrl'])?.toString(),
-      durationSeconds: json['duration_seconds'] ?? json['durationSeconds'] as int?,
-      fileSizeBytes: json['file_size_bytes'] ?? json['fileSizeBytes'] as int?,
-      creditsRemaining:
-          (json['credits_remaining'] ?? json['creditsRemaining'] ?? 0) as int,
+      durationSeconds:
+          parseIntOrNull(json['duration_seconds'] ?? json['durationSeconds']),
+      fileSizeBytes:
+          parseIntOrNull(json['file_size_bytes'] ?? json['fileSizeBytes']),
+      creditsRemaining: parseIntOr(
+        json['credits_remaining'] ?? json['creditsRemaining'],
+        0,
+      ),
       playCount: parseIntOr(json['play_count'] ?? json['playCount'], 0),
       listenCount: json['listen_count'] != null || json['listenCount'] != null
           ? parseIntOr(json['listen_count'] ?? json['listenCount'], 0)
@@ -117,7 +128,7 @@ class Song {
           ? parseIntOr(json['ears_reached'] ?? json['earsReached'], 0)
           : null,
       likeCount: parseIntOr(json['like_count'] ?? json['likeCount'], 0),
-      skipCount: (json['skip_count'] ?? json['skipCount'] ?? 0) as int,
+      skipCount: parseIntOr(json['skip_count'] ?? json['skipCount'], 0),
       status: json['status']?.toString() ?? 'pending',
       rejectionReason: (json['rejection_reason'] ?? json['rejectionReason'])
           ?.toString(),

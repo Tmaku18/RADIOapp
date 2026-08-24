@@ -158,6 +158,7 @@ class DiscoverAudioTabState extends State<DiscoverAudioTab>
       _nextCursor = null;
       _cards = const [];
     }
+    if (!mounted) return;
     if (append) {
       setState(() => _loadingMore = true);
     } else {

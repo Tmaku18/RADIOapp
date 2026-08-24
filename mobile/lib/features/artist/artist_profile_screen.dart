@@ -13,6 +13,7 @@ import '../../core/models/user.dart' as app_user;
 import '../../core/models/song.dart';
 import '../../core/services/api_service.dart';
 import '../../core/services/songs_service.dart';
+import '../../core/services/play_billing_service.dart';
 import '../../core/services/song_purchase_flow.dart';
 import '../../core/services/livestream_service.dart';
 import '../../core/services/audio_player_service.dart';
@@ -717,9 +718,15 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
       if (outcome.unlocked) await _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Purchase failed: $e')));
+      if (PlayBillingService.instance.isPurchaseCancellation(e)) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Purchase failed: '
+            '${PlayBillingService.instance.describeStoreError(e)}',
+          ),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _buyingId = null);
     }

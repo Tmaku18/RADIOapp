@@ -8,6 +8,7 @@ import 'package:just_audio/just_audio.dart';
 import '../../core/brand/brand_assets.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/services/audio_player_service.dart';
+import '../../core/services/play_billing_service.dart';
 import '../../core/services/song_purchase_flow.dart';
 import '../../core/services/songs_service.dart';
 import '../../core/theme/dimension_tokens.dart';
@@ -156,8 +157,14 @@ class _ProBeatsMarketplaceScreenState extends State<ProBeatsMarketplaceScreen> {
       if (outcome.unlocked) await _load();
     } catch (e) {
       if (!mounted) return;
+      if (PlayBillingService.instance.isPurchaseCancellation(e)) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Purchase failed: $e')),
+        SnackBar(
+          content: Text(
+            'Purchase failed: '
+            '${PlayBillingService.instance.describeStoreError(e)}',
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _buyingId = null);

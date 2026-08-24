@@ -28,6 +28,12 @@ class _ProServicesScreenState extends State<ProServicesScreen> {
     _load(reset: true);
   }
 
+  @override
+  void dispose() {
+    _query.dispose();
+    super.dispose();
+  }
+
   Future<void> _load({bool reset = false}) async {
     setState(() {
       if (reset) {

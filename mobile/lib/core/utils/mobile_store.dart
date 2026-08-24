@@ -6,6 +6,9 @@ import 'package:flutter/foundation.dart';
 bool get isMobileStorePlatform =>
     !kIsWeb && (Platform.isIOS || Platform.isAndroid);
 
+/// True when digital goods flow through StoreKit rather than Play Billing.
+bool get isAppStorePlatform => !kIsWeb && Platform.isIOS;
+
 String get mobileStoreLabel {
   if (!kIsWeb && Platform.isIOS) return 'App Store';
   if (!kIsWeb && Platform.isAndroid) return 'Google Play';

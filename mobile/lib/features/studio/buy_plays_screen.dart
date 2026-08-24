@@ -228,20 +228,10 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
         }
         final purchase =
             await PlayBillingService.instance.buyConsumable(productId);
-        if (Platform.isIOS) {
-          await _payments.completeAppStorePurchase(
-            productId: purchase.productId,
-            signedTransaction: purchase.purchaseToken,
-            transactionId: purchase.transactionId,
-            songId: widget.song.id,
-          );
-        } else {
-          await _payments.completeGooglePlayPurchase(
-            productId: purchase.productId,
-            purchaseToken: purchase.purchaseToken,
-            songId: widget.song.id,
-          );
-        }
+        await _payments.completeStorePurchase(
+          purchase: purchase,
+          songId: widget.song.id,
+        );
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -297,9 +287,13 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
       );
     } catch (e) {
       if (!mounted) return;
+      if (PlayBillingService.instance.isPurchaseCancellation(e)) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Payment failed: $e'),
+          content: Text(
+            'Payment failed: '
+            '${PlayBillingService.instance.describeStoreError(e)}',
+          ),
           backgroundColor: Colors.red,
         ),
       );

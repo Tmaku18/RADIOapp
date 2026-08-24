@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:url_launcher/url_launcher.dart';
 
 import '../constants/song_price_tiers.dart';
@@ -61,20 +59,7 @@ class SongPurchaseFlow {
     );
 
     final purchase = await PlayBillingService.instance.buyConsumable(productId);
-    if (Platform.isIOS) {
-      await _payments.completeAppStorePurchase(
-        productId: purchase.productId,
-        signedTransaction: purchase.purchaseToken,
-        transactionId: purchase.transactionId,
-        songId: songId,
-      );
-    } else {
-      await _payments.completeGooglePlayPurchase(
-        productId: purchase.productId,
-        purchaseToken: purchase.purchaseToken,
-        songId: songId,
-      );
-    }
+    await _payments.completeStorePurchase(purchase: purchase, songId: songId);
     return const SongPurchaseOutcome.unlocked('Purchased. Enjoy the full track!');
   }
 

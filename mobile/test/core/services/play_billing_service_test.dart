@@ -6,7 +6,8 @@ void main() {
   group('PlayBillingService.describeStoreError', () {
     final billing = PlayBillingService.instance;
 
-    test('maps StoreKit no-response errors', () {
+    test('maps StoreKit no-response errors without leaking store setup steps',
+        () {
       final message = billing.describeStoreError(
         PlatformException(
           code: 'storekit_no_response',
@@ -14,18 +15,29 @@ void main() {
         ),
         productId: 'pro_networx_monthly',
       );
-      expect(message, contains('App Store could not load'));
-      expect(message, contains('Paid Apps Agreement'));
-      expect(message, contains('pro_networx_monthly'));
+      expect(message, contains('temporarily unavailable'));
+      expect(message, isNot(contains('Paid Apps Agreement')));
+      expect(message, isNot(contains('pro_networx_monthly')));
     });
 
-    test('maps product not found', () {
+    test('maps product not found without leaking the product id', () {
       final message = billing.describeStoreError(
         Exception('Product xyz not found'),
         productId: 'xyz',
       );
-      expect(message, contains('not available'));
-      expect(message, contains('xyz'));
+      expect(message, contains('isn’t available yet'));
+      expect(message, isNot(contains('xyz')));
+    });
+
+    test('recognizes user cancellation', () {
+      expect(
+        billing.isPurchaseCancellation(Exception('Purchase was cancelled.')),
+        isTrue,
+      );
+      expect(
+        billing.isPurchaseCancellation(Exception('Network error')),
+        isFalse,
+      );
     });
 
     test('strips nested Exception prefixes', () {

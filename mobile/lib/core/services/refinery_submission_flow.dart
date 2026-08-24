@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:url_launcher/url_launcher.dart';
 
 import '../utils/mobile_store.dart';
@@ -50,22 +48,11 @@ class RefinerySubmissionFlow {
     final productId = PlayBillingService.instance.refinerySubmissionProductId;
     final purchase =
         await PlayBillingService.instance.buyConsumable(productId);
-    if (Platform.isIOS) {
-      await _payments.completeAppStorePurchase(
-        productId: purchase.productId,
-        signedTransaction: purchase.purchaseToken,
-        transactionId: purchase.transactionId,
-        songId: songId,
-        customQuestions: customQuestions,
-      );
-    } else {
-      await _payments.completeGooglePlayPurchase(
-        productId: purchase.productId,
-        purchaseToken: purchase.purchaseToken,
-        songId: songId,
-        customQuestions: customQuestions,
-      );
-    }
+    await _payments.completeStorePurchase(
+      purchase: purchase,
+      songId: songId,
+      customQuestions: customQuestions,
+    );
     return true;
   }
 

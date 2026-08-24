@@ -30,11 +30,13 @@ class _CreditsScreenState extends State<CreditsScreen> {
     try {
       final data = await _apiService.get('payments/transactions');
       final txList = data is List ? data : (data['data'] as List? ?? []);
+      if (!mounted) return;
       setState(() {
         _transactions = txList.map((e) => Map<String, dynamic>.from(e as Map)).toList();
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = e.toString();
         _isLoading = false;

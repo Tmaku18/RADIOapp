@@ -1,7 +1,54 @@
+import '../utils/mobile_store.dart';
 import 'api_service.dart';
+import 'pending_purchase_queue.dart';
+import 'play_billing_service.dart';
 
 class PaymentsService {
   final ApiService _api = ApiService();
+
+  /// Redeems a completed store purchase, queueing it first so a failed or
+  /// interrupted call can be retried instead of silently eating the payment.
+  ///
+  /// Callers should use this rather than the platform-specific `complete*`
+  /// methods below.
+  Future<Map<String, dynamic>> completeStorePurchase({
+    required PlayPurchaseResult purchase,
+    String? songId,
+    String? sessionId,
+    List<String>? customQuestions,
+  }) async {
+    final pending = PendingStorePurchase(
+      productId: purchase.productId,
+      purchaseToken: purchase.purchaseToken,
+      appStore: isAppStorePlatform,
+      createdAtMs: DateTime.now().millisecondsSinceEpoch,
+      transactionId: purchase.transactionId,
+      songId: songId,
+      sessionId: sessionId,
+      customQuestions: customQuestions,
+    );
+    await PendingPurchaseQueue.instance.add(pending);
+
+    final result = isAppStorePlatform
+        ? await completeAppStorePurchase(
+            productId: purchase.productId,
+            signedTransaction: purchase.purchaseToken,
+            transactionId: purchase.transactionId,
+            songId: songId,
+            sessionId: sessionId,
+            customQuestions: customQuestions,
+          )
+        : await completeGooglePlayPurchase(
+            productId: purchase.productId,
+            purchaseToken: purchase.purchaseToken,
+            songId: songId,
+            sessionId: sessionId,
+            customQuestions: customQuestions,
+          );
+
+    await PendingPurchaseQueue.instance.remove(pending.id);
+    return result;
+  }
 
   Future<Map<String, dynamic>> getSongPlayPrice(String songId) async {
     final res = await _api.get(

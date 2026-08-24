@@ -120,6 +120,49 @@ class _ProRadioPaywallSheetState extends State<ProRadioPaywallSheet> {
     }
   }
 
+  /// Apple requires a restore path for auto-renewable subscriptions, and a
+  /// reinstalled device has no other way to re-link an existing entitlement.
+  Future<void> _restoreWithStore() async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      for (final productId in [
+        PlayBillingService.instance.proBundleMonthlyProductId,
+        PlayBillingService.instance.proRadioMonthlyProductId,
+      ]) {
+        final purchase =
+            await PlayBillingService.instance.restoreSubscription(productId);
+        if (purchase == null) continue;
+        if (isAppStorePlatform) {
+          await _payments.completeAppStoreSubscription(
+            productId: purchase.productId,
+            signedTransaction: purchase.purchaseToken,
+            transactionId: purchase.transactionId,
+          );
+        } else {
+          await _payments.completeGooglePlaySubscription(
+            productId: purchase.productId,
+            purchaseToken: purchase.purchaseToken,
+          );
+        }
+        if (!mounted) return;
+        Navigator.of(context).pop(true);
+        return;
+      }
+      throw Exception('No active Pro-Radio or Pro Bundle subscription found.');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Restore failed: '
+            '${PlayBillingService.instance.describeStoreError(e, productId: _activeProductId)}';
+      });
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _subscribeWithStripe() async {
     final res = _plan == _ProPlan.bundle
         ? await _service.createBundlePaymentSheet()
@@ -244,6 +287,15 @@ class _ProRadioPaywallSheetState extends State<ProRadioPaywallSheet> {
             if (_error != null) ...[
               const SizedBox(height: 12),
               Text(_error!, style: TextStyle(color: cs.error)),
+              // Prices are only fetched in initState, so without this a failed
+              // load leaves every button permanently disabled.
+              if (storeCheckout && _soloStorePrice == null)
+                TextButton(
+                  onPressed: _busy || _loadingProduct
+                      ? null
+                      : () => unawaited(_prefetchStoreProducts()),
+                  child: const Text('Try again'),
+                ),
             ],
             const SizedBox(height: 16),
             SizedBox(
@@ -274,6 +326,16 @@ class _ProRadioPaywallSheetState extends State<ProRadioPaywallSheet> {
                       ),
               ),
             ),
+            if (storeCheckout) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: _busy ? null : _restoreWithStore,
+                  child: const Text('Restore purchases'),
+                ),
+              ),
+            ],
           ],
         ),
       ),

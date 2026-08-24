@@ -15,6 +15,8 @@ import 'core/app_messenger.dart';
 import 'core/auth/auth_service.dart';
 import 'core/services/push_notification_service.dart';
 import 'core/services/app_update_service.dart';
+import 'core/services/payments_service.dart';
+import 'core/services/pending_purchase_queue.dart';
 import 'core/navigation/app_router.dart';
 import 'core/navigation/app_routes.dart';
 import 'core/theme/dimension_tokens.dart';
@@ -303,6 +305,8 @@ class AuthWrapper extends StatelessWidget {
 
             // User is authenticated - show home with navigation
             if (snapshot.hasData && snapshot.data != null) {
+              // Redeem any store purchase whose backend call never landed.
+              unawaited(PendingPurchaseQueue.instance.drain(PaymentsService()));
               return const HomeScreen();
             }
 

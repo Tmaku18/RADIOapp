@@ -3,7 +3,6 @@ import 'package:audio_metadata_reader/audio_metadata_reader.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:http/http.dart' as http;
 import 'package:just_audio/just_audio.dart';
 
 import '../../core/constants/song_price_tiers.dart';
@@ -368,6 +367,7 @@ class _UploadScreenState extends State<UploadScreen> {
     required File file,
     required String bucket, // 'songs' | 'artwork'
     required bool isAudio,
+    void Function(int sent, int total)? onProgress,
   }) async {
     final filename = file.path.split('/').last;
     final contentType = _contentTypeFor(file.path, isAudio: isAudio);
@@ -382,15 +382,15 @@ class _UploadScreenState extends State<UploadScreen> {
       throw Exception('Signed URL response missing fields');
     }
 
-    final bytes = await file.readAsBytes();
-    final resp = await http.put(
-      Uri.parse(signedUrl),
-      headers: {'Content-Type': contentType},
-      body: bytes,
+    // Streams from disk with a stall watchdog — a full readAsBytes can OOM on
+    // long lossless masters, and a bare http.put never returns if the
+    // connection dies mid-transfer.
+    await _apiService.putFileToSignedUrl(
+      signedUrl,
+      file,
+      contentType: contentType,
+      onProgress: onProgress,
     );
-    if (resp.statusCode < 200 || resp.statusCode >= 300) {
-      throw Exception('Upload failed (${resp.statusCode})');
-    }
     return path;
   }
 
@@ -474,7 +474,12 @@ class _UploadScreenState extends State<UploadScreen> {
         file: _audioFile!,
         bucket: 'songs',
         isAudio: true,
+        onProgress: (sent, total) {
+          if (!mounted || total <= 0) return;
+          setState(() => _progress = 0.05 + 0.5 * (sent / total));
+        },
       );
+      if (!mounted) return;
       setState(() => _progress = 0.55);
 
       String? artworkPath;
@@ -485,6 +490,7 @@ class _UploadScreenState extends State<UploadScreen> {
           isAudio: false,
         );
       }
+      if (!mounted) return;
       setState(() => _progress = 0.72);
 
       String? discoverBackgroundPath;
@@ -495,6 +501,7 @@ class _UploadScreenState extends State<UploadScreen> {
           isAudio: false,
         );
       }
+      if (!mounted) return;
       setState(() => _progress = 0.88);
 
       final stations = _stationIds.toList();

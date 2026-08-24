@@ -31,6 +31,9 @@ class PlayBillingService {
   /// Lazy so unit tests can call [describeStoreError] without binding IAP.
   InAppPurchase get _iap => InAppPurchase.instance;
 
+  /// Guards [_buy] so overlapping purchases can't consume each other's updates.
+  bool _purchaseInFlight = false;
+
   static const String _defaultCredits10 = 'nwx_credits_10';
   static const String _defaultCredits25 = 'nwx_credits_25';
   static const String _defaultCredits50 = 'nwx_credits_50';
@@ -269,6 +272,16 @@ class PlayBillingService {
     return _iap.isAvailable();
   }
 
+  /// True when the buyer simply backed out of the store sheet, which should
+  /// never be surfaced as a failed payment.
+  bool isPurchaseCancellation(Object error) {
+    final raw = error is PlatformException
+        ? '${error.code} ${error.message ?? ''}'
+        : error.toString();
+    final lower = raw.toLowerCase();
+    return lower.contains('cancel');
+  }
+
   /// Maps StoreKit / Play Billing failures into actionable copy.
   String describeStoreError(Object error, {String? productId}) {
     final raw = error is PlatformException
@@ -279,17 +292,21 @@ class PlayBillingService {
 
     if (lower.contains('storekit_no_response') ||
         lower.contains('failed to get response from platform')) {
-      return 'App Store could not load $sku. In App Store Connect check: '
-          '(1) Paid Apps Agreement is Active, '
-          '(2) subscription $sku exists with a localization, '
-          '(3) you are signed into a Sandbox Apple ID on this device '
-          '(Settings → Developer → Sandbox Apple Account), '
-          '(4) wait a few minutes after creating the product, then retry.';
+      // Store-configuration detail is for us, not for the buyer.
+      debugPrint(
+        'Store did not respond for $sku. Check: Paid Apps Agreement active, '
+        'product $sku exists with a localization, signed into a Sandbox Apple '
+        'ID (Settings → Developer), and the product has finished propagating.',
+      );
+      return 'Purchases are temporarily unavailable. '
+          'Please try again in a moment.';
     }
     if (lower.contains('not found') || lower.contains('notfound')) {
-      return 'Product $sku is not available in $_storeLabel for this build. '
-          'Confirm the Product ID matches App Store Connect / Play Console '
-          'exactly, and that the subscription is cleared for sale.';
+      debugPrint(
+        'Product $sku missing from $_storeLabel for this build — confirm the '
+        'Product ID matches App Store Connect / Play Console and is for sale.',
+      );
+      return 'This purchase isn’t available yet. Please try again later.';
     }
     if (lower.contains('billing is not available') ||
         lower.contains('canmakepayments') ||
@@ -421,8 +438,10 @@ class PlayBillingService {
 
     try {
       await _iap.restorePurchases();
+      // Callers probe several SKUs in sequence, so a long per-product wait adds
+      // up to minutes of spinner for someone with nothing to restore.
       final result = await completer.future.timeout(
-        const Duration(seconds: 45),
+        const Duration(seconds: 12),
         onTimeout: () => null,
       );
       return result;
@@ -435,6 +454,15 @@ class PlayBillingService {
     required String productId,
     required Future<bool> Function(ProductDetails product) startPurchase,
   }) async {
+    // Songs at the same price share one consumable SKU and purchaseStream only
+    // identifies updates by product id, so two overlapping buys could resolve
+    // against each other's transaction. One purchase at a time.
+    if (_purchaseInFlight) {
+      throw Exception(
+        'Another purchase is still finishing. Please wait for it to complete.',
+      );
+    }
+    _purchaseInFlight = true;
     try {
       final available = await isAvailable();
       if (!available) {
@@ -529,6 +557,8 @@ class PlayBillingService {
       }
     } catch (e) {
       throw Exception(describeStoreError(e, productId: productId));
+    } finally {
+      _purchaseInFlight = false;
     }
   }
 

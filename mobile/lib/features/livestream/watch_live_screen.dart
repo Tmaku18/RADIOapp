@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart' hide Card;
@@ -356,20 +355,10 @@ class _WatchLiveScreenState extends State<WatchLiveScreen> {
     }
     final purchase =
         await PlayBillingService.instance.buyConsumable(productId);
-    if (Platform.isIOS) {
-      await _payments.completeAppStorePurchase(
-        productId: purchase.productId,
-        signedTransaction: purchase.purchaseToken,
-        transactionId: purchase.transactionId,
-        sessionId: sessionId,
-      );
-    } else {
-      await _payments.completeGooglePlayPurchase(
-        productId: purchase.productId,
-        purchaseToken: purchase.purchaseToken,
-        sessionId: sessionId,
-      );
-    }
+    await _payments.completeStorePurchase(
+      purchase: purchase,
+      sessionId: sessionId,
+    );
   }
 
   Future<void> _donate() async {
@@ -424,7 +413,11 @@ class _WatchLiveScreenState extends State<WatchLiveScreen> {
       _snack(e.error.localizedMessage ?? 'Payment canceled');
     } catch (e) {
       if (!mounted) return;
-      _snack('Donation failed: $e');
+      if (PlayBillingService.instance.isPurchaseCancellation(e)) return;
+      _snack(
+        'Donation failed: '
+        '${PlayBillingService.instance.describeStoreError(e)}',
+      );
     } finally {
       if (mounted) setState(() => _donating = false);
     }

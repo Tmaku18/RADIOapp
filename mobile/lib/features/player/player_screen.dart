@@ -529,29 +529,41 @@ class _PlayerScreenState extends State<PlayerScreen>
       _noContentMessage = null;
     });
 
-    final res = await _radioService.getCurrentTrack(radioId: _radioId);
-    RadioConnectionMonitor.instance.reportRequestResult(
-      networkError: res.networkError,
-    );
-    if (!mounted) return;
-    // Nothing is playing yet on a cold start, so showing the retry card is
-    // correct here even for a network failure.
-    if (res.noContent) {
+    try {
+      final res = await _radioService.getCurrentTrack(radioId: _radioId);
+      RadioConnectionMonitor.instance.reportRequestResult(
+        networkError: res.networkError,
+      );
+      if (!mounted) return;
+      // Nothing is playing yet on a cold start, so showing the retry card is
+      // correct here even for a network failure.
+      if (res.noContent) {
+        setState(() {
+          _isLoading = false;
+          _noContent = true;
+          _noContentMessage = res.message;
+        });
+        return;
+      }
+
+      final track = res.track;
+      if (track == null || track.audioUrl.trim().isEmpty) {
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      await _loadAndPlay(track, res);
+    } catch (e) {
+      // just_audio can throw from play()/setVolume() when a load races an
+      // interruption; without this the screen keeps spinning forever.
+      debugPrint('Initial track load failed: $e');
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
         _noContent = true;
-        _noContentMessage = res.message;
+        _noContentMessage = 'Could not start the radio. Tap retry.';
       });
-      return;
     }
-
-    final track = res.track;
-    if (track == null || track.audioUrl.trim().isEmpty) {
-      setState(() => _isLoading = false);
-      return;
-    }
-
-    await _loadAndPlay(track, res);
   }
 
   /// [switchId] / [radioId] identify the station this track was fetched for.
