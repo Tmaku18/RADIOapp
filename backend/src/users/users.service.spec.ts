@@ -8,7 +8,10 @@ jest.mock('../config/supabase.config', () => ({
 const createBuilder = () => ({
   select: jest.fn().mockReturnThis(),
   eq: jest.fn().mockReturnThis(),
+  is: jest.fn().mockReturnThis(),
   single: jest.fn(),
+  // Username availability + welcome-placement lookups both use maybeSingle.
+  maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
   insert: jest.fn().mockReturnThis(),
   update: jest.fn().mockReturnThis(),
 });
@@ -59,7 +62,7 @@ describe('UsersService', () => {
     expect(result.email).toBe('existing@example.com');
   });
 
-  it('inserts new artist (credits created by DB trigger)', async () => {
+  it('inserts new artist and seeds welcome placements', async () => {
     const service = new UsersService(
       mockUploadsService as any,
       mockConfigService as any,

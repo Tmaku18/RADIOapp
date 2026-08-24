@@ -137,8 +137,8 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
 
   Future<void> _applyWelcomePlays() async {
     final remaining = _creditsBalance?.welcomePlacementsRemaining ?? 0;
-    final count = _welcomeToApply.clamp(1, remaining);
     if (remaining <= 0 || _submitting) return;
+    final count = _welcomeToApply.clamp(1, remaining);
     setState(() => _submitting = true);
     try {
       await _credits.applyWelcomePlacements(

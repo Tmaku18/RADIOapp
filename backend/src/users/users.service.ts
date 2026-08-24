@@ -783,6 +783,7 @@ export class UsersService {
       updatePayload.snapchat_url = updateUserDto.snapchatUrl || null;
     // artistLat / artistLng from the client are intentionally ignored — see
     // the ZIP geocode block above. Public maps only ever see a distorted pin.
+    let grantWelcomePlacements = false;
     if (updateUserDto.role !== undefined) {
       if (user.role === 'admin') {
         throw new BadRequestException(
@@ -799,13 +800,10 @@ export class UsersService {
         );
       }
       updatePayload.role = updateUserDto.role;
-      if (
+      grantWelcomePlacements =
         (updateUserDto.role === 'artist' ||
           updateUserDto.role === 'service_provider') &&
-        user.role !== updateUserDto.role
-      ) {
-        await ensureWelcomePlacements(user.id);
-      }
+        user.role !== updateUserDto.role;
       if (
         updateUserDto.role === 'service_provider' &&
         user.role !== 'service_provider'
@@ -834,6 +832,12 @@ export class UsersService {
         throw new ConflictException('That username is already taken.');
       }
       throw new BadRequestException(`Failed to update user: ${error.message}`);
+    }
+
+    // Only after the role actually landed, so a failed update can't hand out
+    // the signup gift to a listener.
+    if (grantWelcomePlacements) {
+      await ensureWelcomePlacements(user.id);
     }
 
     return transformUser(data);
@@ -1036,13 +1040,8 @@ export class UsersService {
       );
     }
 
-    const { error: creditsError } = await supabase.from('credits').insert({
-      artist_id: user.id,
-      balance: 0,
-    });
-    if (creditsError && creditsError.code !== '23505') {
-      console.error('Failed to create credits for Catalyst:', creditsError);
-    }
+    // Seeds the credits row and the 10 welcome Discovery placements.
+    await ensureWelcomePlacements(user.id);
 
     const { error: providerError } = await supabase
       .from('service_providers')

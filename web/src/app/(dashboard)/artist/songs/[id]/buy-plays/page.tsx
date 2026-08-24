@@ -105,18 +105,16 @@ export default function BuyPlaysPage() {
       setWelcomeNotice(null);
       await creditsApi.applyWelcomePlacements(songId, count);
       const left = welcomeRemaining - count;
-      if (left <= 0) {
-        setWelcomeRemaining(0);
-        setWelcomeAvailable(false);
-        router.push(`/artist/songs?welcome_plays=applied`);
-        return;
-      }
-      setWelcomeRemaining(left);
-      setWelcomeToApply(1);
       setWelcomeNotice(
-        `Applied ${count} free ${count === 1 ? 'play' : 'plays'} to this song. ` +
-          `${left} left to split across your other songs.`,
+        left > 0
+          ? `Applied ${count} free ${count === 1 ? 'play' : 'plays'} to this song. ` +
+              `${left} left to split across your other songs.`
+          : `Applied ${count} free ${count === 1 ? 'play' : 'plays'} to this song — ` +
+              'that was the last of your signup plays.',
       );
+      setWelcomeRemaining(left);
+      setWelcomeToApply(left > 0 ? 1 : 0);
+      if (left <= 0) setWelcomeAvailable(false);
       await loadPrice();
     } catch (err: unknown) {
       setError(errorMessage(err, 'Could not apply free plays'));
@@ -196,6 +194,12 @@ export default function BuyPlaysPage() {
         </Alert>
       )}
 
+      {welcomeNotice && (
+        <Alert>
+          <AlertDescription>{welcomeNotice}</AlertDescription>
+        </Alert>
+      )}
+
       {welcomeRemaining > 0 && (
         <Card className="border-primary/40 bg-primary/[0.04]">
           <CardContent className="pt-6 space-y-3">
@@ -211,9 +215,6 @@ export default function BuyPlaysPage() {
                   : 'Choose how many to send to this song and save the rest for your other uploads.'}
               </p>
             </div>
-            {welcomeNotice && (
-              <p className="text-sm text-foreground">{welcomeNotice}</p>
-            )}
             {welcomeAvailable && (
               <div className="flex flex-wrap items-center gap-3">
                 <div className="flex items-center gap-2">
