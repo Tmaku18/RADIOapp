@@ -1,8 +1,14 @@
 import { promoteListenerToArtist } from './promote-listener';
 import { getSupabaseClient } from '../config/supabase.config';
+import { ensureWelcomePlacements } from '../credits/welcome-placements';
 
 jest.mock('../config/supabase.config', () => ({
   getSupabaseClient: jest.fn(),
+}));
+
+jest.mock('../credits/welcome-placements', () => ({
+  ensureWelcomePlacements: jest.fn().mockResolvedValue(undefined),
+  SIGNUP_WELCOME_PLACEMENTS: 10,
 }));
 
 describe('promoteListenerToArtist', () => {
@@ -11,14 +17,10 @@ describe('promoteListenerToArtist', () => {
   const eq = jest.fn();
   const maybeSingle = jest.fn();
   const update = jest.fn();
-  const insert = jest.fn();
 
   beforeEach(() => {
     jest.clearAllMocks();
-    from.mockImplementation((table: string) => {
-      if (table === 'credits') {
-        return { insert: insert.mockResolvedValue({ error: null }) };
-      }
+    from.mockImplementation(() => {
       return {
         select: select.mockReturnValue({
           eq: eq.mockReturnValue({ maybeSingle }),
@@ -31,7 +33,7 @@ describe('promoteListenerToArtist', () => {
     (getSupabaseClient as jest.Mock).mockReturnValue({ from });
   });
 
-  it('promotes a listener and seeds credits', async () => {
+  it('promotes a listener and seeds welcome placements', async () => {
     maybeSingle.mockResolvedValue({
       data: { id: 'u1', role: 'listener' },
       error: null,
@@ -40,7 +42,7 @@ describe('promoteListenerToArtist', () => {
     expect(update).toHaveBeenCalledWith(
       expect.objectContaining({ role: 'artist' }),
     );
-    expect(insert).toHaveBeenCalledWith({ artist_id: 'u1', balance: 0 });
+    expect(ensureWelcomePlacements).toHaveBeenCalledWith('u1');
   });
 
   it('is a no-op for existing artists', async () => {
@@ -50,5 +52,6 @@ describe('promoteListenerToArtist', () => {
     });
     await promoteListenerToArtist('u1');
     expect(update).not.toHaveBeenCalled();
+    expect(ensureWelcomePlacements).not.toHaveBeenCalled();
   });
 });

@@ -46,6 +46,8 @@ class PlayBillingService {
 
   static const String defaultProNetworxMonthly = 'nwx_pro_networx_monthly';
   static const String defaultProRadioMonthly = 'nwx_pro_radio_monthly';
+  static const String defaultProBundleMonthly = 'nwx_pro_bundle_monthly';
+  static const String defaultRefinerySubmission = 'nwx_refinery_submission';
   static const String _defaultTip199 = 'nwx_tip_199';
   static const String _defaultTip499 = 'nwx_tip_499';
   static const String _defaultTip999 = 'nwx_tip_999';
@@ -74,6 +76,8 @@ class PlayBillingService {
         songPlaysProductIdFor(100)!,
         proNetworxMonthlyProductId,
         proRadioMonthlyProductId,
+        proBundleMonthlyProductId,
+        refinerySubmissionProductId,
         tipProductIdForCents(199)!,
         tipProductIdForCents(499)!,
         tipProductIdForCents(999)!,
@@ -171,6 +175,20 @@ class PlayBillingService {
         'IOS_APP_STORE_PRO_RADIO_MONTHLY_PRODUCT_ID',
         env('ANDROID_PLAY_PRO_RADIO_MONTHLY_PRODUCT_ID') ??
             defaultProRadioMonthly,
+      )!;
+
+  String get proBundleMonthlyProductId =>
+      _envOrDefault(
+        'IOS_APP_STORE_PRO_BUNDLE_MONTHLY_PRODUCT_ID',
+        env('ANDROID_PLAY_PRO_BUNDLE_MONTHLY_PRODUCT_ID') ??
+            defaultProBundleMonthly,
+      )!;
+
+  String get refinerySubmissionProductId =>
+      _envOrDefault(
+        'IOS_APP_STORE_REFINERY_SUBMISSION_PRODUCT_ID',
+        env('ANDROID_PLAY_REFINERY_SUBMISSION_PRODUCT_ID') ??
+            defaultRefinerySubmission,
       )!;
 
   /// Consumable SKU that sells a song or beat priced at [priceCents].

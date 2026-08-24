@@ -103,10 +103,9 @@ export const REFINERY_MAX_CUSTOM_QUESTIONS = 10;
  * Whether artists can add a song to The Refinery without paying the submission
  * fee.
  *
- * Follows the master beta switch by default. This is also what makes The
- * Refinery reachable from the apps at all: the fee is a digital good, so App
- * Store and Play Store rules keep its Stripe checkout web-only, and a
- * payment-only Refinery has no mobile entry point.
+ * Follows the master beta switch by default. When the fee is required, mobile
+ * uses the App Store / Play consumable `nwx_refinery_submission` and web uses
+ * Stripe Checkout.
  *
  * Set REFINERY_FREE_SUBMISSIONS=false to require the fee again independently of
  * the wider beta.

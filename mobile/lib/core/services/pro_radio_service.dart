@@ -11,14 +11,19 @@ class ProRadioService {
       hasAccess: false,
       status: null,
       currentPeriodEnd: null,
-      regularCents: 999,
-      introCents: 499,
+      regularCents: 499,
+      introCents: 199,
       betaFree: false,
     );
   }
 
   Future<Map<String, dynamic>> createPaymentSheet() async {
     final res = await _api.post('payments/create-pro-radio-payment-sheet', {});
+    return (res is Map<String, dynamic>) ? res : <String, dynamic>{};
+  }
+
+  Future<Map<String, dynamic>> createBundlePaymentSheet() async {
+    final res = await _api.post('payments/create-pro-bundle-payment-sheet', {});
     return (res is Map<String, dynamic>) ? res : <String, dynamic>{};
   }
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import '../core/services/audio_player_service.dart';
@@ -9,6 +11,7 @@ const double kClipStep = 0.5;
 /// Colors used to distinguish the start (green) and end (red) of the window.
 const Color kClipStartColor = Color(0xFF22C55E); // green-500
 const Color kClipEndColor = Color(0xFFEF4444); // red-500
+const Color kClipPlayheadColor = Color(0xFF22D3EE); // cyan-400
 
 /// Round to the nearest half-second.
 double clipRoundHalf(num n) => (n * 2).round() / 2;
@@ -101,12 +104,20 @@ class _ClipWindowSheetState extends State<ClipWindowSheet> {
   final AudioPlayer _player = AudioPlayer();
   final TextEditingController _startCtrl = TextEditingController();
   final TextEditingController _endCtrl = TextEditingController();
+  StreamSubscription<Duration>? _positionSub;
+  StreamSubscription<PlayerState>? _playerStateSub;
+
   double _duration = 0;
   double _start = 0;
   double _end = 0;
+  /// Absolute track position shown by the moving playhead.
+  double _playhead = 0;
   bool _saving = false;
-  bool _previewing = false;
+  /// Preview session is active (playing or paused mid-window).
+  bool _previewActive = false;
+  bool _isPlaying = false;
   bool _didSoftPauseRadio = false;
+  bool _loopSeeking = false;
 
   int get _minLen => widget.minLength;
   int get _maxLen => widget.maxLength;
@@ -141,8 +152,44 @@ class _ClipWindowSheetState extends State<ClipWindowSheet> {
     _end = widget.initialEnd > _start
         ? clipRoundHalf(widget.initialEnd)
         : _start + _maxLen;
+    _playhead = _start;
     _syncText();
     _prepare();
+    _positionSub = _player.positionStream.listen(_onPosition);
+    _playerStateSub = _player.playerStateStream.listen((state) {
+      if (!mounted || !_previewActive) return;
+      final playing = state.playing;
+      if (playing != _isPlaying) {
+        setState(() => _isPlaying = playing);
+      }
+    });
+  }
+
+  void _onPosition(Duration pos) {
+    if (!mounted || !_previewActive || _loopSeeking) return;
+    final secs = pos.inMilliseconds / 1000.0;
+    // Loop inside the selected window on the full track (no setClip).
+    if (secs >= _end - 0.04) {
+      unawaited(_seekToWindowStart());
+      return;
+    }
+    if ((secs - _playhead).abs() >= 0.05) {
+      setState(
+        () => _playhead = secs.clamp(0, _duration > 0 ? _duration : secs),
+      );
+    }
+  }
+
+  Future<void> _seekToWindowStart() async {
+    if (_loopSeeking) return;
+    _loopSeeking = true;
+    try {
+      await _player.seek(Duration(milliseconds: (_start * 1000).round()));
+      if (mounted) setState(() => _playhead = _start);
+    } catch (_) {
+    } finally {
+      _loopSeeking = false;
+    }
   }
 
   void _syncText() {
@@ -163,10 +210,13 @@ class _ClipWindowSheetState extends State<ClipWindowSheet> {
         return;
       }
       if (!mounted) return;
-      if (dur != null && dur.inSeconds > 0) {
+      if (dur != null && dur.inMilliseconds > 0) {
         setState(() {
-          if (_duration <= 0) _duration = dur!.inSeconds.toDouble();
+          if (_duration <= 0) {
+            _duration = dur!.inMilliseconds / 1000.0;
+          }
           _applyWindow(_start, _end, keepLength: true);
+          _playhead = _start;
         });
       }
     } catch (_) {
@@ -183,6 +233,12 @@ class _ClipWindowSheetState extends State<ClipWindowSheet> {
   double get _windowLength {
     final l = _end - _start;
     return l.clamp(0, _maxLen.toDouble()).toDouble();
+  }
+
+  double get _timelineTotal {
+    if (_duration > 0) return _duration;
+    if (_end > 0) return _end;
+    return _maxLen.toDouble();
   }
 
   /// Clamp the start/end pair so the window stays min–max and inside the track.
@@ -209,18 +265,18 @@ class _ClipWindowSheetState extends State<ClipWindowSheet> {
   }
 
   void _nudgeStart(double delta) {
-    _stopPreview();
+    unawaited(_pausePreviewKeepSession());
     setState(() => _applyWindow(_start + delta, _end, keepLength: true));
   }
 
   void _nudgeEnd(double delta) {
-    _stopPreview();
+    unawaited(_pausePreviewKeepSession());
     setState(() => _applyWindow(_start, _end + delta));
   }
 
   void _commitStartText() {
     final parsed = clipParseTime(_startCtrl.text);
-    _stopPreview();
+    unawaited(_pausePreviewKeepSession());
     setState(() {
       if (parsed == null) {
         _syncText();
@@ -232,7 +288,7 @@ class _ClipWindowSheetState extends State<ClipWindowSheet> {
 
   void _commitEndText() {
     final parsed = clipParseTime(_endCtrl.text);
-    _stopPreview();
+    unawaited(_pausePreviewKeepSession());
     setState(() {
       if (parsed == null) {
         _syncText();
@@ -242,21 +298,52 @@ class _ClipWindowSheetState extends State<ClipWindowSheet> {
     });
   }
 
-  Future<void> _preview() async {
+  Future<void> _pausePreviewKeepSession() async {
+    if (!_previewActive) return;
+    try {
+      await _player.pause();
+    } catch (_) {}
+    if (mounted) setState(() => _isPlaying = false);
+  }
+
+  Future<void> _togglePreview() async {
+    if (_isPlaying) {
+      await _pausePreviewKeepSession();
+      return;
+    }
+    if (_previewActive) {
+      try {
+        await _softPauseRadio();
+        await _player.play();
+        if (mounted) setState(() => _isPlaying = true);
+      } catch (_) {}
+      return;
+    }
+    await _startPreview();
+  }
+
+  Future<void> _startPreview() async {
     try {
       await _softPauseRadio();
-      // Clip + loop-one plays only the selected window, repeating it.
-      await _player.setClip(
-        start: Duration(milliseconds: (_start * 1000).round()),
-        end: Duration(milliseconds: (_end * 1000).round()),
-      );
-      await _player.setLoopMode(LoopMode.one);
+      // Full-track playback so the playhead maps to absolute timestamps.
+      await _player.setLoopMode(LoopMode.off);
+      await _player.setClip();
+      await _player.seek(Duration(milliseconds: (_start * 1000).round()));
       await _player.play();
       if (!mounted) return;
-      setState(() => _previewing = true);
+      setState(() {
+        _previewActive = true;
+        _isPlaying = true;
+        _playhead = _start;
+      });
     } catch (_) {
       await _softResumeRadioIfNeeded();
-      if (mounted) setState(() => _previewing = false);
+      if (mounted) {
+        setState(() {
+          _previewActive = false;
+          _isPlaying = false;
+        });
+      }
     }
   }
 
@@ -267,12 +354,35 @@ class _ClipWindowSheetState extends State<ClipWindowSheet> {
       await _player.setClip();
     } catch (_) {}
     await _softResumeRadioIfNeeded();
-    if (mounted) setState(() => _previewing = false);
+    if (mounted) {
+      setState(() {
+        _previewActive = false;
+        _isPlaying = false;
+        _playhead = _start;
+      });
+    }
+  }
+
+  void _setStartFromPlayhead() {
+    unawaited(_pausePreviewKeepSession());
+    setState(() {
+      _applyWindow(_playhead, _end, keepLength: true);
+      _playhead = _start;
+    });
+  }
+
+  void _setEndFromPlayhead() {
+    unawaited(_pausePreviewKeepSession());
+    setState(() {
+      _applyWindow(_start, _playhead);
+      _playhead = _playhead.clamp(_start, _end);
+    });
   }
 
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
+      await _stopPreview();
       await widget.onSave(_start, _end);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -291,6 +401,8 @@ class _ClipWindowSheetState extends State<ClipWindowSheet> {
 
   @override
   void dispose() {
+    _positionSub?.cancel();
+    _playerStateSub?.cancel();
     _startCtrl.dispose();
     _endCtrl.dispose();
     // Best-effort: stop preview and unmute radio if this sheet paused it.
@@ -363,9 +475,123 @@ class _ClipWindowSheetState extends State<ClipWindowSheet> {
     );
   }
 
+  Widget _buildTimeline(Color muted) {
+    final total = _timelineTotal <= 0 ? 1.0 : _timelineTotal;
+    final startFrac = (_start / total).clamp(0.0, 1.0);
+    final endFrac = (_end / total).clamp(0.0, 1.0);
+    final playFrac = (_playhead / total).clamp(0.0, 1.0);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Now ${clipFmtTime(_playhead)}',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: _previewActive ? kClipPlayheadColor : muted,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+            const Spacer(),
+            Text(
+              '/ ${clipFmtTime(total)}',
+              style: TextStyle(color: muted, fontSize: 12),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 36,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final w = constraints.maxWidth;
+              final windowLeft = startFrac * w;
+              final windowWidth = ((endFrac - startFrac) * w).clamp(2.0, w);
+              final playX = playFrac * w;
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: muted.withValues(alpha: 0.25),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: windowLeft,
+                    width: windowWidth,
+                    top: 0,
+                    bottom: 0,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: kClipStartColor.withValues(alpha: 0.28),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                  // Start edge
+                  Positioned(
+                    left: windowLeft - 1,
+                    top: 0,
+                    bottom: 0,
+                    child: Container(width: 2, color: kClipStartColor),
+                  ),
+                  // End edge
+                  Positioned(
+                    left: (windowLeft + windowWidth - 1).clamp(0.0, w - 2),
+                    top: 0,
+                    bottom: 0,
+                    child: Container(width: 2, color: kClipEndColor),
+                  ),
+                  // Moving playhead
+                  Positioned(
+                    left: (playX - 7).clamp(0.0, w - 14),
+                    top: 4,
+                    child: Container(
+                      width: 14,
+                      height: 28,
+                      alignment: Alignment.center,
+                      child: Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: kClipPlayheadColor,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.35),
+                              blurRadius: 4,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final surfaces = context.networxSurfaces;
+    final previewLabel = !_previewActive
+        ? 'Preview ${clipFmtLen(_windowLength)}'
+        : (_isPlaying ? 'Pause' : 'Resume');
+    final previewIcon = !_previewActive
+        ? Icons.play_arrow
+        : (_isPlaying ? Icons.pause : Icons.play_arrow);
+
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.fromLTRB(
@@ -374,149 +600,179 @@ class _ClipWindowSheetState extends State<ClipWindowSheet> {
           16,
           16 + MediaQuery.of(context).viewInsets.bottom,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.heading,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              widget.displayTitle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: surfaces.textSecondary),
-            ),
-            if (widget.alreadySet) ...[
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.info_outline,
-                        size: 16, color: Colors.amber),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        widget.overwriteWarning ??
-                            'Already set (${clipFmtTime(widget.initialStart)} – ${clipFmtTime(widget.initialEnd)}). Saving overwrites it.',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.amber,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.heading,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                widget.displayTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: surfaces.textSecondary),
+              ),
+              if (widget.alreadySet) ...[
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                    border:
+                        Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.info_outline,
+                          size: 16, color: Colors.amber),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          widget.overwriteWarning ??
+                              'Already set (${clipFmtTime(widget.initialStart)} – ${clipFmtTime(widget.initialEnd)}). Saving overwrites it.',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.amber,
+                          ),
                         ),
                       ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              _timeField(
+                controller: _startCtrl,
+                label: 'Start (m:ss)',
+                color: kClipStartColor,
+                onCommit: _commitStartText,
+                onMinus: () => _nudgeStart(-kClipStep),
+                onPlus: () => _nudgeStart(kClipStep),
+                minusTooltip: 'Nudge start back 0.5s',
+                plusTooltip: 'Nudge start forward 0.5s',
+              ),
+              const SizedBox(height: 12),
+              _timeField(
+                controller: _endCtrl,
+                label: 'End (m:ss) — $_minLen to ${_maxLen}s window',
+                color: kClipEndColor,
+                onCommit: _commitEndText,
+                onMinus: () => _nudgeEnd(-kClipStep),
+                onPlus: () => _nudgeEnd(kClipStep),
+                minusTooltip: 'Nudge end back 0.5s',
+                plusTooltip: 'Nudge end forward 0.5s',
+              ),
+              const SizedBox(height: 16),
+              Text.rich(
+                TextSpan(
+                  children: [
+                    const TextSpan(text: 'Window: '),
+                    TextSpan(
+                      text: clipFmtTime(_start),
+                      style: const TextStyle(
+                        color: kClipStartColor,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const TextSpan(text: ' – '),
+                    TextSpan(
+                      text: clipFmtTime(_end),
+                      style: const TextStyle(
+                        color: kClipEndColor,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    TextSpan(text: '  ·  ${clipFmtLen(_windowLength)}'),
+                  ],
+                ),
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 12),
+              _buildTimeline(surfaces.textMuted),
+              SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  activeTrackColor: kClipStartColor,
+                  thumbColor: kClipStartColor,
+                ),
+                child: Slider(
+                  value: _start.clamp(0, _maxStart).toDouble(),
+                  min: 0,
+                  max: _maxStart <= 0 ? 1.0 : _maxStart,
+                  divisions:
+                      _maxStart > 0 ? (_maxStart / kClipStep).round() : null,
+                  label: clipFmtTime(_start),
+                  onChanged: _maxStart <= 0
+                      ? null
+                      : (v) {
+                          unawaited(_pausePreviewKeepSession());
+                          setState(
+                              () => _applyWindow(v, _end, keepLength: true));
+                        },
+                ),
+              ),
+              Text(
+                _duration > 0
+                    ? 'Track length: ${clipFmtTime(_duration)} · drag green to move the window'
+                    : 'Choose where the clip starts and how long it runs.',
+                style: TextStyle(color: surfaces.textMuted, fontSize: 12),
+              ),
+              if (_previewActive) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    TextButton.icon(
+                      onPressed: _setStartFromPlayhead,
+                      icon: const Icon(Icons.flag, size: 16),
+                      label: Text('Start @ ${clipFmtTime(_playhead)}'),
+                    ),
+                    TextButton.icon(
+                      onPressed: _setEndFromPlayhead,
+                      icon: const Icon(Icons.flag_outlined, size: 16),
+                      label: Text('End @ ${clipFmtTime(_playhead)}'),
                     ),
                   ],
                 ),
-              ),
-            ],
-            const SizedBox(height: 16),
-            // Start time (green) with -0.5s / +0.5s nudge buttons.
-            _timeField(
-              controller: _startCtrl,
-              label: 'Start (m:ss)',
-              color: kClipStartColor,
-              onCommit: _commitStartText,
-              onMinus: () => _nudgeStart(-kClipStep),
-              onPlus: () => _nudgeStart(kClipStep),
-              minusTooltip: 'Nudge start back 0.5s',
-              plusTooltip: 'Nudge start forward 0.5s',
-            ),
-            const SizedBox(height: 12),
-            // End time (red) with -0.5s / +0.5s nudge buttons.
-            _timeField(
-              controller: _endCtrl,
-              label: 'End (m:ss) — $_minLen to ${_maxLen}s window',
-              color: kClipEndColor,
-              onCommit: _commitEndText,
-              onMinus: () => _nudgeEnd(-kClipStep),
-              onPlus: () => _nudgeEnd(kClipStep),
-              minusTooltip: 'Nudge end back 0.5s',
-              plusTooltip: 'Nudge end forward 0.5s',
-            ),
-            const SizedBox(height: 16),
-            Text.rich(
-              TextSpan(
+              ],
+              const SizedBox(height: 16),
+              Row(
                 children: [
-                  const TextSpan(text: 'Window: '),
-                  TextSpan(
-                    text: clipFmtTime(_start),
-                    style: const TextStyle(
-                      color: kClipStartColor,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  OutlinedButton.icon(
+                    onPressed: _togglePreview,
+                    icon: Icon(previewIcon),
+                    label: Text(previewLabel),
                   ),
-                  const TextSpan(text: ' – '),
-                  TextSpan(
-                    text: clipFmtTime(_end),
-                    style: const TextStyle(
-                      color: kClipEndColor,
-                      fontWeight: FontWeight.w700,
+                  if (_previewActive) ...[
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: _stopPreview,
+                      child: const Text('Stop'),
                     ),
+                  ],
+                  const Spacer(),
+                  FilledButton(
+                    onPressed: _saving ? null : _save,
+                    child: _saving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : Text(widget.saveLabel),
                   ),
-                  TextSpan(text: '  ·  ${clipFmtLen(_windowLength)}'),
                 ],
               ),
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                activeTrackColor: kClipStartColor,
-                thumbColor: kClipStartColor,
-              ),
-              child: Slider(
-                value: _start.clamp(0, _maxStart).toDouble(),
-                min: 0,
-                max: _maxStart <= 0 ? 1.0 : _maxStart,
-                divisions: _maxStart > 0 ? (_maxStart / kClipStep).round() : null,
-                label: clipFmtTime(_start),
-                onChanged: _maxStart <= 0
-                    ? null
-                    : (v) {
-                        _stopPreview();
-                        setState(
-                            () => _applyWindow(v, _end, keepLength: true));
-                      },
-              ),
-            ),
-            Text(
-              _duration > 0
-                  ? 'Track length: ${clipFmtTime(_duration)}'
-                  : 'Choose where the clip starts and how long it runs.',
-              style: TextStyle(color: surfaces.textMuted, fontSize: 12),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                OutlinedButton.icon(
-                  onPressed: _previewing ? _stopPreview : _preview,
-                  icon: Icon(_previewing ? Icons.stop : Icons.play_arrow),
-                  label: Text(
-                      _previewing ? 'Stop' : 'Preview ${clipFmtLen(_windowLength)}'),
-                ),
-                const Spacer(),
-                FilledButton(
-                  onPressed: _saving ? null : _save,
-                  child: _saving
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(widget.saveLabel),
-                ),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

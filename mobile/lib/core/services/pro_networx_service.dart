@@ -184,6 +184,16 @@ class ProNetworxService {
     return (res is Map<String, dynamic>) ? res : <String, dynamic>{};
   }
 
+  Future<Map<String, dynamic>> createProBundlePaymentSheet({
+    String? customerEmail,
+  }) async {
+    final res = await _api.post(
+      'payments/create-pro-bundle-payment-sheet',
+      {if (customerEmail != null) 'customerEmail': customerEmail},
+    );
+    return (res is Map<String, dynamic>) ? res : <String, dynamic>{};
+  }
+
   // ---------------------------------------------------------------------------
   // Feed: like / unlike / comments / search / explore
   // ---------------------------------------------------------------------------

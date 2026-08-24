@@ -85,6 +85,7 @@ export class RefineryService {
       surveyQuestions: REFINERY_SURVEY_QUESTIONS,
       submissionPriceCents: REFINERY_SUBMISSION_PRICE_CENTS,
       submissionOriginalPriceCents: REFINERY_SUBMISSION_ORIGINAL_PRICE_CENTS,
+      submissionFree: isRefinerySubmissionFree(),
       reviewRewardCents: REFINERY_REVIEW_REWARD_CENTS,
       defaultMinReviews: REFINERY_DEFAULT_MIN_REVIEWS,
       maxCustomQuestions: REFINERY_MAX_CUSTOM_QUESTIONS,
@@ -220,9 +221,8 @@ export class RefineryService {
 
   /**
    * Artist adds their own approved song to The Refinery without checkout.
-   *
-   * This is the only submission path the mobile apps can use: the fee is a
-   * digital good, so store rules keep Stripe checkout web-only.
+   * Only available while `isRefinerySubmissionFree()` is true. Otherwise
+   * mobile uses the store consumable and web uses Stripe Checkout.
    */
   async addToRefinery(
     firebaseUid: string,
@@ -231,7 +231,8 @@ export class RefineryService {
   ) {
     if (!isRefinerySubmissionFree()) {
       throw new BadRequestException(
-        'Adding a song to The Refinery requires the submission fee. Complete checkout on the web app.',
+        'Adding a song to The Refinery requires the $4.99 submission fee. '
+          + 'Complete the in-app purchase on mobile, or checkout on the web.',
       );
     }
 
@@ -268,6 +269,84 @@ export class RefineryService {
     });
 
     return { added: true, alreadyIn: false, songId };
+  }
+
+  /**
+   * Store IAP fulfillment: artist paid `nwx_refinery_submission` for [songId].
+   * Validates ownership + approval, saves optional custom questions, enrolls.
+   */
+  async grantSubmissionFromStorePurchase(params: {
+    userId: string;
+    songId: string;
+    customQuestions?: string[];
+    paymentMethod: 'app_store' | 'google_play';
+    storeChargeId: string;
+  }): Promise<{
+    songId: string;
+    alreadyProcessed: boolean;
+    alreadyIn: boolean;
+  }> {
+    const supabase = getSupabaseClient();
+    const { userId, songId, customQuestions = [], paymentMethod, storeChargeId } =
+      params;
+
+    const { data: existingTx } = await supabase
+      .from('transactions')
+      .select('id, status')
+      .eq('stripe_charge_id', storeChargeId)
+      .maybeSingle();
+    if (existingTx && existingTx.status === 'succeeded') {
+      return { songId, alreadyProcessed: true, alreadyIn: true };
+    }
+
+    const { data: song, error } = await supabase
+      .from('songs')
+      .select('id, artist_id, title, status, in_refinery')
+      .eq('id', songId)
+      .single();
+
+    if (error || !song) throw new NotFoundException('Song not found');
+    if (song.artist_id !== userId) {
+      throw new ForbiddenException('You can only submit your own songs');
+    }
+    if (song.status !== 'approved') {
+      throw new BadRequestException(
+        'Only approved songs can be added to The Refinery.',
+      );
+    }
+
+    await this.saveCustomQuestions(songId, customQuestions);
+
+    if (!song.in_refinery) {
+      await this.enrollSongInRefinery({
+        songId,
+        artistUserId: userId,
+        title: song.title,
+      });
+    }
+
+    const { error: txError } = await supabase.from('transactions').insert({
+      user_id: userId,
+      amount_cents: REFINERY_SUBMISSION_PRICE_CENTS,
+      credits_purchased: 0,
+      status: 'succeeded',
+      payment_method: paymentMethod,
+      purpose: 'refinery_submission',
+      song_id: songId,
+      stripe_charge_id: storeChargeId,
+    });
+    if (txError) {
+      // Idempotent races: unique charge id may already exist.
+      this.logger.warn(
+        `grantSubmissionFromStorePurchase tx insert: ${txError.message}`,
+      );
+    }
+
+    return {
+      songId,
+      alreadyProcessed: false,
+      alreadyIn: Boolean(song.in_refinery),
+    };
   }
 
   async createSubmissionCheckoutSession(

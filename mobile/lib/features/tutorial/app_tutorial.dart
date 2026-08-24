@@ -75,8 +75,10 @@ class AppTutorial {
       title: 'Pro-Radio',
       body:
           'Want on-demand listening? Open Pro-Radio for full tracks, personal '
-          'playlists, and your own queue. During beta, Pro-Radio and other '
-          'subscriptions are unlocked for free so you can try everything.',
+          'playlists, and your own queue.\n\n'
+          'Pricing: Pro-Radio alone is \$1.99 first month, then \$4.99/mo. '
+          'Need Pro-Networx too? Get the Pro Bundle for \$12.99/mo '
+          '(both Pros — save vs paying \$14.98 separately).',
       nav: TutorialNavTarget.proRadio,
     ),
     TutorialStep(
@@ -97,7 +99,9 @@ class AppTutorial {
       title: 'Vote & Trial by Fire',
       body:
           'Vote helps you climb as a listener. Ready to upload? Use Upload in '
-          'the menu — Trial by Fire can upgrade you to artist when you qualify.',
+          'the menu — Trial by Fire can upgrade you to artist when you qualify.\n\n'
+          'Becoming an artist or producer also gifts you 10 free Discovery '
+          'placements to promote your songs once beta ends.',
       nav: TutorialNavTarget.voteOrPro,
     ),
     TutorialStep(
@@ -112,7 +116,9 @@ class AppTutorial {
       body:
           'Browse creators, services, jobs, and messages. Offering your own '
           'services needs a creator account — upgrade when you’re ready, then '
-          'finish your Pro profile. Messaging and Pro features are free during beta.',
+          'finish your Pro profile.\n\n'
+          'Pro-Networx alone is \$4.99 first month, then \$9.99/mo. '
+          'Pro Bundle is \$12.99/mo for Pro-Radio + Pro-Networx together.',
       nav: TutorialNavTarget.proNetworx,
     ),
     TutorialStep(
@@ -121,7 +127,10 @@ class AppTutorial {
           'Songs are for radio and Discover — you hear a short sample, then can '
           'buy the full track (or stream it with Pro-Radio when the artist opted in). '
           'Beats are instrumentals for sale in Pro-Networx: you can play the whole '
-          'beat before you buy.',
+          'beat before you buy. Artists set a sale price on upload '
+          '(songs default \$0.99, beats \$9.99). '
+          'Submit approved songs to The Refinery from Studio for in-depth reviews '
+          '(\$4.99 in-app, or free during beta).',
       nav: TutorialNavTarget.proNetworx,
     ),
     TutorialStep(
@@ -157,8 +166,9 @@ class AppTutorial {
       title: 'Pro-Radio',
       body:
           'Listeners use Pro-Radio for on-demand play of songs you’ve opted in. '
-          'During beta it’s free for everyone — opt your tracks into Pro-Radio '
-          'on upload or song settings when you’re ready.',
+          'Opt your tracks into Pro-Radio on upload or song settings.\n\n'
+          'Listener pricing: \$4.99/mo (\$1.99 first month), or Pro Bundle '
+          '\$12.99/mo for Pro-Radio + Pro-Networx.',
       nav: TutorialNavTarget.proRadio,
     ),
     TutorialStep(
@@ -181,7 +191,9 @@ class AppTutorial {
           'On Upload, pick Song or Beat. Songs go toward radio and Discover — '
           'listeners get a short sample, then can buy the full track or stream '
           'with Pro-Radio if you opt in. Beats are instrumentals for the Beat '
-          'Marketplace: buyers hear the whole beat before checkout.',
+          'Marketplace: buyers hear the whole beat before checkout. '
+          'Set a sale price on upload (song default \$0.99, beat \$9.99) and '
+          'toggle “List for sale”.',
       nav: TutorialNavTarget.upload,
     ),
     TutorialStep(
@@ -196,7 +208,8 @@ class AppTutorial {
       title: 'Sample clip (required)',
       body:
           'For songs, tap “Set preview sample” and choose a 5–30 second window. '
-          'That’s what listeners hear as a preview before buying or streaming full. '
+          'Drag the playhead, pause/resume, then tap Start@ / End@ from the '
+          'current time. That’s the preview before buying or streaming full. '
           'Beats skip this — buyers already get a full listen.',
       nav: TutorialNavTarget.upload,
     ),
@@ -204,8 +217,8 @@ class AppTutorial {
       title: 'Discover clip (required)',
       body:
           'For songs, tap “Set Discover clip” and choose a 5–15 second window for '
-          'the Discover swipe deck. Both clips are required before you can submit '
-          'a song.',
+          'the Discover swipe deck. Use the same playhead tools as the sample. '
+          'Both clips are required before you can submit a song.',
       nav: TutorialNavTarget.upload,
     ),
     TutorialStep(
@@ -214,6 +227,19 @@ class AppTutorial {
           'Submit songs for review and rotation, or list beats for sale. Find '
           'uploads under My Songs → Tracks. Liked and Favorites are for songs '
           'you fire / star.',
+      nav: TutorialNavTarget.studio,
+    ),
+    TutorialStep(
+      title: '10 free Discovery plays',
+      body:
+          'Signing up as an artist or producer comes with 10 free Discovery '
+          'placements (a \$19.90 value — each targets ~1,000 verified listener '
+          'exposures).\n\n'
+          'They stay in your account while beta is free, so nothing is wasted. '
+          'When beta ends, open My Songs → a song → Buy placements and use the '
+          '– / + picker to send as many as you want to that track. Uploaded '
+          'several songs? Split the 10 however you like — 5 here, 3 there — '
+          'the rest stay banked for later.',
       nav: TutorialNavTarget.studio,
     ),
     TutorialStep(
@@ -227,8 +253,9 @@ class AppTutorial {
       title: 'Pro-Networx setup',
       body:
           'Open Pro-Networx and finish your profile — headline, skills, and '
-          'availability — so you show in Explore and can offer services. '
-          'Pro features are free during beta.',
+          'availability — so you show in Explore and can offer services.\n\n'
+          'Subscriptions: Pro-Networx \$9.99/mo (\$4.99 intro), or Pro Bundle '
+          '\$12.99/mo for Pro-Radio + Pro-Networx (save vs \$14.98 for both).',
       nav: TutorialNavTarget.proNetworx,
     ),
     TutorialStep(

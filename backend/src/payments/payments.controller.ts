@@ -364,7 +364,7 @@ export class PaymentsController {
 
   /**
    * Create a Stripe Checkout Session for Pro-Radio subscription
-   * ($9.99/mo, $4.99 first month via duration:once coupon).
+   * ($4.99/mo, $1.99 first month via duration:once coupon).
    */
   @Post('create-pro-radio-checkout-session')
   @UseGuards(FirebaseAuthGuard)
@@ -407,6 +407,57 @@ export class PaymentsController {
       .single();
     if (!userData) throw new Error('User not found');
     return this.paymentsService.createProRadioPaymentSheet({
+      userId: userData.id,
+      customerEmail: (userData as { email?: string }).email ?? null,
+      platform,
+    });
+  }
+
+  /**
+   * Pro Bundle checkout — Pro-Radio + Pro-Networx for $12.99/mo
+   * (vs $14.98 if bought separately).
+   */
+  @Post('create-pro-bundle-checkout-session')
+  @UseGuards(FirebaseAuthGuard)
+  async createProBundleCheckoutSession(
+    @CurrentUser() user: FirebaseUser,
+    @Body() body: { successUrl?: string; cancelUrl?: string },
+    @Headers('x-client-platform') platform?: string,
+  ) {
+    this.paymentsService.assertStripeAllowedForDigitalGoods(platform);
+    const supabase = getSupabaseClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
+    if (!userData) throw new Error('User not found');
+    const webUrl = process.env.WEB_URL || 'http://localhost:3001';
+    const successUrl =
+      body.successUrl || `${webUrl}/pro-radio?pro_bundle=success`;
+    const cancelUrl =
+      body.cancelUrl || `${webUrl}/pro-radio?pro_bundle=canceled`;
+    return this.paymentsService.createProBundleCheckoutSession(
+      userData.id,
+      successUrl,
+      cancelUrl,
+    );
+  }
+
+  @Post('create-pro-bundle-payment-sheet')
+  @UseGuards(FirebaseAuthGuard)
+  async createProBundlePaymentSheet(
+    @CurrentUser() user: FirebaseUser,
+    @Headers('x-client-platform') platform?: string,
+  ) {
+    const supabase = getSupabaseClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id, email')
+      .eq('firebase_uid', user.uid)
+      .single();
+    if (!userData) throw new Error('User not found');
+    return this.paymentsService.createProBundlePaymentSheet({
       userId: userData.id,
       customerEmail: (userData as { email?: string }).email ?? null,
       platform,
@@ -546,6 +597,11 @@ export class PaymentsController {
                 session.subscription,
                 session.client_reference_id,
               );
+            } else if (priceId === this.stripeService.getProBundlePriceId()) {
+              await this.paymentsService.handleProBundleCheckoutCompleted(
+                session.subscription,
+                session.client_reference_id,
+              );
             } else {
               await this.paymentsService.handleCreatorNetworkCheckoutCompleted(
                 session.subscription,
@@ -591,6 +647,10 @@ export class PaymentsController {
             await this.paymentsService.handleProRadioSubscriptionUpdated(
               subscription,
             );
+          } else if (priceId === this.stripeService.getProBundlePriceId()) {
+            await this.paymentsService.handleProBundleSubscriptionUpdated(
+              subscription,
+            );
           } else {
             await this.paymentsService.handleCreatorNetworkSubscriptionUpdated(
               subscription,
@@ -612,6 +672,10 @@ export class PaymentsController {
             );
           } else if (priceId === this.stripeService.getProRadioPriceId()) {
             await this.paymentsService.handleProRadioSubscriptionDeleted(
+              subscription.id,
+            );
+          } else if (priceId === this.stripeService.getProBundlePriceId()) {
+            await this.paymentsService.handleProBundleSubscriptionDeleted(
               subscription.id,
             );
           } else {
@@ -646,6 +710,10 @@ export class PaymentsController {
             );
           } else if (intent.metadata?.productKey === 'pro_radio_subscription') {
             await this.paymentsService.handleProRadioSetupIntentSucceeded(
+              intent,
+            );
+          } else if (intent.metadata?.productKey === 'pro_bundle_subscription') {
+            await this.paymentsService.handleProBundleSetupIntentSucceeded(
               intent,
             );
           }

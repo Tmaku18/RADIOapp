@@ -8,8 +8,10 @@ On **iOS** and **Android**, every digital purchase goes through the platform sto
 | Song plays / placements | App Store consumable | Play consumable | Stripe |
 | Pro-Networx subscription | App Store auto-renewable | Play subscription | Stripe |
 | Pro-Radio subscription | App Store auto-renewable | Play subscription | Stripe |
+| Pro Bundle subscription | App Store auto-renewable | Play subscription | Stripe |
 | Livestream tips | App Store consumable tiers | Play consumable tiers | Stripe |
 | Song / beat purchases | App Store consumable tiers | Play consumable tiers | Stripe |
+| Refinery submission | App Store consumable | Play consumable | Stripe |
 
 Stripe Connect artist **payout** onboarding stays Stripe (not consumer IAP).
 
@@ -18,8 +20,8 @@ in the mobile UI. Apple only allows link-outs on the US storefront, and Google
 Play requires enrolling in its external content links program — neither covers a
 worldwide release.
 
-Refinery submissions and the Creator Network subscription have **no store SKU**,
-so their Stripe routes are web-only and rejected on mobile.
+Creator Network subscription has **no store SKU**, so its Stripe route stays
+web-only and is rejected on mobile.
 
 ## Product IDs (create in both consoles)
 
@@ -37,10 +39,25 @@ so their Stripe routes are web-only and rejected on mobile.
 
 ### Pro-Radio (subscription)
 - Product ID: `nwx_pro_radio_monthly`
-- Price: **$9.99/mo**, introductory first month **$4.99**
+- Price: **$4.99/mo**, introductory first month **$1.99**
 - App Store Connect: subscription group “Pro-Radio”, auto-renewable
-- Play Console: subscription + base plan $9.99/mo + intro/offer $4.99 first period
+- Play Console: subscription + base plan $4.99/mo + intro/offer $1.99 first period
 - Unlocks on-demand full streams for opted-in songs (separate from live Networks Radio)
+
+### Pro Bundle (subscription) — recommended if you want both
+- Product ID: `nwx_pro_bundle_monthly`
+- Price: **$12.99/mo** (Pro-Radio + Pro-Networx)
+- Saves vs buying both singly ($4.99 + $9.99 = $14.98)
+- Completing this purchase grants **both** access rows server-side
+- App Store Connect / Play Console: create as its own auto-renewable subscription
+- Stripe (web): `STRIPE_PRO_BUNDLE_PRICE_ID`
+
+### Refinery submission (consumable)
+- Product ID: `nwx_refinery_submission`
+- Price: **$4.99** (was $9.99 — display as sale)
+- One purchase per song submission; must be a **consumable** so artists can submit multiple songs
+- Completing the purchase enrolls that song in The Refinery (server-side)
+- Studio → Add to Refinery uses this SKU on iOS/Android; web still uses Stripe Checkout
 
 ### Livestream tips (consumable)
 - `nwx_tip_199` ($1.99)
@@ -88,12 +105,13 @@ queue already lists.
 ## App Store Connect checklist
 
 1. Enable **In-App Purchase** on App ID `com.tmaktechnologies.networxradio`.
-2. Create consumables above (credits, song plays, tips, song/beat tiers).
+2. Create consumables above (credits, song plays, tips, song/beat tiers, **refinery submission**).
 3. Create subscription group + `nwx_pro_networx_monthly` with intro offer.
-4. Create subscription group + `nwx_pro_radio_monthly` with intro offer ($4.99 first month).
-5. App Store Server Notifications V2 →  
+4. Create subscription group + `nwx_pro_radio_monthly` with intro offer ($1.99 first month).
+5. Create subscription + `nwx_pro_bundle_monthly` at **$12.99/mo** (both Pros).
+6. App Store Server Notifications V2 →  
    `POST https://<API_HOST>/payments/app-store/notifications`
-6. In-App Purchase API key (Issuer ID, Key ID, `.p8`) for backend verification.
+7. In-App Purchase API key (Issuer ID, Key ID, `.p8`) for backend verification.
 
 For the eight `nwx_song_*` tiers: type **Consumable**, price point matching the
 table above, and one localization each (display name + description) or StoreKit
@@ -105,11 +123,13 @@ the SKU is shared across every song at that price.
 1. Confirm credit/play product IDs match App Store.
 2. Create subscription `nwx_pro_networx_monthly` + tip consumables.
 3. Create subscription `nwx_pro_radio_monthly` with matching intro pricing.
-4. Create the eight `nwx_song_*` tiers as **in-app products** (consumable) at the
+4. Create subscription `nwx_pro_bundle_monthly` at $12.99/mo.
+5. Create consumable `nwx_refinery_submission` at $4.99.
+6. Create the eight `nwx_song_*` tiers as **in-app products** (consumable) at the
    same prices as App Store Connect.
-5. Real-time developer notifications (RTDN) → Pub/Sub push to  
+7. Real-time developer notifications (RTDN) → Pub/Sub push to  
    `POST https://<API_HOST>/payments/google-play/rtdn`
-6. Service account with Android Publisher access for backend verify/acknowledge.
+8. Service account with Android Publisher access for backend verify/acknowledge.
 
 ## Code (repo)
 
@@ -157,6 +177,10 @@ IOS_APP_STORE_PRO_NETWORX_MONTHLY_PRODUCT_ID=nwx_pro_networx_monthly
 ANDROID_PLAY_PRO_NETWORX_MONTHLY_PRODUCT_ID=nwx_pro_networx_monthly
 IOS_APP_STORE_PRO_RADIO_MONTHLY_PRODUCT_ID=nwx_pro_radio_monthly
 ANDROID_PLAY_PRO_RADIO_MONTHLY_PRODUCT_ID=nwx_pro_radio_monthly
+IOS_APP_STORE_PRO_BUNDLE_MONTHLY_PRODUCT_ID=nwx_pro_bundle_monthly
+ANDROID_PLAY_PRO_BUNDLE_MONTHLY_PRODUCT_ID=nwx_pro_bundle_monthly
+IOS_APP_STORE_REFINERY_SUBMISSION_PRODUCT_ID=nwx_refinery_submission
+ANDROID_PLAY_REFINERY_SUBMISSION_PRODUCT_ID=nwx_refinery_submission
 IOS_APP_STORE_TIP_199_PRODUCT_ID=nwx_tip_199
 # ... same pattern for 499 / 999 / 2499
 IOS_APP_STORE_SONG_PURCHASE_499_PRODUCT_ID=nwx_song_499

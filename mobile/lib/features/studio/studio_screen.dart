@@ -17,6 +17,7 @@ import '../../core/theme/networx_extensions.dart';
 import '../../core/theme/dimension_tokens.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 import '../../widgets/clip_window_sheet.dart';
+import '../refinery/refinery_submit_sheet.dart';
 
 class StudioScreen extends StatefulWidget {
   const StudioScreen({super.key, this.onOpenNavDrawer});
@@ -711,10 +712,14 @@ class _StudioScreenState extends State<StudioScreen>
                                                     ScaffoldMessenger.of(
                                                   context,
                                                 );
-                                                try {
-                                                  await _refinery
-                                                      .addSongToRefinery(s.id);
-                                                  if (!mounted) return;
+                                                final ok =
+                                                    await showRefinerySubmitSheet(
+                                                  context,
+                                                  songId: s.id,
+                                                  songTitle: s.title,
+                                                );
+                                                if (!mounted) return;
+                                                if (ok) {
                                                   await _load();
                                                   if (!mounted) return;
                                                   messenger.showSnackBar(
@@ -724,16 +729,6 @@ class _StudioScreenState extends State<StudioScreen>
                                                       ),
                                                     ),
                                                   );
-                                                } catch (e) {
-                                                  if (mounted) {
-                                                    messenger.showSnackBar(
-                                                      SnackBar(
-                                                        content: Text(
-                                                          'Refinery: $e',
-                                                        ),
-                                                      ),
-                                                    );
-                                                  }
                                                 }
                                               },
                                         icon: const Icon(

@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsArray, IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class CompleteAppStorePurchaseDto {
   @IsString()
@@ -22,4 +22,10 @@ export class CompleteAppStorePurchaseDto {
   @IsOptional()
   @IsUUID()
   sessionId?: string;
+
+  /** Optional custom questions when product is a Refinery submission. */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  customQuestions?: string[];
 }

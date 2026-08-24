@@ -14,6 +14,12 @@ import {
   PRO_NETWORX_INTRO_CENTS,
   PRO_NETWORX_REGULAR_CENTS,
 } from '@/data/pro-networx-pricing';
+import {
+  formatProBundlePriceUsd,
+  PRO_BUNDLE_REGULAR_CENTS,
+  PRO_BUNDLE_SAVINGS_CENTS,
+  PRO_BOTH_SOLO_TOTAL_CENTS,
+} from '@/data/pro-bundle-pricing';
 
 type Props = {
   variant?: 'dm' | 'contact';
@@ -31,6 +37,8 @@ type Props = {
   onAccessKnown?: (access: ProNetworkAccess | null) => void;
 };
 
+type Plan = 'solo' | 'bundle';
+
 export function PaywallCard({
   variant = 'dm',
   className,
@@ -44,6 +52,7 @@ export function PaywallCard({
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [plan, setPlan] = useState<Plan>('bundle');
 
   useEffect(() => {
     let alive = true;
@@ -76,10 +85,16 @@ export function PaywallCard({
     try {
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       const path = typeof window !== 'undefined' ? window.location.pathname : '/pro-networx/home';
-      const res = await paymentsApi.createProNetworxCheckoutSession({
-        successUrl: `${origin}${successPath ?? path}?pn_sub=success`,
-        cancelUrl: `${origin}${cancelPath ?? path}?pn_sub=cancel`,
-      });
+      const res =
+        plan === 'bundle'
+          ? await paymentsApi.createProBundleCheckoutSession({
+              successUrl: `${origin}${successPath ?? path}?pro_bundle=success`,
+              cancelUrl: `${origin}${cancelPath ?? path}?pro_bundle=canceled`,
+            })
+          : await paymentsApi.createProNetworxCheckoutSession({
+              successUrl: `${origin}${successPath ?? path}?pn_sub=success`,
+              cancelUrl: `${origin}${cancelPath ?? path}?pn_sub=cancel`,
+            });
       const url = (res.data as { url?: string })?.url;
       if (url) {
         window.location.href = url;
@@ -99,7 +114,7 @@ export function PaywallCard({
       ? 'Subscribe to send messages'
       : 'Subscribe to view contact info';
   const defaultCaption = softPromo
-    ? `Pro-Networx is ${formatProNetworxPriceUsd(intro)} first month, then ${formatProNetworxPriceUsd(regular)}/mo — unlock resumes, contact info, and more.`
+    ? `Pro-Networx is ${formatProNetworxPriceUsd(intro)} first month, then ${formatProNetworxPriceUsd(regular)}/mo — or get both Pros for ${formatProBundlePriceUsd(PRO_BUNDLE_REGULAR_CENTS)}/mo.`
     : variant === 'dm'
       ? 'Direct messaging unlocks with a Pro-Networx subscription. Cancel anytime.'
       : 'See email, phone, and direct booking links from any creator.';
@@ -117,15 +132,60 @@ export function PaywallCard({
         <div className="min-w-0 flex-1">
           <h3 className="text-base sm:text-lg font-semibold text-foreground">{title}</h3>
           <p className="text-sm text-muted-foreground mt-1">{caption ?? defaultCaption}</p>
-          <div className="mt-3 flex items-baseline flex-wrap gap-x-2 gap-y-1">
-            <span className="text-muted-foreground text-sm line-through">
-              {formatProNetworxPriceUsd(regular)}/mo
-            </span>
-            <span className="text-2xl font-semibold text-foreground">
-              {formatProNetworxPriceUsd(intro)}
-            </span>
-            <span className="text-sm text-muted-foreground">first month, then {formatProNetworxPriceUsd(regular)}/mo</span>
+
+          <div className="mt-4 space-y-2">
+            <button
+              type="button"
+              onClick={() => setPlan('bundle')}
+              className={`w-full text-left rounded-lg border p-3 transition ${
+                plan === 'bundle'
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border hover:border-primary/40'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <div className="font-semibold text-sm flex items-center gap-2">
+                    Pro Bundle
+                    <span className="text-[10px] uppercase tracking-wide bg-primary text-primary-foreground px-1.5 py-0.5 rounded">
+                      Best value
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Pro-Radio + Pro-Networx — save{' '}
+                    {formatProBundlePriceUsd(PRO_BUNDLE_SAVINGS_CENTS)} vs{' '}
+                    {formatProBundlePriceUsd(PRO_BOTH_SOLO_TOTAL_CENTS)}
+                  </p>
+                </div>
+                <span className="font-bold text-sm shrink-0">
+                  {formatProBundlePriceUsd(PRO_BUNDLE_REGULAR_CENTS)}/mo
+                </span>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPlan('solo')}
+              className={`w-full text-left rounded-lg border p-3 transition ${
+                plan === 'solo'
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border hover:border-primary/40'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <div className="font-semibold text-sm">Pro-Networx only</div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {formatProNetworxPriceUsd(intro)} first month, then{' '}
+                    {formatProNetworxPriceUsd(regular)}/mo
+                  </p>
+                </div>
+                <span className="font-bold text-sm shrink-0">
+                  {formatProNetworxPriceUsd(PRO_NETWORX_REGULAR_CENTS)}/mo
+                </span>
+              </div>
+            </button>
           </div>
+
           <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
             <Sparkles className="h-3.5 w-3.5 text-primary" />
             <span>
@@ -140,8 +200,12 @@ export function PaywallCard({
               {submitting
                 ? 'Redirecting…'
                 : softPromo
-                  ? `See membership — ${formatProNetworxPriceUsd(intro)} first month`
-                  : 'Subscribe'}
+                  ? plan === 'bundle'
+                    ? `See Pro Bundle — ${formatProBundlePriceUsd(PRO_BUNDLE_REGULAR_CENTS)}/mo`
+                    : `See membership — ${formatProNetworxPriceUsd(intro)} first month`
+                  : plan === 'bundle'
+                    ? 'Get Pro Bundle'
+                    : 'Subscribe'}
             </Button>
             <Button variant="outline" asChild>
               <a href="/pro-networx">Learn more</a>

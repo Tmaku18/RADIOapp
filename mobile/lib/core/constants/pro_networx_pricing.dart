@@ -17,5 +17,5 @@ final String proNetworxIntroDisplay =
 /// Soft promo shown while messaging is free during beta.
 final String proNetworxMessagingBetaPromo =
     'Messaging is free during beta. Pro-Networx is $proNetworxIntroDisplay '
-    'first month, then $proNetworxRegularDisplay/mo — unlock resumes, '
-    'contact info, and more.';
+    'first month, then $proNetworxRegularDisplay/mo — or Pro Bundle '
+    '(Radio + Networx) for \$12.99/mo.';

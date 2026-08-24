@@ -65,8 +65,8 @@ export class RefineryController {
     @Body() body: SubmitRefineryDto,
     @Headers('x-client-platform') platform?: string,
   ) {
-    // Web-only: there is no store SKU for Refinery submissions yet, so mobile
-    // must not be able to reach this Stripe checkout.
+    // Web-only Stripe Checkout for Refinery. Mobile uses the store consumable
+    // `nwx_refinery_submission` via /payments/*/complete.
     assertStripeAllowedForDigitalGoods(platform);
     return this.refineryService.createSubmissionCheckoutSession(
       user.uid,
@@ -76,11 +76,8 @@ export class RefineryController {
   }
 
   /**
-   * Artist adds their own approved song to The Refinery directly.
-   *
-   * Deliberately has no Stripe path: the submission fee is a digital good, so
-   * `submit` above is web-only, which left the mobile apps with no way in.
-   * Gated on `isRefinerySubmissionFree()` inside the service.
+   * Artist adds their own approved song to The Refinery directly when
+   * submissions are free (beta). Paid path: mobile IAP or web Stripe submit.
    */
   @Post('songs/:id/add')
   @HttpCode(200)

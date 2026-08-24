@@ -78,12 +78,14 @@ class PaymentsService {
     required String purchaseToken,
     String? songId,
     String? sessionId,
+    List<String>? customQuestions,
   }) async {
     final res = await _api.post('payments/google-play/complete', {
       'productId': productId,
       'purchaseToken': purchaseToken,
       if (songId != null) 'songId': songId,
       if (sessionId != null) 'sessionId': sessionId,
+      if (customQuestions != null) 'customQuestions': customQuestions,
     });
     return (res is Map<String, dynamic>) ? res : <String, dynamic>{};
   }
@@ -94,6 +96,7 @@ class PaymentsService {
     String? transactionId,
     String? songId,
     String? sessionId,
+    List<String>? customQuestions,
   }) async {
     final res = await _api.post('payments/app-store/complete', {
       'productId': productId,
@@ -103,6 +106,7 @@ class PaymentsService {
         'transactionId': transactionId,
       if (songId != null) 'songId': songId,
       if (sessionId != null) 'sessionId': sessionId,
+      if (customQuestions != null) 'customQuestions': customQuestions,
     });
     return (res is Map<String, dynamic>) ? res : <String, dynamic>{};
   }

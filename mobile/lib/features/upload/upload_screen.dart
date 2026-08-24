@@ -30,7 +30,7 @@ class _UploadScreenState extends State<UploadScreen> {
   final _cityController = TextEditingController();
   final _lyricsController = TextEditingController();
   /// Constrained to [kSongPriceTiersCents] so every price maps to a store SKU.
-  int _priceCents = kDefaultBeatPriceCents;
+  int _priceCents = kDefaultSongPriceCents;
   final ApiService _apiService = ApiService();
   final AlbumsService _albumsService = AlbumsService();
   List<ArtistAlbum> _albums = const [];
@@ -95,6 +95,7 @@ class _UploadScreenState extends State<UploadScreen> {
       _beatArgsApplied = true;
       _productKind = 'beat';
       _forSale = true;
+      _priceCents = kDefaultBeatPriceCents;
       _stationIds
         ..clear()
         ..add('us-beats');
@@ -669,6 +670,9 @@ class _UploadScreenState extends State<UploadScreen> {
                                   ..add('us-beats');
                                 _optInFullSongRadio = false;
                                 _forSale = true;
+                                _priceCents = kDefaultBeatPriceCents;
+                              } else {
+                                _priceCents = kDefaultSongPriceCents;
                               }
                             });
                           },
@@ -696,39 +700,41 @@ class _UploadScreenState extends State<UploadScreen> {
                       return null;
                     },
                   ),
-                  if (_isBeat) ...[
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<int>(
-                      initialValue: _priceCents,
-                      decoration: const InputDecoration(
-                        labelText: 'Sale price (USD) *',
-                        helperText:
-                            'Buyers can listen to the full beat before checkout',
-                      ),
-                      items: [
-                        for (final cents in kSongPriceTiersCents)
-                          DropdownMenuItem(
-                            value: cents,
-                            child: Text(formatSongPrice(cents)),
-                          ),
-                      ],
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setState(() => _priceCents = value);
-                      },
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<int>(
+                    key: ValueKey('price-$_productKind-$_priceCents'),
+                    initialValue: _priceCents,
+                    decoration: InputDecoration(
+                      labelText: 'Sale price (USD) *',
+                      helperText: _isBeat
+                          ? 'Buyers can listen to the full beat before checkout'
+                          : 'Buyers hear your 30s sample before buying the full track',
                     ),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('List for sale'),
-                      subtitle: const Text(
-                        'Shown in Beat Marketplace and on your profile',
-                      ),
-                      value: _forSale,
-                      onChanged: _isUploading
-                          ? null
-                          : (v) => setState(() => _forSale = v),
+                    items: [
+                      for (final cents in kSongPriceTiersCents)
+                        DropdownMenuItem(
+                          value: cents,
+                          child: Text(formatSongPrice(cents)),
+                        ),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() => _priceCents = value);
+                    },
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('List for sale'),
+                    subtitle: Text(
+                      _isBeat
+                          ? 'Shown in Beat Marketplace and on your profile'
+                          : 'Shown on your profile so fans can buy the full song',
                     ),
-                  ],
+                    value: _forSale,
+                    onChanged: _isUploading
+                        ? null
+                        : (v) => setState(() => _forSale = v),
+                  ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _artistNameController,

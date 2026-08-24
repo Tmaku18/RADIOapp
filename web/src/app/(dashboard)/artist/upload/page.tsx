@@ -17,7 +17,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 
 type ApiError = { response?: { data?: { message?: string } } };
 
-const BEAT_PRICE_TIERS = [99, 199, 299, 499, 999, 1999, 2999, 4999] as const;
+const SONG_PRICE_TIERS = [99, 199, 299, 499, 999, 1999, 2999, 4999] as const;
+const DEFAULT_SONG_PRICE_CENTS = 99;
+const DEFAULT_BEAT_PRICE_CENTS = 999;
 const BEAT_STATION_ID = 'us-beats';
 
 const US_STATE_OPTIONS = [
@@ -97,7 +99,7 @@ function UploadPageContent() {
     searchParams.get('kind') === 'beat' ? 'beat' : 'song',
   );
   const [forSale, setForSale] = useState(true);
-  const [priceCents, setPriceCents] = useState(999);
+  const [priceCents, setPriceCents] = useState(DEFAULT_SONG_PRICE_CENTS);
   const isBeat = productKind === 'beat';
   const audioInputRef = useRef<HTMLInputElement>(null);
   const artworkInputRef = useRef<HTMLInputElement>(null);
@@ -522,8 +524,8 @@ function UploadPageContent() {
           optInDjArchivedMixes: isBeat ? false : optInDjArchivedMixes,
           albumId: isBeat ? undefined : albumId || undefined,
           productKind: isBeat ? 'beat' : 'song',
-          forSale: isBeat ? forSale : undefined,
-          priceCents: isBeat ? priceCents : undefined,
+          forSale,
+          priceCents,
         });
       } catch (dbErr) {
         throw new Error(
@@ -634,7 +636,7 @@ function UploadPageContent() {
           <p className="text-muted-foreground mt-1">
             {isBeat
               ? 'List a beat for sale. Buyers hear the full track before they purchase.'
-              : 'Submit your track for review and radio rotation'}
+              : 'Submit for radio rotation and set a sale price for your profile.'}
           </p>
 
           <div className="mt-4 flex gap-2">
@@ -642,7 +644,10 @@ function UploadPageContent() {
               type="button"
               variant={isBeat ? 'outline' : 'default'}
               size="sm"
-              onClick={() => setProductKind('song')}
+              onClick={() => {
+                setProductKind('song');
+                setPriceCents(DEFAULT_SONG_PRICE_CENTS);
+              }}
             >
               Song
             </Button>
@@ -650,7 +655,11 @@ function UploadPageContent() {
               type="button"
               variant={isBeat ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setProductKind('beat')}
+              onClick={() => {
+                setProductKind('beat');
+                setForSale(true);
+                setPriceCents(DEFAULT_BEAT_PRICE_CENTS);
+              }}
             >
               Beat
             </Button>
@@ -875,40 +884,40 @@ function UploadPageContent() {
               </div>
             </div>
 
-            {isBeat && (
-              <div className="space-y-3 rounded-lg border border-border p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <Label htmlFor="forSale">List for sale</Label>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Buyers hear the full beat before checkout.
-                    </p>
-                  </div>
-                  <input
-                    id="forSale"
-                    type="checkbox"
-                    checked={forSale}
-                    onChange={(e) => setForSale(e.target.checked)}
-                    className="h-4 w-4"
-                  />
+            <div className="space-y-3 rounded-lg border border-border p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <Label htmlFor="forSale">List for sale</Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {isBeat
+                      ? 'Buyers hear the full beat before checkout.'
+                      : 'Buyers hear your 30s sample before buying the full track.'}
+                  </p>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="priceCents">Price</Label>
-                  <select
-                    id="priceCents"
-                    value={priceCents}
-                    onChange={(e) => setPriceCents(Number(e.target.value))}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  >
-                    {BEAT_PRICE_TIERS.map((cents) => (
-                      <option key={cents} value={cents}>
-                        ${(cents / 100).toFixed(2)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <input
+                  id="forSale"
+                  type="checkbox"
+                  checked={forSale}
+                  onChange={(e) => setForSale(e.target.checked)}
+                  className="h-4 w-4"
+                />
               </div>
-            )}
+              <div className="space-y-2">
+                <Label htmlFor="priceCents">Sale price</Label>
+                <select
+                  id="priceCents"
+                  value={priceCents}
+                  onChange={(e) => setPriceCents(Number(e.target.value))}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  {SONG_PRICE_TIERS.map((cents) => (
+                    <option key={cents} value={cents}>
+                      ${(cents / 100).toFixed(2)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
             {!isBeat && (
             <>

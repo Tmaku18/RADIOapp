@@ -19,6 +19,7 @@ import { geocodeCityZip } from '../common/geocode.util';
 import { PushNotificationService } from '../push-notifications/push-notification.service';
 import { ProRadioSubscriptionService } from '../pro-radio-subscription/pro-radio-subscription.service';
 import { promoteListenerToArtist } from './promote-listener';
+import { ensureWelcomePlacements } from '../credits/welcome-placements';
 
 // Transform snake_case DB response to camelCase for frontend
 export interface UserResponse {
@@ -327,14 +328,9 @@ export class UsersService {
       );
     }
 
-    // Seed credits (and producer profile) when signing up as a creative role.
+    // Seed credits + 10 welcome Discovery placements (locked until beta ends).
     if (role === 'artist' || role === 'service_provider') {
-      const { error: creditsError } = await supabase
-        .from('credits')
-        .insert({ artist_id: data.id, balance: 0 });
-      if (creditsError && creditsError.code !== '23505') {
-        console.error('Failed to create credits for new artist:', creditsError);
-      }
+      await ensureWelcomePlacements(data.id);
     }
     if (role === 'service_provider') {
       const { error: providerError } = await supabase
@@ -808,15 +804,7 @@ export class UsersService {
           updateUserDto.role === 'service_provider') &&
         user.role !== updateUserDto.role
       ) {
-        const { error: creditsError } = await supabase
-          .from('credits')
-          .insert({ artist_id: user.id, balance: 0 });
-        if (creditsError && creditsError.code !== '23505') {
-          console.error(
-            'Failed to create credits for new artist:',
-            creditsError,
-          );
-        }
+        await ensureWelcomePlacements(user.id);
       }
       if (
         updateUserDto.role === 'service_provider' &&

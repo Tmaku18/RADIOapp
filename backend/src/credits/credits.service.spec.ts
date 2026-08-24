@@ -6,6 +6,10 @@ jest.mock('../config/supabase.config', () => ({
   getSupabaseClient: jest.fn(),
 }));
 
+jest.mock('../common/beta-access', () => ({
+  isBetaAllFree: jest.fn(() => true),
+}));
+
 describe('CreditsService', () => {
   it('rejects non-positive allocations', async () => {
     const service = new CreditsService();
@@ -75,5 +79,7 @@ describe('CreditsService', () => {
     expect(result.placementBudget).toBe(2000);
     expect(result.totalPurchased).toBe(10);
     expect(result.totalUsed).toBe(3);
+    expect(result.welcomePlacementsRemaining).toBe(0);
+    expect(result.welcomePlacementsLocked).toBe(false);
   });
 });

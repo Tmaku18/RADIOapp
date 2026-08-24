@@ -15,7 +15,9 @@ export type IapCatalogEntry = {
     | 'tip'
     | 'pro_networx_subscription'
     | 'pro_radio_subscription'
-    | 'song_purchase';
+    | 'pro_bundle_subscription'
+    | 'song_purchase'
+    | 'refinery_submission';
   amountCents: number;
   credits?: number;
   plays?: number;
@@ -58,12 +60,24 @@ export const DEFAULT_IAP_PRODUCT_CATALOG: Record<string, IapCatalogEntry> = {
   },
   nwx_pro_radio_monthly: {
     type: 'pro_radio_subscription',
-    amountCents: 999,
+    amountCents: 499,
+  },
+  /** Pro-Radio + Pro-Networx together — saves vs buying both solo. */
+  nwx_pro_bundle_monthly: {
+    type: 'pro_bundle_subscription',
+    amountCents: 1299,
+  },
+  /** One consumable per song submission to The Refinery ($4.99). */
+  nwx_refinery_submission: {
+    type: 'refinery_submission',
+    amountCents: 499,
   },
 };
 
 export const PRO_NETWORX_MONTHLY_PRODUCT_ID = 'nwx_pro_networx_monthly';
 export const PRO_RADIO_MONTHLY_PRODUCT_ID = 'nwx_pro_radio_monthly';
+export const PRO_BUNDLE_MONTHLY_PRODUCT_ID = 'nwx_pro_bundle_monthly';
+export const REFINERY_SUBMISSION_PRODUCT_ID = 'nwx_refinery_submission';
 
 export const TIP_PRODUCT_IDS_BY_CENTS: Record<number, string> = {
   199: 'nwx_tip_199',

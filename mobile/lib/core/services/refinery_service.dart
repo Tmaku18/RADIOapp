@@ -433,9 +433,43 @@ class RefineryService {
     });
   }
 
-  /// Artist adds their own approved song to The Refinery.
-  Future<void> addSongToRefinery(String songId) async {
-    await _api.post('refinery/songs/$songId/add', {});
+  /// Artist adds their own approved song to The Refinery (free / beta path).
+  Future<void> addSongToRefinery(
+    String songId, {
+    List<String> customQuestions = const [],
+  }) async {
+    await _api.post('refinery/songs/$songId/add', {
+      'customQuestions': customQuestions,
+    });
+  }
+
+  /// Web Stripe Checkout for paid Refinery submission.
+  Future<Map<String, dynamic>> createSubmissionCheckout(
+    String songId, {
+    List<String> customQuestions = const [],
+  }) async {
+    final res = await _api.post('refinery/songs/$songId/submit', {
+      'customQuestions': customQuestions,
+    });
+    return (res is Map<String, dynamic>) ? res : <String, dynamic>{};
+  }
+
+  /// Pricing + whether free submissions are enabled.
+  Future<({bool submissionFree, int priceCents, int originalPriceCents})>
+      getSubmissionPricing() async {
+    final res = await _api.get('refinery/standard-questions');
+    if (res is! Map<String, dynamic>) {
+      return (
+        submissionFree: false,
+        priceCents: 499,
+        originalPriceCents: 999,
+      );
+    }
+    return (
+      submissionFree: res['submissionFree'] == true,
+      priceCents: _toInt(res['submissionPriceCents'], 499),
+      originalPriceCents: _toInt(res['submissionOriginalPriceCents'], 999),
+    );
   }
 
   /// Artist removes their song from The Refinery.

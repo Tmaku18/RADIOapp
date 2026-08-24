@@ -1935,7 +1935,17 @@ export const competitionApi = {
 };
 
 export const creditsApi = {
-  getBalance: () => api.get('/credits/balance'),
+  getBalance: () =>
+    api.get<{
+      balance: number;
+      placementBudget: number;
+      totalPurchased: number;
+      totalUsed: number;
+      welcomePlacementsRemaining: number;
+      welcomePlacementsGranted: number;
+      welcomePlacementsLocked: boolean;
+      welcomePlacementsAvailable: boolean;
+    }>('/credits/balance'),
   getTransactions: (params?: { limit?: number; offset?: number }) => 
     api.get('/credits/transactions', { params }),
   getAllocations: (params?: { limit?: number }) => 
@@ -1944,6 +1954,14 @@ export const creditsApi = {
     api.post(`/credits/songs/${songId}/allocate`, { amount }),
   withdrawFromSong: (songId: string, amount: number) => 
     api.post(`/credits/songs/${songId}/withdraw`, { amount }),
+  applyWelcomePlacements: (songId: string, placements: number) =>
+    api.post<{
+      songId: string;
+      placementsApplied: number;
+      exposuresAdded: number;
+      welcomePlacementsRemaining: number;
+      creditsRemaining: number;
+    }>(`/credits/songs/${songId}/apply-welcome-placements`, { placements }),
 };
 
 export const paymentsApi = {
@@ -1959,6 +1977,11 @@ export const paymentsApi = {
   createProRadioCheckoutSession: (data?: { successUrl?: string; cancelUrl?: string }) =>
     api.post<{ url: string; sessionId: string; introCouponApplied: boolean }>(
       '/payments/create-pro-radio-checkout-session',
+      data ?? {},
+    ),
+  createProBundleCheckoutSession: (data?: { successUrl?: string; cancelUrl?: string }) =>
+    api.post<{ url: string; sessionId: string }>(
+      '/payments/create-pro-bundle-checkout-session',
       data ?? {},
     ),
   getTransactions: () => api.get('/payments/transactions'),

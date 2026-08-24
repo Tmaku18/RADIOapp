@@ -185,7 +185,8 @@ export default function ProRadioPage() {
         <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Pro-Radio</h1>
         <p className="text-muted-foreground mt-1">
           On-demand full tracks and playlists — {PRO_RADIO_INTRO_DISPLAY} first month, then{' '}
-          {PRO_RADIO_REGULAR_DISPLAY}/mo. Live Networks Radio is separate.
+          {PRO_RADIO_REGULAR_DISPLAY}/mo, or Pro Bundle at $12.99/mo for Pro-Radio + Pro-Networx.
+          Live Networks Radio is separate.
         </p>
       </div>
 

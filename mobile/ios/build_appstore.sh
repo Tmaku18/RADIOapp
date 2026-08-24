@@ -19,8 +19,12 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-BUILD_NAME="${BUILD_NAME:-1.0.55}"
-BUILD_NUMBER="${BUILD_NUMBER:-82}"
+# Default: bump from pubspec.yaml (patch + build). Override with BUILD_NAME / BUILD_NUMBER.
+PUBSPEC_VERSION="$(grep -E '^version:' pubspec.yaml | head -1 | awk '{print $2}')"
+PUBSPEC_NAME="${PUBSPEC_VERSION%%+*}"
+PUBSPEC_BUILD="${PUBSPEC_VERSION##*+}"
+BUILD_NAME="${BUILD_NAME:-$PUBSPEC_NAME}"
+BUILD_NUMBER="${BUILD_NUMBER:-$PUBSPEC_BUILD}"
 BUNDLE_ID="com.tmaktechnologies.networxradio"
 TEAM_ID="8QZ4S3G53V"
 

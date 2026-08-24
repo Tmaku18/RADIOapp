@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { paymentsApi } from '@/lib/api';
+import { paymentsApi, creditsApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -58,6 +58,11 @@ export default function BuyPlaysPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedPlays, setSelectedPlays] = useState<number | null>(null);
+  const [welcomeRemaining, setWelcomeRemaining] = useState(0);
+  const [welcomeLocked, setWelcomeLocked] = useState(false);
+  const [welcomeAvailable, setWelcomeAvailable] = useState(false);
+  const [welcomeToApply, setWelcomeToApply] = useState(1);
+  const [welcomeNotice, setWelcomeNotice] = useState<string | null>(null);
 
   const success = searchParams.get('success') === 'true';
   const canceled = searchParams.get('canceled') === 'true';
@@ -70,13 +75,53 @@ export default function BuyPlaysPage() {
     try {
       setLoading(true);
       setError(null);
-      const { data } = await paymentsApi.getSongPlayPrice(songId);
+      const [{ data }, balanceRes] = await Promise.all([
+        paymentsApi.getSongPlayPrice(songId),
+        creditsApi.getBalance().catch(() => null),
+      ]);
       setPrice(data);
       setSelectedPlays(null);
+      const bal = balanceRes?.data;
+      if (bal) {
+        const remaining = bal.welcomePlacementsRemaining ?? 0;
+        setWelcomeRemaining(remaining);
+        setWelcomeLocked(bal.welcomePlacementsLocked === true);
+        setWelcomeAvailable(bal.welcomePlacementsAvailable === true);
+        setWelcomeToApply(remaining > 0 ? 1 : 0);
+      }
     } catch (err: unknown) {
       setError(errorMessage(err, 'Failed to load price'));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleApplyWelcome = async () => {
+    if (!welcomeAvailable || welcomeRemaining <= 0) return;
+    const count = Math.min(Math.max(welcomeToApply, 1), welcomeRemaining);
+    try {
+      setSubmitting(true);
+      setError(null);
+      setWelcomeNotice(null);
+      await creditsApi.applyWelcomePlacements(songId, count);
+      const left = welcomeRemaining - count;
+      if (left <= 0) {
+        setWelcomeRemaining(0);
+        setWelcomeAvailable(false);
+        router.push(`/artist/songs?welcome_plays=applied`);
+        return;
+      }
+      setWelcomeRemaining(left);
+      setWelcomeToApply(1);
+      setWelcomeNotice(
+        `Applied ${count} free ${count === 1 ? 'play' : 'plays'} to this song. ` +
+          `${left} left to split across your other songs.`,
+      );
+      await loadPrice();
+    } catch (err: unknown) {
+      setError(errorMessage(err, 'Could not apply free plays'));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -149,6 +194,74 @@ export default function BuyPlaysPage() {
         <Alert variant="default">
           <AlertDescription>Checkout was canceled. You can try again when ready.</AlertDescription>
         </Alert>
+      )}
+
+      {welcomeRemaining > 0 && (
+        <Card className="border-primary/40 bg-primary/[0.04]">
+          <CardContent className="pt-6 space-y-3">
+            <div>
+              <p className="font-semibold text-foreground">
+                {welcomeLocked
+                  ? `You have ${welcomeRemaining} free Discovery plays`
+                  : `Apply ${welcomeRemaining} free Discovery plays`}
+              </p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {welcomeLocked
+                  ? 'Gifted when you signed up as an artist or producer. They unlock when beta ends — we won’t use them yet.'
+                  : 'Choose how many to send to this song and save the rest for your other uploads.'}
+              </p>
+            </div>
+            {welcomeNotice && (
+              <p className="text-sm text-foreground">{welcomeNotice}</p>
+            )}
+            {welcomeAvailable && (
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={submitting || welcomeToApply <= 1}
+                    onClick={() => setWelcomeToApply((n) => Math.max(1, n - 1))}
+                  >
+                    −
+                  </Button>
+                  <span className="w-8 text-center font-semibold text-foreground">
+                    {welcomeToApply}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={submitting || welcomeToApply >= welcomeRemaining}
+                    onClick={() =>
+                      setWelcomeToApply((n) => Math.min(welcomeRemaining, n + 1))
+                    }
+                  >
+                    +
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={submitting || welcomeToApply === welcomeRemaining}
+                    onClick={() => setWelcomeToApply(welcomeRemaining)}
+                  >
+                    All {welcomeRemaining}
+                  </Button>
+                </div>
+                <Button onClick={handleApplyWelcome} disabled={submitting}>
+                  {submitting
+                    ? 'Applying…'
+                    : `Apply ${welcomeToApply} free ${welcomeToApply === 1 ? 'play' : 'plays'}`}
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  ~{(welcomeToApply * exposuresPerPlacement).toLocaleString()} exposures
+                </span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       <Card>

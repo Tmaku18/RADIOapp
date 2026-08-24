@@ -25,6 +25,7 @@ import {
 } from './dto/complete-store-subscription.dto';
 import {
   DEFAULT_IAP_PRODUCT_CATALOG,
+  PRO_BUNDLE_MONTHLY_PRODUCT_ID,
   PRO_NETWORX_MONTHLY_PRODUCT_ID,
   PRO_RADIO_MONTHLY_PRODUCT_ID,
   type IapCatalogEntry,
@@ -139,7 +140,9 @@ export class PaymentsService {
       product.type !== 'tip' &&
       product.type !== 'pro_networx_subscription' &&
       product.type !== 'pro_radio_subscription' &&
-      product.type !== 'song_purchase'
+      product.type !== 'pro_bundle_subscription' &&
+      product.type !== 'song_purchase' &&
+      product.type !== 'refinery_submission'
     ) {
       throw new Error(
         `Unsupported ${storeLabel} product type for ${productId}: ${product.type}`,
@@ -361,9 +364,13 @@ export class PaymentsService {
   ) {
     const supabase = getSupabaseClient();
     const product = this.resolveGooglePlayProduct(dto.productId);
-    if (product.type === 'pro_networx_subscription') {
+    if (
+      product.type === 'pro_networx_subscription' ||
+      product.type === 'pro_radio_subscription' ||
+      product.type === 'pro_bundle_subscription'
+    ) {
       throw new BadRequestException(
-        'Use /payments/google-play/complete-subscription for Pro-Networx',
+        'Use /payments/google-play/complete-subscription for subscriptions',
       );
     }
 
@@ -413,6 +420,29 @@ export class PaymentsService {
         orderId,
         amountCents: product.amountCents,
         type: 'song_purchase' as const,
+      };
+    }
+
+    if (product.type === 'refinery_submission') {
+      if (!dto.songId) {
+        throw new BadRequestException(
+          'songId is required for Refinery submission purchases',
+        );
+      }
+      const result = await this.refineryService.grantSubmissionFromStorePurchase(
+        {
+          userId,
+          songId: dto.songId,
+          customQuestions: dto.customQuestions ?? [],
+          paymentMethod: 'google_play',
+          storeChargeId: orderId,
+        },
+      );
+      return {
+        ...result,
+        orderId,
+        amountCents: product.amountCents,
+        type: 'refinery_submission' as const,
       };
     }
 
@@ -502,9 +532,13 @@ export class PaymentsService {
   ) {
     const supabase = getSupabaseClient();
     const product = this.resolveIapProduct(dto.productId, 'App Store');
-    if (product.type === 'pro_networx_subscription') {
+    if (
+      product.type === 'pro_networx_subscription' ||
+      product.type === 'pro_radio_subscription' ||
+      product.type === 'pro_bundle_subscription'
+    ) {
       throw new BadRequestException(
-        'Use /payments/app-store/complete-subscription for Pro-Networx',
+        'Use /payments/app-store/complete-subscription for subscriptions',
       );
     }
 
@@ -556,6 +590,30 @@ export class PaymentsService {
         orderId,
         amountCents: product.amountCents,
         type: 'song_purchase' as const,
+        environment: verification.environment,
+      };
+    }
+
+    if (product.type === 'refinery_submission') {
+      if (!dto.songId) {
+        throw new BadRequestException(
+          'songId is required for Refinery submission purchases',
+        );
+      }
+      const result = await this.refineryService.grantSubmissionFromStorePurchase(
+        {
+          userId,
+          songId: dto.songId,
+          customQuestions: dto.customQuestions ?? [],
+          paymentMethod: 'app_store',
+          storeChargeId: orderId,
+        },
+      );
+      return {
+        ...result,
+        orderId,
+        amountCents: product.amountCents,
+        type: 'refinery_submission' as const,
         environment: verification.environment,
       };
     }
@@ -648,7 +706,8 @@ export class PaymentsService {
     const product = this.resolveIapProduct(productId, 'App Store');
     if (
       product.type !== 'pro_networx_subscription' &&
-      product.type !== 'pro_radio_subscription'
+      product.type !== 'pro_radio_subscription' &&
+      product.type !== 'pro_bundle_subscription'
     ) {
       throw new BadRequestException(
         `Product ${productId} is not a supported subscription`,
@@ -674,7 +733,9 @@ export class PaymentsService {
       currentPeriodEnd: periodEnd,
       introCouponRedeemed: true,
     };
-    if (product.type === 'pro_radio_subscription') {
+    if (product.type === 'pro_bundle_subscription') {
+      await this.grantProBundleAccess(storeParams);
+    } else if (product.type === 'pro_radio_subscription') {
       await this.proRadioSub.setSubscription(storeParams);
     } else {
       await this.proNetworkSub.setSubscription(storeParams);
@@ -697,7 +758,8 @@ export class PaymentsService {
     const product = this.resolveGooglePlayProduct(productId);
     if (
       product.type !== 'pro_networx_subscription' &&
-      product.type !== 'pro_radio_subscription'
+      product.type !== 'pro_radio_subscription' &&
+      product.type !== 'pro_bundle_subscription'
     ) {
       throw new BadRequestException(
         `Product ${productId} is not a supported subscription`,
@@ -719,7 +781,9 @@ export class PaymentsService {
       currentPeriodEnd: verification.expiryTime,
       introCouponRedeemed: true,
     };
-    if (product.type === 'pro_radio_subscription') {
+    if (product.type === 'pro_bundle_subscription') {
+      await this.grantProBundleAccess(storeParams);
+    } else if (product.type === 'pro_radio_subscription') {
       await this.proRadioSub.setSubscription(storeParams);
     } else {
       await this.proNetworkSub.setSubscription(storeParams);
@@ -734,6 +798,24 @@ export class PaymentsService {
     };
   }
 
+  /** Bundle unlocks both Pro-Radio and Pro-Networx access rows. */
+  private async grantProBundleAccess(params: {
+    userId: string;
+    store?: 'app_store' | 'play' | 'stripe';
+    appleOriginalTransactionId?: string | null;
+    googlePurchaseToken?: string | null;
+    googleOrderId?: string | null;
+    storeProductId?: string | null;
+    stripeCustomerId?: string | null;
+    stripeSubscriptionId?: string | null;
+    status: ProRadioSubStatus | ProNetworkSubStatus;
+    currentPeriodEnd: Date | null;
+    introCouponRedeemed?: boolean;
+  }): Promise<void> {
+    await this.proRadioSub.setSubscription(params);
+    await this.proNetworkSub.setSubscription(params);
+  }
+
   async handleAppStoreNotification(signedPayload: string) {
     const notification =
       await this.appStoreBillingService.verifyNotification(signedPayload);
@@ -746,12 +828,19 @@ export class PaymentsService {
     }
     const originalId = tx.originalTransactionId ?? tx.transactionId;
     const productId = (tx.productId ?? '').toString();
+    const isBundle = productId === PRO_BUNDLE_MONTHLY_PRODUCT_ID;
     const isProRadio = productId === PRO_RADIO_MONTHLY_PRODUCT_ID;
-    const userId = isProRadio
-      ? await this.proRadioSub.getUserIdByAppleOriginalTransactionId(originalId)
-      : await this.proNetworkSub.getUserIdByAppleOriginalTransactionId(
+    let userId: string | null = null;
+    if (isProRadio || isBundle) {
+      userId =
+        await this.proRadioSub.getUserIdByAppleOriginalTransactionId(originalId);
+    }
+    if (!userId && (!isProRadio || isBundle)) {
+      userId =
+        await this.proNetworkSub.getUserIdByAppleOriginalTransactionId(
           originalId,
         );
+    }
     if (!userId) {
       this.logger.warn(
         `ASSN ${notification.notificationType}: no user for originalTransactionId=${originalId}`,
@@ -774,37 +863,46 @@ export class PaymentsService {
       'RENEWAL_EXTENDED',
     ]);
 
-    const setSub = isProRadio
-      ? this.proRadioSub.setSubscription.bind(this.proRadioSub)
-      : this.proNetworkSub.setSubscription.bind(this.proNetworkSub);
-
-    if (expireTypes.has(type)) {
-      await setSub({
+    const applyStatus = async (
+      status: 'active' | 'canceled',
+      currentPeriodEnd: Date,
+    ) => {
+      const params = {
         userId,
-        store: 'app_store',
+        store: 'app_store' as const,
         appleOriginalTransactionId: originalId,
         storeProductId: tx.productId,
-        status: 'canceled',
-        currentPeriodEnd: tx.expiresDate ? new Date(tx.expiresDate) : new Date(),
-      });
+        status,
+        currentPeriodEnd,
+      };
+      if (isBundle) {
+        await this.grantProBundleAccess(params);
+      } else if (isProRadio) {
+        await this.proRadioSub.setSubscription(params);
+      } else {
+        await this.proNetworkSub.setSubscription(params);
+      }
+    };
+
+    if (expireTypes.has(type)) {
+      await applyStatus(
+        'canceled',
+        tx.expiresDate ? new Date(tx.expiresDate) : new Date(),
+      );
       return { ok: true, status: 'canceled' };
     }
 
     if (activeTypes.has(type) || type === 'DID_CHANGE_RENEWAL_STATUS') {
       const stillActive =
         tx.expiresDate == null || tx.expiresDate > Date.now();
-      await setSub({
-        userId,
-        store: 'app_store',
-        appleOriginalTransactionId: originalId,
-        storeProductId: tx.productId,
-        status: stillActive ? 'active' : 'canceled',
-        currentPeriodEnd: tx.expiresDate
+      await applyStatus(
+        stillActive ? 'active' : 'canceled',
+        tx.expiresDate
           ? new Date(tx.expiresDate)
           : stillActive
             ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
             : new Date(),
-      });
+      );
       return { ok: true, status: stillActive ? 'active' : 'canceled' };
     }
 
@@ -836,18 +934,26 @@ export class PaymentsService {
     }
 
     const productId = notification.subscriptionId;
+    const isBundle = productId === PRO_BUNDLE_MONTHLY_PRODUCT_ID;
     const isProRadio = productId === PRO_RADIO_MONTHLY_PRODUCT_ID;
     if (
       productId !== PRO_NETWORX_MONTHLY_PRODUCT_ID &&
-      productId !== PRO_RADIO_MONTHLY_PRODUCT_ID
+      productId !== PRO_RADIO_MONTHLY_PRODUCT_ID &&
+      productId !== PRO_BUNDLE_MONTHLY_PRODUCT_ID
     ) {
       return { ok: true, ignored: true, reason: 'unknown_product' };
     }
 
     const purchaseToken = notification.purchaseToken;
-    let userId = isProRadio
-      ? await this.proRadioSub.getUserIdByGooglePurchaseToken(purchaseToken)
-      : await this.proNetworkSub.getUserIdByGooglePurchaseToken(purchaseToken);
+    let userId: string | null = null;
+    if (isProRadio || isBundle) {
+      userId =
+        await this.proRadioSub.getUserIdByGooglePurchaseToken(purchaseToken);
+    }
+    if (!userId && (!isProRadio || isBundle)) {
+      userId =
+        await this.proNetworkSub.getUserIdByGooglePurchaseToken(purchaseToken);
+    }
 
     let verification: Awaited<
       ReturnType<GooglePlayBillingService['verifySubscriptionPurchase']>
@@ -870,15 +976,28 @@ export class PaymentsService {
 
     if (!userId && verification.orderId) {
       const supabase = getSupabaseClient();
-      const table = isProRadio
-        ? 'pro_radio_subscriptions'
-        : 'pro_network_subscriptions';
-      const { data } = await supabase
-        .from(table)
-        .select('user_id')
-        .eq('google_order_id', verification.orderId)
-        .maybeSingle();
-      userId = (data?.user_id as string | undefined) ?? null;
+      for (const table of [
+        'pro_radio_subscriptions',
+        'pro_network_subscriptions',
+      ] as const) {
+        if (userId) break;
+        if (isProRadio && table === 'pro_network_subscriptions' && !isBundle) {
+          continue;
+        }
+        if (
+          !isProRadio &&
+          !isBundle &&
+          table === 'pro_radio_subscriptions'
+        ) {
+          continue;
+        }
+        const { data } = await supabase
+          .from(table)
+          .select('user_id')
+          .eq('google_order_id', verification.orderId)
+          .maybeSingle();
+        userId = (data?.user_id as string | undefined) ?? null;
+      }
     }
     if (!userId) {
       this.logger.warn(
@@ -887,21 +1006,26 @@ export class PaymentsService {
       return { ok: true, ignored: true };
     }
 
-    const setSub = isProRadio
-      ? this.proRadioSub.setSubscription.bind(this.proRadioSub)
-      : this.proNetworkSub.setSubscription.bind(this.proNetworkSub);
-    await setSub({
+    const status = verification.isEntitled ? 'active' : 'canceled';
+    const params = {
       userId,
-      store: 'play',
+      store: 'play' as const,
       googlePurchaseToken: purchaseToken,
       googleOrderId: verification.orderId,
       storeProductId: productId,
-      status: verification.isEntitled ? 'active' : 'canceled',
+      status: status as 'active' | 'canceled',
       currentPeriodEnd: verification.expiryTime,
-    });
+    };
+    if (isBundle) {
+      await this.grantProBundleAccess(params);
+    } else if (isProRadio) {
+      await this.proRadioSub.setSubscription(params);
+    } else {
+      await this.proNetworkSub.setSubscription(params);
+    }
     return {
       ok: true,
-      status: verification.isEntitled ? 'active' : 'canceled',
+      status,
     };
   }
 
@@ -1502,6 +1626,160 @@ export class PaymentsService {
       status,
       currentPeriodEnd,
       introCouponRedeemed: !!couponId,
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Pro Bundle (Pro-Radio + Pro-Networx) — $12.99/mo
+  // ---------------------------------------------------------------------------
+
+  async createProBundleCheckoutSession(
+    userId: string,
+    successUrl: string,
+    cancelUrl: string,
+  ) {
+    const session = await this.stripeService.createProBundleCheckoutSession({
+      userId,
+      successUrl,
+      cancelUrl,
+    });
+    return {
+      sessionId: session.id,
+      url: session.url,
+    };
+  }
+
+  async createProBundlePaymentSheet(args: {
+    userId: string;
+    customerEmail?: string | null;
+    platform?: string | null;
+  }) {
+    this.assertStripeAllowedForDigitalGoods(args.platform);
+    return this.stripeService.createProBundlePaymentSheet({
+      userId: args.userId,
+      customerEmail: args.customerEmail ?? null,
+    });
+  }
+
+  private isProBundleSubscription(subscription: {
+    items?: { data?: Array<{ price?: { id?: string } }> };
+  }): boolean {
+    const priceId = this.stripeService.getProBundlePriceId();
+    if (!priceId) return false;
+    const itemPriceId = subscription.items?.data?.[0]?.price?.id;
+    return itemPriceId === priceId;
+  }
+
+  async handleProBundleCheckoutCompleted(
+    subscriptionId: string,
+    userId: string,
+  ): Promise<void> {
+    const priceId = this.stripeService.getProBundlePriceId();
+    if (!priceId) return;
+    const subscription =
+      await this.stripeService.getSubscription(subscriptionId);
+    if (!this.isProBundleSubscription(subscription)) return;
+    const status = this.mapStripeStatusProRadio(subscription.status);
+    const currentPeriodEnd = subscription.current_period_end
+      ? new Date(subscription.current_period_end * 1000)
+      : null;
+    const customerId =
+      typeof subscription.customer === 'string'
+        ? subscription.customer
+        : subscription.customer?.id ?? null;
+    await this.grantProBundleAccess({
+      userId,
+      stripeCustomerId: customerId,
+      stripeSubscriptionId: subscriptionId,
+      status,
+      currentPeriodEnd,
+    });
+  }
+
+  async handleProBundleSubscriptionUpdated(subscription: {
+    id: string;
+    status: string;
+    current_period_end?: number;
+    customer?: string | { id: string };
+    items?: { data?: Array<{ price?: { id?: string } }> };
+  }): Promise<void> {
+    if (!this.isProBundleSubscription(subscription)) return;
+    let userId =
+      await this.proRadioSub.getUserIdByStripeSubscriptionId(subscription.id);
+    if (!userId) {
+      userId = await this.proNetworkSub.getUserIdByStripeSubscriptionId(
+        subscription.id,
+      );
+    }
+    if (!userId) return;
+    const status = this.mapStripeStatusProRadio(subscription.status);
+    const currentPeriodEnd = subscription.current_period_end
+      ? new Date(subscription.current_period_end * 1000)
+      : null;
+    const customerId =
+      typeof subscription.customer === 'string'
+        ? subscription.customer
+        : subscription.customer?.id ?? null;
+    await this.grantProBundleAccess({
+      userId,
+      stripeCustomerId: customerId,
+      stripeSubscriptionId: subscription.id,
+      status,
+      currentPeriodEnd,
+    });
+  }
+
+  async handleProBundleSubscriptionDeleted(
+    subscriptionId: string,
+  ): Promise<void> {
+    let userId =
+      await this.proRadioSub.getUserIdByStripeSubscriptionId(subscriptionId);
+    if (!userId) {
+      userId =
+        await this.proNetworkSub.getUserIdByStripeSubscriptionId(
+          subscriptionId,
+        );
+    }
+    if (!userId) return;
+    await this.grantProBundleAccess({
+      userId,
+      stripeSubscriptionId: subscriptionId,
+      status: 'canceled',
+      currentPeriodEnd: null,
+    });
+  }
+
+  async handleProBundleSetupIntentSucceeded(setupIntent: {
+    id: string;
+    customer?: string | { id: string };
+    metadata?: Record<string, string>;
+  }): Promise<void> {
+    const customerId =
+      typeof setupIntent.customer === 'string'
+        ? setupIntent.customer
+        : setupIntent.customer?.id ?? null;
+    const userId = setupIntent.metadata?.userId ?? null;
+    const priceId =
+      setupIntent.metadata?.priceId ?? this.stripeService.getProBundlePriceId();
+    if (!customerId || !userId || !priceId) return;
+    if (setupIntent.metadata?.productKey !== 'pro_bundle_subscription') return;
+
+    const subscription =
+      await this.stripeService.createProBundleSubscriptionOnCustomer({
+        customerId,
+        priceId,
+      });
+
+    const status = this.mapStripeStatusProRadio(subscription.status);
+    const currentPeriodEnd = subscription.current_period_end
+      ? new Date(subscription.current_period_end * 1000)
+      : null;
+    await this.grantProBundleAccess({
+      userId,
+      stripeCustomerId: customerId,
+      stripeSubscriptionId: subscription.id,
+      status,
+      currentPeriodEnd,
     });
   }
 

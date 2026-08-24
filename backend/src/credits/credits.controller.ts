@@ -169,4 +169,36 @@ export class CreditsController {
       dto.amount,
     );
   }
+
+  /**
+   * Apply signup welcome Discovery placements to a song.
+   * Locked while beta is free (`BETA_ALL_FREE`).
+   */
+  @Post('songs/:songId/apply-welcome-placements')
+  @UseGuards(RolesGuard)
+  @Roles('artist', 'service_provider', 'admin')
+  async applyWelcomePlacements(
+    @CurrentUser() user: FirebaseUser,
+    @Param('songId') songId: string,
+    @Body() body: { placements?: number },
+  ) {
+    const supabase = getSupabaseClient();
+
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
+
+    if (!userData) {
+      throw new NotFoundException('User not found');
+    }
+
+    const placements = Number(body?.placements ?? 0);
+    return this.creditsService.applyWelcomePlacementsToSong(
+      userData.id,
+      songId,
+      placements,
+    );
+  }
 }

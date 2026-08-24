@@ -1,4 +1,5 @@
 import { getSupabaseClient } from '../config/supabase.config';
+import { ensureWelcomePlacements } from '../credits/welcome-placements';
 
 const ALREADY_CREATOR = new Set([
   'artist',
@@ -35,11 +36,5 @@ export async function promoteListenerToArtist(userId: string): Promise<void> {
     throw new Error(`Failed to upgrade listener: ${updateError.message}`);
   }
 
-  const { error: creditsError } = await supabase.from('credits').insert({
-    artist_id: userId,
-    balance: 0,
-  });
-  if (creditsError && creditsError.code !== '23505') {
-    console.error('Failed to create credits record:', creditsError);
-  }
+  await ensureWelcomePlacements(userId);
 }

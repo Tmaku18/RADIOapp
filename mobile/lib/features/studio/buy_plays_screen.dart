@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart' hide Card;
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/models/song.dart';
+import '../../core/services/credits_service.dart';
 import '../../core/services/payments_service.dart';
 import '../../core/services/play_billing_service.dart';
 import '../../core/theme/networx_extensions.dart';
@@ -84,12 +85,18 @@ class BuyPlaysScreen extends StatefulWidget {
 
 class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
   final PaymentsService _payments = PaymentsService();
+  final CreditsService _credits = CreditsService();
 
   bool _loading = true;
   bool _submitting = false;
   String? _error;
   SongPlayPrice? _price;
   int? _selectedPlays;
+  CreditsBalance? _creditsBalance;
+
+  /// How many of the signup welcome placements to send to this song.
+  int _welcomeToApply = 1;
+  bool _appliedWelcome = false;
 
   @override
   void initState() {
@@ -104,11 +111,20 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
     });
     try {
       final data = await _payments.getSongPlayPrice(widget.song.id);
+      CreditsBalance? balance;
+      try {
+        balance = await _credits.getCreditsBalance();
+      } catch (_) {
+        balance = null;
+      }
       if (!mounted) return;
+      final remaining = balance?.welcomePlacementsRemaining ?? 0;
       setState(() {
         _price = SongPlayPrice.fromJson(data);
+        _creditsBalance = balance;
         _loading = false;
         _selectedPlays = null;
+        _welcomeToApply = _welcomeToApply.clamp(1, remaining > 0 ? remaining : 1);
       });
     } catch (e) {
       if (!mounted) return;
@@ -116,6 +132,49 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
         _error = e.toString();
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _applyWelcomePlays() async {
+    final remaining = _creditsBalance?.welcomePlacementsRemaining ?? 0;
+    final count = _welcomeToApply.clamp(1, remaining);
+    if (remaining <= 0 || _submitting) return;
+    setState(() => _submitting = true);
+    try {
+      await _credits.applyWelcomePlacements(
+        songId: widget.song.id,
+        placements: count,
+      );
+      if (!mounted) return;
+      _appliedWelcome = true;
+      final left = remaining - count;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            left > 0
+                ? 'Applied $count free Discovery play${count == 1 ? '' : 's'} to this song. '
+                    '$left left for your other songs.'
+                : 'Applied $count free Discovery play${count == 1 ? '' : 's'} to this song!',
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+      if (left > 0) {
+        setState(() => _welcomeToApply = 1);
+        await _loadPrice();
+      } else {
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _submitting = false);
     }
   }
 
@@ -280,7 +339,10 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Buy placements'),
-        automaticallyImplyLeading: true,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context, _appliedWelcome),
+        ),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -322,6 +384,118 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
                             _formatDuration(_price!.durationSeconds),
                             style: TextStyle(color: surfaces.textSecondary),
                           ),
+                          if (_creditsBalance != null &&
+                              _creditsBalance!.welcomePlacementsRemaining >
+                                  0) ...[
+                            const SizedBox(height: 16),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: scheme.primaryContainer
+                                    .withValues(alpha: 0.35),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: scheme.primary.withValues(alpha: 0.4),
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _creditsBalance!.welcomePlacementsLocked
+                                        ? 'You have ${_creditsBalance!.welcomePlacementsRemaining} free Discovery plays'
+                                        : 'Apply ${_creditsBalance!.welcomePlacementsRemaining} free Discovery plays',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _creditsBalance!.welcomePlacementsLocked
+                                        ? 'Gifted at signup. They unlock when beta ends — we won’t use them yet.'
+                                        : 'Split them however you like across your songs — no charge.',
+                                    style: TextStyle(
+                                      color: surfaces.textSecondary,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  if (_creditsBalance!
+                                      .welcomePlacementsAvailable) ...[
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      children: [
+                                        IconButton(
+                                          onPressed: _submitting ||
+                                                  _welcomeToApply <= 1
+                                              ? null
+                                              : () => setState(
+                                                    () => _welcomeToApply--,
+                                                  ),
+                                          icon: const Icon(
+                                            Icons.remove_circle_outline,
+                                          ),
+                                          tooltip: 'Fewer plays',
+                                        ),
+                                        Text(
+                                          '$_welcomeToApply',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleMedium
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                        ),
+                                        IconButton(
+                                          onPressed: _submitting ||
+                                                  _welcomeToApply >=
+                                                      _creditsBalance!
+                                                          .welcomePlacementsRemaining
+                                              ? null
+                                              : () => setState(
+                                                    () => _welcomeToApply++,
+                                                  ),
+                                          icon: const Icon(
+                                            Icons.add_circle_outline,
+                                          ),
+                                          tooltip: 'More plays',
+                                        ),
+                                        const Spacer(),
+                                        TextButton(
+                                          onPressed: _submitting
+                                              ? null
+                                              : () => setState(
+                                                    () => _welcomeToApply =
+                                                        _creditsBalance!
+                                                            .welcomePlacementsRemaining,
+                                                  ),
+                                          child: const Text('All'),
+                                        ),
+                                      ],
+                                    ),
+                                    Text(
+                                      'Sends ~${_withCommas(_welcomeToApply * _price!.exposuresPerPlacement)} listener exposures to this song.',
+                                      style: TextStyle(
+                                        color: surfaces.textMuted,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    FilledButton(
+                                      onPressed:
+                                          _submitting ? null : _applyWelcomePlays,
+                                      child: Text(
+                                        'Apply $_welcomeToApply free play${_welcomeToApply == 1 ? '' : 's'} to this song',
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
                           const SizedBox(height: 16),
                           Text(
                             'Price per placement',
