@@ -90,7 +90,12 @@ export default function BuyPlaysPage() {
         setWelcomeToApply(remaining > 0 ? 1 : 0);
       }
     } catch (err: unknown) {
-      setError(errorMessage(err, 'Failed to load price'));
+      const msg = errorMessage(err, 'Failed to load price');
+      setError(
+        msg.toLowerCase().includes('approved')
+          ? 'This song has to be approved for rotation before you can buy placements or use your free Discovery plays on it.'
+          : msg,
+      );
     } finally {
       setLoading(false);
     }

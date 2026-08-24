@@ -128,8 +128,12 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
       });
     } catch (e) {
       if (!mounted) return;
+      final raw = e.toString();
       setState(() {
-        _error = e.toString();
+        _error = raw.toLowerCase().contains('approved')
+            ? 'This song has to be approved for rotation before you can buy '
+                'placements or use your free Discovery plays on it.'
+            : raw;
         _loading = false;
       });
     }
