@@ -72,6 +72,14 @@ interface Song {
   refineryReviewCount?: number;
   refineryMinReviews?: number;
   rejectionReason?: string;
+  copyrightStatus?: string | null;
+  copyrightMatch?: {
+    title?: string | null;
+    artists?: string[];
+    album?: string | null;
+    label?: string | null;
+    score?: number | null;
+  } | null;
   rejectedAt?: string;
   createdAt: string;
   featuredArtists?: Array<{
@@ -163,6 +171,62 @@ function getStatusVariant(status: string): 'default' | 'secondary' | 'destructiv
     case 'rejected': return 'destructive';
     default: return 'secondary';
   }
+}
+
+function songCopyrightMatch(song: Song) {
+  return song.copyrightMatch ?? null;
+}
+
+function shouldShowCopyrightMatch(song: Song): boolean {
+  if (song.status === 'approved') return false;
+  const match = songCopyrightMatch(song);
+  const flagged = song.copyrightStatus === 'flagged';
+  const hasDetails = Boolean(
+    match?.title?.trim() || (match?.artists && match.artists.length > 0),
+  );
+  return flagged || (song.status === 'rejected' && hasDetails);
+}
+
+function copyrightCatalogLabel(song: Song): string {
+  const match = songCopyrightMatch(song);
+  const title = match?.title?.trim() || 'an existing recording';
+  const artists = (match?.artists ?? []).filter((name) => name.trim()).join(', ');
+  if (!artists) return `"${title}"`;
+  return `"${title}" by ${artists}`;
+}
+
+function CopyrightMatchNotice({ song }: { song: Song }) {
+  const match = songCopyrightMatch(song);
+  const extras = [
+    match?.album?.trim() ? `Album: ${match.album.trim()}` : null,
+    match?.label?.trim() ? `Label: ${match.label.trim()}` : null,
+    typeof match?.score === 'number' ? `Confidence: ${Math.round(match.score)}%` : null,
+  ].filter(Boolean) as string[];
+
+  return (
+    <div className="mt-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs leading-relaxed">
+      <div className="font-semibold text-foreground">Your upload was flagged</div>
+      <p className="mt-1 text-muted-foreground">
+        The catalog song that supposedly holds the copyright:
+      </p>
+      <p className="mt-0.5 font-semibold text-foreground">{copyrightCatalogLabel(song)}</p>
+      {extras.length > 0 && (
+        <p className="mt-0.5 text-muted-foreground">{extras.join(' · ')}</p>
+      )}
+      <p className="mt-1 text-muted-foreground">
+        You can still be approved if you own or control those rights.{' '}
+        <a
+          className="text-primary hover:underline"
+          href={`mailto:support@networxradio.com?subject=${encodeURIComponent(
+            `Copyright match: ${song.title}`,
+          )}`}
+        >
+          Contact support
+        </a>{' '}
+        with proof, or wait for a reviewer.
+      </p>
+    </div>
+  );
 }
 
 export default function MySongsPage() {
@@ -764,6 +828,9 @@ export default function MySongsPage() {
                               ))}
                             </div>
                           )}
+                          {shouldShowCopyrightMatch(song) && (
+                            <CopyrightMatchNotice song={song} />
+                          )}
                         </div>
                       </div>
                     </TableCell>
@@ -773,9 +840,11 @@ export default function MySongsPage() {
                           ? 'Awaiting Review'
                           : song.status.charAt(0).toUpperCase() + song.status.slice(1)}
                       </Badge>
-                      {song.status === 'rejected' && song.rejectionReason && (
+                      {song.status === 'rejected' &&
+                        song.rejectionReason &&
+                        !shouldShowCopyrightMatch(song) && (
                         <div
-                          className="text-xs text-destructive mt-1 max-w-[160px] truncate"
+                          className="text-xs text-destructive mt-1 max-w-[220px] whitespace-normal"
                           title={song.rejectionReason}
                         >
                           {song.rejectionReason}

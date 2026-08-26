@@ -587,7 +587,10 @@ class _StudioScreenState extends State<StudioScreen>
                                     ),
                                   ],
                                 ),
-                                if (s.status == 'rejected') ...[
+                                if (s.showCopyrightMatchCard) ...[
+                                  const SizedBox(height: 10),
+                                  _CopyrightMatchCard(song: s),
+                                ] else if (s.status == 'rejected') ...[
                                   const SizedBox(height: 10),
                                   Container(
                                     width: double.infinity,
@@ -1495,6 +1498,109 @@ class _LyricsSheetState extends State<_LyricsSheet> {
                   ),
                 ],
               ),
+      ),
+    );
+  }
+}
+
+class _CopyrightMatchCard extends StatelessWidget {
+  const _CopyrightMatchCard({required this.song});
+
+  final Song song;
+
+  @override
+  Widget build(BuildContext context) {
+    final match = song.copyrightMatch;
+    final album = match?.album?.trim();
+    final label = match?.label?.trim();
+    final score = match?.score;
+    final extras = <String>[
+      if (album != null && album.isNotEmpty) 'Album: $album',
+      if (label != null && label.isNotEmpty) 'Label: $label',
+      if (score != null) 'Confidence: ${score.round()}%',
+    ];
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.orange.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: Colors.orange.withValues(alpha: 0.4),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Your upload was flagged',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'The catalog song that supposedly holds the copyright:',
+            style: TextStyle(
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.8),
+              fontSize: 12,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            match?.catalogLabel ?? '"an existing recording"',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+              height: 1.3,
+            ),
+          ),
+          if (extras.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              extras.join(' · '),
+              style: TextStyle(
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.7),
+                fontSize: 12,
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
+          Text(
+            'You can still be approved if you own or control those rights. Contact support with proof, or wait for a reviewer.',
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
+              fontSize: 12,
+              height: 1.35,
+            ),
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: () {
+                final subject = Uri.encodeComponent(
+                  'Copyright match: ${song.title}',
+                );
+                launchUrl(
+                  Uri.parse(
+                    'mailto:support@networxradio.com?subject=$subject',
+                  ),
+                );
+              },
+              child: const Text('Contact support'),
+            ),
+          ),
+        ],
       ),
     );
   }

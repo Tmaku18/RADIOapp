@@ -8,6 +8,7 @@ import {
   CopyrightMatch,
   CopyrightScanResult,
 } from './acrcloud.provider';
+import { buildCopyrightRejectionReason } from './copyright-copy';
 
 export type CopyrightStatus =
   | 'pending'
@@ -308,11 +309,7 @@ export class CopyrightService {
   }
 
   private buildRejectionReason(match: CopyrightMatch): string {
-    const artist = match.artists.length ? match.artists.join(', ') : 'unknown';
-    const title = match.title ?? 'an existing recording';
-    return `Possible copyright match detected: "${title}" by ${artist} (confidence ${Math.round(
-      match.score,
-    )}%). If you own or have rights to this recording, contact support to appeal.`;
+    return buildCopyrightRejectionReason(match);
   }
 
   private async persistStatus(

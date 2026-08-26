@@ -66,6 +66,7 @@ class AdminService {
     String? sortOrder,
     int? limit,
     int? offset,
+    String? copyrightStatus,
   }) async {
     final queryParts = <String>[
       if (status != null && status.isNotEmpty) 'status=$status',
@@ -75,6 +76,8 @@ class AdminService {
       if (sortOrder != null && sortOrder.isNotEmpty) 'sortOrder=$sortOrder',
       if (limit != null) 'limit=$limit',
       if (offset != null) 'offset=$offset',
+      if (copyrightStatus != null && copyrightStatus.isNotEmpty)
+        'copyrightStatus=$copyrightStatus',
     ];
     final endpoint = queryParts.isEmpty
         ? 'admin/songs'

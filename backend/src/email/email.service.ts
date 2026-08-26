@@ -166,25 +166,41 @@ export class EmailService {
     to: string,
     songTitle: string,
     reason?: string,
+    matchLead?: string | null,
   ): Promise<boolean> {
     const detail =
       reason?.trim() ||
       'No detailed reason was provided. Contact support for clarification.';
+    const lead = matchLead?.trim() || '';
+    const safeTitle = escapeHtml(songTitle);
+    const safeDetail = escapeHtml(detail);
+    const leadHtml = lead
+      ? `<p><strong>${escapeHtml(lead)}</strong></p>`
+      : '';
+    const leadText = lead ? `${lead}\n\n` : '';
+    const subject = lead
+      ? `Possible copyright match on "${songTitle}"`
+      : `Your song "${songTitle}" was not approved`;
     return this.send({
       to,
-      subject: `Your song "${songTitle}" was not approved`,
+      subject,
       html: `
-        <h2>Song not approved</h2>
-        <p>We've reviewed your song <strong>${songTitle}</strong> and it was not approved for Networx Radio.</p>
+        <h2>${lead ? 'Possible copyright match' : 'Song not approved'}</h2>
+        <p>We've reviewed your song <strong>${safeTitle}</strong> and it was not approved for Networx Radio.</p>
+        ${leadHtml}
         <p><strong>Why it was rejected:</strong></p>
-        <p style="background:#f8f8f8;padding:12px;border-radius:8px;white-space:pre-wrap;">${detail}</p>
-        <p>You can fix the issue and upload again, or contact support within <strong>48 hours</strong> if you believe this was a mistake.</p>
+        <p style="background:#f8f8f8;padding:12px;border-radius:8px;white-space:pre-wrap;">${safeDetail}</p>
+        <p>You can fix the issue and upload again, or contact support within <strong>48 hours</strong> if you believe this was a mistake.${
+          lead
+            ? ' If you own or control the matched recording, reply with proof and we can still approve it.'
+            : ''
+        }</p>
         <p>After 48 hours, the rejected song may be automatically removed.</p>
-        <p><a href="mailto:support@radioapp.com">Contact Support</a></p>
+        <p><a href="mailto:support@networxradio.com">Contact Support</a></p>
         <br>
         <p>- The Networx Team</p>
       `,
-      text: `Your song "${songTitle}" was not approved.\n\nWhy it was rejected:\n${detail}\n\nYou can fix the issue and upload again, or contact support@radioapp.com within 48 hours if you believe this was a mistake.`,
+      text: `${leadText}Your song "${songTitle}" was not approved.\n\nWhy it was rejected:\n${detail}\n\nYou can fix the issue and upload again, or contact support@networxradio.com within 48 hours if you believe this was a mistake.`,
     });
   }
 

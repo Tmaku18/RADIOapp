@@ -61,6 +61,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   message: n.message,
                   read: true,
                   createdAt: n.createdAt,
+                  metadata: n.metadata,
                 )
               : n)
           .toList();
@@ -82,6 +83,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   message: n.message,
                   read: true,
                   createdAt: n.createdAt,
+                  metadata: n.metadata,
                 ))
             .toList();
       });
@@ -282,6 +284,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                   n.type == 'live_now') {
                                 Navigator.of(context)
                                     .pushNamed(AppRoutes.player);
+                              } else if (n.type == 'song_rejected' ||
+                                  n.type == 'song_approved' ||
+                                  n.type == 'song_status_changed') {
+                                Navigator.of(context).pushNamed(AppRoutes.studio);
                               } else if (n.type == 'message_request') {
                                 Navigator.of(context).pushNamed(
                                   AppRoutes.messages,
@@ -312,6 +318,22 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                   Padding(
                                     padding: const EdgeInsets.only(top: 4),
                                     child: Text(n.message!),
+                                  ),
+                                if (n.copyrightTitle != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text(
+                                      n.copyrightArtists == null
+                                          ? 'Matched: "${n.copyrightTitle}"'
+                                          : 'Matched: "${n.copyrightTitle}" by ${n.copyrightArtists}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurface,
+                                      ),
+                                    ),
                                   ),
                                 const SizedBox(height: 4),
                                 Text(

@@ -170,10 +170,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Future<void> _fetchSections() async {
     final radioId = _selectedRadioId;
 
+    final songQuery = _songListQuery();
     final songsReq = _tryLoad(
       () => _admin.getSongs(
         limit: 100,
-        status: _songStatusFilter, // pending by default (web parity)
+        status: songQuery.status,
+        copyrightStatus: songQuery.copyrightStatus,
       ),
     );
     final usersReq = _tryLoad(() => _admin.getUsers(limit: 100));
@@ -389,12 +391,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
   }
 
+  ({String status, String? copyrightStatus}) _songListQuery() {
+    if (_songStatusFilter == 'copyrighted') {
+      return (status: 'all', copyrightStatus: 'flagged');
+    }
+    return (status: _songStatusFilter, copyrightStatus: null);
+  }
+
   Future<void> _refreshSongs() async {
     try {
       // Backend: omit status → defaults to pending; send "all" for unfiltered.
+      // "copyrighted" uses status=all + copyrightStatus=flagged (web parity).
+      final query = _songListQuery();
       final songs = await _admin.getSongs(
         limit: 100,
-        status: _songStatusFilter,
+        status: query.status,
+        copyrightStatus: query.copyrightStatus,
         search: _songSearchCtrl.text.trim().isEmpty
             ? null
             : _songSearchCtrl.text.trim(),
@@ -440,6 +452,46 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       if (b != null && '$b'.isNotEmpty) return '$b';
     }
     return '';
+  }
+
+  String _copyrightStatusOf(Map<String, dynamic> song) {
+    return _songField(song, 'copyright_status', 'copyrightStatus').toLowerCase();
+  }
+
+  Map<String, dynamic>? _copyrightMatchMap(Map<String, dynamic> song) {
+    final raw = song['copyright_match'] ?? song['copyrightMatch'];
+    if (raw is Map) return Map<String, dynamic>.from(raw);
+    return null;
+  }
+
+  String _copyrightArtists(Map<String, dynamic>? match) {
+    if (match == null) return '';
+    final raw = match['artists'];
+    if (raw is List) {
+      return raw
+          .map((e) => e.toString().trim())
+          .where((e) => e.isNotEmpty)
+          .join(', ');
+    }
+    return raw?.toString().trim() ?? '';
+  }
+
+  String _copyrightMatchLine(Map<String, dynamic> song) {
+    final match = _copyrightMatchMap(song);
+    if (match == null && _copyrightStatusOf(song) != 'flagged') return '';
+    final title = (match?['title'] ?? '').toString().trim();
+    final artists = _copyrightArtists(match);
+    final score = match?['score'];
+    final scoreText = score is num ? ' (${score.round()}%)' : '';
+    final album = (match?['album'] ?? '').toString().trim();
+    final albumText = album.isEmpty ? '' : ' · $album';
+    if (title.isEmpty && artists.isEmpty) {
+      return 'Possible copyright match$scoreText$albumText';
+    }
+    if (artists.isEmpty) {
+      return 'Possible match: "$title"$scoreText$albumText';
+    }
+    return 'Possible match: "$title" by $artists$scoreText$albumText';
   }
 
   double? _asDouble(dynamic value) {
@@ -578,6 +630,49 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     } finally {
       if (mounted) setState(() => _songActionBusy = false);
     }
+  }
+
+  Future<void> _approveSong(Map<String, dynamic> song) async {
+    final id = _songField(song, 'id');
+    if (id.isEmpty) return;
+    final status = _songField(song, 'status').toLowerCase();
+    final flagged = _copyrightStatusOf(song) == 'flagged';
+    final match = _copyrightMatchMap(song);
+    if (flagged || status == 'rejected') {
+      final matchTitle = (match?['title'] ?? '').toString().trim();
+      final artists = _copyrightArtists(match);
+      final matchPhrase = matchTitle.isEmpty
+          ? (artists.isEmpty ? 'an existing recording' : artists)
+          : artists.isEmpty
+              ? '"$matchTitle"'
+              : '"$matchTitle" by $artists';
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Approve anyway?'),
+          content: Text(
+            flagged || match != null
+                ? 'This may match $matchPhrase. Approve anyway if they own the rights?'
+                : 'Approve this song and override its rejection? It will be published.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Approve'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+    await _runSongAction(
+      () => _admin.updateSongStatus(id, 'approved'),
+      'Song approved.',
+    );
   }
 
   Future<void> _rejectSong(String id, String title) async {
@@ -852,20 +947,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                   tooltip: 'Approve',
                                   icon: const Icon(Icons.check_circle_outline),
                                   onPressed: () async {
-                                    await _admin.updateSongStatus(
-                                      sid,
-                                      'approved',
-                                    );
-                                    if (!context.mounted) return;
                                     Navigator.pop(context);
-                                    await _refreshSongs();
-                                    if (!mounted) return;
-                                    ScaffoldMessenger.of(this.context)
-                                        .showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Song approved.'),
-                                      ),
-                                    );
+                                    await _approveSong(s);
                                   },
                                 ),
                               if (st != 'rejected')
@@ -1308,7 +1391,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildSongsTab() {
-    final filters = const ['pending', 'approved', 'rejected', 'all'];
+    final filters = const [
+      'pending',
+      'approved',
+      'rejected',
+      'all',
+      'copyrighted',
+    ];
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
@@ -1345,10 +1434,22 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               )
               .toList(),
         ),
+        if (_songStatusFilter == 'copyrighted') ...[
+          const SizedBox(height: 8),
+          Text(
+            'Showing songs auto-flagged for a copyright match. Review before keeping them rejected or approving if the artist owns the rights.',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.65),
+              fontSize: 12,
+            ),
+          ),
+        ],
         const SizedBox(height: 8),
         Text(
           _songs.isEmpty
-              ? 'No songs for this filter.'
+              ? (_songStatusFilter == 'copyrighted'
+                  ? 'No copyright-flagged songs found.'
+                  : 'No songs for this filter.')
               : '${_songs.length} song(s)',
           style: TextStyle(color: Colors.white.withValues(alpha: 0.65)),
         ),
@@ -1379,6 +1480,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     '$artist · $status${duration != null ? ' · ${duration}s' : ''}',
                     style: const TextStyle(color: Colors.grey),
                   ),
+                  if (_copyrightMatchLine(song).isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        _copyrightMatchLine(song),
+                        style: TextStyle(
+                          color: Colors.orange.shade200,
+                          fontSize: 12,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
                   Builder(
                     builder: (_) {
                       final stations = stationIdsFromSongMap(song);
@@ -1417,13 +1530,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         OutlinedButton(
                           onPressed: _songActionBusy
                               ? null
-                              : () => _runSongAction(
-                                    () => _admin.updateSongStatus(
-                                      id,
-                                      'approved',
-                                    ),
-                                    'Song approved.',
-                                  ),
+                              : () => _approveSong(song),
                           child: const Text('Approve'),
                         ),
                       if (status != 'rejected')

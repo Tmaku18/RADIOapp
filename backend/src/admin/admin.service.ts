@@ -20,12 +20,30 @@ import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { ensureWelcomePlacements } from '../credits/welcome-placements';
+import {
+  copyrightMatchArtists,
+  copyrightMatchTitle,
+  copyrightUploaderNoticeBody,
+  copyrightUploaderNoticeTitle,
+  parseCopyrightMatch,
+  type PublicCopyrightMatch,
+} from '../copyright/copyright-copy';
 
 export interface BanResult {
   success: boolean;
   userId: string;
   banType: 'hard' | 'shadow';
   tokenRevoked: boolean;
+}
+
+function emptyCopyrightMatch(): PublicCopyrightMatch {
+  return {
+    title: null,
+    artists: [],
+    album: null,
+    label: null,
+    score: null,
+  };
 }
 
 @Injectable()
@@ -334,7 +352,7 @@ export class AdminService {
     const { data: existingSong, error: fetchError } = await supabase
       .from('songs')
       .select(
-        'id, status, title, artist_id, users:artist_id(id, email, display_name)',
+        'id, status, title, artist_id, copyright_status, copyright_match, users:artist_id(id, email, display_name)',
       )
       .eq('id', songId)
       .single();
@@ -408,11 +426,25 @@ export class AdminService {
       let notificationType: string;
       let notificationTitle: string;
       let notificationMessage: string;
+      const copyrightMatch = parseCopyrightMatch(
+        (existingSong as { copyright_match?: unknown }).copyright_match,
+      );
+      const copyrightFlagged =
+        (existingSong as { copyright_status?: string | null })
+          .copyright_status === 'flagged' || copyrightMatch != null;
+      const copyrightLead =
+        status === 'rejected' && copyrightFlagged
+          ? copyrightUploaderNoticeBody(copyrightMatch ?? emptyCopyrightMatch())
+          : null;
 
       if (status === 'approved') {
         notificationType = 'song_approved';
         notificationTitle = 'Song Approved!';
         notificationMessage = `Your song "${existingSong.title}" has been approved and is now live on Networx Radio.`;
+      } else if (status === 'rejected' && copyrightLead) {
+        notificationType = 'song_rejected';
+        notificationTitle = copyrightUploaderNoticeTitle(existingSong.title);
+        notificationMessage = copyrightLead;
       } else if (status === 'rejected') {
         notificationType = 'song_rejected';
         notificationTitle = 'Song not approved';
@@ -438,6 +470,16 @@ export class AdminService {
             reason: trimmedReason,
             action: 'open_studio',
             route: '/studio',
+            ...(copyrightLead
+              ? {
+                  copyrightTitle: copyrightMatchTitle(
+                    copyrightMatch ?? emptyCopyrightMatch(),
+                  ),
+                  copyrightArtists: copyrightMatchArtists(
+                    copyrightMatch ?? emptyCopyrightMatch(),
+                  ),
+                }
+              : {}),
           },
         })
         .catch((err) => {
@@ -463,6 +505,7 @@ export class AdminService {
             artistEmail,
             existingSong.title,
             trimmedReason,
+            copyrightLead,
           );
         }
       }

@@ -1,3 +1,72 @@
+class CopyrightMatch {
+  final String? title;
+  final List<String> artists;
+  final String? album;
+  final String? label;
+  final double? score;
+
+  const CopyrightMatch({
+    this.title,
+    this.artists = const [],
+    this.album,
+    this.label,
+    this.score,
+  });
+
+  factory CopyrightMatch.fromJson(Map<String, dynamic> json) {
+    final artistsRaw = json['artists'];
+    final artists = <String>[];
+    if (artistsRaw is List) {
+      for (final artist in artistsRaw) {
+        final name = artist?.toString().trim() ?? '';
+        if (name.isNotEmpty) artists.add(name);
+      }
+    } else if (artistsRaw != null) {
+      for (final artist in artistsRaw.toString().split(',')) {
+        final name = artist.trim();
+        if (name.isNotEmpty) artists.add(name);
+      }
+    }
+    final scoreRaw = json['score'];
+    double? score;
+    if (scoreRaw is num) {
+      score = scoreRaw.toDouble();
+    } else if (scoreRaw != null) {
+      score = double.tryParse(scoreRaw.toString());
+    }
+    String? asText(dynamic value) {
+      final text = value?.toString().trim();
+      return (text == null || text.isEmpty) ? null : text;
+    }
+
+    return CopyrightMatch(
+      title: asText(json['title']),
+      artists: artists,
+      album: asText(json['album']),
+      label: asText(json['label']),
+      score: score,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'title': title,
+      'artists': artists,
+      'album': album,
+      'label': label,
+      'score': score,
+    };
+  }
+
+  String get catalogLabel {
+    final name = (title ?? '').trim().isEmpty
+        ? 'an existing recording'
+        : title!.trim();
+    if (artists.isEmpty) return '"$name"';
+    return '"$name" by ${artists.join(', ')}';
+  }
+}
+
 class Song {
   final String id;
   final String artistId;
@@ -17,6 +86,9 @@ class Song {
   final String status;
   /// Present when [status] is `rejected` — shown to the artist in Studio.
   final String? rejectionReason;
+  /// `flagged` when ACRCloud matched a commercial recording.
+  final String? copyrightStatus;
+  final CopyrightMatch? copyrightMatch;
   final DateTime createdAt;
   final DateTime updatedAt;
   /// True when the song is in The Refinery for Prospector review (`/songs/mine`).
@@ -58,6 +130,8 @@ class Song {
     required this.skipCount,
     required this.status,
     this.rejectionReason,
+    this.copyrightStatus,
+    this.copyrightMatch,
     required this.createdAt,
     required this.updatedAt,
     this.inRefinery = false,
@@ -132,6 +206,17 @@ class Song {
       status: json['status']?.toString() ?? 'pending',
       rejectionReason: (json['rejection_reason'] ?? json['rejectionReason'])
           ?.toString(),
+      copyrightStatus:
+          (json['copyright_status'] ?? json['copyrightStatus'])?.toString(),
+      copyrightMatch: () {
+        final raw = json['copyright_match'] ?? json['copyrightMatch'];
+        if (raw is Map) {
+          return CopyrightMatch.fromJson(
+            Map<String, dynamic>.from(raw),
+          );
+        }
+        return null;
+      }(),
       inRefinery: json['inRefinery'] == true || json['in_refinery'] == true,
       sampleUrl: (json['sample_url'] ?? json['sampleUrl'])?.toString(),
       sampleStartSeconds: parseDoubleOr(
@@ -216,6 +301,8 @@ class Song {
       'skip_count': skipCount,
       'status': status,
       'rejection_reason': rejectionReason,
+      'copyright_status': copyrightStatus,
+      'copyright_match': copyrightMatch?.toJson(),
       'in_refinery': inRefinery,
       'sample_url': sampleUrl,
       'sample_start_seconds': sampleStartSeconds,
@@ -238,6 +325,20 @@ class Song {
   }
 
   bool get isBeat => productKind == 'beat';
+
+  bool get isCopyrightFlagged =>
+      (copyrightStatus ?? '').toLowerCase() == 'flagged';
+
+  bool get hasCopyrightMatchDetails =>
+      copyrightMatch != null &&
+      ((copyrightMatch!.title?.trim().isNotEmpty ?? false) ||
+          copyrightMatch!.artists.isNotEmpty);
+
+  /// Show the matched catalog recording to the uploader (not after approve).
+  bool get showCopyrightMatchCard =>
+      status != 'approved' &&
+      (isCopyrightFlagged ||
+          (status == 'rejected' && hasCopyrightMatchDetails));
 
   /// Unique listeners shown on My Songs. Falls back to listens, then spins,
   /// so an older payload still has a number instead of a blank.

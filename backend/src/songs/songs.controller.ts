@@ -45,6 +45,7 @@ import { AdminService } from '../admin/admin.service';
 import { ImageModerationService } from '../moderation/image-moderation.service';
 import { LyricsService } from '../lyrics/lyrics.service';
 import { CopyrightService } from '../copyright/copyright.service';
+import { toPublicCopyrightMatch } from '../copyright/copyright-copy';
 
 @Controller('songs')
 export class SongsController {
@@ -1233,6 +1234,12 @@ export class SongsController {
       refineryMinReviews:
         (song as { refinery_min_reviews?: number }).refinery_min_reviews ?? 100,
       rejectionReason: song.rejection_reason,
+      copyrightStatus:
+        (song as { copyright_status?: string | null }).copyright_status ??
+        null,
+      copyrightMatch: toPublicCopyrightMatch(
+        (song as { copyright_match?: unknown }).copyright_match,
+      ),
       rejectedAt: song.rejected_at,
       isExplicit: song.is_explicit === true,
       createdAt: song.created_at,
