@@ -152,12 +152,17 @@ class ApiService {
   @visibleForTesting
   List<String>? debugBaseUrls;
   @visibleForTesting
+  void resetResolvedBaseUrl() => _resolvedBaseUrl = null;
+  @visibleForTesting
   Duration uploadStallTimeout = _uploadStallTimeout;
   @visibleForTesting
   Duration uploadProcessingTimeout = _uploadProcessingTimeout;
   @visibleForTesting
   Duration uploadWatchdogInterval = const Duration(seconds: 5);
 
+  /// Website origin used as a later API fallback. Lock-screen art and the
+  /// hero embed still read `API_BASE_URL` themselves; API calls prefer
+  /// `API_DIRECT_URL` / Railway first via [_baseUrlCandidates].
   String get baseUrl => env('API_BASE_URL') ?? 'https://www.networxradio.com';
   String? _authToken;
   /// Prefer named `forceRefresh` so Firebase can mint a new JWT after 401s.
@@ -229,21 +234,18 @@ class ApiService {
       }
     }
 
-    if (preferDirectBackend) {
-      // Large uploads must hit Nest/Railway, not the Vercel web proxy.
-      add(env('API_DIRECT_URL'));
-      add(env('BACKEND_URL'));
-      add(_directBackendFallback);
-    }
+    // Railway first for every request so a disabled Vercel site cannot take
+    // the app down. preferDirectBackend is kept for upload callers; the list
+    // order is the same either way.
+    final _ = preferDirectBackend;
+    add(env('API_DIRECT_URL'));
+    add(env('BACKEND_URL'));
+    add(_directBackendFallback);
 
     add(_resolvedBaseUrl);
     add(baseUrl);
-    // Production fallbacks so mobile still works when local dev API is unavailable.
     add('https://www.networxradio.com');
     add('https://networxradio.com');
-    if (!preferDirectBackend) {
-      add(_directBackendFallback);
-    }
     if (!kReleaseMode) {
       add('http://10.0.2.2:3000');
       add('http://10.0.2.2:3005');
@@ -253,13 +255,22 @@ class ApiService {
     return urls;
   }
 
-  bool _shouldTryNextBaseUrl(Object error) {
+  /// Host-level failures that justify trying the next candidate.
+  ///
+  /// 402 is generated at the Vercel edge when the project is disabled, so it
+  /// never reached Nest — safe for every method. 502/503/504 on a write can
+  /// mean Nest already applied the mutation, so only GET retries those.
+  bool _shouldTryNextBaseUrl(Object error, {required String method}) {
     if (error is TimeoutException) return true;
     if (error is SocketException) return true;
     if (error is http.ClientException) return true;
     if (isTlsError(error)) return true;
-    // Vercel / edge proxies return 413 for large multipart bodies.
-    if (error is ApiException && error.statusCode == 413) return true;
+    if (error is! ApiException) return false;
+    final code = error.statusCode;
+    if (code == 413 || code == 402) return true;
+    if (code == 502 || code == 503 || code == 504) {
+      return method.toUpperCase() == 'GET';
+    }
     return false;
   }
 
@@ -275,6 +286,8 @@ class ApiService {
     final candidates = _baseUrlCandidates(
       preferDirectBackend: preferDirectBackend,
     );
+    final tryNext = shouldFallback ??
+        ((error) => _shouldTryNextBaseUrl(error, method: method));
     Object? lastError;
     final effectiveTimeout = timeout ?? _requestTimeout;
     var authRetried = false;
@@ -316,7 +329,7 @@ class ApiService {
           responseBody: response.body,
         );
       } catch (error) {
-        if (!(shouldFallback ?? _shouldTryNextBaseUrl)(error)) {
+        if (!tryNext(error)) {
           rethrow;
         }
         lastError = error;
@@ -470,7 +483,7 @@ class ApiService {
         // whole file and most likely stall again — surface it instead.
         if (error is ApiException && error.statusCode == 413) return true;
         if (bytesSent > 0) return false;
-        return _shouldTryNextBaseUrl(error);
+        return _shouldTryNextBaseUrl(error, method: 'UPLOAD');
       },
     );
   }
