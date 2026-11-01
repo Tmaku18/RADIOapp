@@ -114,7 +114,7 @@ class _ListeningToolsScreenState extends State<ListeningToolsScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'CarPlay, Android Auto, the home-screen widget, and the lock-screen live activity need a native extension in the next store build. Sleep timer, share, history, and offline favorites work in this version.',
+                    'Android Auto lists every station. The home-screen widget and the lock screen follow the song that is on. A shared link opens that song or artist in the app. CarPlay uses the same lock-screen controls; the CarPlay app icon needs Apple to enable CarPlay Audio for this app.',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SizedBox(height: 20),

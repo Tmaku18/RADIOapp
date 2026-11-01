@@ -10,6 +10,8 @@ import '../env.dart';
 import '../models/track.dart';
 import '../models/track_fetch_result.dart';
 import '../radio/radio_sync.dart';
+import '../radio/station_catalog.dart';
+import '../widgets/now_playing_widget.dart';
 import 'audio_player_service.dart';
 import 'radio_connection_monitor.dart';
 import 'radio_presence_service.dart';
@@ -41,6 +43,10 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
 
   /// When true, [PlayerScreen] owns sync to avoid duplicate handlers.
   bool playerScreenActive = false;
+
+  /// Set by the mounted player so Android Auto retunes the same instance that
+  /// already owns the shared audio player.
+  Future<void> Function(String stationId)? onCarTune;
 
   /// True while the listener is tuning to a different station. Everything here
   /// derives the station from the *currently loaded* media item, which still
@@ -91,6 +97,47 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
   /// Someone else already owns the shared player, so the cold-start bootstrap
   /// must stand down rather than load a second track over theirs.
   bool get _bootstrapPreempted => playerScreenActive || _hasRadioSource;
+
+  /// Android Auto, CarPlay browse, and `networxradio://radio/...` links.
+  Future<void> tuneFromExternal(String stationId) async {
+    if (stationId.isEmpty) return;
+    if (playerScreenActive) {
+      final tune = onCarTune;
+      if (tune != null) await tune(stationId);
+      return;
+    }
+    await tuneStation(stationId);
+  }
+
+  Future<void> tuneStation(String stationId) async {
+    if (stationId.isEmpty || stationSwitchInFlight) return;
+    _bootstrapAttempted = true;
+    stationSwitchInFlight = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_selectedStationPrefKey, stationId);
+      await StationEventsService().switchStation(stationId);
+      RadioPresenceService.instance.configure(radioId: stationId);
+      await AudioPlayerService.handler.stopVoiceOverlay();
+      final res = await _radio.getCurrentTrack(radioId: stationId);
+      RadioConnectionMonitor.instance.reportRequestResult(
+        networkError: res.networkError,
+      );
+      final track = res.track;
+      if (res.noContent || track == null || track.audioUrl.trim().isEmpty) {
+        return;
+      }
+      await _loadTrack(track, res, reportPlay: true, radioId: stationId);
+      if (track.transportPaused && _player.playing) {
+        await _player.pause();
+      }
+      _schedulePoll();
+    } catch (_) {
+      // A failed retune leaves the previous song playing.
+    } finally {
+      stationSwitchInFlight = false;
+    }
+  }
 
   /// Cold-start bootstrap: load and play live radio when the app opens, before
   /// any screen mounts (mirrors web RadioBackgroundSync bar bootstrap).
@@ -147,6 +194,10 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
     StationEventsService().djBoothStream.listen(_onDjBoothEvent);
     RadioConnectionMonitor.instance.addRestoreListener(_onConnectionRestored);
     AudioPlayerService.handler.onMusicPlaybackFailure = _recoverPlayback;
+    AudioPlayerService.handler.onTuneStation = tuneFromExternal;
+    AudioPlayerService.handler.mediaItem.listen((item) {
+      unawaited(NowPlayingWidgetSync.push(item));
+    });
     unawaited(_bootstrapLiveRadioIfIdle());
     _schedulePoll();
   }
@@ -483,6 +534,7 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
             id: track.id,
             title: track.title,
             artist: track.artistName,
+            album: stationLabel(effectiveRadioId),
             artUri: BrandAssets.mediaArtUri(track.artworkUrl),
             extras: {
               'source': 'radio',

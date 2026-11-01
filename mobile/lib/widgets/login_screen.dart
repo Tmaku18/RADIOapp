@@ -3,9 +3,11 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/auth/auth_service.dart';
+import '../core/navigation/app_link.dart';
 import '../core/navigation/app_routes.dart';
 import '../core/theme/networx_tokens.dart';
 
@@ -36,6 +38,19 @@ class _LoginScreenState extends State<LoginScreen> {
     DropdownMenuItem(value: 'musician', child: Text('Musician')),
   ];
   bool _appliedRouteArgs = false;
+
+  @override
+  void initState() {
+    super.initState();
+    SharedPreferences.getInstance().then((prefs) {
+      final code = prefs.getString(pendingReferralCodeKey);
+      if (code == null || !mounted || _referralController.text.isNotEmpty) {
+        return;
+      }
+      _referralController.text = code;
+      setState(() => _isSignUp = true);
+    });
+  }
 
   @override
   void didChangeDependencies() {

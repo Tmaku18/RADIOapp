@@ -72,6 +72,16 @@
 					<string>com.googleusercontent.apps.479427085382-p71ptp0u1k6tvkcuqdvk1n558e62ckvp</string>
 				</array>
 			</dict>
+			<dict>
+				<key>CFBundleTypeRole</key>
+				<string>Editor</string>
+				<key>CFBundleURLName</key>
+				<string>com.tmaktechnologies.networxradio</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>networxradio</string>
+				</array>
+			</dict>
 		</array>
 		<key>UIStatusBarHidden</key>
 		<false/>

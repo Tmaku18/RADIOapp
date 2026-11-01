@@ -14,6 +14,7 @@ import '../../core/models/user.dart' as app_user;
 import '../../core/models/track.dart';
 import '../../core/models/track_fetch_result.dart';
 import '../../core/radio/radio_sync.dart';
+import '../../core/radio/station_catalog.dart';
 import '../../core/services/api_service.dart';
 import '../../core/services/radio_service.dart';
 import '../../core/services/growth_service.dart';
@@ -45,49 +46,6 @@ import 'widgets/synced_lyrics_panel.dart';
 import '../pro_radio/widgets/add_to_playlist_sheet.dart';
 
 part 'widgets/player_chrome.dart';
-
-class _StationOption {
-  const _StationOption({
-    required this.id,
-    required this.genre,
-  });
-
-  final String id;
-  final String genre;
-}
-
-const List<_StationOption> _stationOptions = <_StationOption>[
-  _StationOption(id: 'us-ready-now-rap', genre: 'Ready Now Radio'),
-  _StationOption(id: 'us-rap', genre: 'New School Rap Radio'),
-  _StationOption(id: 'us-old-school-rap', genre: 'Old School Rap Radio'),
-  _StationOption(id: 'us-rap-clean', genre: 'Clean Rap Radio'),
-  _StationOption(id: 'us-hip-hop', genre: 'Hip Hop'),
-  _StationOption(id: 'us-country', genre: 'Country'),
-  _StationOption(id: 'us-rock', genre: 'Rock'),
-  _StationOption(id: 'us-metal', genre: 'Metal Radio'),
-  _StationOption(id: 'us-pop', genre: 'Pop'),
-  _StationOption(id: 'us-kids-friendly', genre: 'Kids Friendly Radio'),
-  _StationOption(id: 'us-testing-grounds', genre: 'Testing Grounds Radio'),
-  _StationOption(id: 'us-rideshare', genre: 'Rideshare Radio'),
-  _StationOption(id: 'us-edm', genre: 'EDM'),
-  _StationOption(id: 'us-rnb', genre: 'R&B'),
-  _StationOption(id: 'us-podcasts', genre: 'Podcasts'),
-  _StationOption(id: 'us-spoken-word', genre: 'Spoken Word'),
-  _StationOption(id: 'us-comedian', genre: 'Comedian'),
-  _StationOption(id: 'us-gospel', genre: 'Gospel'),
-  _StationOption(id: 'us-classical', genre: 'Classical Radio'),
-  _StationOption(id: 'us-emo', genre: 'Emo Radio'),
-  _StationOption(id: 'us-ai-created', genre: 'AI Created Radio'),
-  _StationOption(id: 'us-beats', genre: 'Beats Radio'),
-  _StationOption(id: 'us-freestyle', genre: 'Freestyle Radio'),
-  _StationOption(id: 'us-instrumental', genre: 'Instrumental Radio'),
-  _StationOption(id: 'us-lofi', genre: 'Lo-Fi Radio'),
-  _StationOption(id: 'us-jazz', genre: 'Jazz Radio'),
-  _StationOption(id: 'us-audiobook', genre: 'Audiobook Radio'),
-  _StationOption(id: 'us-spanish', genre: 'Spanish Radio'),
-  _StationOption(id: 'us-afrobeats', genre: 'Afro-Beats Radio'),
-  _StationOption(id: 'us-dj-mixes', genre: 'DJ Mixes Radio'),
-];
 
 const String _selectedStationPrefKey = 'selected_radio_station_id';
 
@@ -196,11 +154,11 @@ class _PlayerScreenState extends State<PlayerScreen>
       _StationTuner.radioId ?? env('RADIO_STATION_ID') ?? 'us-ready-now-rap';
   set _radioId(String value) => _StationTuner.radioId = value;
 
-  _StationOption get _activeStation {
-    for (final station in _stationOptions) {
+  StationOption get _activeStation {
+    for (final station in kStationCatalog) {
       if (station.id == _radioId) return station;
     }
-    return const _StationOption(
+    return const StationOption(
       id: 'us-ready-now-rap',
       genre: 'Ready Now Radio',
     );
@@ -211,6 +169,7 @@ class _PlayerScreenState extends State<PlayerScreen>
     super.initState();
     _mounted.add(this);
     RadioBackgroundSyncService.instance.playerScreenActive = true;
+    RadioBackgroundSyncService.instance.onCarTune = _tuneFromCar;
     WidgetsBinding.instance.addObserver(this);
     _rippleController = AnimationController(
       vsync: this,
@@ -422,13 +381,25 @@ class _PlayerScreenState extends State<PlayerScreen>
   bool _stationContextLost(int switchId, String radioId) =>
       !mounted || switchId != _stationSwitchGeneration || radioId != _radioId;
 
-  void _announceTunedTo(_StationOption station) {
+  static Future<void> _tuneFromCar(String stationId) async {
+    final driver = _mounted.isNotEmpty ? _mounted.last : null;
+    if (driver == null || !driver.mounted) return;
+    final station = stationById(stationId);
+    if (station == null) return;
+    if (station.id == driver._radioId) {
+      await AudioPlayerService.handler.setUserPaused(false);
+      return;
+    }
+    await driver._changeStation(station);
+  }
+
+  void _announceTunedTo(StationOption station) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Tuned to ${station.genre}')),
     );
   }
 
-  Future<void> _changeStation(_StationOption station) async {
+  Future<void> _changeStation(StationOption station) async {
     if (station.id == _radioId) return;
     final switchId = _nextStationSwitchGeneration();
     _stationSwitchInFlight = true;
@@ -515,7 +486,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   }
 
   Future<void> _openStationPicker() async {
-    final selected = await showModalBottomSheet<_StationOption>(
+    final selected = await showModalBottomSheet<StationOption>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
@@ -530,13 +501,13 @@ class _PlayerScreenState extends State<PlayerScreen>
   }
 
   Future<void> _cycleStation(int direction) async {
-    if (_stationOptions.isEmpty) return;
-    final index = _stationOptions.indexWhere((s) => s.id == _radioId);
+    if (kStationCatalog.isEmpty) return;
+    final index = kStationCatalog.indexWhere((s) => s.id == _radioId);
     final current = index < 0 ? 0 : index;
-    final next = (current + direction) % _stationOptions.length;
-    final wrapped = next < 0 ? _stationOptions.length - 1 : next;
+    final next = (current + direction) % kStationCatalog.length;
+    final wrapped = next < 0 ? kStationCatalog.length - 1 : next;
     AppHaptics.selection();
-    await _changeStation(_stationOptions[wrapped]);
+    await _changeStation(kStationCatalog[wrapped]);
   }
 
   Future<void> _loadInitialTrack() async {
@@ -613,6 +584,7 @@ class _PlayerScreenState extends State<PlayerScreen>
               id: track.id,
               title: track.title,
               artist: track.artistName,
+              album: stationLabel(expectedRadioId),
               artUri: BrandAssets.mediaArtUri(track.artworkUrl),
               extras: {
                 'source': 'radio',
@@ -1418,6 +1390,7 @@ class _PlayerScreenState extends State<PlayerScreen>
     _mounted.remove(this);
     if (_mounted.isEmpty) {
       RadioBackgroundSyncService.instance.playerScreenActive = false;
+      RadioBackgroundSyncService.instance.onCarTune = null;
       RadioBackgroundSyncService.instance.stationSwitchInFlight = false;
       _StationTuner.switchInFlight = false;
     } else {

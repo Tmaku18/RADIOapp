@@ -19,6 +19,7 @@ import 'core/services/push_notification_service.dart';
 import 'core/services/app_update_service.dart';
 import 'core/services/payments_service.dart';
 import 'core/services/pending_purchase_queue.dart';
+import 'core/navigation/app_link_listener.dart';
 import 'core/navigation/app_router.dart';
 import 'core/navigation/app_routes.dart';
 import 'core/theme/dimension_tokens.dart';
@@ -175,6 +176,8 @@ class _MyAppState extends State<MyApp> {
       if (navContext != null) {
         unawaited(AppUpdateService.instance.checkAndPrompt(navContext));
       }
+
+      unawaited(AppLinkListener.attach(widget.navigatorKey));
 
       if (!widget.firebaseInitialized) return;
       PushNotificationService().onNotificationTap = (data) {

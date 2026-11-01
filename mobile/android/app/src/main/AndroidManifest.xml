@@ -43,6 +43,23 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="networxradio"/>
+            </intent-filter>
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="www.networxradio.com" android:pathPrefix="/song"/>
+                <data android:scheme="https" android:host="www.networxradio.com" android:pathPrefix="/artists"/>
+                <data android:scheme="https" android:host="www.networxradio.com" android:pathPrefix="/radio"/>
+                <data android:scheme="https" android:host="networxradio.com" android:pathPrefix="/song"/>
+                <data android:scheme="https" android:host="networxradio.com" android:pathPrefix="/artists"/>
+                <data android:scheme="https" android:host="networxradio.com" android:pathPrefix="/radio"/>
+            </intent-filter>
         </activity>
         <!-- image_cropper (uCrop) — cover / photo crop UI -->
         <activity
@@ -67,6 +84,22 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc"/>
+
+        <receiver
+            android:name=".NowPlayingWidget"
+            android:exported="true"
+            android:label="NetworX Radio">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/now_playing_widget_info"/>
+        </receiver>
 
         <!-- audio_service: background playback -->
         <service

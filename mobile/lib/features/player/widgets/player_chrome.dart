@@ -1087,8 +1087,8 @@ class _StationPickerSheetState extends State<_StationPickerSheet> {
     _saveFavs();
   }
 
-  List<_StationOption> get _sorted {
-    final list = List<_StationOption>.from(_stationOptions);
+  List<StationOption> get _sorted {
+    final list = List<StationOption>.from(kStationCatalog);
     switch (_sort) {
       case _StationSort.alpha:
         list.sort((a, b) => a.genre.compareTo(b.genre));

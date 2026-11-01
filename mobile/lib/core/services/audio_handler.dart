@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../brand/brand_assets.dart';
+import '../radio/station_catalog.dart';
 import 'audio_player_service.dart';
 import 'webrtc_audio_session.dart';
 import 'whep_player.dart';
@@ -92,6 +93,9 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
   double get baseMusicVolume => _baseMusicVolume;
 
   final ValueNotifier<bool> userPausedNotifier = ValueNotifier(false);
+
+  /// Android Auto / a shared station link asks the app to retune.
+  Future<void> Function(String stationId)? onTuneStation;
 
   /// Invoked when the music player dies mid-playback — a dropped transfer, or
   /// an expired signed URL returning 403. The handler deliberately does not
@@ -311,6 +315,55 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
 
   @override
   Future<void> play() => setUserPaused(false);
+
+  MediaItem _stationMediaItem(StationOption station) {
+    return MediaItem(
+      id: station.id,
+      title: station.genre,
+      album: 'NetworX Radio',
+      playable: true,
+      extras: const <String, dynamic>{'source': 'station'},
+    );
+  }
+
+  @override
+  Future<List<MediaItem>> getChildren(
+    String parentMediaId, [
+    Map<String, dynamic>? options,
+  ]) async {
+    if (parentMediaId == AudioService.browsableRootId) {
+      return [for (final station in kStationCatalog) _stationMediaItem(station)];
+    }
+    if (parentMediaId == AudioService.recentRootId) {
+      final current = mediaItem.valueOrNull;
+      return current == null ? const [] : [current];
+    }
+    return const [];
+  }
+
+  @override
+  Future<MediaItem?> getMediaItem(String mediaId) async {
+    final station = stationById(mediaId);
+    if (station != null) return _stationMediaItem(station);
+    final current = mediaItem.valueOrNull;
+    if (current?.id == mediaId) return current;
+    return null;
+  }
+
+  @override
+  Future<void> playFromMediaId(
+    String mediaId, [
+    Map<String, dynamic>? extras,
+  ]) async {
+    if (stationById(mediaId) != null) {
+      final tune = onTuneStation;
+      if (tune != null) await tune(mediaId);
+      return;
+    }
+    if (mediaItem.valueOrNull?.id == mediaId) {
+      await play();
+    }
+  }
 
   @override
   Future<void> pause() => setUserPaused(true);
