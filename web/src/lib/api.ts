@@ -874,6 +874,17 @@ export interface FollowListItem {
   relationship?: 'friend' | 'fan' | 'following' | 'none';
 }
 
+export const fansApi = {
+  join: (artistId: string, email: string) =>
+    api.post<{ subscribed: boolean; already: boolean }>(`/fans/${artistId}`, {
+      email,
+    }),
+  mine: () =>
+    api.get<{ fans: Array<{ id: string; email: string; createdAt: string }> }>(
+      '/fans/me',
+    ),
+};
+
 export const usersApi = {
   getMe: () => api.get('/users/me'),
   checkAdmin: () => api.get<{ isAdmin: boolean }>('/users/me/check-admin'),

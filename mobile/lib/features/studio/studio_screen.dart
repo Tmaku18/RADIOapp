@@ -18,6 +18,7 @@ import '../../core/theme/dimension_tokens.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 import '../../widgets/clip_window_sheet.dart';
 import '../refinery/refinery_submit_sheet.dart';
+import 'fan_list_sheet.dart';
 
 class StudioScreen extends StatefulWidget {
   const StudioScreen({super.key, this.onOpenNavDrawer});
@@ -293,6 +294,15 @@ class _StudioScreenState extends State<StudioScreen>
     );
   }
 
+  Future<void> _openFans() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => const FanListSheet(),
+    );
+  }
+
   Future<void> _openPayouts() async {
     await showModalBottomSheet<void>(
       context: context,
@@ -475,6 +485,11 @@ class _StudioScreenState extends State<StudioScreen>
                                   onPressed: _openPayouts,
                                   icon: const Icon(Icons.payments_outlined),
                                   label: const Text('Payouts'),
+                                ),
+                                OutlinedButton.icon(
+                                  onPressed: _openFans,
+                                  icon: const Icon(Icons.mail_outline),
+                                  label: const Text('Email list'),
                                 ),
                               ],
                             ),

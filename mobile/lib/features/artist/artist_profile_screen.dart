@@ -99,6 +99,9 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
   bool _favorited = false;
   bool _followLoading = false;
   bool _favoriteLoading = false;
+  final _fanEmail = TextEditingController();
+  bool _fanBusy = false;
+  String? _fanStatus;
   String? _highlightedSongId;
   bool _didScrollToFocus = false;
 
@@ -237,6 +240,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
     _sampleStopTimer?.cancel();
     _focusClearTimer?.cancel();
     _scrollController.dispose();
+    _fanEmail.dispose();
     super.dispose();
   }
 
@@ -358,6 +362,33 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
         _following = false;
         _favorited = false;
       });
+    }
+  }
+
+  Future<void> _joinFanList() async {
+    final email = _fanEmail.text.trim();
+    if (email.isEmpty || _fanBusy) return;
+    setState(() {
+      _fanBusy = true;
+      _fanStatus = null;
+    });
+    try {
+      final res = await ApiService().post('fans/${widget.artistId}', {
+        'email': email,
+      });
+      if (!mounted) return;
+      final already = res is Map && res['already'] == true;
+      setState(() {
+        _fanStatus = already
+            ? 'That email is already on the list.'
+            : "You're on the list.";
+        _fanEmail.clear();
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _fanStatus = 'Enter a valid email and try again.');
+    } finally {
+      if (mounted) setState(() => _fanBusy = false);
     }
   }
 
@@ -1246,6 +1277,41 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
                     label: const Text('Message'),
                   ),
                 ),
+              ],
+              if (!_isOwnerProfile) ...[
+                const SizedBox(height: 16),
+                Text(
+                  'Hear from $displayName',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Leave your email and this artist can write to you about new music.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _fanEmail,
+                  keyboardType: TextInputType.emailAddress,
+                  autocorrect: false,
+                  decoration: const InputDecoration(
+                    hintText: 'you@email.com',
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton(
+                    onPressed: _fanBusy ? null : _joinFanList,
+                    child: Text(_fanBusy ? 'Saving…' : 'Join the list'),
+                  ),
+                ),
+                if (_fanStatus != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(_fanStatus!),
+                  ),
               ],
               const SizedBox(height: 10),
               Row(

@@ -12,6 +12,7 @@ import { DiscographyPlayer, type DiscographyTrack } from '@/components/player/Di
 import { usePlayback } from '@/components/playback';
 import { ProRadioPaywallCard } from '@/components/pro-radio/ProRadioPaywallCard';
 import { SongLikesDialog } from '@/components/songs/SongLikesDialog';
+import { FanEmailCard } from '@/components/artist/FanEmailCard';
 
 type ArtistSong = {
   id: string;
@@ -696,6 +697,12 @@ export function ArtistPageView({
         <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Songs</p><p className="text-xl font-bold">{formatNumber(data.stats.totalSongs)}</p></CardContent></Card>
         <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Monthly listeners</p><p className="text-xl font-bold">{formatNumber(data.stats.monthlyListenerCount)}</p></CardContent></Card>
       </div>
+
+      <FanEmailCard
+        artistId={data.artist.id}
+        artistName={data.artist.displayName || 'this artist'}
+        isOwner={profile?.id === data.artist.id}
+      />
 
       {data.artist.bio && (
         <Card>
