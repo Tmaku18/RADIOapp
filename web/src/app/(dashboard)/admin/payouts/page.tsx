@@ -66,6 +66,8 @@ export default function AdminPayoutsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [settling, setSettling] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -83,6 +85,36 @@ export default function AdminPayoutsPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const settle = async (artist: ArtistPayout) => {
+    setSettling(artist.artistId);
+    setNotice(null);
+    setError(null);
+    try {
+      const res = await adminApi.settleArtistPayout(artist.artistId);
+      const result = res.data;
+      if (result.reason === 'not_ready') {
+        setNotice(
+          `${artist.artistName} cannot receive payouts yet. They still need to finish Stripe setup.`,
+        );
+      } else if (result.reason === 'transfer_failed') {
+        setNotice(
+          'Stripe could not send that transfer. The original card charge may still be settling. Try again later.',
+        );
+      } else if (result.transferredCents > 0) {
+        setNotice(
+          `Sent ${money(result.transferredCents, artist.currency)} to ${artist.artistName}.`,
+        );
+      } else {
+        setNotice('Nothing left to send for that artist.');
+      }
+      await load();
+    } catch (err) {
+      setError(errorMessage(err, 'Could not send the payout.'));
+    } finally {
+      setSettling(null);
+    }
+  };
 
   const toggle = (artistId: string) => {
     setExpanded((prev) => {
@@ -107,9 +139,8 @@ export default function AdminPayoutsPage() {
             Artist Payouts Owed
           </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Completed song purchases the platform collected because the artist
-            hasn&apos;t finished Stripe Connect onboarding. Pay these out
-            manually, then mark them settled.
+            Song sales the platform collected before the artist could be paid.
+            Send with Stripe once their payout account can receive funds.
           </p>
         </div>
         <Button variant="outline" onClick={() => void load()} disabled={loading}>
@@ -120,6 +151,11 @@ export default function AdminPayoutsPage() {
       {error && (
         <Card>
           <CardContent className="pt-6 text-red-400">{error}</CardContent>
+        </Card>
+      )}
+      {notice && (
+        <Card>
+          <CardContent className="pt-6 text-sm">{notice}</CardContent>
         </Card>
       )}
 
@@ -174,6 +210,7 @@ export default function AdminPayoutsPage() {
                   <TableHead className="text-right">Sales</TableHead>
                   <TableHead className="text-right">Owed</TableHead>
                   <TableHead className="text-right">Details</TableHead>
+                  <TableHead className="text-right">Payout</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -206,6 +243,15 @@ export default function AdminPayoutsPage() {
                           {expanded.has(a.artistId) ? 'Hide' : 'View'}
                         </Button>
                       </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          disabled={settling !== null}
+                          onClick={() => void settle(a)}
+                        >
+                          {settling === a.artistId ? 'Sending…' : 'Send with Stripe'}
+                        </Button>
+                      </TableCell>
                     </TableRow>
                     {expanded.has(a.artistId) &&
                       a.purchases.map((p) => (
@@ -220,6 +266,7 @@ export default function AdminPayoutsPage() {
                           <TableCell className="text-right text-sm">
                             {money(p.artistAmountCents, a.currency)}
                           </TableCell>
+                          <TableCell />
                           <TableCell />
                         </TableRow>
                       ))}

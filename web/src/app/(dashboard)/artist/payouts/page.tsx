@@ -13,7 +13,15 @@ type ConnectStatus = {
   chargesEnabled: boolean;
   payoutsEnabled: boolean;
   detailsSubmitted: boolean;
+  pendingOwedCents?: number;
 };
+
+function money(cents: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format((cents || 0) / 100);
+}
 
 export default function ArtistPayoutsPage() {
   const [status, setStatus] = useState<ConnectStatus | null>(null);
@@ -82,6 +90,14 @@ export default function ArtistPayoutsPage() {
           <CardTitle className="text-base">Payout account</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {(status?.pendingOwedCents ?? 0) > 0 && (
+            <p className="text-sm">
+              {money(status?.pendingOwedCents ?? 0)} from earlier sales{' '}
+              {status?.payoutsEnabled
+                ? 'is still settling with Stripe. Refresh in a little while.'
+                : 'is waiting. It sends automatically once your payout account can receive funds.'}
+            </p>
+          )}
           {loading ? (
             <p className="text-sm text-muted-foreground">Loading status…</p>
           ) : status?.onboarded ? (

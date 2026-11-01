@@ -1693,8 +1693,8 @@ export class AdminService {
 
   /**
    * Completed song purchases the platform collected on the artist's behalf
-   * (payout_status = 'pending'), grouped per artist with totals owed. These are
-   * the manual payouts an admin still needs to settle.
+   * (payout_status = 'pending'), grouped per artist with totals owed. Send
+   * these with Stripe once the artist's Connect account can receive funds.
    */
   async getPendingPayouts() {
     const supabase = getSupabaseClient();

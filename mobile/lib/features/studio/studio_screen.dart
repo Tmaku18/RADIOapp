@@ -1172,6 +1172,8 @@ class _PayoutsSheetState extends State<_PayoutsSheet> {
   }
 
   bool get _payoutsEnabled => _status['payoutsEnabled'] == true;
+  int get _pendingOwedCents =>
+      (_status['pendingOwedCents'] as num?)?.toInt() ?? 0;
   bool get _detailsSubmitted => _status['detailsSubmitted'] == true;
   bool get _hasAccount =>
       (_status['accountId']?.toString().isNotEmpty ?? false) ||
@@ -1254,6 +1256,15 @@ class _PayoutsSheetState extends State<_PayoutsSheet> {
                     style: TextStyle(color: surfaces.textSecondary),
                   ),
                   const SizedBox(height: 16),
+                  if (_pendingOwedCents > 0) ...[
+                    Text(
+                      _payoutsEnabled
+                          ? '\$${(_pendingOwedCents / 100).toStringAsFixed(2)} from earlier sales is still settling with Stripe. Refresh in a little while.'
+                          : '\$${(_pendingOwedCents / 100).toStringAsFixed(2)} from earlier sales is waiting. It sends automatically once payouts are enabled.',
+                      style: TextStyle(color: surfaces.textSecondary),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   Row(
                     children: [
                       Icon(

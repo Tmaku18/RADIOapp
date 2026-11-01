@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import {
   BadRequestException,
   Inject,
@@ -2109,6 +2110,121 @@ export class PaymentsService {
   // Stripe Connect (Express) — artist onboarding + status
   // ---------------------------------------------------------------------------
 
+  private async pendingOwedCents(artistId: string): Promise<number> {
+    const supabase = getSupabaseClient();
+    const { data } = await supabase
+      .from('song_purchases')
+      .select('artist_amount_cents')
+      .eq('artist_id', artistId)
+      .eq('status', 'completed')
+      .eq('payout_status', 'pending');
+    return (data ?? []).reduce(
+      (sum, row) => sum + (Number(row.artist_amount_cents) || 0),
+      0,
+    );
+  }
+
+  /**
+   * Send platform-held song sales to an artist who can now receive payouts.
+   * The idempotency key is the set of purchase ids, so a retry does not pay twice.
+   */
+  async settlePendingPayouts(artistId: string): Promise<{
+    transferredCents: number;
+    purchaseCount: number;
+    transferId: string | null;
+    reason?: string;
+  }> {
+    const supabase = getSupabaseClient();
+    const { data: userRow } = await supabase
+      .from('users')
+      .select(
+        'stripe_connect_account_id, stripe_connect_charges_enabled, stripe_connect_payouts_enabled',
+      )
+      .eq('id', artistId)
+      .maybeSingle();
+    const accountId = (
+      userRow as { stripe_connect_account_id?: string | null } | null
+    )?.stripe_connect_account_id;
+    const ready =
+      (userRow as { stripe_connect_charges_enabled?: boolean } | null)
+        ?.stripe_connect_charges_enabled === true &&
+      (userRow as { stripe_connect_payouts_enabled?: boolean } | null)
+        ?.stripe_connect_payouts_enabled === true;
+    if (!accountId || !ready) {
+      return {
+        transferredCents: 0,
+        purchaseCount: 0,
+        transferId: null,
+        reason: 'not_ready',
+      };
+    }
+
+    const { data: rows, error } = await supabase
+      .from('song_purchases')
+      .select('id, artist_amount_cents, currency')
+      .eq('artist_id', artistId)
+      .eq('status', 'completed')
+      .eq('payout_status', 'pending');
+    if (error) {
+      throw new BadRequestException(error.message);
+    }
+    if (!rows?.length) {
+      return { transferredCents: 0, purchaseCount: 0, transferId: null };
+    }
+
+    const currency = (rows[0].currency || 'usd').toLowerCase();
+    const batch = rows.filter(
+      (row) => (row.currency || 'usd').toLowerCase() === currency,
+    );
+    const ids = batch.map((row) => row.id as string).sort();
+    const amount = batch.reduce(
+      (sum, row) => sum + (Number(row.artist_amount_cents) || 0),
+      0,
+    );
+    if (amount < 1) {
+      await supabase
+        .from('song_purchases')
+        .update({ payout_status: 'paid' })
+        .in('id', ids);
+      return { transferredCents: 0, purchaseCount: ids.length, transferId: null };
+    }
+
+    const digest = createHash('sha256').update(ids.join(',')).digest('hex');
+    try {
+      const transfer = await this.stripeService.createTransfer({
+        amountCents: amount,
+        currency,
+        destinationAccountId: accountId,
+        idempotencyKey: `song-payout-${artistId}-${digest}`,
+        metadata: { artistId, purchaseCount: String(ids.length) },
+      });
+      const { error: updateError } = await supabase
+        .from('song_purchases')
+        .update({ payout_status: 'paid' })
+        .in('id', ids);
+      if (updateError) {
+        this.logger.error(
+          `Transfer ${transfer.id} succeeded but purchases stayed pending: ${updateError.message}`,
+        );
+      }
+      return {
+        transferredCents: amount,
+        purchaseCount: ids.length,
+        transferId: transfer.id,
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'transfer failed';
+      this.logger.warn(`Payout transfer failed for ${artistId}: ${message}`);
+      return {
+        transferredCents: 0,
+        purchaseCount: 0,
+        transferId: null,
+        reason: 'transfer_failed',
+      };
+    }
+  }
+
+
   private getWebBaseUrl(): string {
     return this.configService.get<string>('WEB_URL') || 'http://localhost:3001';
   }
@@ -2120,6 +2236,7 @@ export class PaymentsService {
     chargesEnabled: boolean;
     payoutsEnabled: boolean;
     detailsSubmitted: boolean;
+    pendingOwedCents: number;
   }> {
     const supabase = getSupabaseClient();
     const { data: userRow } = await supabase
@@ -2133,6 +2250,7 @@ export class PaymentsService {
     const accountId =
       (userRow as { stripe_connect_account_id?: string | null })
         ?.stripe_connect_account_id ?? null;
+    const pendingOwedCents = await this.pendingOwedCents(userId);
     if (!accountId) {
       return {
         accountId: null,
@@ -2140,6 +2258,7 @@ export class PaymentsService {
         chargesEnabled: false,
         payoutsEnabled: false,
         detailsSubmitted: false,
+        pendingOwedCents,
       };
     }
 
@@ -2159,12 +2278,18 @@ export class PaymentsService {
             chargesEnabled && detailsSubmitted ? new Date().toISOString() : null,
         })
         .eq('id', userId);
+      let owed = pendingOwedCents;
+      if (chargesEnabled && payoutsEnabled && owed > 0) {
+        const settled = await this.settlePendingPayouts(userId);
+        if (settled.transferredCents > 0) owed = await this.pendingOwedCents(userId);
+      }
       return {
         accountId,
         onboarded: chargesEnabled && detailsSubmitted,
         chargesEnabled,
         payoutsEnabled,
         detailsSubmitted,
+        pendingOwedCents: owed,
       };
     } catch {
       return {
@@ -2181,6 +2306,7 @@ export class PaymentsService {
         detailsSubmitted:
           (userRow as { stripe_connect_details_submitted?: boolean })
             ?.stripe_connect_details_submitted === true,
+        pendingOwedCents,
       };
     }
   }
@@ -2260,6 +2386,16 @@ export class PaymentsService {
           chargesEnabled && detailsSubmitted ? new Date().toISOString() : null,
       })
       .eq('stripe_connect_account_id', account.id);
+    if (chargesEnabled && account.payouts_enabled === true) {
+      const { data } = await supabase
+        .from('users')
+        .select('id')
+        .eq('stripe_connect_account_id', account.id)
+        .maybeSingle();
+      if (data?.id) {
+        await this.settlePendingPayouts(data.id as string);
+      }
+    }
   }
 
   // ---------------------------------------------------------------------------

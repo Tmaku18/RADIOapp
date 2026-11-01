@@ -753,6 +753,7 @@ export const songSalesApi = {
       chargesEnabled: boolean;
       payoutsEnabled: boolean;
       detailsSubmitted: boolean;
+      pendingOwedCents: number;
     }>('/payments/connect/status'),
   connectLoginLink: () =>
     api.post<{ url: string }>('/payments/connect/login-link', {}),
@@ -2037,6 +2038,13 @@ export const adminApi = {
         }>;
       }>;
     }>('/admin/payouts/pending'),
+  settleArtistPayout: (artistId: string) =>
+    api.post<{
+      transferredCents: number;
+      purchaseCount: number;
+      transferId: string | null;
+      reason?: string;
+    }>(`/admin/payouts/${artistId}/settle`, {}),
   getSongs: (params?: { 
     status?: string; 
     search?: string;

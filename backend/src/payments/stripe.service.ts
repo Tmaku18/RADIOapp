@@ -503,6 +503,25 @@ export class StripeService {
     });
   }
 
+  /** Send platform-held song-sale funds to an onboarded connected account. */
+  async createTransfer(args: {
+    amountCents: number;
+    currency: string;
+    destinationAccountId: string;
+    idempotencyKey: string;
+    metadata: Record<string, string>;
+  }): Promise<Stripe.Transfer> {
+    return this.stripe.transfers.create(
+      {
+        amount: args.amountCents,
+        currency: args.currency,
+        destination: args.destinationAccountId,
+        metadata: args.metadata,
+      },
+      { idempotencyKey: args.idempotencyKey },
+    );
+  }
+
   /** Create a login link to the Express dashboard (for onboarded accounts). */
   async createExpressLoginLink(accountId: string): Promise<Stripe.LoginLink> {
     return this.stripe.accounts.createLoginLink(accountId);

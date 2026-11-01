@@ -18,6 +18,7 @@ import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { getSupabaseClient } from '../config/supabase.config';
 import { DEFAULT_RADIO_ID } from '../radio/radio-state.service';
 import { AppVersionService } from '../app-version/app-version.service';
+import { PaymentsService } from '../payments/payments.service';
 
 @Controller('admin')
 @Roles('admin')
@@ -25,6 +26,7 @@ export class AdminController {
   constructor(
     private readonly adminService: AdminService,
     private readonly appVersionService: AppVersionService,
+    private readonly paymentsService: PaymentsService,
   ) {}
 
   /**
@@ -171,6 +173,18 @@ export class AdminController {
   @Get('payouts/pending')
   async getPendingPayouts() {
     return this.adminService.getPendingPayouts();
+  }
+
+  /**
+   * Transfer one artist's pending song-sale balance to their Connect account.
+   * No-op until charges and payouts are both enabled.
+   */
+  @Post('payouts/:artistId/settle')
+  async settleArtistPayout(@Param('artistId') artistId: string) {
+    if (!artistId?.trim()) {
+      throw new BadRequestException('artistId is required');
+    }
+    return this.paymentsService.settlePendingPayouts(artistId.trim());
   }
 
   @Get('users')
