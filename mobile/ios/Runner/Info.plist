@@ -57,6 +57,8 @@
 		<string>NETWORX saves images to your photo library when you download or share media.</string>
 		<key>ITSAppUsesNonExemptEncryption</key>
 		<false/>
+		<key>NSSupportsLiveActivities</key>
+		<true/>
 		<key>UIBackgroundModes</key>
 		<array>
 			<string>audio</string>

@@ -39,6 +39,8 @@ import flutter_local_notifications
       name: "com.tmaktechnologies.networxradio/video_mirror",
       binaryMessenger: engineBridge.applicationRegistrar.messenger()
     )
+    LiveActivityBridge.register(messenger: engineBridge.applicationRegistrar.messenger())
+
     channel.setMethodCallHandler { call, result in
       guard call.method == "mirrorHorizontally" else {
         result(FlutterMethodNotImplemented)
