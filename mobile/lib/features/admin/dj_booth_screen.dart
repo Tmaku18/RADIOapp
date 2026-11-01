@@ -8,6 +8,7 @@ import '../../core/services/audio_player_service.dart';
 import '../../core/services/dj_booth_service.dart';
 import '../../core/services/station_events_service.dart';
 import '../../core/services/whip_broadcaster.dart';
+import '../../core/ui/media_permission.dart';
 
 /// Mobile Admin DJ Booth — matches web `/admin/dj-booth`:
 /// station picker, now playing, global transport, mic (WHIP audio → radio),
@@ -337,7 +338,20 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
       await AudioPlayerService.prepareForBroadcast();
       // Let the audio session settle before getUserMedia.
       await Future<void>.delayed(const Duration(milliseconds: 350));
-      await _micBroadcaster.start(whip, video: false);
+      if (!mounted) return;
+      if (!await confirmMediaAccess(context, camera: false)) return;
+      try {
+        await _micBroadcaster.start(whip, video: false);
+      } catch (e) {
+        final text = e.toString().toLowerCase();
+        if (mounted &&
+            (text.contains('permission') ||
+                text.contains('notallowed') ||
+                text.contains('denied'))) {
+          await offerOpenSettings(context);
+        }
+        rethrow;
+      }
       if (!mounted) return;
       setState(() => _publishing = true);
 

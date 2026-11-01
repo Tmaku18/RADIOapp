@@ -6,6 +6,7 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/services/livestream_service.dart';
 import '../../core/services/whip_broadcaster.dart';
+import '../../core/ui/media_permission.dart';
 import 'widgets/live_chat_panel.dart';
 
 class GoLiveScreen extends StatefulWidget {
@@ -156,6 +157,20 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
       // Live DJ matches web: audio-first (camera off). Live Performances keep
       // the camera on so the stage is visible.
       final wantVideo = widget.hostType != 'dj';
+      if (!mounted || !await confirmMediaAccess(context, camera: wantVideo)) {
+        if (sessionCreated) {
+          try {
+            await _live.stop();
+          } catch (_) {}
+        }
+        if (mounted) {
+          setState(() {
+            _statusText = null;
+            _loading = false;
+          });
+        }
+        return;
+      }
       setState(() => _statusText =
           wantVideo ? 'Requesting camera & mic…' : 'Requesting microphone…');
       // Show local preview immediately so the host isn't stuck on a black
@@ -200,8 +215,15 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
         _renderer.srcObject = null;
       } catch (_) {}
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Start failed: $e')));
+      final text = e.toString().toLowerCase();
+      if (text.contains('permission') ||
+          text.contains('notallowed') ||
+          text.contains('denied')) {
+        await offerOpenSettings(context);
+      } else {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Could not start the live session. Try again.')));
+      }
       setState(() {
         _live2 = false;
         _statusText = null;

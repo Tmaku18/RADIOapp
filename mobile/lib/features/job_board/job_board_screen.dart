@@ -507,8 +507,7 @@ class _RequestDetailScreenState extends State<RequestDetailScreen> {
           title: 'Subscribe to apply',
           description:
               'Browsing requests is free. Applying and messaging creators '
-              'is free during beta, then unlocks with a Pro-Networx '
-              'subscription. Cancel anytime.',
+              'unlocks with a Pro-Networx subscription. Cancel anytime.',
         );
         if (subscribed == true && mounted) {
           await _apply();

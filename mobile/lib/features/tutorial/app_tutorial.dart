@@ -101,7 +101,7 @@ class AppTutorial {
           'Vote helps you climb as a listener. Ready to upload? Use Upload in '
           'the menu — Trial by Fire can upgrade you to artist when you qualify.\n\n'
           'Becoming an artist or producer also gifts you 10 free Discovery '
-          'placements to promote your songs once beta ends.',
+          'placements to promote your songs.',
       nav: TutorialNavTarget.voteOrPro,
     ),
     TutorialStep(
@@ -130,7 +130,7 @@ class AppTutorial {
           'beat before you buy. Artists set a sale price on upload '
           '(songs default \$0.99, beats \$9.99). '
           'Submit approved songs to The Refinery from Studio for in-depth reviews '
-          '(\$4.99 in-app, or free during beta).',
+          '(\$4.99/month in the app store).',
       nav: TutorialNavTarget.proNetworx,
     ),
     TutorialStep(
@@ -235,8 +235,8 @@ class AppTutorial {
           'Signing up as an artist or producer comes with 10 free Discovery '
           'placements (a \$19.90 value — each targets ~1,000 verified listener '
           'exposures).\n\n'
-          'They stay in your account while beta is free, so nothing is wasted. '
-          'When beta ends, open My Songs → a song → Buy placements and use the '
+          'They stay in your account until you spend them. '
+          'Open My Songs → a song → Buy placements and use the '
           '– / + picker to send as many as you want to that track. Uploaded '
           'several songs? Split the 10 however you like — 5 here, 3 there — '
           'the rest stay banked for later.',

@@ -9,17 +9,15 @@ import '../env.dart';
 /// Builds and sends the "come try NETWORX Radio" invite a listener hands to a
 /// friend.
 ///
-/// Which link a friend needs depends on the platform they will install from,
-/// and on iOS the app is still in beta, so the invite points at TestFlight
-/// rather than the App Store. Both links are overridable from `.env` because a
-/// TestFlight public link can be revoked or regenerated at any time, and a
-/// stale one in a shipped binary would send every invited friend to a dead
-/// page.
+/// Which link a friend needs depends on the platform they will install from.
+/// Both links are overridable from `.env`.
 class InviteService {
   InviteService._();
 
-  static const String _defaultTestFlightUrl =
-      'https://testflight.apple.com/join/Pxbsqkww';
+  /// Replace with the live App Store product URL via INVITE_URL_IOS after the
+  /// listing is approved. Search is a safe public default until then.
+  static const String _defaultAppStoreUrl =
+      'https://apps.apple.com/us/search?term=Networx%20Radio';
 
   static const String _defaultPlayStoreUrl =
       'https://play.google.com/store/apps/details?id=com.tmaktechnologies.networxradio';
@@ -27,7 +25,7 @@ class InviteService {
   /// Where a friend on this device's platform should go to install the app.
   static String get inviteLink {
     if (Platform.isIOS || Platform.isMacOS) {
-      return _override('INVITE_URL_IOS') ?? _defaultTestFlightUrl;
+      return _override('INVITE_URL_IOS') ?? _defaultAppStoreUrl;
     }
     return _override('INVITE_URL_ANDROID') ?? _defaultPlayStoreUrl;
   }

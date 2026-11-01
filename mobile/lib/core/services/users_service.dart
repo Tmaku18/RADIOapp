@@ -237,5 +237,71 @@ class UsersService {
   Future<void> deleteMyAccount() async {
     await _api.delete('users/me');
   }
+
+  Future<void> reportUser(
+    String userId, {
+    required String reason,
+    String? contextType,
+    String? contextId,
+  }) async {
+    await _api.post('users/$userId/report', {
+      'reason': reason,
+      if (contextType != null) 'contextType': contextType,
+      if (contextId != null) 'contextId': contextId,
+    });
+  }
+
+  Future<void> blockUser(String userId) async {
+    await _api.post('users/$userId/block', {});
+  }
+
+  Future<void> unblockUser(String userId) async {
+    await _api.delete('users/$userId/block');
+  }
+
+  Future<List<BlockedUser>> listBlockedUsers() async {
+    final res = await _api.get('users/me/blocks');
+    if (res is! Map) return const [];
+    final items = res['items'];
+    if (items is! List) return const [];
+    return items
+        .whereType<Map>()
+        .map((row) => BlockedUser.fromJson(Map<String, dynamic>.from(row)))
+        .toList();
+  }
+}
+
+class BlockedUser {
+  final String userId;
+  final String? displayName;
+  final String? username;
+  final String? avatarUrl;
+  final String? blockedAt;
+
+  const BlockedUser({
+    required this.userId,
+    this.displayName,
+    this.username,
+    this.avatarUrl,
+    this.blockedAt,
+  });
+
+  factory BlockedUser.fromJson(Map<String, dynamic> json) {
+    return BlockedUser(
+      userId: (json['userId'] ?? '').toString(),
+      displayName: json['displayName']?.toString(),
+      username: json['username']?.toString(),
+      avatarUrl: json['avatarUrl']?.toString(),
+      blockedAt: json['blockedAt']?.toString(),
+    );
+  }
+
+  String get label {
+    final name = (displayName ?? '').trim();
+    if (name.isNotEmpty) return name;
+    final handle = (username ?? '').trim();
+    if (handle.isNotEmpty) return '@$handle';
+    return 'Blocked account';
+  }
 }
 

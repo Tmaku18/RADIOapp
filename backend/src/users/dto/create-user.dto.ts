@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsEmail,
   IsString,
   IsIn,
@@ -15,7 +16,12 @@ export class CreateUserDto {
   displayName: string;
 
   @IsString()
-  @IsIn(['listener', 'artist', 'service_provider'])
+  @IsIn(['listener', 'artist', 'service_provider', 'dj', 'musician'])
   @IsOptional()
-  role?: 'listener' | 'artist' | 'service_provider';
+  role?: 'listener' | 'artist' | 'service_provider' | 'dj' | 'musician';
+
+  /** True when the client showed and the user accepted Terms and Community Guidelines. */
+  @IsBoolean()
+  @IsOptional()
+  termsAccepted?: boolean;
 }

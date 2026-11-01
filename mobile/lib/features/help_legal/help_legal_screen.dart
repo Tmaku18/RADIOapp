@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/navigation/app_routes.dart';
+import '../../core/utils/mobile_store.dart';
 import '../../core/services/app_tutorial_service.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 import '../invite/invite_friends_sheet.dart';
@@ -124,13 +125,14 @@ class HelpLegalScreen extends StatelessWidget {
               subtitle: 'Our mission and story',
               onTap: () => Navigator.pushNamed(context, AppRoutes.about),
             ),
-            _navTile(
-              context,
-              icon: Icons.attach_money,
-              title: 'Pricing',
-              subtitle: 'Plans and pricing',
-              onTap: () => _openExternal('https://pro-networx.com/pricing'),
-            ),
+            if (!isAppStorePlatform)
+              _navTile(
+                context,
+                icon: Icons.attach_money,
+                title: 'Pricing',
+                subtitle: 'Plans and pricing',
+                onTap: () => _openExternal('https://pro-networx.com/pricing'),
+              ),
           ]),
           const SizedBox(height: 24),
         ],

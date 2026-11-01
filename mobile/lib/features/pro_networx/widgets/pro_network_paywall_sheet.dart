@@ -10,6 +10,7 @@ import '../../../core/services/payments_service.dart';
 import '../../../core/services/play_billing_service.dart';
 import '../../../core/services/pro_networx_service.dart';
 import '../../../core/utils/mobile_store.dart';
+import '../../../widgets/safety/subscription_legal.dart';
 
 enum _ProPlan { solo, bundle }
 
@@ -286,8 +287,9 @@ class _ProNetworkPaywallSheetState extends State<ProNetworkPaywallSheet> {
             _PlanTile(
               selected: _plan == _ProPlan.solo,
               title: 'Pro-Networx only',
-              subtitle:
-                  '$proNetworxIntroDisplay first month, then $proNetworxRegularDisplay/mo',
+              subtitle: storeCheckout
+                  ? 'Billed monthly at the price shown by $mobileStoreLabel.'
+                  : '$proNetworxIntroDisplay first month, then $proNetworxRegularDisplay/mo',
               priceLabel: storeCheckout && _soloStorePrice != null
                   ? '$_soloStorePrice/mo'
                   : '$proNetworxRegularDisplay/mo',
@@ -343,6 +345,11 @@ class _ProNetworkPaywallSheetState extends State<ProNetworkPaywallSheet> {
                   onPressed: _busy ? null : _restoreWithStore,
                   child: const Text('Restore purchases'),
                 ),
+              ),
+              SubscriptionLegal(
+                priceLabel: _plan == _ProPlan.bundle
+                    ? (_bundleStorePrice ?? proBundleRegularDisplay)
+                    : (_soloStorePrice ?? proNetworxRegularDisplay),
               ),
             ],
           ],

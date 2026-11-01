@@ -17,6 +17,7 @@ import '../../core/services/users_service.dart';
 import '../../core/navigation/home_tab_intent.dart';
 import '../../core/utils/image_crop_picker.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
+import '../../widgets/states/app_states.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -995,8 +996,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       showNeonLine: true,
       loading: _isLoading,
       body: _user == null
-              ? const Center(child: Text('Failed to load profile'))
-              : ListView(
+              ? ErrorState(
+                  message: 'We could not load your profile.',
+                  onRetry: _loadProfile,
+                )
+              : RefreshIndicator(
+                  onRefresh: _loadProfile,
+                  child: ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
                     if (_canEditCover) ...[
@@ -1601,6 +1607,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ],
                 ),
+              ),
     );
   }
 }

@@ -27,6 +27,7 @@ import '../../core/brand/brand_assets.dart';
 import '../../core/services/albums_service.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
+import '../../widgets/safety/report_block_sheet.dart';
 import 'manage_albums_sheet.dart';
 
 class _AlbumGroup {
@@ -1084,6 +1085,18 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
       appBar: AppBar(
         title: Text(displayName),
         actions: [
+          if (!_isOwnerProfile)
+            IconButton(
+              tooltip: 'Report or block',
+              icon: const Icon(Icons.more_vert),
+              onPressed: () => ReportBlockSheet.show(
+                context,
+                userId: widget.artistId,
+                displayName: _artist?.displayName,
+                contextType: 'profile',
+                contextId: widget.artistId,
+              ),
+            ),
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
         ],
       ),

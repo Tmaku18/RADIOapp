@@ -151,8 +151,8 @@ class ProNetworxService {
       currentPeriodEnd: null,
       regularCents: 999,
       introCents: 499,
-      messagingBetaFree: true,
-      canMessage: true,
+      messagingBetaFree: false,
+      canMessage: false,
     );
   }
 
@@ -275,6 +275,10 @@ class ProNetworxService {
 
   Future<void> unbookmarkPost(String postId) async {
     await _api.delete('discovery/feed/posts/$postId/bookmark');
+  }
+
+  Future<void> reportPost(String postId, String reason) async {
+    await _api.post('discovery/feed/posts/$postId/report', {'reason': reason});
   }
 
   Future<({List<ProFeedPost> items, String? nextCursor})> listBookmarks({

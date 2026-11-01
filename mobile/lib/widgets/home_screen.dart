@@ -147,8 +147,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _openUpload() => Navigator.pushNamed(context, AppRoutes.upload);
 
+  final List<bool> _tabBuilt = [true, false, false, false, false];
+
   void _selectTab(int index) {
-    setState(() => _currentIndex = index.clamp(0, 4));
+    final next = index.clamp(0, 4);
+    setState(() {
+      _currentIndex = next;
+      _tabBuilt[next] = true;
+    });
   }
 
   Future<void> _signOut() async {
@@ -222,13 +228,21 @@ class _HomeScreenState extends State<HomeScreen> {
                           AppRoutes.proNetworxShell,
                         ),
               ),
-              PlayerScreen(
-                onOpenNavDrawer: _openNavDrawer,
-                onUpload: _openUpload,
-              ),
-              SocialFeedScreen(onOpenNavDrawer: _openNavDrawer),
-              DiscoveryScreen(onOpenNavDrawer: _openNavDrawer),
-              if (canUpload)
+              _tabBuilt[1]
+                  ? PlayerScreen(
+                      onOpenNavDrawer: _openNavDrawer,
+                      onUpload: _openUpload,
+                    )
+                  : const SizedBox.shrink(),
+              _tabBuilt[2]
+                  ? SocialFeedScreen(onOpenNavDrawer: _openNavDrawer)
+                  : const SizedBox.shrink(),
+              _tabBuilt[3]
+                  ? DiscoveryScreen(onOpenNavDrawer: _openNavDrawer)
+                  : const SizedBox.shrink(),
+              if (!_tabBuilt[4])
+                const SizedBox.shrink()
+              else if (canUpload)
                 ProNetworxShellScreen(
                   onExitToRadio: () => _selectTab(_tabRadio),
                 )
@@ -239,10 +253,44 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       // Mini player when not already on the Radio tab or Pro-Networx shell.
-      bottomNavigationBar:
-          (safeIndex != _tabRadio && !(canUpload && safeIndex == 4))
-              ? const DimensionRadioBar()
-              : null,
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (safeIndex != _tabRadio && !(canUpload && safeIndex == 4))
+            DimensionRadioBar(onOpenPlayer: () => _selectTab(_tabRadio)),
+          NavigationBar(
+            selectedIndex: safeIndex,
+            onDestinationSelected: _selectTab,
+            destinations: [
+              const NavigationDestination(
+                icon: Icon(Icons.home_outlined),
+                selectedIcon: Icon(Icons.home),
+                label: 'Home',
+              ),
+              const NavigationDestination(
+                icon: Icon(Icons.radio_outlined),
+                selectedIcon: Icon(Icons.radio),
+                label: 'Radio',
+              ),
+              const NavigationDestination(
+                icon: Icon(Icons.dynamic_feed_outlined),
+                selectedIcon: Icon(Icons.dynamic_feed),
+                label: 'Feed',
+              ),
+              const NavigationDestination(
+                icon: Icon(Icons.explore_outlined),
+                selectedIcon: Icon(Icons.explore),
+                label: 'Discover',
+              ),
+              NavigationDestination(
+                icon: Icon(canUpload ? Icons.work_outline : Icons.how_to_vote_outlined),
+                selectedIcon: Icon(canUpload ? Icons.work : Icons.how_to_vote),
+                label: canUpload ? 'Pro' : 'Vote',
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

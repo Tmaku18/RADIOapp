@@ -1,8 +1,13 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import '../../core/services/notification_settings_service.dart';
 import '../../core/services/push_notification_service.dart';
+import '../../core/services/play_billing_service.dart';
 import '../../core/services/users_service.dart';
+import '../../core/ui/friendly_error.dart';
+import '../../core/utils/mobile_store.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/theme/theme_controller.dart';
 import '../../core/auth/auth_service.dart';
@@ -49,6 +54,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   int _artistLikeCooldownMinutes = 0;
   bool _savingArtistLikeSettings = false;
   bool _savingRole = false;
+  String? _loadError;
+  String? _versionLabel;
 
   @override
   void initState() {
@@ -92,8 +99,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _restorePurchases() async {
+    try {
+      await PlayBillingService.instance.restoreSubscription(
+        PlayBillingService.instance.proRadioMonthlyProductId,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Checked the store for purchases.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyError(e))),
+      );
+    }
+  }
+
   Future<void> _loadSettings() async {
+    try {
     final auth = Provider.of<AuthService>(context, listen: false);
+    final info = await PackageInfo.fromPlatform();
     await _settingsService.initialize();
 
     final settings = await _settingsService.getAllSettings();
@@ -146,6 +172,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
             (settings['notificationsEnabled'] ?? true) &&
             serverNotificationsEnabled;
         _isLoading = false;
+        _loadError = null;
+        _versionLabel = '${info.version} (${info.buildNumber})';
+      });
+    }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _loadError = friendlyError(e);
       });
     }
   }
@@ -389,6 +424,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
       loading: _isLoading,
       body: ListView(
               children: [
+                if (_loadError != null)
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        Text(_loadError!),
+                        TextButton(
+                          onPressed: () {
+                            setState(() => _isLoading = true);
+                            _loadSettings();
+                          },
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  ),
                 if (!_systemNotificationsEnabled)
                   Container(
                     color: Colors.amber.shade100,
@@ -428,9 +479,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           const SizedBox(height: 8),
                           DropdownButtonFormField<String>(
                             key: ValueKey('role-$role'),
-                            initialValue: (role == 'artist' ||
-                                    role == 'service_provider' ||
-                                    role == 'listener')
+                            initialValue: const {
+                              'artist',
+                              'service_provider',
+                              'listener',
+                              'dj',
+                              'musician',
+                            }.contains(role)
                                 ? role
                                 : 'listener',
                             decoration: const InputDecoration(
@@ -449,6 +504,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               DropdownMenuItem(
                                 value: 'service_provider',
                                 child: Text('Producer'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'dj',
+                                child: Text('DJ'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'musician',
+                                child: Text('Musician'),
                               ),
                             ],
                             onChanged: _savingRole
@@ -472,6 +535,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ],
                       ),
                     ),
+                  _navTile(
+                    context,
+                    icon: Icons.block,
+                    title: 'Blocked accounts',
+                    subtitle: 'People you have blocked',
+                    onTap: () => Navigator.of(context)
+                        .pushNamed(AppRoutes.blockedAccounts),
+                  ),
                   _navTile(
                     context,
                     icon: Icons.delete_forever_outlined,
@@ -528,6 +599,59 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ]),
 
+                _section('Legal and support', [
+                  _navTile(
+                    context,
+                    icon: Icons.privacy_tip_outlined,
+                    title: 'Privacy policy',
+                    subtitle: 'How we use your information',
+                    onTap: () => Navigator.pushNamed(context, AppRoutes.helpLegal),
+                  ),
+                  _navTile(
+                    context,
+                    icon: Icons.gavel_outlined,
+                    title: 'Terms and community guidelines',
+                    subtitle: 'Rules for using NetworX',
+                    onTap: () => Navigator.pushNamed(context, AppRoutes.helpLegal),
+                  ),
+                  _navTile(
+                    context,
+                    icon: Icons.support_agent_outlined,
+                    title: 'Contact support',
+                    subtitle: 'FAQ and how to reach us',
+                    onTap: () => Navigator.pushNamed(context, AppRoutes.helpLegal),
+                  ),
+                  if (isMobileStorePlatform)
+                    _navTile(
+                      context,
+                      icon: Icons.restore,
+                      title: 'Restore purchases',
+                      subtitle: 'Check the store for subscriptions you already bought',
+                      onTap: _restorePurchases,
+                    ),
+                  _navTile(
+                    context,
+                    icon: Icons.logout,
+                    title: 'Sign out',
+                    subtitle: 'Sign out of this device',
+                    onTap: () async {
+                      final auth = Provider.of<AuthService>(context, listen: false);
+                      await auth.signOut();
+                      if (!context.mounted) return;
+                      Navigator.of(context).pushNamedAndRemoveUntil(
+                        AppRoutes.login,
+                        (_) => false,
+                      );
+                    },
+                  ),
+                  if (_versionLabel != null)
+                    ListTile(
+                      leading: const Icon(Icons.info_outline),
+                      title: const Text('Version'),
+                      subtitle: Text(_versionLabel!),
+                    ),
+                ]),
+
                 _section('Notifications', [
                   SwitchListTile(
                     title: const Text('Enable Notifications'),
@@ -537,14 +661,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     secondary: const Icon(Icons.notifications_outlined),
                     activeThumbColor: primary,
                   ),
-                  ListTile(
-                    leading: const Icon(Icons.notification_important_outlined),
-                    title: const Text('Send test notification'),
-                    subtitle: const Text(
-                      'Checks iPhone/Android delivery for this logged-in account',
+                  if (kDebugMode)
+                    ListTile(
+                      leading: const Icon(Icons.notification_important_outlined),
+                      title: const Text('Send test notification'),
+                      subtitle: const Text(
+                        'Checks iPhone/Android delivery for this logged-in account',
+                      ),
+                      onTap: _sendTestPush,
                     ),
-                    onTap: _sendTestPush,
-                  ),
                   SwitchListTile(
                     title: const Text('Up Next Alerts'),
                     subtitle: const Text('60 seconds before your song plays'),
@@ -888,7 +1013,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const Text(
                     'This will permanently delete your account, profile, '
                     'uploaded songs, library, chat messages, and notification '
-                    'preferences. This cannot be undone.',
+                    'preferences. This cannot be undone.\n\n'
+                    'If you subscribed in the App Store or Google Play, cancel '
+                    'that subscription in your store account first. Deleting '
+                    'the app account does not cancel a store subscription.',
                   ),
                   const SizedBox(height: 16),
                   const Text('Type DELETE to confirm:'),

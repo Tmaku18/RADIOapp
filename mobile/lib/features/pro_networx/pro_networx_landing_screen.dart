@@ -93,8 +93,8 @@ class ProNetworxLandingScreen extends StatelessWidget {
                 icon: Icons.chat_bubble_outline,
                 title: 'Direct messaging',
                 description:
-                    'Messaging is free during beta. Subscribe to keep DMs after '
-                    'beta and unlock resumes, contact info, and more.',
+                    'Subscribe to message creators and unlock resumes, '
+                    'contact info, and more.',
               ),
               const _FeatureTile(
                 icon: Icons.radio,

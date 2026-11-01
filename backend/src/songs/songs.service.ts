@@ -749,10 +749,10 @@ export class SongsService {
       .range(offset, offset + limit - 1);
 
     if (artistId) query = query.eq('artist_id', artistId);
-    if (q) {
-      // title/artist ilike search
+    const safeQuery = q.replace(/[%_,.()\\]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (safeQuery) {
       query = query.or(
-        `title.ilike.%${q}%,artist_name.ilike.%${q}%`,
+        `title.ilike.%${safeQuery}%,artist_name.ilike.%${safeQuery}%`,
       );
     }
 
@@ -770,7 +770,11 @@ export class SongsService {
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1);
       if (artistId) retry = retry.eq('artist_id', artistId);
-      if (q) retry = retry.or(`title.ilike.%${q}%,artist_name.ilike.%${q}%`);
+      if (safeQuery) {
+        retry = retry.or(
+          `title.ilike.%${safeQuery}%,artist_name.ilike.%${safeQuery}%`,
+        );
+      }
       const again = await retry;
       data = again.data;
       error = again.error;

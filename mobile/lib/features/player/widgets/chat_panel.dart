@@ -5,6 +5,7 @@ import '../../../core/services/chat_service.dart';
 import '../../../core/models/chat_message.dart';
 import '../../../core/theme/networx_extensions.dart';
 import '../../../widgets/dimension/chat_backdrop.dart';
+import '../../../widgets/safety/report_block_sheet.dart';
 
 /// Chat panel widget with production-grade UX features:
 /// - Connection indicator (green/yellow/gray dot)
@@ -248,7 +249,17 @@ class _ChatPanelState extends State<ChatPanel> {
       );
     }
 
-    return Padding(
+    return GestureDetector(
+      onLongPress: isOwnMessage || message.userId.isEmpty
+          ? null
+          : () => ReportBlockSheet.show(
+                context,
+                userId: message.userId,
+                displayName: message.displayName,
+                contextType: 'room_chat',
+                contextId: message.id,
+              ),
+      child: Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: isOwnMessage 
@@ -330,6 +341,7 @@ class _ChatPanelState extends State<ChatPanel> {
           if (isOwnMessage) const SizedBox(width: 8 + 28), // Avatar space
         ],
       ),
+    ),
     );
   }
 

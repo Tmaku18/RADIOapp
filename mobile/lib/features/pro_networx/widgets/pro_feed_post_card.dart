@@ -13,6 +13,7 @@ import 'feed_post_audio.dart';
 import 'feed_post_video.dart';
 import 'pro_network_paywall_sheet.dart';
 import 'share_post_sheet.dart';
+import '../../../widgets/safety/report_block_sheet.dart';
 
 class ProFeedPostCard extends StatefulWidget {
   const ProFeedPostCard({
@@ -328,6 +329,19 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
                     ),
                   ),
                 ),
+                if (!canDelete && post.authorUserId.isNotEmpty)
+                  IconButton(
+                    tooltip: 'Report or block',
+                    icon: const Icon(Icons.more_vert),
+                    onPressed: () => ReportBlockSheet.show(
+                      context,
+                      userId: post.authorUserId,
+                      displayName: post.authorDisplayName,
+                      postId: post.id,
+                      contextType: 'post',
+                      contextId: post.id,
+                    ),
+                  ),
                 if (canDelete)
                   IconButton(
                     icon: const Icon(Icons.delete_outline),

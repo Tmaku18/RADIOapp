@@ -7,6 +7,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   flutter_angle
   flutter_webrtc
   gtk
+  sentry_flutter
   url_launcher_linux
 )
 

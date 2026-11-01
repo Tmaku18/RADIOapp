@@ -10,6 +10,7 @@ import '../../../core/services/payments_service.dart';
 import '../../../core/services/play_billing_service.dart';
 import '../../../core/services/pro_radio_service.dart';
 import '../../../core/utils/mobile_store.dart';
+import '../../../widgets/safety/subscription_legal.dart';
 
 enum _ProPlan { solo, bundle }
 
@@ -277,8 +278,9 @@ class _ProRadioPaywallSheetState extends State<ProRadioPaywallSheet> {
             _PlanTile(
               selected: _plan == _ProPlan.solo,
               title: 'Pro-Radio only',
-              subtitle:
-                  '$proRadioIntroDisplay first month, then $proRadioRegularDisplay/mo',
+              subtitle: storeCheckout
+                  ? 'Billed monthly at the price shown by $mobileStoreLabel.'
+                  : '$proRadioIntroDisplay first month, then $proRadioRegularDisplay/mo',
               priceLabel: storeCheckout && _soloStorePrice != null
                   ? '$_soloStorePrice/mo'
                   : '$proRadioRegularDisplay/mo',
@@ -334,6 +336,11 @@ class _ProRadioPaywallSheetState extends State<ProRadioPaywallSheet> {
                   onPressed: _busy ? null : _restoreWithStore,
                   child: const Text('Restore purchases'),
                 ),
+              ),
+              SubscriptionLegal(
+                priceLabel: _plan == _ProPlan.bundle
+                    ? (_bundleStorePrice ?? proBundleRegularDisplay)
+                    : (_soloStorePrice ?? proRadioRegularDisplay),
               ),
             ],
           ],

@@ -11,6 +11,8 @@ import '../../core/services/pro_networx_service.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 import '../pro_networx/widgets/pro_network_paywall_sheet.dart';
+import '../../widgets/safety/report_block_sheet.dart';
+import '../../widgets/states/app_states.dart';
 
 class MessagesScreen extends StatefulWidget {
   /// 0 = Chats, 1 = Requests.
@@ -60,33 +62,12 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
   Widget _buildEmptyState(NetworxSurfaces surfaces) {
     final isRequests = _tab == 1;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              isRequests ? 'No message requests.' : 'No conversations yet.',
-              style: TextStyle(
-                color: surfaces.textSecondary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              isRequests
-                  ? 'DMs from people you don\'t follow show up here first.'
-                  : 'Message someone from Discover or an artist profile.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: surfaces.textMuted,
-                fontSize: 13,
-              ),
-            ),
-          ],
-        ),
-      ),
+    return EmptyState(
+      title: isRequests ? 'No message requests' : 'No conversations yet',
+      message: isRequests
+          ? 'DMs from people you don\'t follow show up here first.'
+          : 'Message someone from Discover or an artist profile.',
+      illustrationAsset: 'assets/images/illustrations/empty-messages.jpg',
     );
   }
 
@@ -196,8 +177,17 @@ class _MessagesScreenState extends State<MessagesScreen> {
             ),
           ),
           Expanded(
-            child: visible.isEmpty
-                ? _buildEmptyState(surfaces)
+            child: RefreshIndicator(
+              onRefresh: _load,
+              child: visible.isEmpty
+                ? ListView(
+                    children: [
+                      SizedBox(
+                        height: 360,
+                        child: _buildEmptyState(surfaces),
+                      ),
+                    ],
+                  )
                 : ListView.separated(
                     padding: const EdgeInsets.all(12),
                     itemCount: visible.length,
@@ -205,6 +195,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                     itemBuilder: (context, i) =>
                         _buildConversationTile(visible[i], surfaces, scheme),
                   ),
+            ),
           ),
         ],
       ),
@@ -243,7 +234,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
   bool _paywallShown = false;
   bool? _hasAccess;
   bool _canMessage = true;
-  bool _messagingBetaFree = true;
+  bool _messagingBetaFree = false;
   bool _pendingRequest = false;
   bool _accepting = false;
   List<MessageRow> _messages = const [];
@@ -313,7 +304,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
         setState(() {
           _hasAccess = false;
           _canMessage = true;
-          _messagingBetaFree = true;
+          _messagingBetaFree = false;
         });
       }
     }
@@ -468,6 +459,21 @@ class _ThreadScreenState extends State<ThreadScreen> {
                 onTap: () {
                   Navigator.pop(ctx);
                   _unsendMessage(m);
+                },
+              ),
+            if (!isMine)
+              ListTile(
+                leading: const Icon(Icons.flag_outlined),
+                title: const Text('Report or block'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  ReportBlockSheet.show(
+                    context,
+                    userId: widget.otherUserId,
+                    displayName: widget.otherDisplayName,
+                    contextType: 'message',
+                    contextId: m.id,
+                  );
                 },
               ),
           ],
@@ -795,6 +801,17 @@ class _ThreadScreenState extends State<ThreadScreen> {
       backdrop: const ChatBackdrop(),
       actions: [
         IconButton(
+          tooltip: 'Report or block',
+          onPressed: () => ReportBlockSheet.show(
+            context,
+            userId: widget.otherUserId,
+            displayName: widget.otherDisplayName,
+            contextType: 'dm',
+            contextId: widget.otherUserId,
+          ),
+          icon: const Icon(Icons.more_vert),
+        ),
+        IconButton(
           onPressed: _loading ? null : _load,
           icon: const Icon(Icons.refresh),
         ),
@@ -850,7 +867,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
                 children: [
                   Text(
                     _messagingBetaFree && _canMessage
-                        ? 'Messaging is free during beta'
+                        ? 'Messaging is included'
                         : 'Pro-Networx subscription',
                     style: DimensionTypography.cardTitle(fontSize: 14),
                   ),

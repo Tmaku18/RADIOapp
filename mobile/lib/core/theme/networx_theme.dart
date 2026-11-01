@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'dimension_theme.dart';
 import 'dimension_tokens.dart';
@@ -97,6 +98,13 @@ ThemeData buildNetworxTheme({
   final base = ThemeData(
     useMaterial3: true,
     brightness: brightness,
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+      },
+    ),
     colorScheme: scheme,
     fontFamily: kNetworxFontFamily,
     scaffoldBackgroundColor: bg,

@@ -10,8 +10,8 @@
  * Clients should keep promoting pricing while this is on, the same way
  * `isProNetworxMessagingBetaFree` already does for DMs.
  *
- * Set BETA_ALL_FREE=false to restore paid gating when beta ends.
+ * Paid by default. Set BETA_ALL_FREE=true only for an explicit free test window.
  */
 export function isBetaAllFree(): boolean {
-  return (process.env.BETA_ALL_FREE ?? 'true').toLowerCase() !== 'false';
+  return (process.env.BETA_ALL_FREE ?? 'false').toLowerCase() === 'true';
 }

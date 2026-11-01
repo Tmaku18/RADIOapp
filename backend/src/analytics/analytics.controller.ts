@@ -7,6 +7,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AnalyticsService } from './analytics.service';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
@@ -234,6 +235,7 @@ export class AnalyticsController {
   /**
    * Record that the current user clicked the artist's profile from the player (for per-play analytics).
    */
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Post('profile-click')
   @UseGuards(RolesGuard)
   @Roles('listener', 'artist', 'admin')

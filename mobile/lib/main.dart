@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:provider/provider.dart';
@@ -28,8 +30,18 @@ import 'widgets/splash_loading_screen.dart';
 import 'features/welcome/welcome_landing_screen.dart';
 import 'firebase_options.dart';
 
-void main() async {
+Future<void> _startApp() async {
   WidgetsFlutterBinding.ensureInitialized();
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    if (kReleaseMode) {
+      debugPrint(details.exceptionAsString());
+    }
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('Uncaught error: $error');
+    return true;
+  };
 
   try {
     await dotenv.load(fileName: '.env');
@@ -114,12 +126,28 @@ void main() async {
     debugPrint('App will continue but authentication features will not work');
   }
 
+  final dsn = env('SENTRY_DSN');
+  if (dsn != null && dsn.isNotEmpty) {
+    await SentryFlutter.init((options) {
+      options.dsn = dsn;
+      options.tracesSampleRate = 0.1;
+    });
+  }
+
   final navigatorKey = GlobalKey<NavigatorState>();
   runApp(MyApp(
     firebaseInitialized: firebaseInitialized,
     themeController: themeController,
     navigatorKey: navigatorKey,
   ));
+}
+
+void main() {
+  runZonedGuarded(() async {
+    await _startApp();
+  }, (error, stack) {
+    debugPrint('Zone error: $error');
+  });
 }
 
 class MyApp extends StatefulWidget {
@@ -267,9 +295,11 @@ class AuthWrapper extends StatelessWidget {
         return StreamBuilder(
           stream: authService.authStateChanges,
           builder: (context, snapshot) {
-            debugPrint(
-              'AuthWrapper: connectionState=${snapshot.connectionState}, hasData=${snapshot.hasData}, data=${snapshot.data}',
-            );
+            if (kDebugMode) {
+              debugPrint(
+                'AuthWrapper: connectionState=${snapshot.connectionState}, hasData=${snapshot.hasData}',
+              );
+            }
 
             // Show branded loading screen while checking auth state
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -289,7 +319,9 @@ class AuthWrapper extends StatelessWidget {
                         color: Colors.red,
                       ),
                       const SizedBox(height: 16),
-                      Text('Error: ${snapshot.error}'),
+                      const Text(
+                        'We could not finish signing you in. Try again.',
+                      ),
                       const SizedBox(height: 16),
                       ElevatedButton(
                         onPressed: () => Navigator.of(

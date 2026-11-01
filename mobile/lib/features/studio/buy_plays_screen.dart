@@ -414,7 +414,7 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
                                   const SizedBox(height: 4),
                                   Text(
                                     _creditsBalance!.welcomePlacementsLocked
-                                        ? 'Gifted at signup. They unlock when beta ends — we won’t use them yet.'
+                                        ? 'Gifted at signup. Spend them on a song whenever you are ready.'
                                         : 'Split them however you like across your songs — no charge.',
                                     style: TextStyle(
                                       color: surfaces.textSecondary,

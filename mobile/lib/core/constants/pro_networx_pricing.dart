@@ -14,8 +14,8 @@ final String proNetworxRegularDisplay =
 final String proNetworxIntroDisplay =
     formatProNetworxPriceUsd(proNetworxIntroCents);
 
-/// Soft promo shown while messaging is free during beta.
+/// Promo line for the messaging paywall.
 final String proNetworxMessagingBetaPromo =
-    'Messaging is free during beta. Pro-Networx is $proNetworxIntroDisplay '
-    'first month, then $proNetworxRegularDisplay/mo — or Pro Bundle '
-    '(Radio + Networx) for \$12.99/mo.';
+    'Pro-Networx is $proNetworxIntroDisplay '
+    'first month on the web, then $proNetworxRegularDisplay/mo — or Pro Bundle '
+    '(Radio + Networx) for \$12.99/mo. The app store shows its own price.';

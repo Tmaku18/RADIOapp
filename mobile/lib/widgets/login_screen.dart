@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../core/auth/auth_service.dart';
 import '../core/navigation/app_routes.dart';
 import '../core/theme/networx_tokens.dart';
@@ -23,7 +24,16 @@ class _LoginScreenState extends State<LoginScreen> {
   final _displayNameController = TextEditingController();
   bool _isSignUp = false;
   bool _isSubmitting = false;
+  bool _agreedToTerms = false;
   String _selectedRole = 'artist';
+
+  static const _roleItems = <DropdownMenuItem<String>>[
+    DropdownMenuItem(value: 'listener', child: Text('Listener')),
+    DropdownMenuItem(value: 'artist', child: Text('Artist')),
+    DropdownMenuItem(value: 'service_provider', child: Text('Producer')),
+    DropdownMenuItem(value: 'dj', child: Text('DJ')),
+    DropdownMenuItem(value: 'musician', child: Text('Musician')),
+  ];
   bool _appliedRouteArgs = false;
 
   @override
@@ -49,9 +59,44 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
+  Future<void> _sendPasswordReset() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter your email first.')),
+      );
+      return;
+    }
+    final authService = Provider.of<AuthService>(context, listen: false);
+    try {
+      await authService.sendPasswordResetEmail(email);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Password reset email sent.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not send a reset email. Check the address.'),
+        ),
+      );
+    }
+  }
+
   Future<void> _handleEmailSignIn() async {
     if (_isSubmitting) return;
     if (!_formKey.currentState!.validate()) return;
+    if (_isSignUp && !_agreedToTerms) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Agree to the Terms and Community Guidelines to create an account.',
+          ),
+        ),
+      );
+      return;
+    }
 
     final authService = Provider.of<AuthService>(context, listen: false);
     setState(() => _isSubmitting = true);
@@ -211,6 +256,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final controller = TextEditingController(text: suggested);
     final formKey = GlobalKey<FormState>();
     var selectedRole = 'artist';
+    var agreed = false;
     final result = await showDialog<({String name, String role})>(
       context: context,
       barrierDismissible: false,
@@ -248,24 +294,21 @@ class _LoginScreenState extends State<LoginScreen> {
                     DropdownButtonFormField<String>(
                       initialValue: selectedRole,
                       decoration: const InputDecoration(labelText: 'Role'),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'listener',
-                          child: Text('Listener'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'artist',
-                          child: Text('Artist'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'service_provider',
-                          child: Text('Producer'),
-                        ),
-                      ],
+                      items: _roleItems,
                       onChanged: (value) {
                         if (value == null) return;
                         setDialogState(() => selectedRole = value);
                       },
+                    ),
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: agreed,
+                      onChanged: (value) =>
+                          setDialogState(() => agreed = value ?? false),
+                      title: const Text(
+                        'I agree to the Terms and Community Guidelines. There is no tolerance for objectionable content.',
+                      ),
+                      controlAffinity: ListTileControlAffinity.leading,
                     ),
                   ],
                 ),
@@ -277,11 +320,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 FilledButton(
                   onPressed: () {
-                    if (formKey.currentState!.validate()) {
-                      Navigator.of(
-                        dialogContext,
-                      ).pop((name: controller.text.trim(), role: selectedRole));
-                    }
+                    if (!formKey.currentState!.validate()) return;
+                    if (!agreed) return;
+                    Navigator.of(
+                      dialogContext,
+                    ).pop((name: controller.text.trim(), role: selectedRole));
                   },
                   child: const Text('Continue'),
                 ),
@@ -436,20 +479,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ? NetworxTokens.charcoalMatte
                                     : NetworxTokens.lightSurface,
                                 style: TextStyle(color: onPage),
-                                items: const [
-                                  DropdownMenuItem(
-                                    value: 'listener',
-                                    child: Text('Listener'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'artist',
-                                    child: Text('Artist'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'service_provider',
-                                    child: Text('Producer'),
-                                  ),
-                                ],
+                                items: _roleItems,
                                 onChanged: (value) {
                                   setState(() {
                                     _selectedRole = value!;
@@ -513,7 +543,73 @@ class _LoginScreenState extends State<LoginScreen> {
                                   return null;
                                 },
                               ),
+                              const SizedBox(height: 8),
+                              CheckboxListTile(
+                                contentPadding: EdgeInsets.zero,
+                                value: _agreedToTerms,
+                                onChanged: (value) => setState(
+                                  () => _agreedToTerms = value ?? false,
+                                ),
+                                controlAffinity: ListTileControlAffinity.leading,
+                                title: Wrap(
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    Text(
+                                      'I agree to the ',
+                                      style: TextStyle(color: onPage),
+                                    ),
+                                    GestureDetector(
+                                      onTap: () => launchUrl(
+                                        Uri.parse(
+                                          'https://pro-networx.com/terms',
+                                        ),
+                                        mode: LaunchMode.externalApplication,
+                                      ),
+                                      child: Text(
+                                        'Terms',
+                                        style: TextStyle(
+                                          color: linkColor,
+                                          decoration: TextDecoration.underline,
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      ' and ',
+                                      style: TextStyle(color: onPage),
+                                    ),
+                                    GestureDetector(
+                                      onTap: () => launchUrl(
+                                        Uri.parse(
+                                          'https://pro-networx.com/community-guidelines',
+                                        ),
+                                        mode: LaunchMode.externalApplication,
+                                      ),
+                                      child: Text(
+                                        'Community Guidelines',
+                                        style: TextStyle(
+                                          color: linkColor,
+                                          decoration: TextDecoration.underline,
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      '. No tolerance for objectionable content.',
+                                      style: TextStyle(color: onPage),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ],
+                            if (!_isSignUp)
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton(
+                                  onPressed: _isSubmitting
+                                      ? null
+                                      : _sendPasswordReset,
+                                  child: const Text('Forgot password?'),
+                                ),
+                              ),
                             const SizedBox(height: 18),
                             SizedBox(
                               width: double.infinity,

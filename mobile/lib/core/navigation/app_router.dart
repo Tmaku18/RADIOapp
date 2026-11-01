@@ -33,6 +33,7 @@ import '../../features/refinery/refinery_review_screen.dart';
 import '../../features/refinery/refinery_analytics_screen.dart';
 import '../../features/room/room_screen.dart';
 import '../../features/help_legal/help_legal_screen.dart';
+import '../../features/settings/blocked_accounts_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/studio/buy_plays_screen.dart';
 import '../../features/studio/live_services_screen.dart';
@@ -75,6 +76,8 @@ class AppRouter {
         return _route(const RequireArtist(child: PaymentScreen()), settings);
       case AppRoutes.settings:
         return _route(const SettingsScreen(), settings);
+      case AppRoutes.blockedAccounts:
+        return _route(const BlockedAccountsScreen(), settings);
       case AppRoutes.helpLegal:
         return _route(const HelpLegalScreen(), settings);
       case AppRoutes.notifications:

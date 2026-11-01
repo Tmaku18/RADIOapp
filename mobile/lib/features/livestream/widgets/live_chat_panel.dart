@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../../widgets/safety/report_block_sheet.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/services/livestream_service.dart';
 
@@ -276,8 +277,22 @@ class _LiveChatPanelState extends State<LiveChatPanel> {
                       final body = (m['message'] ?? '').toString();
                       final isHost = m['isHost'] == true;
                       return InkWell(
-                        onLongPress:
-                            widget.canModerate ? () => _confirmDelete(m) : null,
+                        onLongPress: () {
+                          final userId = (m['userId'] ?? m['user_id'] ?? '')
+                              .toString();
+                          if (widget.canModerate) {
+                            _confirmDelete(m);
+                            return;
+                          }
+                          if (userId.isEmpty) return;
+                          ReportBlockSheet.show(
+                            context,
+                            userId: userId,
+                            displayName: name,
+                            contextType: 'live_chat',
+                            contextId: m['id']?.toString(),
+                          );
+                        },
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 2),
                           child: RichText(

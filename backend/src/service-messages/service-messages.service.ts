@@ -402,6 +402,15 @@ export class ServiceMessagesService {
 
     if (otherIds.size === 0) return [];
 
+    const hidden = await this.usersService.getHiddenAuthorIds(userId);
+    for (final id of [...otherIds]) {
+      if (hidden.has(id)) {
+        otherIds.delete(id);
+        lastByOther.delete(id);
+      }
+    }
+    if (otherIds.size === 0) return [];
+
     const { data: users } = await supabase
       .from('users')
       .select('id, display_name, avatar_url')

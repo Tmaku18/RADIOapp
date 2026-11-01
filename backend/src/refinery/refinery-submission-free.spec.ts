@@ -14,10 +14,10 @@ describe('isRefinerySubmissionFree', () => {
     restore('BETA_ALL_FREE', originalBeta);
   });
 
-  it('is free during beta so mobile has a way into The Refinery', () => {
+  it('charges by default when the beta flag is unset', () => {
     delete process.env.REFINERY_FREE_SUBMISSIONS;
     delete process.env.BETA_ALL_FREE;
-    expect(isRefinerySubmissionFree()).toBe(true);
+    expect(isRefinerySubmissionFree()).toBe(false);
   });
 
   it('follows the master beta switch when unset', () => {

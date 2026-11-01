@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'networx_tokens.dart';
+
 /// NETWORX visual tokens — a restrained, music-first system: near-black (or
 /// pure white) surfaces, the electric cyan brand accent used sparingly, and
 /// depth from elevation rather than glow.
@@ -38,7 +40,7 @@ class DimensionTokens {
   static const Color _bgBaseDark = Color(0xFF000000);
   static const Color _bgSurfaceDark = Color(0xFF1C1C1E);
   static const Color _bgElevatedDark = Color(0xFF2C2C2E);
-  static const Color _accentDark = Color(0xFF00F0FF);
+  static const Color _accentDark = NetworxTokens.electricCyan;
   static const Color _accentPressedDark = Color(0xFF67E8F9);
   static const Color _warningDark = Color(0xFFFFD60A);
   static const Color _textPrimaryDark = Color(0xFFFFFFFF);
@@ -49,7 +51,7 @@ class DimensionTokens {
   static const Color _bgBaseLight = Color(0xFFFFFFFF);
   static const Color _bgSurfaceLight = Color(0xFFF2F2F7);
   static const Color _bgElevatedLight = Color(0xFFFFFFFF);
-  static const Color _accentLight = Color(0xFF0E7490);
+  static const Color _accentLight = NetworxTokens.lightPrimary;
   static const Color _accentPressedLight = Color(0xFF0E9AA7);
   static const Color _warningLight = Color(0xFFB25000);
   static const Color _textPrimaryLight = Color(0xFF000000);

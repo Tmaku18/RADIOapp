@@ -578,7 +578,9 @@ class _UploadScreenState extends State<UploadScreen> {
   @override
   Widget build(BuildContext context) {
     final surfaces = context.networxSurfaces;
-    return DimensionScreenShell(
+    return PopScope(
+      canPop: !_isUploading,
+      child: DimensionScreenShell(
       title: _isBeat ? 'Upload Beat' : 'Upload Music',
       showNeonLine: true,
       body: _readyForRotation
@@ -1064,6 +1066,13 @@ class _UploadScreenState extends State<UploadScreen> {
                         const SizedBox(height: 10),
                       ],
                     ),
+                  if (_isUploading)
+                    TextButton(
+                      onPressed: null,
+                      child: const Text(
+                        'Stay on this screen until the upload finishes.',
+                      ),
+                    ),
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton(
@@ -1080,6 +1089,7 @@ class _UploadScreenState extends State<UploadScreen> {
                 ],
               ),
             ),
+      ),
     );
   }
 }

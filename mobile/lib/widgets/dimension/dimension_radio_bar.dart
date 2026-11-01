@@ -14,6 +14,7 @@ import '../../features/player/dimension_player_controller.dart';
 import '../../features/player/widgets/synced_lyrics_panel.dart';
 import '../../features/pro_radio/widgets/add_to_playlist_sheet.dart';
 import 'dimension_widgets.dart';
+import '../motion/now_playing_bars.dart';
 
 /// The persistent now-playing bar.
 ///
@@ -23,7 +24,11 @@ import 'dimension_widgets.dart';
 /// they now live in the full-screen player, one tap away, or in the long-press
 /// menu here.
 class DimensionRadioBar extends StatelessWidget {
-  const DimensionRadioBar({super.key});
+  const DimensionRadioBar({super.key, this.onOpenPlayer});
+
+  /// When set, a tap or upward drag opens the in-shell player instead of
+  /// pushing a second [PlayerScreen] route.
+  final VoidCallback? onOpenPlayer;
 
   static const double _artSize = 48;
   static const double _rowHeight = 64;
@@ -150,7 +155,29 @@ class DimensionRadioBar extends StatelessWidget {
             final item = media is MediaItem ? media : null;
             if (item == null) return const SizedBox.shrink();
 
-            final bar = DecoratedBox(
+            final openInShell = onOpenPlayer;
+            void openPlayer() {
+              HapticFeedback.lightImpact();
+              final extras = item.extras;
+              final isRadio = extras == null ||
+                  extras['source'] == 'radio' ||
+                  extras['radioId'] != null;
+              if (isRadio && openInShell != null) {
+                openInShell();
+                return;
+              }
+              if (isRadio) {
+                Navigator.of(context).pushNamed(AppRoutes.player);
+              } else {
+                _showLyricsSheet(context, item);
+              }
+            }
+
+            final bar = GestureDetector(
+              onVerticalDragEnd: (details) {
+                if ((details.primaryVelocity ?? 0) < -200) openPlayer();
+              },
+              child: DecoratedBox(
               decoration: BoxDecoration(
                 color: (isDark ? const Color(0xFF1C1C1E) : Colors.white)
                     .withValues(alpha: 0.86),
@@ -173,19 +200,7 @@ class DimensionRadioBar extends StatelessWidget {
                         children: [
                           Expanded(
                             child: InkWell(
-                              onTap: () {
-                                HapticFeedback.lightImpact();
-                                final extras = item.extras;
-                                final isRadio = extras == null ||
-                                    extras['source'] == 'radio' ||
-                                    extras['radioId'] != null;
-                                if (isRadio) {
-                                  Navigator.of(context)
-                                      .pushNamed(AppRoutes.player);
-                                } else {
-                                  _showLyricsSheet(context, item);
-                                }
-                              },
+                              onTap: openPlayer,
                               onLongPress: () =>
                                   _showActionsSheet(context, item),
                               child: Padding(
@@ -207,7 +222,14 @@ class DimensionRadioBar extends StatelessWidget {
                                             CrossAxisAlignment.start,
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          Text(
+                                          Row(
+                                            children: [
+                                              if (ctrl.isPlaying) ...[
+                                                const NowPlayingBars(),
+                                                const SizedBox(width: 6),
+                                              ],
+                                              Expanded(
+                                                child: Text(
                                             item.title,
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
@@ -218,6 +240,9 @@ class DimensionRadioBar extends StatelessWidget {
                                               fontSize: 15,
                                               letterSpacing: -0.2,
                                             ),
+                                          ),
+                                              ),
+                                            ],
                                           ),
                                           const SizedBox(height: 1),
                                           _SubtitleLine(
@@ -255,6 +280,7 @@ class DimensionRadioBar extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
             );
 
             return ClipRect(

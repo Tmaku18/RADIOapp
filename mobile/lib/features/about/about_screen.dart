@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/services/analytics_service.dart';
+import '../../core/utils/mobile_store.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../core/analytics/analytics_metrics.dart';
 import '../../core/theme/networx_tokens.dart';
@@ -200,12 +201,13 @@ class _AboutScreenState extends State<AboutScreen> {
             url: 'https://pro-networx.com/contact',
             inApp: false,
           ),
-          _LinkTile(
-            icon: Icons.attach_money,
-            title: 'Pricing',
-            url: 'https://pro-networx.com/pricing',
-            inApp: false,
-          ),
+          if (!isAppStorePlatform)
+            const _LinkTile(
+              icon: Icons.attach_money,
+              title: 'Pricing',
+              url: 'https://pro-networx.com/pricing',
+              inApp: false,
+            ),
           _LinkTile(
             icon: Icons.public,
             title: 'Pro-Directory',

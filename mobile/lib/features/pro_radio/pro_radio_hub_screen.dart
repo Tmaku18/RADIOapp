@@ -231,7 +231,7 @@ class _ProRadioHubScreenState extends State<ProRadioHubScreen> {
                   Text(
                     _hasAccess == true
                         ? (_betaFree
-                            ? 'Free during beta — play full tracks, build playlists, and control your queue.'
+                            ? 'Play full tracks, build playlists, and control your queue.'
                             : 'Play full tracks, build playlists, and control your queue.')
                         : 'Subscribe for $proRadioIntroDisplay first month, then $proRadioRegularDisplay/mo.',
                     style: theme.textTheme.bodyMedium

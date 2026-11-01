@@ -7,6 +7,7 @@ import {
   Query,
   Logger,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { RadioService } from './radio.service';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Public } from '../auth/decorators/public.decorator';
@@ -111,6 +112,7 @@ export class RadioController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @Get('next')
   async getNextTrack(
     @Query('radio') radioId?: string,
@@ -170,6 +172,7 @@ export class RadioController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @Post('presence')
   async presence(
     @Body() body: { streamToken?: string; songId: string; timestamp?: string },

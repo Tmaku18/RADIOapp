@@ -36,6 +36,8 @@ import '../../core/theme/networx_extensions.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 import '../dimension/floating_album_scene.dart';
 import 'widgets/butterfly_swarm_backdrop.dart';
+import 'widgets/frequency_visualizer.dart';
+import '../../core/ui/app_haptics.dart';
 import 'widgets/radio_up_next_queue.dart';
 import 'widgets/chat_panel.dart';
 import 'widgets/synced_lyrics_panel.dart';
@@ -520,6 +522,16 @@ class _PlayerScreenState extends State<PlayerScreen>
     if (selected != null) {
       await _changeStation(selected);
     }
+  }
+
+  Future<void> _cycleStation(int direction) async {
+    if (_stationOptions.isEmpty) return;
+    final index = _stationOptions.indexWhere((s) => s.id == _radioId);
+    final current = index < 0 ? 0 : index;
+    final next = (current + direction) % _stationOptions.length;
+    final wrapped = next < 0 ? _stationOptions.length - 1 : next;
+    AppHaptics.selection();
+    await _changeStation(_stationOptions[wrapped]);
   }
 
   Future<void> _loadInitialTrack() async {
@@ -1552,6 +1564,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                       radioId: _radioId,
                       stationLabel: _activeStation.genre,
                       onChangeStation: _openStationPicker,
+                      onCycleStation: _cycleStation,
                       risingStarText: _risingStarText,
                       ad: _ad,
                       isPlaying: _isPlaying,
@@ -2081,6 +2094,7 @@ class _PlayerBody extends StatelessWidget {
   final String radioId;
   final String stationLabel;
   final VoidCallback onChangeStation;
+  final Future<void> Function(int direction) onCycleStation;
   final String? risingStarText;
   final VenueAd? ad;
   final bool isPlaying;
@@ -2108,6 +2122,7 @@ class _PlayerBody extends StatelessWidget {
     required this.radioId,
     required this.stationLabel,
     required this.onChangeStation,
+    required this.onCycleStation,
     required this.risingStarText,
     required this.ad,
     required this.isPlaying,
@@ -2135,12 +2150,25 @@ class _PlayerBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final surfaces = context.networxSurfaces;
     final scheme = Theme.of(context).colorScheme;
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
     Widget albumArt() {
       final artworkUrl = BrandAssets.displayArtworkUrl(track.artworkUrl);
-      return AspectRatio(
+      return GestureDetector(
+        onDoubleTap: () {
+          AppHaptics.light();
+          onReact('fire');
+        },
+        onHorizontalDragEnd: (details) {
+          final velocity = details.primaryVelocity ?? 0;
+          if (velocity.abs() < 250) return;
+          onCycleStation(velocity < 0 ? 1 : -1);
+        },
+        child: AspectRatio(
         aspectRatio: 1,
-        child: DecoratedBox(
+        child: Hero(
+          tag: 'now-playing-art',
+          child: DecoratedBox(
           // The one place in the app that gets a real drop shadow — it lifts
           // the cover off its own blurred backdrop.
           decoration: BoxDecoration(
@@ -2189,6 +2217,8 @@ class _PlayerBody extends StatelessWidget {
                   ),
               ],
             ),
+          ),
+        ),
           ),
         ),
       );
@@ -2306,19 +2336,9 @@ class _PlayerBody extends StatelessWidget {
                       ),
                     ),
                   ),
-                  OutlinedButton.icon(
+                  TextButton(
                     onPressed: onChangeStation,
-                    icon: const Icon(Icons.swap_horiz),
-                    label: const Text('Change station'),
-                    style: isShortScreen
-                        ? OutlinedButton.styleFrom(
-                            visualDensity: VisualDensity.compact,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                          )
-                        : null,
+                    child: const Text('Stations'),
                   ),
                 ],
               ),
@@ -2499,16 +2519,27 @@ class _PlayerBody extends StatelessWidget {
                     onPressed: onEnterRoom,
                   ),
                   SizedBox(width: isShortScreen ? 28 : 40),
-                  IconButton(
-                    onPressed: onPlayPause,
-                    iconSize: controlsIconSize,
-                    padding: EdgeInsets.zero,
-                    color: scheme.onSurface,
-                    tooltip: isPlaying ? 'Pause' : 'Play',
-                    icon: Icon(
-                      isPlaying
-                          ? Icons.pause_rounded
-                          : Icons.play_arrow_rounded,
+                  Semantics(
+                    button: true,
+                    label: isPlaying ? 'Pause' : 'Play',
+                    child: IconButton(
+                      onPressed: () {
+                        AppHaptics.light();
+                        onPlayPause();
+                      },
+                      iconSize: controlsIconSize,
+                      padding: EdgeInsets.zero,
+                      color: scheme.onSurface,
+                      tooltip: isPlaying ? 'Pause' : 'Play',
+                      icon: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 180),
+                        child: Icon(
+                          isPlaying
+                              ? Icons.pause_rounded
+                              : Icons.play_arrow_rounded,
+                          key: ValueKey(isPlaying),
+                        ),
+                      ),
                     ),
                   ),
                   SizedBox(width: isShortScreen ? 28 : 40),
@@ -2576,6 +2607,10 @@ class _PlayerBody extends StatelessWidget {
                       SizedBox(height: sectionGap),
                     ],
                     art,
+                    if (!reduceMotion) ...[
+                      const SizedBox(height: 12),
+                      FrequencyVisualizer(isPlaying: isPlaying),
+                    ],
                     SizedBox(height: outerPadding),
                     details,
                   ],

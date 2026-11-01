@@ -27,6 +27,7 @@ class ProfileSetupRequiredException implements Exception {
 }
 
 class AuthService extends ChangeNotifier with WidgetsBindingObserver {
+  String? _pendingAppleAuthorizationCode;
   final bool firebaseInitialized;
   FirebaseAuth? _auth;
   // google_sign_in v7 is a singleton and must be initialized once before use.
@@ -159,6 +160,7 @@ class AuthService extends ChangeNotifier with WidgetsBindingObserver {
           'email': email,
           'displayName': displayName,
           'role': role,
+          'termsAccepted': true,
         });
 
         return await _getUserProfile();
@@ -197,41 +199,13 @@ class AuthService extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<GoogleSignInAccount> _authenticateWithGoogle() async {
-    try {
-      return await _googleSignIn.authenticate(
-        scopeHint: const <String>['email', 'openid'],
-      );
-    } on GoogleSignInException catch (e) {
-      if (e.code != GoogleSignInExceptionCode.canceled) rethrow;
-      // One retry after clearing any stale Google session.
-      try {
-        await _googleSignIn.signOut();
-      } catch (_) {}
-      return _googleSignIn.authenticate(
-        scopeHint: const <String>['email', 'openid'],
-      );
-    }
+    return _googleSignIn.authenticate(
+      scopeHint: const <String>['email', 'openid'],
+    );
   }
 
-  String _googleSignInCanceledMessage(GoogleSignInException e) {
-    final detail = e.description?.trim();
-    final detailSuffix =
-        detail != null && detail.isNotEmpty ? '\n($detail)' : '';
-    final isReauthFailed =
-        detail != null && detail.toLowerCase().contains('reauth');
-    if (isReauthFailed) {
-      return 'Google sign-in did not complete.$detailSuffix\n\n'
-          'This usually means the OAuth client does not match how the app was signed:\n'
-          '• Play Store install → Firebase must list the Play App Signing SHA-1 '
-          '(ED:16:9D:AB:…)\n'
-          '• Sideloaded release APK → needs your upload-key SHA-1 in Firebase too\n'
-          '• OAuth consent screen in Testing → add your Gmail under Test users\n'
-          '• On device: Settings → Apps → Google Play services → Storage → Clear cache';
-    }
-    return 'Google sign-in did not complete.$detailSuffix\n\n'
-        'Play Store builds need the Play App Signing SHA-1 in Firebase. '
-        'If OAuth is in Testing mode, add your Gmail under Test users in '
-        'Google Cloud Console → OAuth consent screen.';
+  bool _isMissingProfile(Object error) {
+    return error is ApiException && error.statusCode == 404;
   }
 
   String _googleDeveloperErrorMessage(PlatformException e) {
@@ -299,9 +273,7 @@ class AuthService extends ChangeNotifier with WidgetsBindingObserver {
           debugPrint('Backend profile lookup timed out after Google sign-in.');
           return _buildFallbackUser(firebaseUser);
         } catch (e) {
-          // No backend profile yet: a display name is mandatory, so hand control
-          // back to the UI to collect one. Pre-fill with the Google name when
-          // present; never derive from the email prefix.
+          if (!_isMissingProfile(e)) rethrow;
           throw ProfileSetupRequiredException(
             suggestedName: _providerName(firebaseUser.displayName),
             email: firebaseUser.email ?? '',
@@ -317,7 +289,7 @@ class AuthService extends ChangeNotifier with WidgetsBindingObserver {
         'description=${e.description} details=${e.details}',
       );
       if (e.code == GoogleSignInExceptionCode.canceled) {
-        throw Exception(_googleSignInCanceledMessage(e));
+        return null;
       }
       throw Exception('Google sign in failed: ${e.description ?? e.code}');
     } on PlatformException catch (e) {
@@ -371,6 +343,7 @@ class AuthService extends ChangeNotifier with WidgetsBindingObserver {
         throw Exception('Apple Sign-In did not return an identity token.');
       }
 
+      final appleAuthorizationCode = credential.authorizationCode;
       final oauthCredential = OAuthProvider('apple.com').credential(
         idToken: idToken,
         rawNonce: rawNonce,
@@ -381,6 +354,17 @@ class AuthService extends ChangeNotifier with WidgetsBindingObserver {
       if (userCredential.user != null) {
         final token = await userCredential.user!.getIdToken();
         _apiService.setAuthToken(token);
+        if (appleAuthorizationCode.isNotEmpty) {
+          _pendingAppleAuthorizationCode = appleAuthorizationCode;
+          try {
+            await _apiService.post('users/me/apple-authorization', {
+              'authorizationCode': appleAuthorizationCode,
+            });
+            _pendingAppleAuthorizationCode = null;
+          } catch (_) {
+            // New accounts have no row yet. completeOAuthProfile retries.
+          }
+        }
 
         // Persist given/family name onto the Firebase profile when Apple returns
         // it (only on first authorization).
@@ -400,6 +384,7 @@ class AuthService extends ChangeNotifier with WidgetsBindingObserver {
         try {
           return await _getUserProfile();
         } catch (e) {
+          if (!_isMissingProfile(e)) rethrow;
           throw ProfileSetupRequiredException(
             suggestedName: _providerName(
               appleFullName.isNotEmpty
@@ -501,7 +486,17 @@ class AuthService extends ChangeNotifier with WidgetsBindingObserver {
       'email': user.email ?? '',
       'displayName': name,
       'role': role,
+      'termsAccepted': true,
     });
+    final pendingApple = _pendingAppleAuthorizationCode;
+    if (pendingApple != null && pendingApple.isNotEmpty) {
+      try {
+        await _apiService.post('users/me/apple-authorization', {
+          'authorizationCode': pendingApple,
+        });
+        _pendingAppleAuthorizationCode = null;
+      } catch (_) {}
+    }
     try {
       await user.updateDisplayName(name);
     } catch (_) {
@@ -529,6 +524,17 @@ class AuthService extends ChangeNotifier with WidgetsBindingObserver {
       debugPrint('Error getting user profile: $e');
       return _buildFallbackUser(firebaseUser);
     }
+  }
+
+  Future<void> sendPasswordResetEmail(String email) async {
+    if (_auth == null || !firebaseInitialized) {
+      throw Exception('Firebase is not initialized. Please configure Firebase first.');
+    }
+    final trimmed = email.trim();
+    if (trimmed.isEmpty) {
+      throw Exception('Enter the email on your account.');
+    }
+    await _auth!.sendPasswordResetEmail(email: trimmed);
   }
 
   Future<void> refreshIdToken({bool forceRefresh = true}) async {

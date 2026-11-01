@@ -30,9 +30,9 @@ describe('beta all-free access', () => {
     }
   });
 
-  it('defaults to free while the product is in beta', () => {
+  it('defaults to paid unless the beta flag is explicitly on', () => {
     delete process.env.BETA_ALL_FREE;
-    expect(isBetaAllFree()).toBe(true);
+    expect(isBetaAllFree()).toBe(false);
   });
 
   it('can be switched off when beta ends', () => {

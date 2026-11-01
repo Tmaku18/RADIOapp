@@ -117,7 +117,7 @@ class _RefinerySubmitSheetState extends State<_RefinerySubmitSheet> {
   }
 
   String get _priceLabel {
-    if (_submissionFree) return 'Free during beta';
+    if (_submissionFree) return 'No fee right now';
     final price = (_priceCents / 100).toStringAsFixed(2);
     final original = (_originalCents / 100).toStringAsFixed(2);
     return '\$$price (was \$$original)';

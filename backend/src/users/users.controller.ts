@@ -69,6 +69,27 @@ export class UsersController {
     return { deleted: true };
   }
 
+  /** Store the latest Sign in with Apple authorization code so delete can revoke it. */
+  @Post('me/apple-authorization')
+  async saveAppleAuthorization(
+    @CurrentUser() user: FirebaseUser,
+    @Body() body: { authorizationCode?: string },
+  ) {
+    const code = body?.authorizationCode?.trim();
+    if (!code) {
+      throw new BadRequestException('authorizationCode is required');
+    }
+    const supabase = getSupabaseClient();
+    const { error } = await supabase
+      .from('users')
+      .update({ apple_authorization_code: code })
+      .eq('firebase_uid', user.uid);
+    if (error) {
+      throw new BadRequestException('Could not store Apple authorization');
+    }
+    return { saved: true };
+  }
+
   /**
    * Check if the current user's email is in the admin allowlist.
    * Used by frontend to skip role selection for first-time admin logins.

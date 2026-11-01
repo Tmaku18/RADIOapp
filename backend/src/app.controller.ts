@@ -1,4 +1,5 @@
-import { Controller, Get, HttpCode } from '@nestjs/common';
+import { Controller, Get, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { AppService } from './app.service';
 import { Public } from './auth/decorators/public.decorator';
 import { getSupabaseClient } from './config/supabase.config';
@@ -29,8 +30,7 @@ export class AppController {
   // so the response itself never gets misinterpreted; check `status` to alert.
   @Public()
   @Get('health')
-  @HttpCode(200)
-  async getHealth(): Promise<HealthStatus> {
+  async getHealth(@Res({ passthrough: true }) res: Response): Promise<HealthStatus> {
     const startedAt = Date.now();
     let ok = false;
     let error: string | null = null;
@@ -49,6 +49,7 @@ export class AppController {
       error = e instanceof Error ? e.message : String(e);
     }
     const latencyMs = Date.now() - startedAt;
+    if (!ok) res.status(503);
     return {
       status: ok ? 'ok' : 'degraded',
       uptime: Math.round(process.uptime()),

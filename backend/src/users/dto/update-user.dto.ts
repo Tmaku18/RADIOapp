@@ -45,9 +45,9 @@ export class UpdateUserDto {
   username?: string;
 
   /** Switch account mode between listener, artist, and catalyst (service_provider). */
-  @IsIn(['listener', 'artist', 'service_provider'])
+  @IsIn(['listener', 'artist', 'service_provider', 'dj', 'musician'])
   @IsOptional()
-  role?: 'listener' | 'artist' | 'service_provider';
+  role?: 'listener' | 'artist' | 'service_provider' | 'dj' | 'musician';
 
   @ValidateIf((o) => o.avatarUrl != null && o.avatarUrl !== '')
   @IsUrl()

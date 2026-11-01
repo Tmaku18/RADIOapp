@@ -5,6 +5,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { getSupabaseClient } from '../config/supabase.config';
@@ -241,6 +242,8 @@ export class UsersService {
       'listener',
       'artist',
       'service_provider',
+      'dj',
+      'musician',
     ]);
     // Honor signup role (listener / artist / producer). Admin emails always become admin.
     const role = adminEmails.includes(emailLower)
@@ -269,6 +272,9 @@ export class UsersService {
           display_name: displayName,
           username,
           role,
+          terms_accepted_at: createUserDto.termsAccepted
+            ? new Date().toISOString()
+            : null,
         })
         .select()
         .single();
@@ -384,7 +390,9 @@ export class UsersService {
         ),
       ]);
     } catch (err) {
-      throw new NotFoundException('User not found');
+      throw new ServiceUnavailableException(
+        'Profile lookup is temporarily unavailable',
+      );
     }
 
     if (result.error || !result.data) {
@@ -795,10 +803,12 @@ export class UsersService {
       if (
         updateUserDto.role !== 'listener' &&
         updateUserDto.role !== 'artist' &&
-        updateUserDto.role !== 'service_provider'
+        updateUserDto.role !== 'service_provider' &&
+        updateUserDto.role !== 'dj' &&
+        updateUserDto.role !== 'musician'
       ) {
         throw new BadRequestException(
-          'Role must be listener, artist, or service_provider.',
+          'Role must be listener, artist, producer, DJ, or musician.',
         );
       }
       updatePayload.role = updateUserDto.role;

@@ -1,5 +1,5 @@
 name: radio_app
-description: "A new Flutter project."
+description: "NetworX Radio — live independent radio, discovery, and creator tools."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -106,6 +106,7 @@ dependencies:
   # Local storage for settings
   shared_preferences: ^2.2.2
   package_info_plus: ^8.3.0
+  sentry_flutter: ^8.14.2
   geolocator: ^14.0.2
   http_parser: ^4.1.2
   flutter_webrtc: ^1.4.1
@@ -177,17 +178,12 @@ flutter:
     - family: Inter
       fonts:
         - asset: assets/fonts/Inter-Variable.ttf
-    - family: SpaceGrotesk
-      fonts:
-        - asset: assets/fonts/SpaceGrotesk-Variable.ttf
-    - family: Lora
-      fonts:
-        - asset: assets/fonts/Lora-Variable.ttf
 
   # Assets (include .env so flutter_dotenv can load it at runtime on device/emulator)
   assets:
     - .env
     - assets/images/branding/
+    - assets/images/illustrations/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

@@ -7,6 +7,8 @@ import {
 import { getSupabaseClient } from '../config/supabase.config';
 import { signSongAudioUrl } from '../common/song-audio.util';
 import { getFirebaseAuth } from '../config/firebase.config';
+import { revokeAppleAuthorizationCode } from '../users/apple-token-revoke';
+import Stripe from 'stripe';
 import { EmailService } from '../email/email.service';
 import { RadioService } from '../radio/radio.service';
 import { PushNotificationService } from '../push-notifications/push-notification.service';
@@ -2185,6 +2187,16 @@ export class AdminService {
       throw new NotFoundException('User not found');
     }
 
+    await this.cancelStripeSubscriptions(userId);
+    const { data: appleRow } = await supabase
+      .from('users')
+      .select('apple_authorization_code')
+      .eq('id', userId)
+      .maybeSingle();
+    await revokeAppleAuthorizationCode(
+      appleRow?.apple_authorization_code as string | null | undefined,
+    );
+
     // Delete user's songs (and storage)
     const { data: songs } = await supabase
       .from('songs')
@@ -2237,6 +2249,39 @@ export class AdminService {
     }
 
     this.logger.log(`Deleted user account ${userId}`);
+  }
+
+  /** Cancel web subscriptions so a deleted account is not billed again. */
+  private async cancelStripeSubscriptions(userId: string) {
+    const key = process.env.STRIPE_SECRET_KEY?.trim();
+    if (!key) return;
+    const stripe = new Stripe(key, { apiVersion: '2025-02-24.acacia' });
+    const supabase = getSupabaseClient();
+    const tables = [
+      'pro_radio_subscriptions',
+      'pro_network_subscriptions',
+      'creator_network_subscriptions',
+    ];
+    for (const table of tables) {
+      const { data, error } = await supabase
+        .from(table)
+        .select('stripe_subscription_id')
+        .eq('user_id', userId);
+      if (error || !data) continue;
+      for (const row of data) {
+        const id = row.stripe_subscription_id as string | null;
+        if (!id) continue;
+        try {
+          await stripe.subscriptions.cancel(id);
+        } catch (err) {
+          this.logger.warn(
+            `Could not cancel Stripe subscription ${id}: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+        }
+      }
+    }
   }
 
   /**
