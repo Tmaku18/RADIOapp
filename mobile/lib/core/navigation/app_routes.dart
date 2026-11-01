@@ -82,6 +82,9 @@ class AppRoutes {
   static const competition = '/competition';
   static const room = '/room';
   static const discovery = '/discovery';
+  static const search = '/search';
+  static const listening = '/listening';
+  static const notificationPrefs = '/settings/notifications';
   static const jobBoard = '/job-board';
   static const apply = '/apply';
   static const artistProfile = '/artist-profile';

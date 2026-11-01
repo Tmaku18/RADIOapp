@@ -16,6 +16,7 @@ import '../../core/models/track_fetch_result.dart';
 import '../../core/radio/radio_sync.dart';
 import '../../core/services/api_service.dart';
 import '../../core/services/radio_service.dart';
+import '../../core/services/growth_service.dart';
 import '../../core/services/songs_service.dart';
 import '../../core/services/song_purchase_flow.dart';
 import '../../core/services/audio_player_service.dart';
@@ -669,6 +670,12 @@ class _PlayerScreenState extends State<PlayerScreen>
     }
     if (reportPlay) {
       unawaited(_radioService.reportPlay(track.id, radioId: expectedRadioId));
+      unawaited(GrowthService().recordListen(
+        songId: track.id,
+        title: track.title,
+        artistName: track.artistName,
+        artworkUrl: track.artworkUrl,
+      ));
     }
     if (_stationContextLost(expectedSwitchId, expectedRadioId)) return;
 

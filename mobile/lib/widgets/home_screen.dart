@@ -16,6 +16,7 @@ import '../core/services/push_notification_service.dart';
 import '../core/services/location_permission_service.dart';
 import '../core/services/app_tutorial_service.dart';
 import '../features/tutorial/app_tutorial.dart';
+import '../features/home/coach_tips.dart';
 import 'dimension/dimension_radio_bar.dart';
 import 'dimension/cyber_backdrop.dart';
 import 'dimension/dimension_nav_drawer.dart';
@@ -94,7 +95,8 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) return;
     await Future<void>.delayed(const Duration(milliseconds: 300));
     if (!mounted) return;
-    await _startAppTutorial(force: false);
+    if (!mounted) return;
+    await CoachTips.showOnce(context);
   }
 
   Future<void> _startAppTutorial({required bool force}) async {

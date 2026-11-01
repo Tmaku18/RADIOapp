@@ -1394,12 +1394,44 @@ export class DiscoveryService {
     const nextCursor =
       hasMore && slice.length > 0 ? slice[slice.length - 1].created_at : null;
 
-    const items = await this.filterBlockedPosts(
+    const hydrated = await this.filterBlockedPosts(
       await this.hydrateFeedPosts(slice, params.viewerUserId ?? null),
       params.viewerUserId ?? null,
     );
+    const items = await this.rankDiscoverFeed(hydrated);
 
     return { items, nextCursor };
+  }
+
+  /**
+   * Engagement with time decay. Reported posts drop to the bottom of the page.
+   */
+  private async rankDiscoverFeed(
+    items: DiscoverFeedPost[],
+  ): Promise<DiscoverFeedPost[]> {
+    if (items.length < 2) return items;
+    const supabase = getSupabaseClient();
+    const ids = items.map((item) => item.id);
+    const { data: reports } = await supabase
+      .from('discover_feed_post_reports')
+      .select('post_id')
+      .in('post_id', ids);
+    const reported = new Set(
+      (reports ?? []).map((row: { post_id: string }) => row.post_id),
+    );
+    const now = Date.now();
+    return [...items].sort((a, b) => {
+      const score = (post: DiscoverFeedPost) => {
+        const ageHours = Math.max(
+          0,
+          (now - new Date(post.createdAt).getTime()) / 3_600_000,
+        );
+        const engagement = post.likeCount * 3 + post.commentCount * 2 + 1;
+        const raw = engagement / Math.pow(ageHours + 2, 1.3);
+        return reported.has(post.id) ? raw * 0.1 : raw;
+      };
+      return score(b) - score(a);
+    });
   }
 
   /**

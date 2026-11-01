@@ -22,6 +22,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _displayNameController = TextEditingController();
+  final _referralController = TextEditingController();
   bool _isSignUp = false;
   bool _isSubmitting = false;
   bool _agreedToTerms = false;
@@ -56,6 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _displayNameController.dispose();
+    _referralController.dispose();
     super.dispose();
   }
 
@@ -108,6 +110,7 @@ class _LoginScreenState extends State<LoginScreen> {
               _passwordController.text,
               _displayNameController.text.trim(),
               _selectedRole,
+              referralCode: _referralController.text,
             )
           : await authService.signInWithEmailAndPassword(
               _emailController.text.trim(),
@@ -232,7 +235,11 @@ class _LoginScreenState extends State<LoginScreen> {
       final name = setupResult.name;
       final role = setupResult.role;
       try {
-        await authService.completeOAuthProfile(name, role: role);
+        await authService.completeOAuthProfile(
+          name,
+          role: role,
+          referralCode: _referralController.text,
+        );
         if (!mounted) return;
         Navigator.of(
           context,
@@ -470,6 +477,16 @@ class _LoginScreenState extends State<LoginScreen> {
                                   }
                                   return null;
                                 },
+                              ),
+                              const SizedBox(height: 14),
+                              TextFormField(
+                                controller: _referralController,
+                                style: TextStyle(color: onPage),
+                                textCapitalization: TextCapitalization.characters,
+                                decoration: themedDecoration(
+                                  label: 'Referral code (optional)',
+                                  hint: 'From a friend',
+                                ),
                               ),
                               const SizedBox(height: 14),
                               DropdownButtonFormField<String>(

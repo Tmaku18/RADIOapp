@@ -42,6 +42,7 @@ import { ArtistLiveModule } from './artist-live/artist-live.module';
 import { DjBoothModule } from './dj-booth/dj-booth.module';
 import { StreamingModule } from './streaming/streaming.module';
 import { StudiosModule } from './studios/studios.module';
+import { GrowthModule } from './growth/growth.module';
 import { LoggerModule } from './common/logger';
 import { SentryModule } from './common/sentry';
 import { RequestIdMiddleware } from './common/middleware';
@@ -90,6 +91,7 @@ import { RequestIdMiddleware } from './common/middleware';
     StreamingModule,
     DjBoothModule,
     StudiosModule,
+    GrowthModule,
   ],
   controllers: [AppController],
   providers: [

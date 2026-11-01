@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:provider/provider.dart';
 import '../../core/services/notification_settings_service.dart';
+import '../../core/services/growth_service.dart';
 import '../../core/services/push_notification_service.dart';
 import '../../core/services/play_billing_service.dart';
 import '../../core/services/users_service.dart';
@@ -307,6 +309,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         setState(() => _savingDiscoverable = false);
       }
+    }
+  }
+
+  Future<void> _shareReferral() async {
+    try {
+      final profile = await GrowthService().referralProfile();
+      final code = profile['code']?.toString() ?? '';
+      if (!mounted || code.isEmpty) return;
+      await Share.share(
+        'Join me on NetworX Radio. Use my code $code when you sign up. https://www.networxradio.com',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(friendlyError(e))),
+      );
     }
   }
 
@@ -653,6 +671,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ]),
 
                 _section('Notifications', [
+                  _navTile(
+                    context,
+                    icon: Icons.tune,
+                    title: 'Notification types',
+                    subtitle: 'Followers, messages, live, quiet hours, weekly recap',
+                    onTap: () => Navigator.pushNamed(
+                      context,
+                      AppRoutes.notificationPrefs,
+                    ),
+                  ),
+                  _navTile(
+                    context,
+                    icon: Icons.headphones,
+                    title: 'Listening',
+                    subtitle: 'Sleep timer, history, offline favorites, share',
+                    onTap: () => Navigator.pushNamed(context, AppRoutes.listening),
+                  ),
+                  _navTile(
+                    context,
+                    icon: Icons.card_giftcard_outlined,
+                    title: 'Invite friends',
+                    subtitle: 'Your code gives placements or a week of Pro Radio',
+                    onTap: _shareReferral,
+                  ),
                   SwitchListTile(
                     title: const Text('Enable Notifications'),
                     subtitle: const Text('Master toggle for all notifications'),

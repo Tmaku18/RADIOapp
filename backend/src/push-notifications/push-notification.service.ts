@@ -348,16 +348,43 @@ export class PushNotificationService {
     const admin = getFirebaseAdmin();
 
     // Server master kill switch (Settings → Enable Notifications).
-    const { data: recipient } = await supabase
+    const { data: recipient, error: prefError } = await supabase
       .from('users')
-      .select('notifications_enabled')
+      .select(
+        'notifications_enabled, quiet_hours_start, quiet_hours_end',
+      )
       .eq('id', dto.userId)
       .maybeSingle();
-    if (recipient?.notifications_enabled === false) {
-      this.logger.debug(
-        `Skipping push for user ${dto.userId}: notifications_enabled=false`,
-      );
-      return false;
+    if (prefError) {
+      const { data: basic } = await supabase
+        .from('users')
+        .select('notifications_enabled')
+        .eq('id', dto.userId)
+        .maybeSingle();
+      if (basic?.notifications_enabled === false) return false;
+    } else {
+      if (recipient?.notifications_enabled === false) {
+        this.logger.debug(
+          `Skipping push for user ${dto.userId}: notifications_enabled=false`,
+        );
+        return false;
+      }
+      const hour = new Date().getUTCHours();
+      const start = recipient?.quiet_hours_start as number | null | undefined;
+      const end = recipient?.quiet_hours_end as number | null | undefined;
+      if (
+        start != null &&
+        end != null &&
+        start !== end &&
+        (start < end
+          ? hour >= start && hour < end
+          : hour >= start || hour < end)
+      ) {
+        this.logger.debug(
+          `Skipping push for user ${dto.userId}: quiet hours`,
+        );
+        return false;
+      }
     }
 
     // Get user's MOBILE device tokens only (web deprioritized for Phase 1)

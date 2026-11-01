@@ -35,6 +35,9 @@ import '../../features/room/room_screen.dart';
 import '../../features/help_legal/help_legal_screen.dart';
 import '../../features/settings/blocked_accounts_screen.dart';
 import '../../features/settings/settings_screen.dart';
+import '../../features/settings/notification_prefs_screen.dart';
+import '../../features/search/search_screen.dart';
+import '../../features/listening/listening_tools_screen.dart';
 import '../../features/studio/buy_plays_screen.dart';
 import '../../features/studio/live_services_screen.dart';
 import '../../features/studio/studio_screen.dart';
@@ -78,6 +81,12 @@ class AppRouter {
         return _route(const SettingsScreen(), settings);
       case AppRoutes.blockedAccounts:
         return _route(const BlockedAccountsScreen(), settings);
+      case AppRoutes.notificationPrefs:
+        return _route(const NotificationPrefsScreen(), settings);
+      case AppRoutes.search:
+        return _route(const SearchScreen(), settings);
+      case AppRoutes.listening:
+        return _route(const ListeningToolsScreen(), settings);
       case AppRoutes.helpLegal:
         return _route(const HelpLegalScreen(), settings);
       case AppRoutes.notifications:

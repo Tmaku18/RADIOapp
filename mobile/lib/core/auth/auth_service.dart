@@ -139,8 +139,9 @@ class AuthService extends ChangeNotifier with WidgetsBindingObserver {
     String email,
     String password,
     String displayName,
-    String role,
-  ) async {
+    String role, {
+    String? referralCode,
+  }) async {
     if (_auth == null || !firebaseInitialized) {
       throw Exception('Firebase is not initialized. Please configure Firebase first.');
     }
@@ -162,6 +163,7 @@ class AuthService extends ChangeNotifier with WidgetsBindingObserver {
           'role': role,
           'termsAccepted': true,
         });
+        await _claimReferral(referralCode);
 
         return await _getUserProfile();
       }
@@ -453,6 +455,14 @@ class AuthService extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners(); // Notify listeners to trigger UI rebuild (e.g., AuthWrapper)
   }
 
+  Future<void> _claimReferral(String? code) async {
+    final trimmed = code?.trim() ?? '';
+    if (trimmed.isEmpty) return;
+    try {
+      await _apiService.post('growth/referrals/claim', {'code': trimmed});
+    } catch (_) {}
+  }
+
   Future<app_user.User?> _getUserProfile() async {
     final response = await _apiService.get('users/me');
     return app_user.User.fromJson(response);
@@ -471,6 +481,7 @@ class AuthService extends ChangeNotifier with WidgetsBindingObserver {
   Future<app_user.User?> completeOAuthProfile(
     String displayName, {
     String role = 'listener',
+    String? referralCode,
   }) async {
     final name = displayName.trim();
     if (name.isEmpty) {
@@ -488,6 +499,7 @@ class AuthService extends ChangeNotifier with WidgetsBindingObserver {
       'role': role,
       'termsAccepted': true,
     });
+    await _claimReferral(referralCode);
     final pendingApple = _pendingAppleAuthorizationCode;
     if (pendingApple != null && pendingApple.isNotEmpty) {
       try {

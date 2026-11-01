@@ -333,6 +333,11 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
                 : null,
             title: const Text('Home'),
             actions: [
+              IconButton(
+                tooltip: 'Search',
+                onPressed: () => Navigator.pushNamed(context, AppRoutes.search),
+                icon: const Icon(Icons.search),
+              ),
               const NotificationsBellButton(),
               IconButton(
                 onPressed: () =>
