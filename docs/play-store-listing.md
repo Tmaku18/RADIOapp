@@ -1,7 +1,8 @@
 # Google Play Store Listing — Networx Radio (Android)
 
-**Last updated:** 2026-06-13  
-**Replaces:** `play-store-listing.pdf` (generated listing for “RADIOapp” — outdated)
+**Last updated:** 2026-11-01  
+**Replaces:** `play-store-listing.pdf` (generated listing for “RADIOapp” — outdated)  
+**App version this copy matches:** 1.0.87 (115)
 
 Use this document as the canonical Play Console copy. It is aligned with the current mobile app (`mobile/`), backend (`backend/`), and product terminology (`docs/branding-terminology.md`, `docs/features-summary.md`).
 
@@ -28,15 +29,15 @@ Use this document as the canonical Play Console copy. It is aligned with the cur
 | Field | Value |
 |-------|-------|
 | Store listing title | See below (30 chars max) |
-| Package name | `com.radioapp.radio_app` |
+| Package name | `com.tmaktechnologies.networxradio` |
 | Company | DISCOVERMERADIO GROUP LLC |
 | Privacy policy | `https://www.networxradio.com/privacy` |
 | Terms | `https://www.networxradio.com/terms` |
 | Support email | `support@networxradio.com` |
 | Category | Music & Audio (primary), Entertainment (secondary) |
 | Price | Free |
-| Contains ads | Yes — light, non-intrusive (no interrupting audio ads in core radio) |
-| In-app purchases | Yes — discovery placement packs + credit packs (Google Play Billing) |
+| Contains ads | No. The app does not show ads and the Android manifest removes `AD_ID`. |
+| In-app purchases | Yes — discovery placements, credit packs, Pro Radio, and Pro-Networx (Google Play Billing). Song sales on Android use Play Billing, not a browser checkout. |
 
 See also: `docs/google-play-app-content-packet.md`, `docs/legal/mobile-store-compliance-packet.md`
 
@@ -48,7 +49,7 @@ See also: `docs/google-play-app-content-packet.md`, `docs/legal/mobile-store-com
 Networx Radio: Live & Network
 ```
 
-**Character count:** 30
+**Character count:** 29
 
 ---
 
@@ -121,7 +122,7 @@ JOIN THE MOVEMENT
 
 Download Networx Radio and feel the Butterfly Effect — where one connection can change everything.
 
-Networx Radio is free to download and use. Artist discovery placements and credit packs are available via in-app purchases. ProNetworx subscription unlocks messaging and contact info (see in-app pricing).
+Networx Radio is free to download and use. There are no ads. Artist discovery placements, credit packs, Pro Radio, and the ProNetworx subscription are in-app purchases. Prices are shown in the app. ProNetworx unlocks messaging and contact info.
 ```
 
 **Approx. character count:** ~3,200 (within 4,000 limit)
@@ -131,25 +132,18 @@ Networx Radio is free to download and use. Artist discovery placements and credi
 ## What's New — Initial release (500 characters max)
 
 ```
-Version 1.0.0 — Welcome to Networx Radio!
+Version 1.0.87
 
-• Official launch of Networx Radio: The Butterfly Effect
-• Always-on democratic radio with synchronized playback
-• Fire or pass voting and live temperature scores (0–100)
-• Ripples, weekly leaderboards, and competition spotlight
-• Live chat during radio and artist livestreams
-• The Wake artist analytics dashboard
-• Discovery placements for verified artist exposure
-• Direct-to-fan song previews and purchases
-• The Refinery and The Yield for community refinement and rewards
-• ProNetworx networking: profiles, feed, services, and directory
-• Push notifications for live and account events
-• Sign in with Google, Apple, or email
-
-More heat coming soon. Download now and join from day one.
+• Report or block from a profile, post, chat, or live room
+• Now playing on your home screen, and stations in Android Auto
+• Song and station links open in the app
+• Join an artist email list from their page
+• Song-sale payouts after the artist finishes payout setup
+• Terms at sign-up, password reset, and account deletion in Settings
+• Subscription terms, privacy links, and restore purchases
 ```
 
-**Approx. character count:** ~480
+**Character count:** 410
 
 ---
 
@@ -190,20 +184,21 @@ networx, networx radio, indie music, independent artists, live radio, music stre
 
 | Field | Limit | Used | Status |
 |-------|-------|------|--------|
-| App Title | 30 | 30 | OK |
+| App Title | 30 | 29 | OK |
 | Short Description | 80 | 76 | OK |
 | Full Description | 4000 | ~3200 | OK |
-| What's New | 500 | ~480 | OK |
+| What's New | 500 | 410 | OK |
 
 ---
 
 ## Pre-submit checklist
 
 - [ ] Paste copy from this file into Play Console → Main store listing
-- [ ] Confirm `android:label` shows **Networx Radio** on device (see `mobile/android/app/src/main/AndroidManifest.xml`)
-- [ ] Upload screenshots that show **Networx** branding (not RADIOapp)
-- [ ] Feature graphic uses official NETWORX butterfly wordmark
-- [ ] Privacy / terms URLs resolve on `www.networxradio.com`
-- [ ] Data Safety form matches `docs/google-play-app-content-packet.md`
+- [x] `android:label` is **Networx Radio** (`mobile/android/app/src/main/AndroidManifest.xml`)
+- [x] Package is `com.tmaktechnologies.networxradio`
+- [x] Privacy, terms, legal, and child-safety pages returned HTTP 200 on `www.networxradio.com` (2026-11-01). In-app links open `https://pro-networx.com/privacy` and `https://pro-networx.com/terms`, which redirect to `www.pro-networx.com` and also return 200.
+- [ ] Upload screenshots that show **Networx** branding (not RADIOapp). Draft frames are in `store-assets/`; recapture from a device before upload.
+- [ ] Feature graphic uses the official NETWORX butterfly wordmark (`store-assets/play-feature-graphic.jpg`)
+- [ ] Data Safety: no ads, advertising ID not collected, account deletion is inside Settings. Details in `docs/google-play-app-content-packet.md`.
 - [ ] Play Billing product IDs match `GOOGLE_PLAY_PRODUCT_CATALOG_JSON` and mobile env
-- [ ] Remove any store assets or copy referencing Spotify login or “RADIOapp”
+- [x] Listing copy does not mention Spotify login or “RADIOapp”

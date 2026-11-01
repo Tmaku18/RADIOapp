@@ -5,8 +5,8 @@ production release forms.
 
 ## App identity
 
-- App name: NETWORX (Radio App)
-- Android package: `com.radioapp.radio_app`
+- App name: Networx Radio
+- Android package: `com.tmaktechnologies.networxradio`
 - Company: DISCOVERMERADIO GROUP LLC
 - Privacy policy URL: `https://www.networxradio.com/privacy` (publish and verify)
 - Child safety standards (CSAE) URL: `https://www.networxradio.com/child-safety` (publish and verify)
@@ -52,9 +52,9 @@ Confirm final answers with legal and product owners before submission.
 
 ## Ads declaration
 
-- Current product policy in repo indicates no interrupting audio ads in core radio,
-  but visual sponsorship/ad placements may exist in app surfaces.
-- In Play Console, set Ads declaration to match actual shipped build behavior.
+- The shipped app does not show ads. There is no ads SDK.
+- `AndroidManifest.xml` removes `com.google.android.gms.permission.AD_ID` so a Google library cannot merge the advertising ID.
+- In Play Console, set **Contains ads** to **No** and do not declare advertising ID in Data safety.
 
 ## Content rating and target audience
 
@@ -69,7 +69,7 @@ Confirm final answers with legal and product owners before submission.
 
 ## Payments declaration
 
-- Android in-app purchases use Google Play Billing.
+- Android in-app purchases use Google Play Billing. That includes discovery placements, credit packs, Pro Radio, and Pro-Networx. Song purchases on Android also use Play Billing.
 - Discovery placement purchases use Google Play Billing product packs mapped in
   `GOOGLE_PLAY_PRODUCT_CATALOG_JSON`. Each placement is a flat **$1.99** and
   targets ~**1,000 verified listener exposures** (see `pricePerPlacementCents()`
@@ -79,8 +79,8 @@ Confirm final answers with legal and product owners before submission.
 
 ## Account management and deletion
 
-- In-app account management exists via Settings/Profile flows.
-- Account deletion support contact: `support@networxradio.com`.
+- In-app account management exists via Settings.
+- Account deletion is inside the app (Settings → Delete account). Store subscriptions must be cancelled in Google Play. Support contact: `support@networxradio.com`.
 - Ensure Play listing support email and policy docs match this address.
 
 ## Final pre-submit gate (must pass)

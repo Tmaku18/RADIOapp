@@ -45,6 +45,10 @@ radio,hip hop,rap,independent,artist,live,playlist,discover,music,DJ,stream,coun
 ## What's new (1.0.87)
 
 - Report or block someone from a profile, a post, a chat, or a live room
+- Now playing on the home screen, and stations in Android Auto
+- Song and station links open in the app
+- Join an artist email list from their page
+- Song-sale payouts after the artist finishes payout setup
 - Terms acceptance and password reset on sign-up
 - Clearer subscription terms, privacy links, and restore purchases
 - Bottom navigation, a player you can swipe between stations, and friendlier empty states
@@ -68,6 +72,7 @@ Tracking: No. Data is used for app functionality, not sold, and not used to trac
 
 - Collects: name, email, user IDs, photos, audio, approximate location, purchase history, app interactions
 - Shared: with service providers that run the app (authentication, payments, crash reports). Not sold.
+- Advertising ID: not collected. The Android manifest removes `AD_ID`. Declare **Contains ads: No**.
 - Optional: camera and microphone only when the user goes live or opens the DJ booth
 - Users can request account deletion inside the app
 - Data is encrypted in transit
