@@ -13,6 +13,7 @@ import {
 import { FirebaseAuthGuard } from '../auth/guards/firebase-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { SongIdDto, SongIdListDto } from '../common/dto/request-bodies.dto';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { getSupabaseClient } from '../config/supabase.config';
@@ -82,7 +83,7 @@ export class AlbumsController {
   async setTracks(
     @CurrentUser() user: FirebaseUser,
     @Param('id') id: string,
-    @Body() body: { songIds: string[] },
+    @Body() body: SongIdListDto,
   ) {
     const artistId = await this.getArtistId(user.uid);
     return this.albums.setTracks(artistId, id, body.songIds ?? []);
@@ -92,7 +93,7 @@ export class AlbumsController {
   async addTrack(
     @CurrentUser() user: FirebaseUser,
     @Param('id') id: string,
-    @Body() body: { songId: string },
+    @Body() body: SongIdDto,
   ) {
     const artistId = await this.getArtistId(user.uid);
     return this.albums.addTrack(artistId, id, body.songId);

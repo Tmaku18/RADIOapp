@@ -15,6 +15,12 @@ import {
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { DiscoveryService } from './discovery.service';
+import {
+  CaptionDto,
+  OptionalReasonDto,
+  OptionalTextBodyDto,
+  OptionalUploadSlotDto,
+} from '../common/dto/request-bodies.dto';
 import { FirebaseAuthGuard } from '../auth/guards/firebase-auth.guard';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
@@ -255,7 +261,7 @@ export class DiscoveryController {
   async reportPost(
     @CurrentUser() user: FirebaseUser,
     @Param('id') postId: string,
-    @Body() body: { reason?: string },
+    @Body() body: OptionalReasonDto,
   ) {
     const reason = (body?.reason ?? '').trim();
     if (!reason) {
@@ -319,7 +325,7 @@ export class DiscoveryController {
   async createComment(
     @CurrentUser() user: FirebaseUser,
     @Param('id') postId: string,
-    @Body() body: { body?: string },
+    @Body() body: OptionalTextBodyDto,
   ) {
     const text = (body?.body ?? '').trim();
     if (!text) {
@@ -540,7 +546,7 @@ export class DiscoveryController {
       file?: Express.Multer.File[];
       cover?: Express.Multer.File[];
     },
-    @Body() body: { caption?: string },
+    @Body() body: CaptionDto,
   ) {
     const file = files?.file?.[0];
     const cover = files?.cover?.[0];
@@ -623,7 +629,7 @@ export class DiscoveryController {
   @Roles('listener', 'artist', 'service_provider', 'admin')
   async createFeedUploadUrl(
     @CurrentUser() user: FirebaseUser,
-    @Body() body: { contentType?: string; filename?: string },
+    @Body() body: OptionalUploadSlotDto,
   ) {
     const contentType = (body?.contentType ?? '').trim().toLowerCase();
     const isAudio = this.allowedFeedAudioMimeTypes.includes(contentType);

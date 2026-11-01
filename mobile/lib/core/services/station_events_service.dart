@@ -12,12 +12,14 @@ class DjBoothRealtimeEvent {
 
   /// WHEP (WebRTC) playback URL — required to hear WHIP-published DJ mics.
   final String? whepUrl;
+  final int? crossfadeMs;
 
   const DjBoothRealtimeEvent({
     required this.type,
     this.duckVolume,
     this.hlsUrl,
     this.whepUrl,
+    this.crossfadeMs,
   });
 
   /// Best URL to play: prefer WHEP, fall back to legacy HLS.
@@ -31,11 +33,13 @@ class DjBoothRealtimeEvent {
 
   factory DjBoothRealtimeEvent.fromMap(Map<String, dynamic> map) {
     final duck = map['duckVolume'] ?? map['duck_volume'];
+    final fade = map['crossfadeMs'] ?? map['crossfade_ms'];
     return DjBoothRealtimeEvent(
       type: (map['type'] ?? '').toString(),
       duckVolume: duck is num ? duck.toDouble() : null,
       hlsUrl: (map['hlsUrl'] ?? map['hls_url'])?.toString(),
       whepUrl: (map['whepUrl'] ?? map['whep_url'])?.toString(),
+      crossfadeMs: fade is num ? fade.toInt() : null,
     );
   }
 }

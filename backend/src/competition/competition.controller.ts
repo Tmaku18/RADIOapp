@@ -3,6 +3,7 @@ import { CompetitionService } from './competition.service';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { getSupabaseClient } from '../config/supabase.config';
+import { SongIdListDto } from '../common/dto/request-bodies.dto';
 
 @Controller('competition')
 export class CompetitionController {
@@ -16,7 +17,7 @@ export class CompetitionController {
   @Post('vote')
   async vote(
     @CurrentUser() user: FirebaseUser,
-    @Body() body: { songIds: string[] },
+    @Body() body: SongIdListDto,
   ) {
     const supabase = getSupabaseClient();
     const { data: userData } = await supabase

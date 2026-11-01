@@ -1,79 +1,78 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { randomUUID } from 'crypto';
-import { getRedisClient, isRedisAvailable } from '../config/redis.config';
+import { Queue, Worker, type ConnectionOptions } from 'bullmq';
+import { isRedisAvailable } from '../config/redis.config';
 import { PushNotificationService } from './push-notification.service';
 
-const DUE_KEY = 'pushes:due';
+const QUEUE_NAME = 'scheduled-pushes';
 
-interface QueuedPush {
-  id: string;
+export interface QueuedPush {
   userId: string;
   title: string;
   body: string;
   data?: Record<string, string>;
 }
 
+function connectionFromUrl(url: string): ConnectionOptions {
+  const parsed = new URL(url);
+  return {
+    host: parsed.hostname,
+    port: parsed.port ? Number(parsed.port) : 6379,
+    username: parsed.username || undefined,
+    password: parsed.password || undefined,
+    tls: parsed.protocol === 'rediss:' ? {} : undefined,
+    maxRetriesPerRequest: null,
+  };
+}
+
 /**
- * Durable scheduled pushes. Jobs sit in a Redis sorted set until they are due,
- * so a restart does not drop a weekly recap that was already queued.
+ * Durable pushes. BullMQ keeps the job in Redis until a worker sends it, so a
+ * restart does not drop a weekly recap that was already queued.
  */
 @Injectable()
 export class PushQueueService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PushQueueService.name);
-  private timer: ReturnType<typeof setInterval> | null = null;
+  private queue: Queue<QueuedPush> | null = null;
+  private worker: Worker<QueuedPush> | null = null;
 
   constructor(private readonly push: PushNotificationService) {}
 
-  onModuleInit() {
-    this.timer = setInterval(() => {
-      void this.drain();
-    }, 30_000);
-    if (typeof this.timer.unref === 'function') this.timer.unref();
-  }
-
-  onModuleDestroy() {
-    if (this.timer) clearInterval(this.timer);
-  }
-
-  async enqueue(job: Omit<QueuedPush, 'id'>, runAt = Date.now()) {
-    const payload: QueuedPush = { ...job, id: randomUUID() };
-    if (!(await isRedisAvailable())) {
-      await this.push.sendPushNotification(payload);
+  async onModuleInit() {
+    const url = process.env.REDIS_URL?.trim();
+    if (!url || !(await isRedisAvailable())) {
+      this.logger.warn('Push queue will send immediately until Redis is up.');
       return;
     }
-    try {
-      await getRedisClient().zadd(DUE_KEY, runAt, JSON.stringify(payload));
-    } catch (e) {
-      this.logger.warn(`Queue write failed, sending now: ${(e as Error).message}`);
-      await this.push.sendPushNotification(payload);
-    }
+    const connection = connectionFromUrl(url);
+    this.queue = new Queue<QueuedPush>(QUEUE_NAME, { connection });
+    this.worker = new Worker<QueuedPush>(
+      QUEUE_NAME,
+      async (job) => {
+        await this.push.sendPushNotification(job.data);
+      },
+      { connection },
+    );
+    this.worker.on('failed', (job, err) => {
+      this.logger.warn(`Push job ${job?.id ?? '?'} failed: ${err.message}`);
+    });
   }
 
-  async drain() {
-    if (!(await isRedisAvailable())) return;
-    let raw: string[] = [];
-    try {
-      raw = await getRedisClient().zrangebyscore(
-        DUE_KEY,
-        0,
-        Date.now(),
-        'LIMIT',
-        0,
-        25,
-      );
-    } catch (e) {
-      this.logger.warn(`Queue read failed: ${(e as Error).message}`);
+  async onModuleDestroy() {
+    await this.worker?.close();
+    await this.queue?.close();
+  }
+
+  async enqueue(job: QueuedPush, runAt = Date.now()) {
+    const delay = Math.max(0, runAt - Date.now());
+    if (!this.queue) {
+      await this.push.sendPushNotification(job);
       return;
     }
-    for (const item of raw) {
-      const removed = await getRedisClient().zrem(DUE_KEY, item);
-      if (removed !== 1) continue;
-      try {
-        const job = JSON.parse(item) as QueuedPush;
-        await this.push.sendPushNotification(job);
-      } catch (e) {
-        this.logger.warn(`Queued push failed: ${(e as Error).message}`);
-      }
-    }
+    await this.queue.add('push', job, {
+      delay,
+      removeOnComplete: 100,
+      removeOnFail: 100,
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 5_000 },
+    });
   }
 }

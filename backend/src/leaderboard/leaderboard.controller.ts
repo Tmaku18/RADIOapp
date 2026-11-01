@@ -13,6 +13,7 @@ import { RadioService } from '../radio/radio.service';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { getSupabaseClient } from '../config/supabase.config';
+import { ReactionDto } from '../common/dto/request-bodies.dto';
 
 @Controller('leaderboard')
 export class LeaderboardController {
@@ -69,7 +70,7 @@ export class LeaderboardController {
   async addLeaderboardLike(
     @CurrentUser() user: FirebaseUser,
     @Param('id') songId: string,
-    @Body() body: { playId?: string; reaction?: 'fire' | 'shit' },
+    @Body() body: ReactionDto,
   ) {
     const supabase = getSupabaseClient();
     const { data: userData } = await supabase

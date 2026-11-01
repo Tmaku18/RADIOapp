@@ -17,6 +17,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
 import { AdminService } from '../admin/admin.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { AppleAuthorizationDto } from '../common/dto/request-bodies.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateArtistLikeNotificationSettingsDto } from './dto/update-artist-like-notification-settings.dto';
 import { CurrentUser } from '../auth/decorators/user.decorator';
@@ -73,7 +74,7 @@ export class UsersController {
   @Post('me/apple-authorization')
   async saveAppleAuthorization(
     @CurrentUser() user: FirebaseUser,
-    @Body() body: { authorizationCode?: string },
+    @Body() body: AppleAuthorizationDto,
   ) {
     const code = body?.authorizationCode?.trim();
     if (!code) {

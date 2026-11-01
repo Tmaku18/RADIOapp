@@ -14,6 +14,12 @@ import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { getSupabaseClient } from '../config/supabase.config';
 import { PlaylistsService } from './playlists.service';
+import {
+  OptionalTitleDto,
+  SongIdDto,
+  SongIdListDto,
+  TitleBodyDto,
+} from '../common/dto/request-bodies.dto';
 
 @Controller('playlists')
 @UseGuards(FirebaseAuthGuard)
@@ -40,7 +46,7 @@ export class PlaylistsController {
   @Post()
   async create(
     @CurrentUser() user: FirebaseUser,
-    @Body() body: { title: string; description?: string },
+    @Body() body: TitleBodyDto,
   ) {
     const userId = await this.getUserId(user.uid);
     return this.playlists.create(userId, body);
@@ -50,7 +56,7 @@ export class PlaylistsController {
   async update(
     @CurrentUser() user: FirebaseUser,
     @Param('id') id: string,
-    @Body() body: { title?: string; description?: string },
+    @Body() body: OptionalTitleDto,
   ) {
     const userId = await this.getUserId(user.uid);
     return this.playlists.update(userId, id, body);
@@ -72,7 +78,7 @@ export class PlaylistsController {
   async addTrack(
     @CurrentUser() user: FirebaseUser,
     @Param('id') id: string,
-    @Body() body: { songId: string },
+    @Body() body: SongIdDto,
   ) {
     const userId = await this.getUserId(user.uid);
     return this.playlists.addTrack(userId, id, body.songId);
@@ -92,7 +98,7 @@ export class PlaylistsController {
   async reorder(
     @CurrentUser() user: FirebaseUser,
     @Param('id') id: string,
-    @Body() body: { songIds: string[] },
+    @Body() body: SongIdListDto,
   ) {
     const userId = await this.getUserId(user.uid);
     return this.playlists.reorder(userId, id, body.songIds ?? []);

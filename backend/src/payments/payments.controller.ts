@@ -12,6 +12,12 @@ import {
 import type { RawBodyRequest } from '@nestjs/common';
 import type { Request } from 'express';
 import { PaymentsService } from './payments.service';
+import {
+  CheckoutUrlsDto,
+  ReturnUrlsDto,
+  SignedPayloadDto,
+  SongIdDto,
+} from '../common/dto/request-bodies.dto';
 import { StripeService } from './stripe.service';
 import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
 import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
@@ -124,7 +130,7 @@ export class PaymentsController {
   /** App Store Server Notifications V2 (ASSN). Configure in App Store Connect. */
   @Public()
   @Post('app-store/notifications')
-  async appStoreNotifications(@Body() body: { signedPayload?: string }) {
+  async appStoreNotifications(@Body() body: SignedPayloadDto) {
     if (!body?.signedPayload) {
       throw new Error('signedPayload is required');
     }
@@ -204,7 +210,7 @@ export class PaymentsController {
   @Roles('artist', 'admin')
   async quickAddMinutes(
     @CurrentUser() user: FirebaseUser,
-    @Body() body: { songId: string },
+    @Body() body: SongIdDto,
     @Headers('x-client-platform') platform?: string,
   ) {
     this.paymentsService.assertStripeAllowedForDigitalGoods(platform);
@@ -285,7 +291,7 @@ export class PaymentsController {
   @UseGuards(FirebaseAuthGuard)
   async createCreatorNetworkCheckoutSession(
     @CurrentUser() user: FirebaseUser,
-    @Body() body: { successUrl?: string; cancelUrl?: string },
+    @Body() body: CheckoutUrlsDto,
     @Headers('x-client-platform') platform?: string,
   ) {
     this.paymentsService.assertStripeAllowedForDigitalGoods(platform);
@@ -316,7 +322,7 @@ export class PaymentsController {
   @UseGuards(FirebaseAuthGuard)
   async createProNetworxCheckoutSession(
     @CurrentUser() user: FirebaseUser,
-    @Body() body: { successUrl?: string; cancelUrl?: string },
+    @Body() body: CheckoutUrlsDto,
     @Headers('x-client-platform') platform?: string,
   ) {
     this.paymentsService.assertStripeAllowedForDigitalGoods(platform);
@@ -370,7 +376,7 @@ export class PaymentsController {
   @UseGuards(FirebaseAuthGuard)
   async createProRadioCheckoutSession(
     @CurrentUser() user: FirebaseUser,
-    @Body() body: { successUrl?: string; cancelUrl?: string },
+    @Body() body: CheckoutUrlsDto,
     @Headers('x-client-platform') platform?: string,
   ) {
     this.paymentsService.assertStripeAllowedForDigitalGoods(platform);
@@ -421,7 +427,7 @@ export class PaymentsController {
   @UseGuards(FirebaseAuthGuard)
   async createProBundleCheckoutSession(
     @CurrentUser() user: FirebaseUser,
-    @Body() body: { successUrl?: string; cancelUrl?: string },
+    @Body() body: CheckoutUrlsDto,
     @Headers('x-client-platform') platform?: string,
   ) {
     this.paymentsService.assertStripeAllowedForDigitalGoods(platform);
@@ -483,7 +489,7 @@ export class PaymentsController {
   @Roles('listener', 'artist', 'service_provider', 'admin')
   async connectOnboard(
     @CurrentUser() user: FirebaseUser,
-    @Body() body: { returnUrl?: string; refreshUrl?: string },
+    @Body() body: ReturnUrlsDto,
   ) {
     const userId = await this.resolveUserId(user.uid);
     return this.paymentsService.startConnectOnboarding(userId, {
@@ -519,7 +525,7 @@ export class PaymentsController {
   async createSongPurchaseCheckout(
     @CurrentUser() user: FirebaseUser,
     @Param('songId') songId: string,
-    @Body() body: { successUrl?: string; cancelUrl?: string },
+    @Body() body: CheckoutUrlsDto,
     @Headers('x-client-platform') platform?: string,
   ) {
     // Mobile buys songs with a store consumable — see grantSongPurchase.

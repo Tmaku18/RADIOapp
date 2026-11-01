@@ -13,6 +13,7 @@ import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { CreditsService } from './credits.service';
 import { AllocateCreditsDto } from './dto/allocate-credits.dto';
+import { OptionalPlacementsDto } from '../common/dto/request-bodies.dto';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 
@@ -180,7 +181,7 @@ export class CreditsController {
   async applyWelcomePlacements(
     @CurrentUser() user: FirebaseUser,
     @Param('songId') songId: string,
-    @Body() body: { placements?: number },
+    @Body() body: OptionalPlacementsDto,
   ) {
     const supabase = getSupabaseClient();
 
