@@ -2,6 +2,7 @@ import { Body, Controller, Get, Post } from '@nestjs/common';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { ProspectorYieldService } from './prospector-yield.service';
+import { ProspectorScoreDto, ProspectorSessionDto } from './radio.dto';
 
 @Controller('prospector')
 export class ProspectorController {
@@ -17,7 +18,7 @@ export class ProspectorController {
   @Post('check-in')
   async checkIn(
     @CurrentUser() user: FirebaseUser,
-    @Body() body: { sessionId?: string | null },
+    @Body() body: ProspectorSessionDto,
   ) {
     return this.prospectorYieldService.recordCheckIn(
       user.uid,
@@ -28,7 +29,7 @@ export class ProspectorController {
   @Post('refinement')
   async refinement(
     @CurrentUser() user: FirebaseUser,
-    @Body() body: { songId: string; playId?: string | null; score: number },
+    @Body() body: ProspectorScoreDto,
   ) {
     return this.prospectorYieldService.submitRefinement(user.uid, body);
   }

@@ -43,6 +43,7 @@ import { DjBoothModule } from './dj-booth/dj-booth.module';
 import { StreamingModule } from './streaming/streaming.module';
 import { StudiosModule } from './studios/studios.module';
 import { GrowthModule } from './growth/growth.module';
+import { FlagsModule } from './flags/flags.module';
 import { LoggerModule } from './common/logger';
 import { SentryModule } from './common/sentry';
 import { RequestIdMiddleware } from './common/middleware';
@@ -92,6 +93,7 @@ import { RequestIdMiddleware } from './common/middleware';
     DjBoothModule,
     StudiosModule,
     GrowthModule,
+    FlagsModule,
   ],
   controllers: [AppController],
   providers: [

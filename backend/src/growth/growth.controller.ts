@@ -11,6 +11,11 @@ import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { getSupabaseClient } from '../config/supabase.config';
 import { GrowthService } from './growth.service';
+import {
+  ClaimReferralDto,
+  RecordListenDto,
+  UpdateNotificationPrefsDto,
+} from './growth.dto';
 
 @Controller('growth')
 export class GrowthController {
@@ -42,9 +47,9 @@ export class GrowthController {
   @Post('referrals/claim')
   async claim(
     @CurrentUser() user: FirebaseUser,
-    @Body() body: { code?: string },
+    @Body() body: ClaimReferralDto,
   ) {
-    return this.growth.claimReferral(await this.userId(user.uid), body?.code ?? '');
+    return this.growth.claimReferral(await this.userId(user.uid), body.code);
   }
 
   @Get('notifications')
@@ -55,9 +60,12 @@ export class GrowthController {
   @Patch('notifications')
   async updatePrefs(
     @CurrentUser() user: FirebaseUser,
-    @Body() body: Record<string, unknown>,
+    @Body() body: UpdateNotificationPrefsDto,
   ) {
-    return this.growth.updateNotificationPrefs(await this.userId(user.uid), body ?? {});
+    return this.growth.updateNotificationPrefs(
+      await this.userId(user.uid),
+      body as unknown as Record<string, unknown>,
+    );
   }
 
   @Get('history')
@@ -69,9 +77,9 @@ export class GrowthController {
   async record(
     @CurrentUser() user: FirebaseUser,
     @Body()
-    body: { songId?: string; title?: string; artistName?: string; artworkUrl?: string },
+    body: RecordListenDto,
   ) {
-    return this.growth.recordListen(await this.userId(user.uid), body ?? {});
+    return this.growth.recordListen(await this.userId(user.uid), body);
   }
 
   @Get('favorites')

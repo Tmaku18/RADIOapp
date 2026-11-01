@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { getSupabaseClient } from '../config/supabase.config';
-import { PushNotificationService } from '../push-notifications/push-notification.service';
+import { PushQueueService } from '../push-notifications/push-queue.service';
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
@@ -32,7 +32,7 @@ export function isQuietHour(
 export class GrowthService {
   private readonly logger = new Logger(GrowthService.name);
 
-  constructor(private readonly push: PushNotificationService) {}
+  constructor(private readonly push: PushQueueService) {}
 
   async search(rawQuery: string) {
     const query = rawQuery.trim().slice(0, 80);
@@ -49,8 +49,8 @@ export class GrowthService {
   }
 
   private splitSearchRows(rows: any[]) {
-    const songs = [];
-    const people = [];
+    const songs: Array<Record<string, unknown>> = [];
+    const people: Array<Record<string, unknown>> = [];
     for (const row of rows) {
       const item = {
         id: row.id,
@@ -339,7 +339,7 @@ export class GrowthService {
             .gte('played_at', since);
           plays = count ?? 0;
         }
-        await this.push.sendPushNotification({
+        await this.push.enqueue({
           userId: artist.id,
           title: 'Your week on NetworX',
           body:

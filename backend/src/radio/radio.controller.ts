@@ -15,6 +15,7 @@ import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { ProspectorYieldService } from './prospector-yield.service';
 import { normalizeSongStationId } from './station.constants';
+import { ListenerPulseDto, ReportPlayDto } from './radio.dto';
 
 @Controller('radio')
 export class RadioController {
@@ -152,7 +153,7 @@ export class RadioController {
   }
 
   @Post('play')
-  async reportPlay(@Body() body: { songId: string; skipped?: boolean }) {
+  async reportPlay(@Body() body: ReportPlayDto) {
     await this.radioService.reportPlay(body.songId, body.skipped || false);
     return { success: true };
   }
@@ -160,7 +161,7 @@ export class RadioController {
   @Post('heartbeat')
   async heartbeat(
     @CurrentUser() user: FirebaseUser,
-    @Body() body: { streamToken?: string; songId: string; timestamp?: string },
+    @Body() body: ListenerPulseDto,
   ) {
     const result = await this.prospectorYieldService.recordHeartbeat(
       user.uid,
@@ -175,7 +176,7 @@ export class RadioController {
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @Post('presence')
   async presence(
-    @Body() body: { streamToken?: string; songId: string; timestamp?: string },
+    @Body() body: ListenerPulseDto,
   ) {
     await this.radioService.recordListenerPresence(body);
     return { received: true };

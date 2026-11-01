@@ -108,8 +108,9 @@ export const isRedisAvailable = async (): Promise<boolean> => {
     await client.ping();
     return true;
   } catch (error) {
-    logger.warn('Redis is not available, falling back to in-memory');
-    redisDisabled = true;
+    logger.warn(
+      `Redis ping failed, using the database fallback: ${(error as Error).message}`,
+    );
     return false;
   }
 };

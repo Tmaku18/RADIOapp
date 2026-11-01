@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { getRedisClient, isRedisAvailable } from '../config/redis.config';
 import { getSupabaseClient } from '../config/supabase.config';
 import * as crypto from 'crypto';
@@ -29,6 +34,8 @@ function redisKeys(radioId: string) {
     BOOTH: prefix + 'booth',
     HISTORY: prefix + 'history',
     LAST_ADVANCE_AT: prefix + 'last_advance_at',
+    ADVANCE_LOCK: prefix + 'advance_lock',
+    LAST_GOOD: prefix + 'last_good',
   };
 }
 
@@ -110,16 +117,99 @@ export interface PlaylistPersistState {
 }
 
 @Injectable()
-export class RadioStateService implements OnModuleInit {
+export class RadioStateService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(RadioStateService.name);
   private redisAvailable = false;
+  private healthTimer: ReturnType<typeof setInterval> | null = null;
 
   async onModuleInit() {
-    this.redisAvailable = await isRedisAvailable();
-    if (this.redisAvailable) {
+    await this.refreshRedisHealth();
+    this.healthTimer = setInterval(() => {
+      void this.refreshRedisHealth();
+    }, 30_000);
+    if (typeof this.healthTimer.unref === 'function') this.healthTimer.unref();
+  }
+
+  onModuleDestroy() {
+    if (this.healthTimer) clearInterval(this.healthTimer);
+  }
+
+  private async refreshRedisHealth() {
+    const available = await isRedisAvailable();
+    if (available === this.redisAvailable) return;
+    this.redisAvailable = available;
+    if (available) {
       this.logger.log('RadioStateService using Redis for state management');
     } else {
       this.logger.warn('Redis unavailable, falling back to database state');
+    }
+  }
+
+  /**
+   * Cross-instance lock so two servers cannot advance the same station.
+   * Returns true when this process should run the advance.
+   */
+  async tryAcquireAdvanceLock(
+    radioId: string,
+    token: string,
+    ttlMs = 20_000,
+  ): Promise<boolean> {
+    if (!this.redisAvailable) return true;
+    try {
+      const redis = getRedisClient();
+      const ok = await redis.set(
+        redisKeys(radioId).ADVANCE_LOCK,
+        token,
+        'PX',
+        ttlMs,
+        'NX',
+      );
+      return ok === 'OK';
+    } catch (e) {
+      this.logger.warn(`Advance lock skipped: ${(e as Error).message}`);
+      return true;
+    }
+  }
+
+  async releaseAdvanceLock(radioId: string, token: string): Promise<void> {
+    if (!this.redisAvailable) return;
+    try {
+      const redis = getRedisClient();
+      const key = redisKeys(radioId).ADVANCE_LOCK;
+      const current = await redis.get(key);
+      if (current === token) await redis.del(key);
+    } catch (e) {
+      this.logger.warn(`Advance lock release failed: ${(e as Error).message}`);
+    }
+  }
+
+  async saveLastGood(radioId: string, payload: Record<string, unknown>) {
+    if (!payload?.id || !this.redisAvailable) return;
+    try {
+      const redis = getRedisClient();
+      await redis.set(
+        redisKeys(radioId).LAST_GOOD,
+        JSON.stringify(payload),
+        'EX',
+        60 * 60 * 24,
+      );
+    } catch (e) {
+      this.logger.warn(`Last-good cache failed: ${(e as Error).message}`);
+    }
+  }
+
+  async getLastGood(
+    radioId: string,
+  ): Promise<Record<string, unknown> | null> {
+    if (!this.redisAvailable) return null;
+    try {
+      const redis = getRedisClient();
+      const raw = await redis.get(redisKeys(radioId).LAST_GOOD);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      return parsed?.id ? parsed : null;
+    } catch {
+      return null;
     }
   }
 

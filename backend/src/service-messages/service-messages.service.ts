@@ -403,7 +403,7 @@ export class ServiceMessagesService {
     if (otherIds.size === 0) return [];
 
     const hidden = await this.usersService.getHiddenAuthorIds(userId);
-    for (final id of [...otherIds]) {
+    for (const id of [...otherIds]) {
       if (hidden.has(id)) {
         otherIds.delete(id);
         lastByOther.delete(id);

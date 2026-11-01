@@ -31,7 +31,7 @@ export type StationRealtimeEvent =
       clipName: string;
       durationSeconds: number;
     }
-  | { type: 'queue_updated' };
+  | { type: 'queue_updated'; crossfadeMs?: number };
 
 @Injectable()
 export class StationRealtimeService implements OnModuleInit, OnModuleDestroy {

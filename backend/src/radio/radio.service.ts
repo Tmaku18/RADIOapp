@@ -12,6 +12,8 @@ import { directQuery, getDirectPool } from '../config/postgres.config';
 import { PushNotificationService } from '../push-notifications/push-notification.service';
 import { EmojiService } from '../chat/emoji.service';
 import { StationRealtimeService } from './station-realtime.service';
+import { CROSSFADE_MS, buildDegradedStation } from './radio-degraded';
+import { randomUUID } from 'crypto';
 import {
   RadioStateService,
   RadioState,
@@ -398,6 +400,14 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     this.lastKnownTrackByRadio.set(radioId, {
       payload,
       updatedAt: Date.now(),
+    });
+    void this.radioStateService.saveLastGood(radioId, {
+      id: payload.id,
+      title: payload.title,
+      artist_name: payload.artist_name,
+      audio_url: payload.audio_url,
+      artwork_url: payload.artwork_url,
+      duration_seconds: payload.duration_seconds,
     });
   }
 
@@ -931,7 +941,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
 
   private async broadcastQueueUpdated(radioId: string): Promise<void> {
     try {
-      await this.stationRealtime.broadcast(radioId, { type: 'queue_updated' });
+      await this.stationRealtime.broadcast(radioId, {
+        type: 'queue_updated',
+        crossfadeMs: CROSSFADE_MS,
+      });
     } catch (e) {
       this.logger.warn(
         `Failed to notify listeners of queue change on "${radioId}": ${(e as Error)?.message ?? e}`,
@@ -2479,6 +2492,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         trial_by_fire_active: trial.active,
         play_id: null,
         listener_count: 0,
+        crossfade_ms: CROSSFADE_MS,
       },
       radioId,
       now,
@@ -2620,6 +2634,15 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     if (inflight) {
       return inflight;
     }
+    const lockToken = randomUUID();
+    const acquired = await this.radioStateService.tryAcquireAdvanceLock(
+      radioId,
+      lockToken,
+    );
+    if (!acquired) {
+      const cached = this.getCachedCurrentTrack(radioId);
+      if (cached) return cached;
+    }
     // Re-point the snapshot at whatever the advance settles on. Without this the
     // cache keeps handing out the song we just left until its old clock runs
     // out, which listeners hear as the radio jumping backwards.
@@ -2636,6 +2659,9 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       return await promise;
     } finally {
       this.advanceLocks.delete(radioId);
+      if (acquired) {
+        await this.radioStateService.releaseAdvanceLock(radioId, lockToken);
+      }
     }
   }
 
@@ -2952,8 +2978,9 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     this.logger.warn(
       'No songs available for playback - free rotation table is empty',
     );
+    const degraded = await this.resolveEmptyStation(radioId);
     return {
-      ...this.buildNoContentResponse(),
+      ...degraded,
       is_live: isLive,
       trial_by_fire_active: trial.active,
       artist_live_now: null,
@@ -3444,6 +3471,17 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
    * Build response when no content is available.
    * This happens when the free rotation table is empty.
    */
+  private async resolveEmptyStation(radioId: string): Promise<any> {
+    const lastGood = await this.radioStateService.getLastGood(radioId);
+    const jingle = process.env.RADIO_JINGLE_URL?.trim() || null;
+    const degraded = buildDegradedStation({
+      now: new Date().toISOString(),
+      lastGood: lastGood as any,
+      jingleUrl: jingle,
+    });
+    return degraded ?? this.buildNoContentResponse();
+  }
+
   private buildNoContentResponse(): any {
     const now = new Date().toISOString();
 
