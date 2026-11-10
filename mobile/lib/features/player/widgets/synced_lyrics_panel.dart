@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import '../../../core/services/api_service.dart';
 
 class TimedLine {
@@ -51,6 +52,10 @@ class _SyncedLyricsPanelState extends State<SyncedLyricsPanel> {
   String? _loadedSongId;
   StreamSubscription<Duration>? _posSub;
   Timer? _pendingRefetchTimer;
+  Timer? _resumeFollowTimer;
+  /// False while the listener is moving the lyrics themselves. Highlight
+  /// still tracks the song; we just stop yanking the scroll position.
+  bool _followPlayback = true;
 
   final ScrollController _scrollCtrl = ScrollController();
   final List<GlobalKey> _lineKeys = [];
@@ -78,6 +83,7 @@ class _SyncedLyricsPanelState extends State<SyncedLyricsPanel> {
   void dispose() {
     _posSub?.cancel();
     _pendingRefetchTimer?.cancel();
+    _resumeFollowTimer?.cancel();
     _scrollCtrl.dispose();
     super.dispose();
   }
@@ -149,22 +155,44 @@ class _SyncedLyricsPanelState extends State<SyncedLyricsPanel> {
     }
     if (best != _activeIndex) {
       setState(() => _activeIndex = best);
-      _scrollToActive(best);
+      _scrollLyricsTo(best);
     }
   }
 
-  void _scrollToActive(int index) {
-    if (_collapsed || index < 0 || index >= _lineKeys.length) return;
-    final key = _lineKeys[index];
-    final ctx = key.currentContext;
-    if (ctx != null) {
-      Scrollable.ensureVisible(
-        ctx,
-        alignment: 0.4,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
+  void _pauseFollow() {
+    _followPlayback = false;
+    _resumeFollowTimer?.cancel();
+  }
+
+  void _scheduleResumeFollow() {
+    _resumeFollowTimer?.cancel();
+    _resumeFollowTimer = Timer(const Duration(seconds: 5), () {
+      if (!mounted) return;
+      _followPlayback = true;
+    });
+  }
+
+  /// Moves only the lyrics list. [Scrollable.ensureVisible] also scrolls every
+  /// ancestor, which pins the whole player while captions are open.
+  void _scrollLyricsTo(int index) {
+    if (!_followPlayback || _collapsed || index < 0 || index >= _lineKeys.length) {
+      return;
     }
+    if (!_scrollCtrl.hasClients) return;
+    final ctx = _lineKeys[index].currentContext;
+    final target = ctx?.findRenderObject();
+    if (target == null) return;
+    final viewport = RenderAbstractViewport.maybeOf(target);
+    if (viewport == null) return;
+    final revealed = viewport.getOffsetToReveal(target, 0.4).offset;
+    final position = _scrollCtrl.position;
+    final next = revealed.clamp(position.minScrollExtent, position.maxScrollExtent);
+    if ((position.pixels - next).abs() < 12) return;
+    _scrollCtrl.animateTo(
+      next,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOut,
+    );
   }
 
   @override
@@ -272,7 +300,24 @@ class _SyncedLyricsPanelState extends State<SyncedLyricsPanel> {
                       ),
                     )
                   : _lines != null && _lines!.isNotEmpty
-                      ? ListView.builder(
+                      ? NotificationListener<ScrollNotification>(
+                          onNotification: (notification) {
+                            if (notification.metrics.axis != Axis.vertical) {
+                              return false;
+                            }
+                            final fromUser = notification is ScrollStartNotification
+                                ? notification.dragDetails != null
+                                : notification is ScrollUpdateNotification &&
+                                    notification.dragDetails != null;
+                            if (fromUser) {
+                              _pauseFollow();
+                            } else if (notification is ScrollEndNotification &&
+                                !_followPlayback) {
+                              _scheduleResumeFollow();
+                            }
+                            return false;
+                          },
+                          child: ListView.builder(
                           controller: _scrollCtrl,
                           padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
                           itemCount: _lines!.length,
@@ -300,6 +345,7 @@ class _SyncedLyricsPanelState extends State<SyncedLyricsPanel> {
                               ),
                             );
                           },
+                        ),
                         )
                       : _plainText != null
                           ? SingleChildScrollView(

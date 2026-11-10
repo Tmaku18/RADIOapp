@@ -73,6 +73,20 @@ export function LyricsPlayer({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const activeLineRef = useRef<HTMLParagraphElement>(null);
+  const followRef = useRef(true);
+  const resumeTimer = useRef<number | null>(null);
+
+  const pauseFollow = () => {
+    followRef.current = false;
+    if (resumeTimer.current != null) window.clearTimeout(resumeTimer.current);
+  };
+
+  const scheduleResumeFollow = () => {
+    if (resumeTimer.current != null) window.clearTimeout(resumeTimer.current);
+    resumeTimer.current = window.setTimeout(() => {
+      followRef.current = true;
+    }, 5000);
+  };
 
   const isActive =
     state.source === 'discography' && state.track?.id === song.id;
@@ -162,6 +176,13 @@ export function LyricsPlayer({
   }
 
   useEffect(() => {
+    return () => {
+      if (resumeTimer.current != null) window.clearTimeout(resumeTimer.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!followRef.current) return;
     const container = containerRef.current;
     const active = activeLineRef.current;
     if (!container || !active) return;
@@ -319,7 +340,14 @@ export function LyricsPlayer({
       ) : (
         <div
           ref={containerRef}
-          className="max-h-[320px] min-h-[160px] overflow-y-auto scroll-smooth rounded-lg border border-border bg-card/50 px-4 py-3"
+          className="max-h-[320px] min-h-[160px] overflow-y-auto rounded-lg border border-border bg-card/50 px-4 py-3"
+          onPointerDown={pauseFollow}
+          onPointerUp={scheduleResumeFollow}
+          onPointerCancel={scheduleResumeFollow}
+          onWheel={() => {
+            pauseFollow();
+            scheduleResumeFollow();
+          }}
         >
           {lyricsLoading && (
             <p className="text-sm text-muted-foreground animate-pulse">

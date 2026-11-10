@@ -30,6 +30,20 @@ export function SyncedLyricsPanel({
   const containerRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<HTMLParagraphElement>(null);
   const lastSongId = useRef<string | null>(null);
+  const followRef = useRef(true);
+  const resumeTimer = useRef<number | null>(null);
+
+  const pauseFollow = () => {
+    followRef.current = false;
+    if (resumeTimer.current != null) window.clearTimeout(resumeTimer.current);
+  };
+
+  const scheduleResumeFollow = () => {
+    if (resumeTimer.current != null) window.clearTimeout(resumeTimer.current);
+    resumeTimer.current = window.setTimeout(() => {
+      followRef.current = true;
+    }, 5000);
+  };
 
   useEffect(() => {
     if (!songId || songId === lastSongId.current) return;
@@ -65,6 +79,13 @@ export function SyncedLyricsPanel({
   const idx = activeIndex();
 
   useEffect(() => {
+    return () => {
+      if (resumeTimer.current != null) window.clearTimeout(resumeTimer.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!followRef.current) return;
     const container = containerRef.current;
     const active = activeRef.current;
     if (!container || !active) return;
@@ -107,7 +128,14 @@ export function SyncedLyricsPanel({
       {!collapsed && (
         <div
           ref={containerRef}
-          className="max-h-[240px] overflow-y-auto scroll-smooth px-4 pb-4"
+          className="max-h-[240px] overflow-y-auto px-4 pb-4"
+          onPointerDown={pauseFollow}
+          onPointerUp={scheduleResumeFollow}
+          onPointerCancel={scheduleResumeFollow}
+          onWheel={() => {
+            pauseFollow();
+            scheduleResumeFollow();
+          }}
         >
           {loading && (
             <p className="text-sm text-muted-foreground animate-pulse py-4">
