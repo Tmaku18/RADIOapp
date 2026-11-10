@@ -359,6 +359,7 @@ export default function DashboardLayout({
     <div
       data-brand={brandMode}
       data-dimension
+      data-clears-player-bar=""
       className={isListenPage ? 'h-svh overflow-hidden relative' : 'min-h-screen relative'}
     >
       <div className="pointer-events-none fixed inset-0 z-0 cyber-grid opacity-[0.04]" aria-hidden />
@@ -573,7 +574,7 @@ export default function DashboardLayout({
           className={`flex-1 min-h-0 bg-transparent flex flex-col ${
             isListenPage
               ? 'overflow-hidden p-0 pb-0'
-              : 'overflow-auto p-4 sm:p-6 md:p-8 pb-24'
+              : 'overflow-auto p-4 sm:p-6 md:p-8 pb-[var(--now-playing-bar-height)]'
           }`}
         >
           {children}

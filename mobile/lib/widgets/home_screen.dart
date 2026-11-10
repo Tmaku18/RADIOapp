@@ -259,7 +259,10 @@ class _HomeScreenState extends State<HomeScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (safeIndex != _tabRadio && !(canUpload && safeIndex == 4))
-            DimensionRadioBar(onOpenPlayer: () => _selectTab(_tabRadio)),
+            DimensionRadioBar(
+              onOpenPlayer: () => _selectTab(_tabRadio),
+              includeBottomInset: false,
+            ),
           NavigationBar(
             selectedIndex: safeIndex,
             onDestinationSelected: _selectTab,

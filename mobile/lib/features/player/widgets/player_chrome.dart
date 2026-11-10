@@ -974,42 +974,58 @@ class _PlayerBody extends StatelessWidget {
                   : double.infinity,
             ),
             child: SingleChildScrollView(
-          padding: EdgeInsets.all(outerPadding),
-          child: isWide
-              ? Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Column(
-                      children: [
-                        art,
-                        if (!reduceMotion) ...[
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            width: wideArtWidth,
-                            child: FrequencyVisualizer(isPlaying: isPlaying),
-                          ),
+          padding: EdgeInsets.fromLTRB(
+            outerPadding,
+            outerPadding,
+            outerPadding,
+            8,
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: math.max(
+                0,
+                constraints.maxHeight - outerPadding - 8,
+              ),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (isWide)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Column(
+                        children: [
+                          art,
+                          if (!reduceMotion) ...[
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: wideArtWidth,
+                              child: FrequencyVisualizer(isPlaying: isPlaying),
+                            ),
+                          ],
                         ],
-                      ],
-                    ),
-                    SizedBox(width: outerPadding),
-                    Expanded(child: details),
-                  ],
-                )
-              : Column(
-                  children: [
-                    if (ad != null) ...[
-                      _VenueAdCard(ad: ad!),
-                      SizedBox(height: sectionGap),
+                      ),
+                      SizedBox(width: outerPadding),
+                      Expanded(child: details),
                     ],
-                    art,
-                    if (!reduceMotion) ...[
-                      const SizedBox(height: 12),
-                      FrequencyVisualizer(isPlaying: isPlaying),
-                    ],
-                    SizedBox(height: outerPadding),
-                    details,
+                  )
+                else ...[
+                  if (ad != null) ...[
+                    _VenueAdCard(ad: ad!),
+                    SizedBox(height: sectionGap),
                   ],
-                ),
+                  art,
+                  if (!reduceMotion) ...[
+                    const SizedBox(height: 12),
+                    FrequencyVisualizer(isPlaying: isPlaying),
+                  ],
+                  SizedBox(height: sectionGap),
+                  details,
+                ],
+              ],
+            ),
+          ),
             ),
           ),
         );

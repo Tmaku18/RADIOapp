@@ -23,7 +23,15 @@ export function PlaybackLayout({ children }: { children: React.ReactNode }) {
     <PlaybackProvider>
       <RadioBackgroundSync />
       <MediaSessionSync />
-      <div style={{ paddingBottom: NOW_PLAYING_BAR_HEIGHT }}>
+      <div
+        className="playback-shell"
+        style={
+          {
+            paddingBottom: NOW_PLAYING_BAR_HEIGHT,
+            '--now-playing-bar-height': `${NOW_PLAYING_BAR_HEIGHT}px`,
+          } as React.CSSProperties
+        }
+      >
         {children}
       </div>
       <NowPlayingBar />

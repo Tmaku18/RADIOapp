@@ -13,6 +13,7 @@ import ChatSidebar from '@/components/chat/ChatSidebar';
 import { Button } from '@/components/ui/button';
 import { ButterflyPulseOverlay } from '@/components/radio/ButterflyPulseOverlay';
 import { Reveal } from '@/components/dimension/Reveal';
+import { DIMENSION_RADIO_BAR_HEIGHT } from '@/components/dimension/DimensionRadioBar';
 import { DEFAULT_STATION_ID, getStationById } from '@/data/station-map';
 import { getLastRadioStationId, getStationAutoplayEnabled, setLastRadioStationId, signalRadioNavIntent } from '@/lib/playback-preferences';
 
@@ -135,8 +136,11 @@ export function RadioListenExperience({
     <div className="relative flex h-full min-h-0 overflow-hidden" data-dimension>
       <ButterflyPulseOverlay active={pulseActive} />
 
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-6">
-        <div className="max-w-7xl mx-auto space-y-5 pb-28">
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+        <div
+          className="mx-auto flex min-h-full w-full max-w-7xl flex-col justify-end gap-5 p-3 sm:p-4 lg:p-6"
+          style={{ paddingBottom: DIMENSION_RADIO_BAR_HEIGHT }}
+        >
           <Reveal>
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div className="min-w-0">

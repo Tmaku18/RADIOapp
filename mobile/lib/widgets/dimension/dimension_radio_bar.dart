@@ -24,11 +24,19 @@ import '../motion/now_playing_bars.dart';
 /// they now live in the full-screen player, one tap away, or in the long-press
 /// menu here.
 class DimensionRadioBar extends StatelessWidget {
-  const DimensionRadioBar({super.key, this.onOpenPlayer});
+  const DimensionRadioBar({
+    super.key,
+    this.onOpenPlayer,
+    this.includeBottomInset = true,
+  });
 
   /// When set, a tap or upward drag opens the in-shell player instead of
   /// pushing a second [PlayerScreen] route.
   final VoidCallback? onOpenPlayer;
+
+  /// Home indicator clearance. Off when a [NavigationBar] already sits under
+  /// this row — otherwise the inset becomes an empty band between them.
+  final bool includeBottomInset;
 
   static const double _artSize = 48;
   static const double _rowHeight = 64;
@@ -194,6 +202,7 @@ class DimensionRadioBar extends StatelessWidget {
                   _ProgressHairline(progress: ctrl.progress),
                   SafeArea(
                     top: false,
+                    bottom: includeBottomInset,
                     child: SizedBox(
                       height: _rowHeight,
                       child: Row(

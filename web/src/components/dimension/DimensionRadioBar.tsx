@@ -164,7 +164,7 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
       data-testid="radio-player"
     >
       <div className="neon-line" aria-hidden />
-      <div className="max-w-7xl mx-auto px-4 lg:px-8 py-3 flex items-center gap-4">
+      <div className="max-w-7xl mx-auto px-4 lg:px-8 py-2 flex items-center gap-3">
         <Link
           href={player.listenHref}
           onClick={() => {
@@ -218,7 +218,7 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
           </div>
         ) : null}
 
-        <div className="flex-1 flex flex-col items-center gap-2 min-w-0">
+        <div className="flex-1 flex flex-col items-center gap-1.5 min-w-0">
           <div className="pointer-events-auto flex items-center gap-3">
             {player.canSkip ? (
               <button
@@ -326,5 +326,5 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
   );
 }
 
-/** Approximate fixed height for layout padding (matches 3d pb-28). */
-export const DIMENSION_RADIO_BAR_HEIGHT = 112;
+/** Fixed bar height used to keep page content from sitting under it. */
+export const DIMENSION_RADIO_BAR_HEIGHT = 96;

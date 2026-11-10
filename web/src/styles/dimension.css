@@ -443,6 +443,13 @@
   --tw-gradient-to: rgb(148 163 184 / 0.18);
 }
 
+/* Dashboard and listen already clear the fixed bar. A second copy of that
+   padding makes the page taller than the screen and opens a blank band
+   between the player and the bar. */
+.playback-shell:has([data-clears-player-bar]) {
+  padding-bottom: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   [data-dimension] .marquee,
   [data-dimension] .neon-line,
