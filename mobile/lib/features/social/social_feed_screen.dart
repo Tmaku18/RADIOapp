@@ -8,6 +8,7 @@ import '../../core/theme/dimension_tokens.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 import '../pro_networx/pro_create_post_screen.dart';
 import '../pro_networx/pro_networx_shell_screen.dart';
+import '../pro_networx/widgets/feed_post_video.dart';
 import '../pro_networx/widgets/pro_feed_post_card.dart';
 
 /// Networks Radio "Social"/Feed tab — public Discover + Pro-Networx posts.
@@ -19,6 +20,7 @@ class SocialFeedScreen extends StatefulWidget {
     super.key,
     this.onOpenNavDrawer,
     this.embeddedInProShell = false,
+    this.isActive = true,
   });
 
   /// Opens the app's left navigation drawer (shown as a hamburger in the bar).
@@ -26,6 +28,10 @@ class SocialFeedScreen extends StatefulWidget {
 
   /// When true, render as a Pro-Networx Discover tab body (no nested AppBar).
   final bool embeddedInProShell;
+
+  /// False when this feed is kept alive under another tab. Clips pause so
+  /// they don't keep playing over the radio.
+  final bool isActive;
 
   @override
   State<SocialFeedScreen> createState() => _SocialFeedScreenState();
@@ -194,10 +200,12 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
     );
 
     if (widget.embeddedInProShell) {
-      return body;
+      return FeedMediaPlayback(active: widget.isActive, child: body);
     }
 
-    return Scaffold(
+    return FeedMediaPlayback(
+      active: widget.isActive,
+      child: Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -218,6 +226,7 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
         ],
       ),
       body: body,
+      ),
     );
   }
 

@@ -6,6 +6,7 @@ import 'package:just_audio/just_audio.dart';
 
 import '../../../core/brand/brand_assets.dart';
 import '../../../core/services/audio_player_service.dart';
+import 'feed_post_video.dart';
 
 /// Audio feed post: cover art (the poster's picture, or the Networx Radio logo
 /// when they posted audio alone) with tap-to-play transport controls.
@@ -33,8 +34,43 @@ class _FeedPostAudioState extends State<FeedPostAudio> {
   bool _playing = false;
   bool _failed = false;
   bool _didSoftPauseRadio = false;
+  bool _tabVisible = true;
+  bool _resumeOnShow = false;
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final visible = FeedMediaPlayback.isActive(context);
+    if (visible == _tabVisible) return;
+    _tabVisible = visible;
+    if (visible) {
+      unawaited(_resumeIfHiddenPaused());
+    } else {
+      unawaited(_pauseBecauseHidden());
+    }
+  }
+
+  Future<void> _pauseBecauseHidden() async {
+    final player = _player;
+    if (player == null || !_playing) return;
+    _resumeOnShow = true;
+    await player.pause();
+    await _softResumeRadioIfNeeded();
+  }
+
+  Future<void> _resumeIfHiddenPaused() async {
+    if (!_resumeOnShow || !_tabVisible) return;
+    _resumeOnShow = false;
+    await _softPauseRadio();
+    final player = _player;
+    if (player == null || !_tabVisible) {
+      await _softResumeRadioIfNeeded();
+      return;
+    }
+    await player.play();
+  }
 
   @override
   void dispose() {

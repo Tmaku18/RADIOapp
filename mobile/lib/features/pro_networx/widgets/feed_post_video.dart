@@ -5,6 +5,30 @@ import 'package:video_player/video_player.dart';
 
 import '../../../core/services/audio_player_service.dart';
 
+/// Whether the feed surface that owns these clips is the one on screen.
+///
+/// The home tabs keep the feed mounted after you leave it, so clips have to
+/// be told to stop instead of relying on dispose.
+class FeedMediaPlayback extends InheritedWidget {
+  const FeedMediaPlayback({
+    super.key,
+    required this.active,
+    required super.child,
+  });
+
+  final bool active;
+
+  static bool isActive(BuildContext context) {
+    final scope =
+        context.dependOnInheritedWidgetOfExactType<FeedMediaPlayback>();
+    return scope?.active ?? true;
+  }
+
+  @override
+  bool updateShouldNotify(FeedMediaPlayback oldWidget) =>
+      active != oldWidget.active;
+}
+
 /// Inline looping muted-by-default video for Social / Pro feed cards.
 ///
 /// Radio keeps playing while the clip is muted (autoplay preview). As soon as
@@ -24,11 +48,27 @@ class _FeedPostVideoState extends State<FeedPostVideo> {
   bool _failed = false;
   bool _muted = true;
   bool _didSoftPauseRadio = false;
+  bool _tabVisible = true;
+  /// Whether the clip should be running while this tab is on screen.
+  bool _shouldPlay = true;
 
   @override
   void initState() {
     super.initState();
     _init();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final visible = FeedMediaPlayback.isActive(context);
+    if (visible == _tabVisible) return;
+    _tabVisible = visible;
+    if (visible) {
+      unawaited(_resumeIfWanted());
+    } else {
+      unawaited(_pauseBecauseHidden());
+    }
   }
 
   @override
@@ -38,6 +78,7 @@ class _FeedPostVideoState extends State<FeedPostVideo> {
       _disposeController();
       unawaited(_softResumeRadioIfNeeded());
       _muted = true;
+      _shouldPlay = true;
       _init();
     }
   }
@@ -52,8 +93,19 @@ class _FeedPostVideoState extends State<FeedPostVideo> {
       _controller = c;
       await c.initialize();
       await c.setLooping(true);
-      await c.setVolume(0);
-      await c.play();
+      await c.setVolume(_muted ? 0 : 1);
+      if (!mounted) return;
+      // The feed tab stays alive under the radio tab. Don't start (or keep)
+      // the clip once that tab is off screen, or the two play at once.
+      final visible = FeedMediaPlayback.isActive(context);
+      _tabVisible = visible;
+      if (visible && _shouldPlay) {
+        await c.play();
+      }
+      if (!mounted) return;
+      if (!FeedMediaPlayback.isActive(context) && c.value.isPlaying) {
+        await c.pause();
+      }
       if (!mounted) return;
       setState(() => _ready = true);
     } catch (_) {
@@ -106,6 +158,25 @@ class _FeedPostVideoState extends State<FeedPostVideo> {
     }
   }
 
+  Future<void> _pauseBecauseHidden() async {
+    final c = _controller;
+    if (c != null && c.value.isInitialized && c.value.isPlaying) {
+      await c.pause();
+    }
+    await _softResumeRadioIfNeeded();
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _resumeIfWanted() async {
+    final c = _controller;
+    if (!_tabVisible || !_shouldPlay || c == null || !_ready) return;
+    if (!c.value.isPlaying) {
+      await c.play();
+    }
+    await _syncRadioWithAudiblePlayback(muted: _muted, playing: true);
+    if (mounted) setState(() {});
+  }
+
   Future<void> _toggleMute() async {
     final c = _controller;
     if (c == null || !_ready) return;
@@ -123,6 +194,7 @@ class _FeedPostVideoState extends State<FeedPostVideo> {
     final c = _controller;
     if (c == null || !_ready) return;
     final willPlay = !c.value.isPlaying;
+    _shouldPlay = willPlay;
     if (willPlay) {
       await c.play();
     } else {

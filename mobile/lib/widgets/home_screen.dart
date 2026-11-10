@@ -237,7 +237,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     )
                   : const SizedBox.shrink(),
               _tabBuilt[2]
-                  ? SocialFeedScreen(onOpenNavDrawer: _openNavDrawer)
+                  ? SocialFeedScreen(
+                      onOpenNavDrawer: _openNavDrawer,
+                      isActive: safeIndex == _tabFeed,
+                    )
                   : const SizedBox.shrink(),
               _tabBuilt[3]
                   ? DiscoveryScreen(onOpenNavDrawer: _openNavDrawer)
@@ -247,6 +250,7 @@ class _HomeScreenState extends State<HomeScreen> {
               else if (canUpload)
                 ProNetworxShellScreen(
                   onExitToRadio: () => _selectTab(_tabRadio),
+                  visible: safeIndex == 4,
                 )
               else
                 CompetitionScreen(onOpenNavDrawer: _openNavDrawer),

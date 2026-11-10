@@ -23,6 +23,7 @@ class ProNetworxShellScreen extends StatefulWidget {
     this.initialTab = 0,
     this.studiosOpenNearby = false,
     this.onExitToRadio,
+    this.visible = true,
   });
   final int initialTab;
 
@@ -33,6 +34,9 @@ class ProNetworxShellScreen extends StatefulWidget {
   /// back to the Networx Radio player tab. When null (pushed as its own route
   /// for listeners), the shell pops / resets to home instead.
   final VoidCallback? onExitToRadio;
+
+  /// False when this shell is an off-screen home tab. Feed clips pause.
+  final bool visible;
 
   static const int tabHome = 0;
   static const int tabDiscover = 1;
@@ -147,7 +151,11 @@ class _ProNetworxShellScreenState extends State<ProNetworxShellScreen> {
                   index: _index,
                   children: [
                     const ProHomeFeedScreen(),
-                    const SocialFeedScreen(embeddedInProShell: true),
+                    SocialFeedScreen(
+                      embeddedInProShell: true,
+                      isActive: widget.visible &&
+                          _index == ProNetworxShellScreen.tabDiscover,
+                    ),
                     const ProSearchScreen(),
                     const ProBeatsMarketplaceScreen(),
                     const ProServicesScreen(),

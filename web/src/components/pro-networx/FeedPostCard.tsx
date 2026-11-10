@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Heart, MessageCircle, Send, Bookmark, Trash2 } from 'lucide-react';
@@ -32,6 +32,14 @@ interface FeedPostCardProps {
 
 export function FeedPostCard({ post, onChange, onHidden, variant = 'feed' }: FeedPostCardProps) {
   const { profile } = useAuth();
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    return () => {
+      videoRef.current?.pause();
+      audioRef.current?.pause();
+    };
+  }, []);
   const isOwnPost = profile?.id === post.authorUserId;
   const canDelete = isOwnPost || profile?.role === 'admin';
   const [likedByMe, setLikedByMe] = useState(post.likedByMe);
@@ -239,6 +247,7 @@ export function FeedPostCard({ post, onChange, onHidden, variant = 'feed' }: Fee
       <div className="relative w-full bg-muted aspect-square">
         {post.mediaType === 'video' ? (
           <video
+            ref={videoRef}
             src={post.imageUrl}
             controls
             playsInline
@@ -257,6 +266,7 @@ export function FeedPostCard({ post, onChange, onHidden, variant = 'feed' }: Fee
         {post.mediaType === 'audio' && post.audioUrl && (
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-3">
             <audio
+              ref={audioRef}
               src={post.audioUrl}
               controls
               preload="none"
