@@ -109,7 +109,7 @@ class _ProRadioPlayerScreenState extends State<ProRadioPlayerScreen> {
                 key: ValueKey('pro-radio-bg-$coverUrl'),
                 imageUrl: coverUrl,
                 fullscreen: true,
-                blurSigma: 45,
+                blurSigma: 8,
               ),
             ),
             const Positioned.fill(
@@ -562,9 +562,9 @@ class _PearlescentWash extends StatelessWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            base.withValues(alpha: 0.55),
-            base.withValues(alpha: 0.38),
-            base.withValues(alpha: 0.86),
+            base.withValues(alpha: 0.28),
+            base.withValues(alpha: 0.12),
+            base.withValues(alpha: 0.72),
           ],
           stops: const [0.0, 0.32, 1.0],
         ),

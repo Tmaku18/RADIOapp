@@ -1517,7 +1517,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                       key: ValueKey('player-bg-$coverUrl'),
                       imageUrl: coverUrl,
                       fullscreen: true,
-                      blurSigma: 45,
+                      blurSigma: 8,
                     ),
                   )
                 else if (showCoverBackdrop)
