@@ -42,6 +42,7 @@ class DiscoverAudioTabState extends State<DiscoverAudioTab>
   bool _clipIsPlaying = false;
   double _dragDx = 0;
   bool _dragActive = false;
+  bool _flyingOff = false;
   late final AnimationController _coverMotion;
 
   static const double _swipeActionThreshold = 120;
@@ -266,33 +267,43 @@ class DiscoverAudioTabState extends State<DiscoverAudioTab>
     final card = _currentCard;
     if (card == null || _busySwipe) return;
 
+    final sign = direction == 'right_like' ? 1.0 : -1.0;
+    final flyTo = sign * (MediaQuery.sizeOf(context).width + 160);
     setState(() {
       _busySwipe = true;
-      _dragDx = 0;
       _dragActive = false;
+      _flyingOff = true;
+      _dragDx = flyTo;
     });
     final decisionMs = DateTime.now().millisecondsSinceEpoch - _shownAtMs;
-    try {
-      await _service.swipe(
-        songId: card.songId,
-        direction: direction,
-        decisionMs: decisionMs < 0 ? 0 : decisionMs,
-        stationId: _stationId,
-      );
-      if (!mounted) return;
-      setState(() {
-        _cards = _cards.skip(1).toList();
-        _shownAtMs = DateTime.now().millisecondsSinceEpoch;
-      });
-      await _autoplayCurrent(userInitiated: true);
-      if (_cards.length < 3 && _nextCursor != null) {
-        unawaited(_loadPage(append: true));
+    // The card leaves immediately. The vote can finish in the background so
+    // the next card isn't stuck waiting on the network.
+    unawaited(() async {
+      try {
+        await _service.swipe(
+          songId: card.songId,
+          direction: direction,
+          decisionMs: decisionMs < 0 ? 0 : decisionMs,
+          stationId: _stationId,
+        );
+      } catch (e) {
+        if (mounted) setState(() => _error = e.toString());
       }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _error = e.toString());
-    } finally {
-      if (mounted) setState(() => _busySwipe = false);
+    }());
+    await Future<void>.delayed(const Duration(milliseconds: 340));
+    if (!mounted) return;
+    setState(() {
+      _cards = _cards.skip(1).toList();
+      _shownAtMs = DateTime.now().millisecondsSinceEpoch;
+      _flyingOff = false;
+      // Zero duration so the incoming card doesn't slide in from off-screen.
+      _dragActive = true;
+      _dragDx = 0;
+      _busySwipe = false;
+    });
+    await _autoplayCurrent(userInitiated: true);
+    if (_cards.length < 3 && _nextCursor != null) {
+      unawaited(_loadPage(append: true));
     }
   }
 
@@ -316,30 +327,12 @@ class DiscoverAudioTabState extends State<DiscoverAudioTab>
     final shouldSave = _dragDx >= _swipeActionThreshold || velocity >= 450;
 
     if (shouldSkip) {
-      setState(() {
-        _dragActive = false;
-        _dragDx = -_swipeMaxDx;
-      });
-      unawaited(
-        _applySwipe('left_skip').whenComplete(() {
-          if (!mounted) return;
-          setState(() => _dragDx = 0);
-        }),
-      );
+      unawaited(_applySwipe('left_skip'));
       return;
     }
 
     if (shouldSave) {
-      setState(() {
-        _dragActive = false;
-        _dragDx = _swipeMaxDx;
-      });
-      unawaited(
-        _applySwipe('right_like').whenComplete(() {
-          if (!mounted) return;
-          setState(() => _dragDx = 0);
-        }),
-      );
+      unawaited(_applySwipe('right_like'));
       return;
     }
 
@@ -459,13 +452,14 @@ class DiscoverAudioTabState extends State<DiscoverAudioTab>
                   ),
                 ),
                 AnimatedContainer(
+                  key: ValueKey(card.songId),
                   duration: _dragActive
                       ? Duration.zero
-                      : const Duration(milliseconds: 180),
-                  curve: Curves.easeOutCubic,
+                      : Duration(milliseconds: _flyingOff ? 340 : 220),
+                  curve: _flyingOff ? Curves.easeIn : Curves.easeOutCubic,
                   transform: Matrix4.identity()
-                    ..setTranslationRaw(_dragDx, 0.0, 0.0)
-                    ..rotateZ((_dragDx / 900).clamp(-0.12, 0.12)),
+                    ..setTranslationRaw(_dragDx, -_dragDx.abs() * 0.06, 0.0)
+                    ..rotateZ((_dragDx / 700).clamp(-0.42, 0.42)),
                   child: Card(
                     clipBehavior: Clip.antiAlias,
                     child: Column(
