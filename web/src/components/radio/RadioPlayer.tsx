@@ -6,8 +6,7 @@ import {
   Flag,
   Flame,
   Heart,
-  Pause,
-  Play,
+  VolumeX,
   Radio as RadioIcon,
   Share2,
   Star,
@@ -1440,12 +1439,14 @@ export function RadioPlayer({
                   onClick={handlePauseToggle}
                   disabled={!state.track || state.isLoading}
                   data-testid="radio-play-big"
+                  aria-label={isPlayingNow ? 'Mute' : 'Unmute'}
+                  title={isPlayingNow ? 'Mute' : 'Unmute'}
                   className="w-16 h-16 rounded-full bg-cyan-400 text-black flex items-center justify-center glow-cyan hover:bg-white disabled:opacity-40"
                 >
                   {isPlayingNow ? (
-                    <Pause className="w-6 h-6" />
+                    <VolumeX className="w-6 h-6" />
                   ) : (
-                    <Play className="w-6 h-6 ml-1" />
+                    <Volume2 className="w-6 h-6" />
                   )}
                 </button>
                 {artistUserId && profile?.id && profile.id !== artistUserId && (
@@ -1832,16 +1833,14 @@ export function RadioPlayer({
           <button
             onClick={handlePauseToggle}
             disabled={!state.track || state.isLoading}
+            aria-label={state.isPlaying && !state.isMuted ? 'Mute' : 'Unmute'}
+            title={state.isPlaying && !state.isMuted ? 'Mute' : 'Unmute'}
             className="w-16 h-16 rounded-full flex items-center justify-center transition-colors disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {state.isPlaying && !state.isMuted ? (
-              <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-              </svg>
+              <VolumeX className="w-8 h-8" />
             ) : (
-              <svg className="w-8 h-8 ml-1" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z" />
-              </svg>
+              <Volume2 className="w-8 h-8" />
             )}
           </button>
 

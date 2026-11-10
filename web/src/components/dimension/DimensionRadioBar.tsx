@@ -7,6 +7,7 @@ import {
   Flame,
   Pause,
   Play,
+  VolumeX,
   Rewind,
   Volume2,
 } from 'lucide-react';
@@ -237,9 +238,23 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
               disabled={!player.canTransport}
               data-testid="player-play-btn"
               className="w-10 h-10 rounded-full bg-cyan-400 text-black flex items-center justify-center glow-cyan hover:bg-cyan-300 transition-colors disabled:opacity-40"
-              aria-label={player.isPlaying ? 'Pause' : 'Play'}
+              aria-label={
+                playback?.state.source === 'radio'
+                  ? player.isPlaying
+                    ? 'Mute'
+                    : 'Unmute'
+                  : player.isPlaying
+                    ? 'Pause'
+                    : 'Play'
+              }
             >
-              {player.isPlaying ? (
+              {playback?.state.source === 'radio' ? (
+                player.isPlaying ? (
+                  <VolumeX className="w-4 h-4" />
+                ) : (
+                  <Volume2 className="w-4 h-4" />
+                )
+              ) : player.isPlaying ? (
                 <Pause className="w-4 h-4" />
               ) : (
                 <Play className="w-4 h-4 ml-0.5" />

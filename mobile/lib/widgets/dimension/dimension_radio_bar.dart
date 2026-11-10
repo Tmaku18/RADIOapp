@@ -261,10 +261,10 @@ class DimensionRadioBar extends StatelessWidget {
                           ),
                           _BarButton(
                             icon: ctrl.isPlaying
-                                ? Icons.pause_rounded
-                                : Icons.play_arrow_rounded,
+                                ? Icons.volume_off_rounded
+                                : Icons.volume_up_rounded,
                             iconSize: 32,
-                            tooltip: ctrl.isPlaying ? 'Pause' : 'Play',
+                            tooltip: ctrl.isPlaying ? 'Mute' : 'Unmute',
                             onPressed: ctrl.togglePlay,
                           ),
                           _BarButton(

@@ -905,7 +905,7 @@ class _PlayerBody extends StatelessWidget {
                   SizedBox(width: isShortScreen ? 28 : 40),
                   Semantics(
                     button: true,
-                    label: isPlaying ? 'Pause' : 'Play',
+                    label: isPlaying ? 'Mute' : 'Unmute',
                     child: IconButton(
                       onPressed: () {
                         AppHaptics.light();
@@ -914,13 +914,13 @@ class _PlayerBody extends StatelessWidget {
                       iconSize: controlsIconSize,
                       padding: EdgeInsets.zero,
                       color: scheme.onSurface,
-                      tooltip: isPlaying ? 'Pause' : 'Play',
+                      tooltip: isPlaying ? 'Mute' : 'Unmute',
                       icon: AnimatedSwitcher(
                         duration: const Duration(milliseconds: 180),
                         child: Icon(
                           isPlaying
-                              ? Icons.pause_rounded
-                              : Icons.play_arrow_rounded,
+                              ? Icons.volume_off_rounded
+                              : Icons.volume_up_rounded,
                           key: ValueKey(isPlaying),
                         ),
                       ),
