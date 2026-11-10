@@ -500,6 +500,7 @@ class _PlayerBody extends StatelessWidget {
   final VoidCallback onPlayPause;
   final VoidCallback onEnterRoom;
   final AudioPlayer audioPlayer;
+  final ValueNotifier<Offset> coverTilt;
 
   const _PlayerBody({
     required this.track,
@@ -528,6 +529,7 @@ class _PlayerBody extends StatelessWidget {
     required this.onPlayPause,
     required this.onEnterRoom,
     required this.audioPlayer,
+    required this.coverTilt,
   });
 
   @override
@@ -552,6 +554,8 @@ class _PlayerBody extends StatelessWidget {
         aspectRatio: 1,
         child: Hero(
           tag: 'now-playing-art',
+          child: TouchTilt(
+          share: coverTilt,
           child: DecoratedBox(
           // The one place in the app that gets a real drop shadow — it lifts
           // the cover off its own blurred backdrop.
@@ -603,6 +607,7 @@ class _PlayerBody extends StatelessWidget {
             ),
           ),
         ),
+          ),
           ),
         ),
       );

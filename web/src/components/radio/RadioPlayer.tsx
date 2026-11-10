@@ -1378,8 +1378,22 @@ export function RadioPlayer({
           <div className="relative p-6 pt-7 md:p-8 md:pt-9 flex flex-col md:flex-row gap-6 md:gap-8 items-center md:items-start">
             <div
               ref={artRef}
-              className="relative w-56 h-56 md:w-72 md:h-72 rounded-2xl overflow-hidden ring-1 ring-cyan-400/30 shrink-0 transition-[box-shadow,transform] duration-75 will-change-transform"
+              onPointerMove={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                if (rect.width <= 0 || rect.height <= 0) return;
+                const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                const y = ((e.clientY - rect.top) / rect.height) * 2 - 1;
+                e.currentTarget.style.transform = `perspective(900px) rotateX(${(-y * 9).toFixed(2)}deg) rotateY(${(x * 9).toFixed(2)}deg)`;
+              }}
+              onPointerLeave={(e) => {
+                e.currentTarget.style.transform = 'perspective(900px) rotateX(0deg) rotateY(0deg)';
+              }}
+              onPointerCancel={(e) => {
+                e.currentTarget.style.transform = 'perspective(900px) rotateX(0deg) rotateY(0deg)';
+              }}
+              className="relative w-56 h-56 md:w-72 md:h-72 shrink-0 transition-transform duration-100 ease-out will-change-transform [transform-style:preserve-3d]"
             >
+              <div className="absolute inset-0 rounded-2xl overflow-hidden ring-1 ring-cyan-400/30">
               <ArtworkImage
                 src={state.track?.artworkUrl}
                 alt={state.track?.title || 'Album art'}
@@ -1397,6 +1411,7 @@ export function RadioPlayer({
                   <div className="animate-spin rounded-full h-10 w-10 border-2 border-cyan-400 border-t-transparent" />
                 </div>
               )}
+              </div>
             </div>
 
             <div className="flex-1 min-w-0 w-full">

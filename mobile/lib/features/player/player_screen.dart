@@ -94,6 +94,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   bool get _isSyncDriver => _mounted.isNotEmpty && identical(_mounted.last, this);
 
   final AudioPlayer _audioPlayer = AudioPlayerService().player;
+  final ValueNotifier<Offset> _coverTilt = ValueNotifier(Offset.zero);
   final RadioService _radioService = RadioService();
   final VenueAdsService _venueAds = VenueAdsService();
   final SongsService _songs = SongsService();
@@ -1414,6 +1415,7 @@ class _PlayerScreenState extends State<PlayerScreen>
     _trackBoundaryTimer?.cancel();
     _prefetchTimer?.cancel();
     _rippleController.dispose();
+    _coverTilt.dispose();
     super.dispose();
   }
 
@@ -1518,6 +1520,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                       imageUrl: coverUrl,
                       fullscreen: true,
                       blurSigma: 8,
+                      tilt: _coverTilt,
                     ),
                   )
                 else if (showCoverBackdrop)
@@ -1591,6 +1594,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                       onPlayPause: _togglePlayPause,
                       onEnterRoom: () => _openRoom(providerContext),
                       audioPlayer: _audioPlayer,
+                      coverTilt: _coverTilt,
                     ),
                   ),
                 if (_rippleActive)

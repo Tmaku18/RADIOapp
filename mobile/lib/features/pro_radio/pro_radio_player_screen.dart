@@ -34,6 +34,7 @@ class ProRadioPlayerScreen extends StatefulWidget {
 class _ProRadioPlayerScreenState extends State<ProRadioPlayerScreen> {
   final ProRadioQueueService _queue = ProRadioQueueService.instance;
   final AudioPlayer _audio = AudioPlayerService().player;
+  final ValueNotifier<Offset> _coverTilt = ValueNotifier(Offset.zero);
 
   StreamSubscription<void>? _queueSub;
   StreamSubscription<bool>? _playingSub;
@@ -58,6 +59,7 @@ class _ProRadioPlayerScreenState extends State<ProRadioPlayerScreen> {
   void dispose() {
     _queueSub?.cancel();
     _playingSub?.cancel();
+    _coverTilt.dispose();
     super.dispose();
   }
 
@@ -110,6 +112,7 @@ class _ProRadioPlayerScreenState extends State<ProRadioPlayerScreen> {
                 imageUrl: coverUrl,
                 fullscreen: true,
                 blurSigma: 8,
+                tilt: _coverTilt,
               ),
             ),
             const Positioned.fill(
@@ -154,6 +157,7 @@ class _ProRadioPlayerScreenState extends State<ProRadioPlayerScreen> {
                       setState(() {});
                     },
                     onPlayAt: (index) => _queue.playAt(index),
+                    coverTilt: _coverTilt,
                   ),
           ),
         ],
@@ -179,6 +183,7 @@ class _ProRadioPlayerBody extends StatelessWidget {
     required this.onToggleShuffle,
     required this.onToggleRepeat,
     required this.onPlayAt,
+    required this.coverTilt,
   });
 
   final ProRadioQueueItem item;
@@ -196,6 +201,7 @@ class _ProRadioPlayerBody extends StatelessWidget {
   final VoidCallback onToggleShuffle;
   final VoidCallback onToggleRepeat;
   final ValueChanged<int> onPlayAt;
+  final ValueNotifier<Offset> coverTilt;
 
   static String _formatMmSs(Duration d) {
     final minutes = d.inMinutes;
@@ -212,7 +218,9 @@ class _ProRadioPlayerBody extends StatelessWidget {
       final artworkUrl = BrandAssets.displayArtworkUrl(item.artworkUrl);
       return AspectRatio(
         aspectRatio: 1,
-        child: DecoratedBox(
+        child: TouchTilt(
+          share: coverTilt,
+          child: DecoratedBox(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(DimensionTokens.artworkRadius),
             boxShadow: DimensionTokens.artworkShadow(blur: 36),
@@ -231,6 +239,7 @@ class _ProRadioPlayerBody extends StatelessWidget {
                     intensity: 0.9,
                   ),
           ),
+        ),
         ),
       );
     }
