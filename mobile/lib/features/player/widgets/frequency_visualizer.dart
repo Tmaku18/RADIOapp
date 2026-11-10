@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
@@ -18,13 +19,12 @@ bool visualizerAudioActive() {
     final handler = AudioPlayerService.handler;
     if (handler.userPaused) return false;
     final player = AudioPlayerService().player;
-    if (player.sequenceState.currentSource == null) return false;
     final state = player.processingState;
-    if (state == ProcessingState.idle || state == ProcessingState.completed) {
-      return false;
-    }
-    return player.playing ||
-        state == ProcessingState.buffering ||
+    // `playing` flickers false while a live stream rebuffers. Keep the bars
+    // moving through that stall. A missing playlist source is not a pause —
+    // the radio player is often already audible before sequenceState updates.
+    if (player.playing) return true;
+    return state == ProcessingState.buffering ||
         state == ProcessingState.loading;
   } catch (_) {
     return false;
@@ -79,6 +79,7 @@ class _FrequencyVisualizerState extends State<FrequencyVisualizer>
   @override
   void initState() {
     super.initState();
+    unawaited(AudioVisualizerService().ensureStarted());
     _ticker = createTicker((elapsed) {
       setState(() {
         _t = elapsed.inMicroseconds / 1e6;

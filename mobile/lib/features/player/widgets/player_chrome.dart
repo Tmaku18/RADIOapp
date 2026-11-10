@@ -979,7 +979,18 @@ class _PlayerBody extends StatelessWidget {
               ? Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    art,
+                    Column(
+                      children: [
+                        art,
+                        if (!reduceMotion) ...[
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: wideArtWidth,
+                            child: FrequencyVisualizer(isPlaying: isPlaying),
+                          ),
+                        ],
+                      ],
+                    ),
                     SizedBox(width: outerPadding),
                     Expanded(child: details),
                   ],

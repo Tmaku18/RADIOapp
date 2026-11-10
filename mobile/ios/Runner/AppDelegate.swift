@@ -40,6 +40,7 @@ import flutter_local_notifications
       binaryMessenger: engineBridge.applicationRegistrar.messenger()
     )
     LiveActivityBridge.register(messenger: engineBridge.applicationRegistrar.messenger())
+    PlaybackVisualizer.register(messenger: engineBridge.applicationRegistrar.messenger())
 
     channel.setMethodCallHandler { call, result in
       guard call.method == "mirrorHorizontally" else {

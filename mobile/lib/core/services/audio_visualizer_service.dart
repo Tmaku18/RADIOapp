@@ -14,9 +14,10 @@ import 'audio_player_service.dart';
 /// AnalyserNode data (log-ish bin reduction + treble tilt + gamma punch +
 /// attack/release smoothing).
 ///
-/// When real data is unavailable (iOS, permission denied, Visualizer failure,
+/// When real data is unavailable (permission denied, Visualizer failure,
 /// or sustained silence from a dead tap) [bars] is null and the visualizer
-/// widgets fall back to their existing simulated animation.
+/// widgets fall back to their existing simulated animation. Android uses
+/// `audiofx.Visualizer`. iOS taps the player with `MTAudioProcessingTap`.
 class AudioVisualizerService {
   AudioVisualizerService._();
   static final AudioVisualizerService _instance = AudioVisualizerService._();
@@ -36,12 +37,13 @@ class AudioVisualizerService {
   Float32List _smoothed = Float32List(barCount);
   int _attachedSessionId = -1;
   bool _started = false;
+  bool _triedOutputMix = false;
   int _zeroFrames = 0;
   DateTime _lastFrameAt = DateTime.fromMillisecondsSinceEpoch(0);
 
-  /// Consecutive all-zero FFT frames (~20-30/s) before treating the tap as dead
+  /// Consecutive near-silent FFT frames before treating the tap as dead
   /// and falling back to simulation — mirrors the web player's dead-tap check.
-  static const int _maxZeroFrames = 90;
+  static const int _maxZeroFrames = 45;
 
   /// Bars only if a real frame arrived recently; guards against a stalled
   /// native stream leaving frozen heights on screen.
@@ -54,15 +56,30 @@ class AudioVisualizerService {
     return value;
   }
 
-  /// Ask for the RECORD_AUDIO permission (required by Android's Visualizer even
-  /// though it only captures this app's output) and start following the music
-  /// player's audio session. Safe to call repeatedly.
+  /// Start the platform FFT tap. Safe to call repeatedly.
   ///
-  /// A previous "deny" is remembered and never re-prompted; we still re-check
-  /// silently in case the user granted the permission from system settings.
+  /// Android needs RECORD_AUDIO (an OS requirement for Visualizer even though
+  /// it only captures this app's output). A previous "deny" is remembered and
+  /// never re-prompted; we still re-check silently in case the user granted
+  /// it from system settings. iOS taps the player directly and does not ask
+  /// for the microphone.
   Future<bool> ensureStarted() async {
-    if (!Platform.isAndroid) return false;
+    if (!Platform.isAndroid && !Platform.isIOS) return false;
     if (_started) return true;
+
+    if (Platform.isIOS) {
+      _listenToFft();
+      try {
+        final ok = await _method.invokeMethod<bool>('attach', {
+          'sessionId': 0,
+        });
+        if (ok != true) return false;
+      } on PlatformException {
+        return false;
+      }
+      _started = true;
+      return true;
+    }
 
     try {
       var granted = await _method.invokeMethod<bool>('hasPermission') ?? false;
@@ -154,15 +171,22 @@ class AudioVisualizerService {
     }
 
     // Dead-tap detection: sustained silence while we believe we're attached.
-    if (peak <= 0.001) {
+    // A silent tap (wrong audio session, or the OS blocked capture) must not
+    // pin the bars flat. Drop back to the beat animation, and try the output
+    // mix once if the player session itself is quiet.
+    if (peak <= 0.02) {
       _zeroFrames++;
       if (_zeroFrames >= _maxZeroFrames) {
+        if (!_triedOutputMix && _attachedSessionId != 0) {
+          _triedOutputMix = true;
+          _zeroFrames = 0;
+          unawaited(_attach(0));
+        }
         bars.value = null;
-        return;
       }
-    } else {
-      _zeroFrames = 0;
+      return;
     }
+    _zeroFrames = 0;
 
     final target = Float32List(barCount);
     for (var i = 0; i < barCount; i++) {
@@ -204,9 +228,10 @@ class AudioVisualizerService {
     _fftSub?.cancel();
     _fftSub = null;
     _started = false;
+    _triedOutputMix = false;
     _attachedSessionId = -1;
     bars.value = null;
-    if (Platform.isAndroid) {
+    if (Platform.isAndroid || Platform.isIOS) {
       try {
         await _method.invokeMethod<void>('detach');
       } on PlatformException {

@@ -19,6 +19,7 @@
 		A1B2C3D41F5E6A7B8C9D0E1F /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D41F5E6A7B8C9D0E1E /* GoogleService-Info.plist */; };
 		B7C8D9E01F6A7B8C9D0E1F20 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = B7C8D9E01F6A7B8C9D0E1F21 /* PrivacyInfo.xcprivacy */; };
 		B7E1D4A02E2F4C1A0091A002 /* VideoMirror.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7E1D4A02E2F4C1A0091A001 /* VideoMirror.swift */; };
+		NXVIZ00000000000000002 /* PlaybackVisualizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = NXVIZ00000000000000001 /* PlaybackVisualizer.swift */; };
 		CD587EADC24286C4D3FD9286 /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EDF30180FBBB7A644B4DCF9F /* Pods_Runner.framework */; };
 		NW0200000000000000000001 /* NowPlayingAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = NW0100000000000000000001 /* NowPlayingAttributes.swift */; };
 		NW0200000000000000000002 /* LiveActivityBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = NW0100000000000000000006 /* LiveActivityBridge.swift */; };
@@ -91,6 +92,7 @@
 		A1B2C3D41F5E6A7B8C9D0E1E /* GoogleService-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		B7C8D9E01F6A7B8C9D0E1F21 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		B7E1D4A02E2F4C1A0091A001 /* VideoMirror.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoMirror.swift; sourceTree = "<group>"; };
+		NXVIZ00000000000000001 /* PlaybackVisualizer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PlaybackVisualizer.swift; sourceTree = "<group>"; };
 		D108684F65945BDFF88EEB1E /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
 		D2FDD2CFDA563502DE55ECE0 /* Pods-RunnerTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.debug.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.debug.xcconfig"; sourceTree = "<group>"; };
 		EDF30180FBBB7A644B4DCF9F /* Pods_Runner.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Runner.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -211,6 +213,7 @@
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
 				NW0100000000000000000006 /* LiveActivityBridge.swift */,
 				B7E1D4A02E2F4C1A0091A001 /* VideoMirror.swift */,
+				NXVIZ00000000000000001 /* PlaybackVisualizer.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
 			);
 			path = Runner;
@@ -478,6 +481,7 @@
 				NW0200000000000000000002 /* LiveActivityBridge.swift in Sources */,
 				NW0200000000000000000001 /* NowPlayingAttributes.swift in Sources */,
 				B7E1D4A02E2F4C1A0091A002 /* VideoMirror.swift in Sources */,
+				NXVIZ00000000000000002 /* PlaybackVisualizer.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

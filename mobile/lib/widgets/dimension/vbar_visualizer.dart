@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
@@ -52,6 +53,7 @@ class _VbarVisualizerState extends State<VbarVisualizer>
   @override
   void initState() {
     super.initState();
+    unawaited(AudioVisualizerService().ensureStarted());
     _ticker = createTicker((elapsed) {
       setState(() {
         _t = elapsed.inMicroseconds / 1e6;
