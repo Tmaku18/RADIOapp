@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Queue, Worker, type ConnectionOptions } from 'bullmq';
-import { isRedisAvailable } from '../config/redis.config';
+import { isRedisAvailable, redisConnectionFamily } from '../config/redis.config';
 import { PushNotificationService } from './push-notification.service';
 
 const QUEUE_NAME = 'scheduled-pushes';
@@ -14,12 +14,14 @@ export interface QueuedPush {
 
 function connectionFromUrl(url: string): ConnectionOptions {
   const parsed = new URL(url);
+  const family = redisConnectionFamily(url);
   return {
     host: parsed.hostname,
     port: parsed.port ? Number(parsed.port) : 6379,
     username: parsed.username || undefined,
     password: parsed.password || undefined,
     tls: parsed.protocol === 'rediss:' ? {} : undefined,
+    ...(family ? { family } : {}),
     maxRetriesPerRequest: null,
   };
 }

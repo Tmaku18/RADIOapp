@@ -31,6 +31,20 @@ function redactUrl(url: string): string {
 }
 
 /**
+ * Legacy Railway private networks publish only AAAA records. Node's default
+ * IPv4 lookup then fails with ENOTFOUND for `*.railway.internal`.
+ */
+export function redisConnectionFamily(url: string): 6 | undefined {
+  try {
+    const host = new URL(url).hostname;
+    if (host.endsWith('.railway.internal')) return 6;
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
+
+/**
  * Get or create a Redis client instance.
  * Throws if called when Redis is disabled; callers must check isRedisAvailable first.
  */
@@ -54,14 +68,12 @@ export const getRedisClient = (): Redis => {
 
     logger.log(`Connecting to Redis at ${redactUrl(redisUrl)}`);
 
+    const family = redisConnectionFamily(redisUrl);
     redisClient = new Redis(redisUrl, {
+      ...(family ? { family } : {}),
       maxRetriesPerRequest: 3,
       retryStrategy(times) {
-        if (times > 5) {
-          logger.warn('Redis retry limit reached, giving up');
-          return null;
-        }
-        return Math.min(times * 500, 5000);
+        return Math.min(times * 500, 10_000);
       },
       reconnectOnError(err) {
         return err.message.includes('READONLY');
