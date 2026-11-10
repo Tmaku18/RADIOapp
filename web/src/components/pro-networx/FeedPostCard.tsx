@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Heart, MessageCircle, Send, Bookmark, Trash2 } from 'lucide-react';
+import { Heart, MessageCircle, Send, Bookmark, Trash2, Maximize2, X } from 'lucide-react';
 import {
   discoveryApi,
   proNetworkSubscriptionApi,
@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { SharePostDialog } from './SharePostDialog';
 import { PaywallCard } from './PaywallCard';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePlaybackOptional } from '@/components/playback/PlaybackProvider';
 import { UserSafetyMenu } from '@/components/safety/UserSafetyMenu';
 import { toast } from 'sonner';
 
@@ -33,13 +34,35 @@ interface FeedPostCardProps {
 export function FeedPostCard({ post, onChange, onHidden, variant = 'feed' }: FeedPostCardProps) {
   const { profile } = useAuth();
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const fullscreenVideoRef = useRef<HTMLVideoElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const playback = usePlaybackOptional();
+  const playbackRef = useRef(playback);
+  playbackRef.current = playback;
+  const [videoOpen, setVideoOpen] = useState(false);
   useEffect(() => {
     return () => {
       videoRef.current?.pause();
+      fullscreenVideoRef.current?.pause();
       audioRef.current?.pause();
     };
   }, []);
+  useEffect(() => {
+    if (!videoOpen) return;
+    const pb = playbackRef.current;
+    const holdRadio =
+      pb?.state.source === 'radio' && !pb.state.isMuted && pb.state.isPlaying;
+    if (holdRadio) pb.softPause();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setVideoOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      fullscreenVideoRef.current?.pause();
+      if (holdRadio) void playbackRef.current?.softResume();
+    };
+  }, [videoOpen]);
   const isOwnPost = profile?.id === post.authorUserId;
   const canDelete = isOwnPost || profile?.role === 'admin';
   const [likedByMe, setLikedByMe] = useState(post.likedByMe);
@@ -253,6 +276,19 @@ export function FeedPostCard({ post, onChange, onHidden, variant = 'feed' }: Fee
             playsInline
             className="absolute inset-0 w-full h-full object-contain bg-black"
           />
+          <button
+            type="button"
+            aria-label="Full screen"
+            title="Full screen"
+            className="absolute inset-x-0 top-0 bottom-14 z-10 cursor-pointer"
+            onClick={() => {
+              videoRef.current?.pause();
+              setVideoOpen(true);
+            }}
+          />
+          <span className="pointer-events-none absolute right-2 top-2 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white">
+            <Maximize2 className="h-4 w-4" />
+          </span>
         ) : (
           <Image
             src={post.imageUrl}
@@ -416,6 +452,31 @@ export function FeedPostCard({ post, onChange, onHidden, variant = 'feed' }: Fee
       </div>
 
       <SharePostDialog post={post} open={shareOpen} onOpenChange={setShareOpen} />
+      {videoOpen && post.mediaType === 'video' && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Video"
+        >
+          <button
+            type="button"
+            aria-label="Close"
+            className="absolute right-4 top-[max(1rem,env(safe-area-inset-top))] z-10 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25"
+            onClick={() => setVideoOpen(false)}
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <video
+            ref={fullscreenVideoRef}
+            src={post.imageUrl}
+            controls
+            autoPlay
+            playsInline
+            className="max-h-full max-w-full"
+          />
+        </div>
+      )}
     </article>
   );
 }
