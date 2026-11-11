@@ -146,5 +146,9 @@
         <!-- Required for Google Sign-In / Credential Manager on Android 11+ -->
         <package android:name="com.google.android.gms" />
         <package android:name="com.instagram.android" />
+        <package android:name="com.snapchat.android" />
+        <package android:name="com.zhiliaoapp.musically" />
+        <package android:name="com.ss.android.ugc.trill" />
+        <package android:name="com.ss.android.ugc.aweme" />
     </queries>
 </manifest>

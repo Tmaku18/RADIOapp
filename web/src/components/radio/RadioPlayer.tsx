@@ -17,6 +17,7 @@ import { SyncedLyricsPanel } from './SyncedLyricsPanel';
 import { prospectorApi, radioApi, leaderboardApi, analyticsApi, songsApi, songSalesApi, usersApi } from '@/lib/api';
 import { artistProfilePath } from '@/lib/artist-links';
 import { RadioShareMenu } from '@/components/radio/RadioShareMenu';
+import { RadioCaptureButton } from '@/components/radio/RadioCapture';
 import { useAuth } from '@/contexts/AuthContext';
 import { hasListenerCapability } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
@@ -1464,6 +1465,7 @@ export function RadioPlayer({
                     </button>
                   </>
                 )}
+                <RadioCaptureButton />
                 <RadioShareMenu
                   stationId={state.track?.radioId || effectiveRadioId}
                   artistId={artistUserId}
@@ -1816,6 +1818,7 @@ export function RadioPlayer({
             )}
           </button>
 
+          <RadioCaptureButton compact />
           <RadioShareMenu
             stationId={state.track?.radioId || effectiveRadioId}
             artistId={state.track?.artistId}

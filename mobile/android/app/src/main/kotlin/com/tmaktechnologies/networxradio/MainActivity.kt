@@ -1,6 +1,8 @@
 package com.tmaktechnologies.networxradio
 
 import android.Manifest
+import android.content.ActivityNotFoundException
+import android.content.ClipData
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.audiofx.Visualizer
@@ -27,6 +29,7 @@ class MainActivity : AudioServiceFragmentActivity() {
         private const val METHOD_CHANNEL = "networx/visualizer"
         private const val EVENT_CHANNEL = "networx/visualizer/fft"
         private const val INSTAGRAM_CHANNEL = "networx/instagram"
+        private const val SOCIAL_CHANNEL = "networx/social"
         private const val PERMISSION_REQUEST_CODE = 7301
     }
 
@@ -90,6 +93,48 @@ class MainActivity : AudioServiceFragmentActivity() {
             }
             shareImageToInstagram(path, result)
         }
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            SOCIAL_CHANNEL,
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "attachAudio", "imageWithAudio" -> {
+                    val audioPath = call.argument<String>("audioPath")
+                    val startMs = call.argument<Int>("startMs") ?: 0
+                    val durationMs = call.argument<Int>("durationMs") ?: 15000
+                    val videoPath = call.argument<String>("videoPath")
+                    val imagePath = call.argument<String>("imagePath")
+                    if (audioPath.isNullOrBlank() ||
+                        (videoPath.isNullOrBlank() && imagePath.isNullOrBlank())
+                    ) {
+                        result.error("bad_args", "Expected a photo or video and a song", null)
+                    } else {
+                        ClipMuxer.export(
+                            this,
+                            videoPath,
+                            imagePath,
+                            audioPath,
+                            startMs,
+                            durationMs,
+                        ) { path, error ->
+                            if (path != null) result.success(path)
+                            else result.error("mux_failed", error ?: "Could not add the song", null)
+                        }
+                    }
+                }
+                "share" -> {
+                    val path = call.argument<String>("path")
+                    val target = call.argument<String>("target")
+                    if (path.isNullOrBlank() || target.isNullOrBlank()) {
+                        result.error("bad_args", "Expected a file and a destination", null)
+                    } else {
+                        shareToSocial(path, target, result)
+                    }
+                }
+                else -> result.notImplemented()
+            }
+        }
     }
 
     private fun shareImageToInstagram(path: String, result: MethodChannel.Result) {
@@ -118,6 +163,77 @@ class MainActivity : AudioServiceFragmentActivity() {
             }
             grantUriPermission("com.instagram.android", uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
             startActivity(intent)
+            result.success(true)
+        } catch (error: Exception) {
+            result.error("unavailable", error.message, null)
+        }
+    }
+
+    private fun shareToSocial(path: String, target: String, result: MethodChannel.Result) {
+        val file = File(path)
+        if (!file.exists()) {
+            result.error("missing_file", "The clip was not written", null)
+            return
+        }
+        val packages = when (target) {
+            "instagram_story", "instagram_post" -> listOf("com.instagram.android")
+            "snapchat_story", "snapchat_chat" -> listOf("com.snapchat.android")
+            "tiktok_story", "tiktok_post" -> listOf(
+                "com.zhiliaoapp.musically",
+                "com.ss.android.ugc.trill",
+                "com.ss.android.ugc.aweme",
+            )
+            else -> emptyList()
+        }
+        val installed = packages.firstOrNull { pkg ->
+            packageManager.getLaunchIntentForPackage(pkg) != null
+        }
+        if (installed == null) {
+            result.error("not_installed", "That app is not installed", null)
+            return
+        }
+        val mime = when {
+            path.endsWith(".png", true) -> "image/png"
+            path.endsWith(".jpg", true) || path.endsWith(".jpeg", true) -> "image/jpeg"
+            path.endsWith(".webp", true) -> "image/webp"
+            path.endsWith(".mov", true) -> "video/quicktime"
+            path.endsWith(".webm", true) -> "video/webm"
+            else -> "video/mp4"
+        }
+        try {
+            val uri = FileProvider.getUriForFile(this, "$packageName.instagramshare", file)
+            val story = target == "instagram_story"
+            val intent = if (story) {
+                Intent("com.instagram.share.ADD_TO_STORY").apply {
+                    setDataAndType(uri, mime)
+                    setPackage(installed)
+                    clipData = ClipData.newRawUri("NetworX", uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+            } else {
+                Intent(Intent.ACTION_SEND).apply {
+                    type = mime
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    clipData = ClipData.newRawUri("NetworX", uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    setPackage(installed)
+                }
+            }
+            grantUriPermission(installed, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            try {
+                startActivity(intent)
+            } catch (_: ActivityNotFoundException) {
+                if (!story) throw ActivityNotFoundException()
+                startActivity(
+                    Intent(Intent.ACTION_SEND).apply {
+                        type = mime
+                        putExtra(Intent.EXTRA_STREAM, uri)
+                        clipData = ClipData.newRawUri("NetworX", uri)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        setPackage(installed)
+                    },
+                )
+            }
             result.success(true)
         } catch (error: Exception) {
             result.error("unavailable", error.message, null)

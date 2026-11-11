@@ -20,6 +20,8 @@ import {
   type FollowListItem,
 } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { SocialShareButtons } from '@/components/radio/SocialShareButtons';
+import { buildClipFile } from '@/lib/social-share';
 
 function shouldUnoptimize(url?: string | null): boolean {
   return !!url && /^https?:\/\//i.test(url);
@@ -127,6 +129,17 @@ export function SharePostDialog({ post, open, onOpenChange }: SharePostDialogPro
           <p className="py-6 text-center text-sm text-foreground">Sent!</p>
         ) : (
           <>
+            <SocialShareButtons
+              caption={post.caption?.trim() || post.authorDisplayName || 'NETWORX Radio'}
+              getFile={() =>
+                buildClipFile({
+                  mediaUrl: post.imageUrl,
+                  mediaType: post.mediaType,
+                  audioUrl: post.audioUrl,
+                  title: post.caption?.trim() || post.authorDisplayName || 'NETWORX Radio',
+                })
+              }
+            />
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}

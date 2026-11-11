@@ -89,6 +89,10 @@
 		<array>
 			<string>instagram</string>
 			<string>instagram-stories</string>
+			<string>snapchat</string>
+			<string>tiktok</string>
+			<string>snssdk1233</string>
+			<string>musically</string>
 		</array>
 		<key>UIStatusBarHidden</key>
 		<false/>

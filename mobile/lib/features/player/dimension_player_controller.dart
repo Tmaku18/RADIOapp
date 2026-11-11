@@ -117,6 +117,19 @@ class DimensionPlayerController extends ChangeNotifier {
     return uri;
   }
 
+  /// The file the current player is actually reading, so a clip can bake that
+  /// song in. Live HLS playlists cannot be saved this way.
+  String? get captureAudioUrl {
+    final source = _player.sequenceState.currentSource ?? _player.audioSource;
+    if (source is! UriAudioSource) return null;
+    final url = source.uri.toString();
+    if (!url.startsWith('http')) return null;
+    if (url.toLowerCase().contains('.m3u8')) return null;
+    return url;
+  }
+
+  int? get captureDurationMs => _player.duration?.inMilliseconds;
+
   String? get shareArtistName {
     final name = _media?.artist?.trim();
     if (name == null || name.isEmpty) return null;

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -5,8 +7,11 @@ import 'package:provider/provider.dart';
 import '../../../core/auth/auth_service.dart';
 import '../../../core/models/follow_models.dart';
 import '../../../core/models/pro_networx_models.dart';
+import '../../../core/services/instagram_share_card.dart';
 import '../../../core/services/messages_service.dart';
+import '../../../core/services/social_share.dart';
 import '../../../core/services/users_service.dart';
+import '../../player/widgets/social_share_bar.dart';
 
 /// Bottom sheet that lets the user share a feed [post] into a DM with one or
 /// more of their friends (mutual follows).
@@ -59,6 +64,56 @@ class _SharePostSheetState extends State<SharePostSheet> {
     _searchController.dispose();
     _noteController.dispose();
     super.dispose();
+  }
+
+  Future<File> _shareableFile() async {
+    final post = widget.post;
+    final media = post.imageUrl.trim();
+    final audio = post.audioUrl?.trim() ?? '';
+    if (post.mediaType == 'video' && media.isNotEmpty) {
+      final video = await SocialShare.downloadToTemp(media);
+      if (audio.isEmpty) return video;
+      final song = await SocialShare.downloadToTemp(audio);
+      final out = await SocialShare.attachAudio(
+        videoPath: video.path,
+        audioPath: song.path,
+        startMs: 0,
+        durationMs: SocialShare.clipMs,
+      );
+      return File(out);
+    }
+    if (audio.isNotEmpty) {
+      final song = await SocialShare.downloadToTemp(audio);
+      File image;
+      if (media.isNotEmpty) {
+        image = await SocialShare.downloadToTemp(media);
+      } else {
+        final png = await renderInstagramShareCard(
+          title: (post.caption ?? '').trim().isEmpty
+              ? 'NETWORX Radio'
+              : post.caption!.trim(),
+          subtitle: post.authorDisplayName ?? '',
+          link: 'https://www.networxradio.com',
+        );
+        image = await writeInstagramShareCard(png);
+      }
+      final out = await SocialShare.imageWithAudio(
+        imagePath: image.path,
+        audioPath: song.path,
+        startMs: 0,
+        durationMs: SocialShare.clipMs,
+      );
+      return File(out);
+    }
+    if (media.isEmpty) throw Exception('Nothing to share');
+    return SocialShare.downloadToTemp(media);
+  }
+
+  String get _socialCaption {
+    final caption = widget.post.caption?.trim() ?? '';
+    if (caption.isNotEmpty) return caption;
+    final name = widget.post.authorDisplayName?.trim() ?? '';
+    return name.isEmpty ? 'NETWORX Radio' : name;
   }
 
   Future<void> _loadFriends() async {
@@ -162,6 +217,13 @@ class _SharePostSheetState extends State<SharePostSheet> {
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: SocialShareBar(
+                caption: _socialCaption,
+                resolveFile: _shareableFile,
               ),
             ),
             Padding(

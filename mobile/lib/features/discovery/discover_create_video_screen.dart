@@ -13,9 +13,12 @@ import '../../core/services/api_service.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/services/discover_audio_service.dart';
 import '../../core/services/pro_networx_service.dart';
+import '../../core/services/radio_share.dart';
+import '../../core/services/social_share.dart';
 import '../../core/theme/dimension_tokens.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
+import '../player/widgets/social_share_bar.dart';
 import 'discover_clip_camera_screen.dart';
 
 /// Pick a liked Discover clip, then record a short TikTok-style video while
@@ -54,6 +57,7 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
   List<DiscoverAudioLikedItem> _likedClips = const [];
   DiscoverAudioLikedItem? _selected;
   File? _videoFile;
+  File? _withSong;
   VideoPlayerController? _previewPlayer;
   bool _uploading = false;
   bool _recording = false;
@@ -207,7 +211,10 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
       } catch (_) {}
     }
     if (!disposeOnly && mounted) {
-      setState(() => _videoFile = null);
+      setState(() {
+        _videoFile = null;
+        _withSong = null;
+      });
     }
   }
 
@@ -301,6 +308,7 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
     }
     setState(() {
       _videoFile = file;
+      _withSong = null;
       _error = null;
     });
     await _initVideoPreview(file);
@@ -314,6 +322,42 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
   Future<void> _reRecord() async {
     await _clearRecordedPreview();
     await _recordWithClip();
+  }
+
+  Future<File> _videoWithSong() async {
+    final cached = _withSong;
+    if (cached != null && await cached.exists()) return cached;
+    final video = _videoFile;
+    final clip = _selected?.clipUrl.trim() ?? '';
+    if (video == null) throw Exception('Record a video first');
+    if (clip.isEmpty) return video;
+    final audio = await SocialShare.downloadToTemp(clip);
+    final out = await SocialShare.attachAudio(
+      videoPath: video.path,
+      audioPath: audio.path,
+      startMs: 0,
+      durationMs: _maxDurationSec * 1000,
+    );
+    final file = File(out);
+    _withSong = file;
+    return file;
+  }
+
+  String get _shareCaption {
+    final selected = _selected;
+    if (selected == null || selected.artistId.trim().isEmpty) {
+      return _captionCtrl.text.trim().isEmpty
+          ? 'NETWORX Radio'
+          : _captionCtrl.text.trim();
+    }
+    final note = _captionCtrl.text.trim();
+    final link = RadioShare.artistMessage(
+      artistId: selected.artistId,
+      artistName: selected.artistDisplayName ?? selected.artistName,
+      songTitle: selected.title,
+      songId: selected.songId,
+    );
+    return note.isEmpty ? link : '$note\n$link';
   }
 
   Future<void> _publish() async {
@@ -333,10 +377,11 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
     });
     try {
       final caption = _captionCtrl.text.trim();
-      // Streams straight to storage so a long take never has to be buffered in
-      // the API container.
+      // The camera records the picture only. The Discover clip is mixed in
+      // before the post so the feed plays the song.
+      final withSong = await _videoWithSong();
       await _proNetworx.createFeedPostViaStorage(
-        _videoFile!,
+        withSong,
         caption: caption.isEmpty ? null : caption,
         kind: FeedMediaKind.video,
         onProgress: _onUploadProgress,
@@ -775,6 +820,11 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
                     ),
                   ),
                 ],
+                const SizedBox(height: 12),
+                SocialShareBar(
+                  caption: _shareCaption,
+                  resolveFile: _videoWithSong,
+                ),
               ],
             ],
           ),

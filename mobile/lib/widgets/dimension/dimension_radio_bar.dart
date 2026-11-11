@@ -12,6 +12,7 @@ import '../../core/services/audio_player_service.dart';
 import '../../core/services/radio_share.dart';
 import '../../core/theme/dimension_tokens.dart';
 import '../../features/player/dimension_player_controller.dart';
+import '../../features/player/radio_capture_screen.dart';
 import '../../features/player/widgets/synced_lyrics_panel.dart';
 import '../../features/pro_radio/widgets/add_to_playlist_sheet.dart';
 import 'dimension_widgets.dart';
@@ -130,6 +131,36 @@ class DimensionRadioBar extends StatelessWidget {
                       songId: ctrl.playlistSongId!,
                       songTitle: ctrl.playlistSongTitle,
                     );
+                  },
+                ),
+              if ((ctrl.captureAudioUrl ?? '').isNotEmpty)
+                ListTile(
+                  leading: const Icon(Icons.videocam_outlined),
+                  title: const Text('Record with this song'),
+                  subtitle: const Text(
+                    'Photo or video for your feed, Instagram, Snapchat, or TikTok',
+                  ),
+                  onTap: () {
+                    final url = ctrl.captureAudioUrl;
+                    if (url == null || url.isEmpty) return;
+                    Navigator.of(sheetContext).pop();
+                    Future<void>.microtask(() {
+                      if (!context.mounted) return;
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => RadioCaptureScreen(
+                            audioUrl: url,
+                            title: ctrl.playlistSongTitle ?? 'This song',
+                            artistName: ctrl.shareArtistName ?? '',
+                            artistId: ctrl.shareArtistId,
+                            songId: ctrl.playlistSongId,
+                            stationId: ctrl.shareRadioId,
+                            durationMs: ctrl.captureDurationMs,
+                          ),
+                        ),
+                      );
+                    });
                   },
                 ),
               ListTile(

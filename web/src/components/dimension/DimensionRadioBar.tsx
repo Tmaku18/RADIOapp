@@ -15,6 +15,7 @@ import { ArtworkImage } from '@/components/common/ArtworkImage';
 import { useBassPulseRef } from '@/components/dimension/BassPulseLogo';
 import { FrequencyVisualizer } from '@/components/radio/FrequencyVisualizer';
 import { RadioShareMenu } from '@/components/radio/RadioShareMenu';
+import { RadioCaptureButton } from '@/components/radio/RadioCapture';
 import { usePlaybackOptional } from '@/components/playback/PlaybackProvider';
 import { signalRadioNavIntent } from '@/lib/playback-preferences';
 import type { DimensionPlayerModel } from '@/hooks/useDimensionPlayer';
@@ -273,6 +274,7 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
                 <FastForward className="w-4 h-4" />
               </button>
             ) : null}
+            <RadioCaptureButton compact />
             <RadioShareMenu
               compact
               stationId={

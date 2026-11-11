@@ -780,6 +780,39 @@ class _PlayerBody extends StatelessWidget {
                     ),
                   ),
                   IconButton(
+                    tooltip: 'Record with this song',
+                    onPressed: () {
+                      final url = track.audioUrl.trim();
+                      if (url.isEmpty || url.toLowerCase().contains('.m3u8')) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'This live stream cannot be saved into a clip.',
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (_) => RadioCaptureScreen(
+                            audioUrl: url,
+                            title: track.title,
+                            artistName: track.artistName,
+                            artistId: track.artistId,
+                            songId: track.id,
+                            stationId: radioId,
+                            durationMs: track.durationSeconds > 0
+                                ? track.durationSeconds * 1000
+                                : null,
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.videocam_outlined),
+                  ),
+                  IconButton(
                     tooltip: 'Share',
                     onPressed: () {
                       RadioShare.showSheet(

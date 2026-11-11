@@ -76,6 +76,11 @@
 -keepattributes Signature
 -keepattributes *Annotation*
 
+# Media3 Transformer bakes the on-air song into shared clips. R8 must not
+# strip the export pipeline in Play builds.
+-keep class androidx.media3.** { *; }
+-dontwarn androidx.media3.**
+
 # Keep line numbers for debugging
 -keepattributes SourceFile,LineNumberTable
 

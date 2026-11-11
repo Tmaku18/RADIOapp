@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { SocialShareButtons } from '@/components/radio/SocialShareButtons';
 
 type RecorderState = 'idle' | 'countdown' | 'recording' | 'recorded';
 
@@ -692,6 +693,16 @@ export default function CreateDiscoverFeedVideoPage() {
                 {posting ? 'Posting...' : 'Post to full feed'}
               </Button>
             </div>
+            {recordedFile ? (
+              <SocialShareButtons
+                caption={
+                  [caption.trim(), selectedClip?.songTitle, selectedClip?.artistName]
+                    .filter(Boolean)
+                    .join(' — ') || 'NETWORX Radio'
+                }
+                getFile={async () => recordedFile}
+              />
+            ) : null}
           </CardContent>
         </Card>
       )}

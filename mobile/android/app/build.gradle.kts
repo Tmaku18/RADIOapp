@@ -160,4 +160,9 @@ gradle.taskGraph.whenReady {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // Mixes the on-air song into a photo or video so Instagram, Snapchat,
+    // and TikTok can play it. The mic is not included.
+    implementation("androidx.media3:media3-transformer:1.9.2")
+    implementation("androidx.media3:media3-effect:1.9.2")
+    implementation("androidx.media3:media3-common:1.9.2")
 }
