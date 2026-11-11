@@ -61,9 +61,7 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
               stats['totalListenCount'] ??
               stats['total_listen_count'],
         );
-        _likes = asInt(
-          stats['totalLikes'] ?? stats['total_likes'],
-        );
+        _likes = asInt(stats['totalLikes'] ?? stats['total_likes']);
       });
     } catch (_) {
       // Best-effort; keep zeros.
@@ -100,15 +98,19 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
   }
 
   List<_HomeAction> _actionsForRole(String? role) {
-    final openRadio = widget.onOpenRadio ??
+    final openRadio =
+        widget.onOpenRadio ??
         () => Navigator.pushNamed(context, AppRoutes.player);
-    final openDiscover = widget.onOpenDiscover ??
+    final openDiscover =
+        widget.onOpenDiscover ??
         () => Navigator.pushNamed(context, AppRoutes.discovery);
-    final openFeed = widget.onOpenFeed ??
-        () => Navigator.pushNamed(context, AppRoutes.home);
-    final openVote = widget.onOpenVote ??
+    final openFeed =
+        widget.onOpenFeed ?? () => Navigator.pushNamed(context, AppRoutes.home);
+    final openVote =
+        widget.onOpenVote ??
         () => Navigator.pushNamed(context, AppRoutes.competition);
-    final openPro = widget.onOpenProNetworx ??
+    final openPro =
+        widget.onOpenProNetworx ??
         () => Navigator.pushNamed(context, AppRoutes.proNetworxShell);
 
     if (role == 'admin') {
@@ -125,12 +127,7 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
           'Track ears reached, listens, and growth.',
           () => Navigator.pushNamed(context, AppRoutes.analytics),
         ),
-        _HomeAction(
-          Icons.radio,
-          'Listen',
-          'Tune in to the radio.',
-          openRadio,
-        ),
+        _HomeAction(Icons.radio, 'Listen', 'Tune in to the radio.', openRadio),
         _HomeAction(
           Icons.person_outline,
           'Your Profile',
@@ -330,153 +327,159 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
               ),
             ),
             Scaffold(
-          backgroundColor: Colors.transparent,
-          extendBodyBehindAppBar: true,
-          appBar: AppBar(
-            backgroundColor: Colors.transparent,
-            foregroundColor: Colors.white,
-            elevation: 0,
-            scrolledUnderElevation: 0,
-            leading: widget.onOpenNavDrawer != null
-                ? IconButton(
-                    icon: const Icon(Icons.menu),
-                    tooltip: 'Menu',
-                    onPressed: widget.onOpenNavDrawer,
-                  )
-                : null,
-            title: const Text('Home', style: TextStyle(color: Colors.white)),
-            actions: [
-              IconButton(
-                tooltip: 'Search',
-                onPressed: () => Navigator.pushNamed(context, AppRoutes.search),
-                icon: const Icon(Icons.search),
-              ),
-              const NotificationsBellButton(),
-              IconButton(
-                onPressed: () =>
-                    Navigator.pushNamed(context, AppRoutes.upload),
-                tooltip: 'Upload',
-                icon: const Icon(Icons.cloud_upload_outlined),
-              ),
-              const SizedBox(width: 4),
-            ],
-          ),
-          body: RefreshIndicator(
-            onRefresh: _loadStats,
-            child: ListView(
-              padding: EdgeInsets.fromLTRB(
-                16,
-                MediaQuery.paddingOf(context).top + kToolbarHeight,
-                16,
-                32,
-              ),
-              children: [
-                // A large greeting in place of the card-in-a-card hero: an
-                // eyebrow label, a two-tone slogan, a subtitle and a marketing
-                // banner all stacked inside a bordered panel.
-                Text(
-                  _greeting(),
-                  style: const TextStyle(
-                    fontSize: 15,
-                    color: Colors.white70,
+              backgroundColor: Colors.transparent,
+              extendBodyBehindAppBar: true,
+              appBar: AppBar(
+                backgroundColor: Colors.transparent,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                scrolledUnderElevation: 0,
+                leading: widget.onOpenNavDrawer != null
+                    ? IconButton(
+                        icon: const Icon(Icons.menu),
+                        tooltip: 'Menu',
+                        onPressed: widget.onOpenNavDrawer,
+                      )
+                    : null,
+                title: const Text(
+                  'Home',
+                  style: TextStyle(color: Colors.white),
+                ),
+                actions: [
+                  IconButton(
+                    tooltip: 'Search',
+                    onPressed: () =>
+                        Navigator.pushNamed(context, AppRoutes.search),
+                    icon: const Icon(Icons.search),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  name,
-                  style: DimensionTypography.pageTitle(fontSize: 32)
-                      .copyWith(color: Colors.white),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  _roleHomeSubtitle(role),
-                  style: const TextStyle(
-                    fontSize: 15,
-                    height: 1.4,
-                    color: Colors.white70,
+                  const NotificationsBellButton(),
+                  IconButton(
+                    onPressed: () =>
+                        Navigator.pushNamed(context, AppRoutes.upload),
+                    tooltip: 'Upload',
+                    icon: const Icon(Icons.cloud_upload_outlined),
                   ),
-                ),
-                const SizedBox(height: 16),
-                const _WelcomeBanner(),
-                const SizedBox(height: 20),
-                if (_loadingStats)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                else
-                  // One card, four figures. Four separate tiles each with its
-                  // own circular badge in its own accent colour turned basic
-                  // counts into the loudest thing on the screen.
-                  GlassCard(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    child: Row(
-                      children: [
-                        _Stat(label: 'Songs', value: _songs),
-                        _StatDivider(),
-                        _Stat(label: 'Listens', value: _listens),
-                        _StatDivider(),
-                        _Stat(label: 'Ears', value: _ears),
-                        _StatDivider(),
-                        _Stat(label: 'Likes', value: _likes),
-                      ],
+                  const SizedBox(width: 4),
+                ],
+              ),
+              body: RefreshIndicator(
+                onRefresh: _loadStats,
+                child: ListView(
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    MediaQuery.paddingOf(context).top + kToolbarHeight,
+                    16,
+                    32,
+                  ),
+                  children: [
+                    // A large greeting in place of the card-in-a-card hero: an
+                    // eyebrow label, a two-tone slogan, a subtitle and a marketing
+                    // banner all stacked inside a bordered panel.
+                    Text(
+                      _greeting(),
+                      style: const TextStyle(
+                        fontSize: 15,
+                        color: Colors.white70,
+                      ),
                     ),
-                  ),
-                DimensionSectionHeader(
-                  title: _roleHomeTitle(role),
-                  color: Colors.white,
-                ),
-                // A single grouped list, the way iOS settings and Apple Music's
-                // library present a set of destinations.
-                GlassCard(
-                  padding: EdgeInsets.zero,
-                  child: Column(
-                    children: [
-                      for (var i = 0; i < actions.length; i++) ...[
-                        if (i > 0)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 56),
-                            child: Divider(
-                              height: 0.5,
-                              color: DimensionTokens.glassBorder,
-                            ),
-                          ),
-                        ListTile(
-                          onTap: actions[i].onTap,
-                          contentPadding:
-                              const EdgeInsets.symmetric(horizontal: 16),
-                          leading: Icon(
-                            actions[i].icon,
-                            color: DimensionTokens.neonCyan,
-                            size: 24,
-                          ),
-                          title: Text(
-                            actions[i].title,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          subtitle: Text(
-                            actions[i].desc,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: DimensionTokens.textSecondary,
-                            ),
-                          ),
-                          trailing: Icon(
-                            Icons.chevron_right,
-                            size: 20,
-                            color: DimensionTokens.textMuted,
-                          ),
+                    const SizedBox(height: 2),
+                    Text(
+                      name,
+                      style: DimensionTypography.pageTitle(
+                        fontSize: 32,
+                      ).copyWith(color: Colors.white),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      _roleHomeSubtitle(role),
+                      style: const TextStyle(
+                        fontSize: 15,
+                        height: 1.4,
+                        color: Colors.white70,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const _WelcomeBanner(),
+                    const SizedBox(height: 20),
+                    if (_loadingStats)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else
+                      // One card, four figures. Four separate tiles each with its
+                      // own circular badge in its own accent colour turned basic
+                      // counts into the loudest thing on the screen.
+                      GlassCard(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Row(
+                          children: [
+                            _Stat(label: 'Songs', value: _songs),
+                            _StatDivider(),
+                            _Stat(label: 'Listens', value: _listens),
+                            _StatDivider(),
+                            _Stat(label: 'Ears', value: _ears),
+                            _StatDivider(),
+                            _Stat(label: 'Likes', value: _likes),
+                          ],
                         ),
-                      ],
-                    ],
-                  ),
+                      ),
+                    DimensionSectionHeader(
+                      title: _roleHomeTitle(role),
+                      color: Colors.white,
+                    ),
+                    // A single grouped list, the way iOS settings and Apple Music's
+                    // library present a set of destinations.
+                    GlassCard(
+                      padding: EdgeInsets.zero,
+                      child: Column(
+                        children: [
+                          for (var i = 0; i < actions.length; i++) ...[
+                            if (i > 0)
+                              Padding(
+                                padding: const EdgeInsets.only(left: 56),
+                                child: Divider(
+                                  height: 0.5,
+                                  color: DimensionTokens.glassBorder,
+                                ),
+                              ),
+                            ListTile(
+                              onTap: actions[i].onTap,
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                              ),
+                              leading: Icon(
+                                actions[i].icon,
+                                color: DimensionTokens.neonCyan,
+                                size: 24,
+                              ),
+                              title: Text(
+                                actions[i].title,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              subtitle: Text(
+                                actions[i].desc,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: DimensionTokens.textSecondary,
+                                ),
+                              ),
+                              trailing: Icon(
+                                Icons.chevron_right,
+                                size: 20,
+                                color: DimensionTokens.textMuted,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
+              ),
             ),
           ],
         );
