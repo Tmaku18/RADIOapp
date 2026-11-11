@@ -1413,6 +1413,76 @@ export const creatorNetworkApi = {
   getAccess: () => api.get<{ hasAccess: boolean }>('/creator-network/access'),
 };
 
+export interface SongStory {
+  id: string;
+  songId: string;
+  mediaUrl: string;
+  mediaMime: string | null;
+  caption: string | null;
+  visibility: 'public' | 'private';
+  createdAt: string;
+  expiresAt: string;
+  mine: boolean;
+  author: {
+    id: string;
+    displayName: string;
+    username: string | null;
+    avatarUrl: string | null;
+  };
+}
+
+export const songStoriesApi = {
+  list: (songId: string) =>
+    api.get<{ stories: SongStory[] }>('/song-stories', { params: { songId } }),
+  create: (data: {
+    path: string;
+    songId: string;
+    visibility: 'public' | 'private';
+    caption?: string;
+    contentType?: string;
+  }) => api.post<SongStory>('/song-stories', data),
+  setVisibility: (id: string, visibility: 'public' | 'private') =>
+    api.patch<SongStory>(`/song-stories/${id}`, { visibility }),
+  remove: (id: string) => api.delete(`/song-stories/${id}`),
+  upload: async (
+    file: File,
+    input: { songId: string; visibility: 'public' | 'private'; caption?: string },
+  ) => {
+    const typed = (file.type || '').toLowerCase();
+    const named = file.name.toLowerCase();
+    const mime = typed.includes('webm') || named.endsWith('.webm')
+      ? 'video/webm'
+      : typed.includes('quicktime') || named.endsWith('.mov')
+        ? 'video/quicktime'
+        : 'video/mp4';
+    const filename = mime === 'video/webm'
+      ? 'story.webm'
+      : mime === 'video/quicktime'
+        ? 'story.mov'
+        : 'story.mp4';
+    const ticket = await api.post<{ signedUrl: string; path: string }>(
+      '/discovery/feed/upload-url',
+      { contentType: mime, filename },
+    );
+    const signedUrl = ticket.data?.signedUrl;
+    const path = ticket.data?.path;
+    if (!signedUrl || !path) throw new Error('Could not start the upload.');
+    const response = await fetch(signedUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': mime },
+      body: file,
+    });
+    if (!response.ok) throw new Error('Could not upload the story.');
+    return songStoriesApi.create({
+      path,
+      songId: input.songId,
+      visibility: input.visibility,
+      caption: input.caption,
+      contentType: mime,
+    });
+  },
+};
+
 export const messagesApi = {
   listConversations: (params?: { search?: string }) =>
     api.get('/messages/conversations', { params: params ?? {} }),

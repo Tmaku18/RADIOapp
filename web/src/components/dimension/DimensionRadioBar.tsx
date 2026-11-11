@@ -16,6 +16,7 @@ import { useBassPulseRef } from '@/components/dimension/BassPulseLogo';
 import { FrequencyVisualizer } from '@/components/radio/FrequencyVisualizer';
 import { RadioShareMenu } from '@/components/radio/RadioShareMenu';
 import { RadioCaptureButton } from '@/components/radio/RadioCapture';
+import { SongStoriesBar } from '@/components/radio/SongStoriesBar';
 import { usePlaybackOptional } from '@/components/playback/PlaybackProvider';
 import { signalRadioNavIntent } from '@/lib/playback-preferences';
 import type { DimensionPlayerModel } from '@/hooks/useDimensionPlayer';
@@ -286,6 +287,10 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
               artistName={playback?.state.track?.artistName || player.artist}
               songId={playback?.state.track?.id}
               songTitle={playback?.state.track?.title || player.title}
+            />
+            <SongStoriesBar
+              compact
+              songId={playback?.state.track?.id}
             />
             <div className="flex items-end h-6 ml-2 w-[72px] shrink-0">
               <FrequencyVisualizer

@@ -13,6 +13,7 @@ import '../../core/services/radio_share.dart';
 import '../../core/theme/dimension_tokens.dart';
 import '../../features/player/dimension_player_controller.dart';
 import '../../features/player/radio_capture_screen.dart';
+import '../../features/player/widgets/song_stories_strip.dart';
 import '../../features/player/widgets/synced_lyrics_panel.dart';
 import '../../features/pro_radio/widgets/add_to_playlist_sheet.dart';
 import 'dimension_widgets.dart';
@@ -120,6 +121,19 @@ class DimensionRadioBar extends StatelessWidget {
                   },
                 ),
               ],
+              if ((ctrl.playlistSongId ?? '').isNotEmpty)
+                ListTile(
+                  leading: const Icon(Icons.auto_stories_outlined),
+                  title: const Text('Song stories'),
+                  subtitle: const Text('Clips people posted of this song'),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    Future<void>.microtask(() {
+                      if (!context.mounted) return;
+                      SongStoriesStrip.open(context, ctrl.playlistSongId!);
+                    });
+                  },
+                ),
               if ((ctrl.playlistSongId ?? '').isNotEmpty)
                 ListTile(
                   leading: const Icon(Icons.playlist_add),

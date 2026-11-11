@@ -18,6 +18,7 @@ import { prospectorApi, radioApi, leaderboardApi, analyticsApi, songsApi, songSa
 import { artistProfilePath } from '@/lib/artist-links';
 import { RadioShareMenu } from '@/components/radio/RadioShareMenu';
 import { RadioCaptureButton } from '@/components/radio/RadioCapture';
+import { SongStoriesBar } from '@/components/radio/SongStoriesBar';
 import { useAuth } from '@/contexts/AuthContext';
 import { hasListenerCapability } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
@@ -1499,6 +1500,7 @@ export function RadioPlayer({
                   />
                 </div>
               </div>
+              <SongStoriesBar songId={state.track?.id} />
 
               <div className="mt-5 flex items-center gap-3">
                 <span className="font-dim-mono text-[10px] text-white/40 w-10 text-right">
@@ -1840,6 +1842,7 @@ export function RadioPlayer({
             🔥
           </button>
         </div>
+        <SongStoriesBar songId={state.track?.id} />
 
         {/* Volume Control */}
         <div className="mt-3 flex items-center justify-center space-x-3">

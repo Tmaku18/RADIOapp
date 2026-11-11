@@ -25,6 +25,7 @@ import { SpotlightModule } from './spotlight/spotlight.module';
 import { CompetitionModule } from './competition/competition.module';
 import { LiveServicesModule } from './live-services/live-services.module';
 import { DiscoveryModule } from './discovery/discovery.module';
+import { SongStoriesModule } from './song-stories/song-stories.module';
 import { CreatorNetworkModule } from './creator-network/creator-network.module';
 import { ServiceMessagesModule } from './service-messages/service-messages.module';
 import { JobBoardModule } from './job-board/job-board.module';
@@ -76,6 +77,7 @@ import { RequestIdMiddleware } from './common/middleware';
     CompetitionModule,
     LiveServicesModule,
     DiscoveryModule,
+    SongStoriesModule,
     CreatorNetworkModule,
     ServiceMessagesModule,
     JobBoardModule,

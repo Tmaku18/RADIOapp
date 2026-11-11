@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { discoverAudioApi, discoveryApi, type DiscoverAudioSongCard } from '@/lib/api';
+import { discoverAudioApi, discoveryApi, songStoriesApi, type DiscoverAudioSongCard } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePlaybackOptional } from '@/components/playback/PlaybackProvider';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SocialShareButtons } from '@/components/radio/SocialShareButtons';
+import { toast } from 'sonner';
 
 type RecorderState = 'idle' | 'countdown' | 'recording' | 'recorded';
 
@@ -46,15 +47,19 @@ export default function CreateDiscoverFeedVideoPage() {
     clipUrl: string;
     songTitle: string;
     artistName: string;
+    songId?: string;
   } | null>(
     initialClipUrl
       ? {
           clipUrl: initialClipUrl,
           songTitle: initialSongTitle,
           artistName: initialArtistName,
+          songId: searchParams.get('songId') ?? undefined,
         }
       : null,
   );
+  const [postingStory, setPostingStory] = useState(false);
+  const [storyPublic, setStoryPublic] = useState(true);
   const [likedClips, setLikedClips] = useState<
     Array<DiscoverAudioSongCard & { likedAt: string }>
   >([]);
@@ -397,6 +402,7 @@ export default function CreateDiscoverFeedVideoPage() {
     clipUrl: string;
     songTitle: string;
     artistName: string;
+    songId?: string;
   }) => {
     const clip = clipOverride ?? selectedClip;
     if (!clip?.clipUrl) {
@@ -458,6 +464,7 @@ export default function CreateDiscoverFeedVideoPage() {
       clipUrl: clip.clipUrl,
       songTitle: clip.title,
       artistName: clip.artistDisplayName ?? clip.artistName,
+      songId: clip.songId,
     };
     setSelectedClip(next);
     if (startAfterSelect) {
@@ -468,6 +475,28 @@ export default function CreateDiscoverFeedVideoPage() {
   const reRecord = async () => {
     clearRecordedPreview();
     await beginCountdownThenRecord();
+  };
+
+  const postStory = async () => {
+    if (!recordedFile || !selectedClip?.songId || postingStory) return;
+    setPostingStory(true);
+    setError(null);
+    try {
+      await songStoriesApi.upload(recordedFile, {
+        songId: selectedClip.songId,
+        visibility: storyPublic ? 'public' : 'private',
+        caption: caption.trim() || selectedClip.songTitle,
+      });
+      toast.success(
+        storyPublic
+          ? 'Story posted. It shows on the radio while this song plays, for 24 hours.'
+          : 'Private story posted. Only you can see it, for 24 hours.',
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not post that story.');
+    } finally {
+      setPostingStory(false);
+    }
   };
 
   const postToFeed = async () => {
@@ -689,10 +718,30 @@ export default function CreateDiscoverFeedVideoPage() {
               >
                 Re-record
               </Button>
-              <Button onClick={() => void postToFeed()} disabled={posting || !canPostToFeed}>
+              <Button onClick={() => void postToFeed()} disabled={posting || postingStory || !canPostToFeed}>
                 {posting ? 'Posting...' : 'Post to full feed'}
               </Button>
+              {selectedClip?.songId ? (
+                <Button
+                  variant="outline"
+                  onClick={() => void postStory()}
+                  disabled={posting || postingStory || !recordedFile}
+                >
+                  {postingStory ? 'Posting story…' : 'Post as story'}
+                </Button>
+              ) : null}
             </div>
+            {selectedClip?.songId ? (
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={storyPublic}
+                  disabled={postingStory}
+                  onChange={(event) => setStoryPublic(event.target.checked)}
+                />
+                Public. Shows on the radio while this song plays, for 24 hours.
+              </label>
+            ) : null}
             {recordedFile ? (
               <SocialShareButtons
                 caption={

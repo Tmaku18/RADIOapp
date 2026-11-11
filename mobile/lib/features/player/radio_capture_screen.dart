@@ -12,6 +12,7 @@ import '../../core/services/audio_player_service.dart';
 import '../../core/services/pro_networx_service.dart';
 import '../../core/services/radio_share.dart';
 import '../../core/services/social_share.dart';
+import '../../core/services/song_stories_service.dart';
 import '../../core/theme/dimension_tokens.dart';
 import '../../core/theme/networx_extensions.dart';
 import 'widgets/social_share_bar.dart';
@@ -69,6 +70,8 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
   bool _held = false;
   bool _released = false;
   bool _posting = false;
+  bool _postingStory = false;
+  bool _storyPublic = true;
   bool _stopping = false;
   int _startMs = 0;
   int? _knownDurationMs;
@@ -393,6 +396,42 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     }
   }
 
+  Future<void> _postStory() async {
+    final file = _clip;
+    final songId = widget.songId;
+    if (file == null || _postingStory || !SongStoriesService.isSongId(songId)) {
+      return;
+    }
+    setState(() {
+      _postingStory = true;
+      _error = null;
+    });
+    try {
+      final artist = widget.artistName.trim();
+      await SongStoriesService().postClip(
+        file: file,
+        songId: songId!,
+        isPublic: _storyPublic,
+        caption: artist.isEmpty ? widget.title : '${widget.title} — $artist',
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _storyPublic
+                ? 'Story posted. It shows on the radio while this song plays, for 24 hours.'
+                : 'Private story posted. Only you can see it, for 24 hours.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = _friendly(error));
+    } finally {
+      if (mounted) setState(() => _postingStory = false);
+    }
+  }
+
   String _friendly(Object error) {
     final text = error.toString();
     if (text.contains('live stream')) {
@@ -550,12 +589,30 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         FilledButton(
-          onPressed: _posting ? null : _post,
+          onPressed: _posting || _postingStory ? null : _post,
           child: Text(_posting ? 'Posting…' : 'Post to feed'),
         ),
+        if (SongStoriesService.isSongId(widget.songId)) ...[
+          const SizedBox(height: 8),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Public story'),
+            subtitle: const Text(
+              'Public stories show on the radio while this song plays. They last 24 hours.',
+            ),
+            value: _storyPublic,
+            onChanged: _postingStory
+                ? null
+                : (value) => setState(() => _storyPublic = value),
+          ),
+          OutlinedButton(
+            onPressed: _posting || _postingStory ? null : _postStory,
+            child: Text(_postingStory ? 'Posting story…' : 'Post as story'),
+          ),
+        ],
         const SizedBox(height: 8),
         OutlinedButton(
-          onPressed: _posting ? null : _retake,
+          onPressed: _posting || _postingStory ? null : _retake,
           child: const Text('Retake'),
         ),
         const SizedBox(height: 12),

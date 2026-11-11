@@ -15,6 +15,7 @@ import '../../core/services/discover_audio_service.dart';
 import '../../core/services/pro_networx_service.dart';
 import '../../core/services/radio_share.dart';
 import '../../core/services/social_share.dart';
+import '../../core/services/song_stories_service.dart';
 import '../../core/theme/dimension_tokens.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
@@ -60,6 +61,8 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
   File? _withSong;
   VideoPlayerController? _previewPlayer;
   bool _uploading = false;
+  bool _postingStory = false;
+  bool _storyPublic = true;
   bool _recording = false;
   String? _error;
   int _sentBytes = 0;
@@ -404,6 +407,46 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
           _totalBytes = 0;
         });
       }
+    }
+  }
+
+  Future<void> _postStory() async {
+    final selected = _selected;
+    if (selected == null || _videoFile == null || _postingStory || _uploading) {
+      return;
+    }
+    if (!SongStoriesService.isSongId(selected.songId)) {
+      setState(() => _error = 'This clip is not tied to a song on NetworX.');
+      return;
+    }
+    setState(() {
+      _postingStory = true;
+      _error = null;
+    });
+    try {
+      final withSong = await _videoWithSong();
+      final note = _captionCtrl.text.trim();
+      await SongStoriesService().postClip(
+        file: withSong,
+        songId: selected.songId,
+        isPublic: _storyPublic,
+        caption: note.isEmpty ? selected.title : note,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _storyPublic
+                ? 'Story posted. It shows on the radio while this song plays, for 24 hours.'
+                : 'Private story posted. Only you can see it, for 24 hours.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = _publishErrorMessage(error));
+    } finally {
+      if (mounted) setState(() => _postingStory = false);
     }
   }
 
@@ -795,8 +838,24 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
                 ),
               ] else ...[
                 FilledButton(
-                  onPressed: _uploading || _recording ? null : _publish,
+                  onPressed: _uploading || _recording || _postingStory ? null : _publish,
                   child: Text(_uploading ? _uploadLabel : 'Publish'),
+                ),
+                const SizedBox(height: 8),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Public story'),
+                  subtitle: const Text(
+                    'Shows on the radio while this song plays. Stories last 24 hours.',
+                  ),
+                  value: _storyPublic,
+                  onChanged: _uploading || _postingStory
+                      ? null
+                      : (value) => setState(() => _storyPublic = value),
+                ),
+                OutlinedButton(
+                  onPressed: _uploading || _recording || _postingStory ? null : _postStory,
+                  child: Text(_postingStory ? 'Posting story…' : 'Post as story'),
                 ),
                 if (_uploading) ...[
                   const SizedBox(height: 10),

@@ -5,7 +5,7 @@ import { Video } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePlaybackOptional } from '@/components/playback/PlaybackProvider';
 import type { PlaybackTrack } from '@/components/playback';
-import { discoveryApi } from '@/lib/api';
+import { discoveryApi, songStoriesApi } from '@/lib/api';
 import { artistShareText, stationShareText } from '@/lib/radio-share';
 import {
   loadAudioBuffer,
@@ -68,6 +68,8 @@ export function RadioCaptureDialog({
   const [error, setError] = useState<string | null>(null);
   const [clip, setClip] = useState<{ file: File; url: string } | null>(null);
   const [posting, setPosting] = useState(false);
+  const [postingStory, setPostingStory] = useState(false);
+  const [storyPublic, setStoryPublic] = useState(true);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -188,6 +190,29 @@ export function RadioCaptureDialog({
     restartPreview();
   };
 
+  const postStory = async () => {
+    if (!clip || postingStory || !/^[0-9a-f-]{36}$/i.test(track.id)) return;
+    setPostingStory(true);
+    setError(null);
+    try {
+      const artist = track.artistName.trim();
+      await songStoriesApi.upload(clip.file, {
+        songId: track.id,
+        visibility: storyPublic ? 'public' : 'private',
+        caption: artist ? `${track.title} — ${artist}` : track.title,
+      });
+      toast.success(
+        storyPublic
+          ? 'Story posted. It shows on the radio while this song plays, for 24 hours.'
+          : 'Private story posted. Only you can see it, for 24 hours.',
+      );
+    } catch {
+      setError('Could not post that story. Sign in if you have not, then try again.');
+    } finally {
+      setPostingStory(false);
+    }
+  };
+
   const post = async () => {
     if (!clip || posting) return;
     setPosting(true);
@@ -238,20 +263,41 @@ export function RadioCaptureDialog({
               <button
                 type="button"
                 onClick={() => void post()}
-                disabled={posting}
+                disabled={posting || postingStory}
                 className="rounded-full bg-cyan-400 px-4 py-2 text-sm font-semibold text-black disabled:opacity-40"
               >
                 {posting ? 'Posting…' : 'Post to feed'}
               </button>
+              {/^[0-9a-f-]{36}$/i.test(track.id) ? (
+                <button
+                  type="button"
+                  onClick={() => void postStory()}
+                  disabled={posting || postingStory}
+                  className="rounded-full border border-cyan-300 px-4 py-2 text-sm disabled:opacity-40"
+                >
+                  {postingStory ? 'Posting story…' : 'Post as story'}
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={retake}
-                disabled={posting}
+                disabled={posting || postingStory}
                 className="rounded-full border border-white/20 px-4 py-2 text-sm"
               >
                 Retake
               </button>
             </div>
+            {/^[0-9a-f-]{36}$/i.test(track.id) ? (
+              <label className="flex items-center gap-2 text-xs text-white/70">
+                <input
+                  type="checkbox"
+                  checked={storyPublic}
+                  disabled={postingStory}
+                  onChange={(event) => setStoryPublic(event.target.checked)}
+                />
+                Public. Shows on the radio while this song plays, for 24 hours. Uncheck to keep it private.
+              </label>
+            ) : null}
             <SocialShareButtons
               caption={captionFor(track)}
               getFile={async () => clip.file}

@@ -830,6 +830,8 @@ class _PlayerBody extends StatelessWidget {
                 ],
               ),
               SizedBox(height: titleGap),
+              SongStoriesStrip(songId: track.id),
+              SizedBox(height: titleGap),
               GestureDetector(
                 onTap: () {
                   ApiService().post('analytics/profile-click', {
