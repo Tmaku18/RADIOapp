@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { creditsApi, analyticsApi, type DiscoverSwipeAnalytics } from '@/lib/api';
@@ -25,6 +25,8 @@ interface TopSong {
   creditsUsed: number;
   creditsRemaining: number;
   likeCount: number;
+  viewCount?: number;
+  lastPlayedAt?: string | null;
 }
 
 interface ArtistAnalytics {
@@ -78,6 +80,79 @@ interface PlayDetail {
   profileClicksDuring: number;
 }
 
+type SongSort =
+  | 'recent'
+  | 'recent-asc'
+  | 'views'
+  | 'views-asc'
+  | 'plays'
+  | 'plays-asc'
+  | 'alpha'
+  | 'alpha-desc'
+  | 'likes'
+  | 'likes-asc';
+
+const SONG_SORTS: Array<{ id: SongSort; label: string }> = [
+  { id: 'recent', label: 'Recently played' },
+  { id: 'recent-asc', label: 'Least recently played' },
+  { id: 'views', label: 'Most viewed' },
+  { id: 'views-asc', label: 'Least viewed' },
+  { id: 'plays', label: 'Most played' },
+  { id: 'plays-asc', label: 'Least played' },
+  { id: 'alpha', label: 'A to Z' },
+  { id: 'alpha-desc', label: 'Z to A' },
+  { id: 'likes', label: 'Most liked' },
+  { id: 'likes-asc', label: 'Least liked' },
+];
+
+function sortAnalyticsSongs(songs: TopSong[], sort: SongSort): TopSong[] {
+  const copy = [...songs];
+  const played = (song: TopSong) => {
+    const time = song.lastPlayedAt ? Date.parse(song.lastPlayedAt) : 0;
+    return Number.isFinite(time) ? time : 0;
+  };
+  const byTitle = (a: TopSong, b: TopSong) =>
+    a.title.localeCompare(b.title, undefined, { sensitivity: 'base' });
+  copy.sort((a, b) => {
+    let primary = 0;
+    switch (sort) {
+      case 'recent':
+        primary = played(b) - played(a);
+        break;
+      case 'recent-asc':
+        primary = played(a) - played(b);
+        break;
+      case 'views':
+        primary = (b.viewCount ?? 0) - (a.viewCount ?? 0);
+        break;
+      case 'views-asc':
+        primary = (a.viewCount ?? 0) - (b.viewCount ?? 0);
+        break;
+      case 'plays':
+        primary = b.totalPlays - a.totalPlays;
+        break;
+      case 'plays-asc':
+        primary = a.totalPlays - b.totalPlays;
+        break;
+      case 'likes':
+        primary = b.likeCount - a.likeCount;
+        break;
+      case 'likes-asc':
+        primary = a.likeCount - b.likeCount;
+        break;
+      case 'alpha':
+        primary = byTitle(a, b);
+        break;
+      case 'alpha-desc':
+        primary = byTitle(b, a);
+        break;
+    }
+    if (primary !== 0) return primary;
+    return byTitle(a, b);
+  });
+  return copy;
+}
+
 export default function StatsPage() {
   const searchParams = useSearchParams();
   const playIdFromQuery = searchParams.get('playId');
@@ -89,11 +164,17 @@ export default function StatsPage() {
   const [regions, setRegions] = useState<RegionCount[]>([]);
   const [discoverSwipes, setDiscoverSwipes] = useState<DiscoverSwipeAnalytics | null>(null);
   const [songId, setSongId] = useState('');
+  const [songSort, setSongSort] = useState<SongSort>('recent');
   const [catalogSongs, setCatalogSongs] = useState<Array<{ songId: string; title: string }>>([]);
 
   useEffect(() => {
     void loadStats();
   }, [songId]);
+
+  const sortedSongs = useMemo(
+    () => sortAnalyticsSongs(analytics?.topSongs ?? [], songSort),
+    [analytics?.topSongs, songSort],
+  );
 
   useEffect(() => {
     if (playIdFromQuery) {
@@ -503,17 +584,33 @@ export default function StatsPage() {
 
       <Card>
         <CardContent className="pt-6">
-          <h2 className="text-xl font-semibold text-foreground mb-6">Top Performing Songs</h2>
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-xl font-semibold text-foreground">Songs</h2>
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              Sort
+              <select
+                value={songSort}
+                onChange={(event) => setSongSort(event.target.value as SongSort)}
+                className="rounded-md border border-border bg-background px-2 py-1 text-foreground"
+              >
+                {SONG_SORTS.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
           <div className="divide-y divide-border">
-            {analytics?.topSongs && analytics.topSongs.length > 0 ? (
-              analytics.topSongs.map((song, index) => (
+            {sortedSongs.length > 0 ? (
+              sortedSongs.map((song, index) => (
                 <div key={song.songId} className="py-4 flex items-center gap-4">
                   <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-primary font-bold shrink-0">{index + 1}</div>
                   {song.artworkUrl && <img src={song.artworkUrl} alt="" className="w-10 h-10 rounded object-cover shrink-0" />}
                   <div className="flex-1 min-w-0">
                     <Link href={`/artist/songs/${song.songId}/buy-plays`} className="font-medium text-foreground hover:underline block truncate">{song.title}</Link>
                     <p className="text-sm text-muted-foreground">
-                      {(song.totalListens ?? 0).toLocaleString()} listens · {song.totalPlays.toLocaleString()} plays · {song.paidPlays.toLocaleString()} paid · {song.freePlays.toLocaleString()} free · {song.likeCount} ripples
+                      {(song.viewCount ?? 0).toLocaleString()} views · {song.totalPlays.toLocaleString()} plays · {song.likeCount} likes · {(song.totalListens ?? 0).toLocaleString()} listens
                     </p>
                   </div>
                   <div className="text-right shrink-0">
@@ -523,7 +620,7 @@ export default function StatsPage() {
                 </div>
               ))
             ) : (
-              <p className="text-muted-foreground py-4">No ears reached yet. Upload and get your music on the radio to see stats here.</p>
+              <p className="text-muted-foreground py-4">No songs yet. Upload and get your music on the radio to see stats here.</p>
             )}
           </div>
         </CardContent>

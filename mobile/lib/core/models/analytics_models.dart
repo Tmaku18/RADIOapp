@@ -37,6 +37,8 @@ class TopSong {
   final int creditsUsed;
   final int creditsRemaining;
   final int likeCount;
+  final int viewCount;
+  final DateTime? lastPlayedAt;
 
   TopSong({
     required this.songId,
@@ -49,6 +51,8 @@ class TopSong {
     required this.creditsUsed,
     required this.creditsRemaining,
     required this.likeCount,
+    required this.viewCount,
+    required this.lastPlayedAt,
   });
 
   factory TopSong.fromJson(Map<String, dynamic> json) {
@@ -65,6 +69,10 @@ class TopSong {
       creditsRemaining:
           toInt(json['creditsRemaining'] ?? json['credits_remaining']),
       likeCount: toInt(json['likeCount'] ?? json['like_count']),
+      viewCount: toInt(json['viewCount'] ?? json['view_count']),
+      lastPlayedAt: DateTime.tryParse(
+        (json['lastPlayedAt'] ?? json['last_played_at'] ?? '').toString(),
+      ),
     );
   }
 }

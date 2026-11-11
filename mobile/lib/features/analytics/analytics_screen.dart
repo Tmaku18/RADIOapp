@@ -21,6 +21,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   ArtistAnalytics? _data;
   List<CatalogSong> _catalog = const [];
   String? _songId;
+  _SongSort _songSort = _SongSort.recent;
   Map<String, dynamic> _balance = const {};
   Map<String, dynamic>? _playDetail;
   Map<String, dynamic>? _roi;
@@ -383,17 +384,38 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Top Performing Songs',
+                            'Songs',
                             style: DimensionTypography.cardTitle(fontSize: 16),
+                          ),
+                          const SizedBox(height: 10),
+                          DropdownButtonFormField<_SongSort>(
+                            value: _songSort,
+                            isExpanded: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Sort',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            items: [
+                              for (final sort in _SongSort.values)
+                                DropdownMenuItem(
+                                  value: sort,
+                                  child: Text(sort.label),
+                                ),
+                            ],
+                            onChanged: (sort) {
+                              if (sort == null) return;
+                              setState(() => _songSort = sort);
+                            },
                           ),
                           const SizedBox(height: 10),
                           if (_data!.topSongs.isEmpty)
                             Text(
-                              'No ears reached yet.',
+                              'No songs yet.',
                               style: TextStyle(color: surfaces.textSecondary),
                             )
                           else
-                            ..._data!.topSongs.take(10).toList().asMap().entries.map(
+                            ...(_sortedSongs(_data!.topSongs, _songSort).asMap().entries.map(
                               (e) {
                                 final i = e.key;
                                 final s = e.value;
@@ -434,7 +456,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                                   fontWeight: FontWeight.w600),
                                             ),
                                             Text(
-                              '${s.totalListens} listens · ${s.totalPlays} plays · ${s.paidPlays} paid · ${s.freePlays} free · ${s.likeCount} likes',
+                              '${s.viewCount} views · ${s.totalPlays} plays · ${s.likeCount} likes · ${s.totalListens} listens',
                                               style: TextStyle(
                                                   color: surfaces.textSecondary,
                                                   fontSize: 12),
@@ -451,7 +473,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                   ),
                                 );
                               },
-                            ),
+                            )),
                         ],
                       ),
                   ),
@@ -460,6 +482,54 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             ),
     );
   }
+}
+
+enum _SongSort {
+  recent('Recently played'),
+  recentAsc('Least recently played'),
+  views('Most viewed'),
+  viewsAsc('Least viewed'),
+  plays('Most played'),
+  playsAsc('Least played'),
+  alpha('A to Z'),
+  alphaDesc('Z to A'),
+  likes('Most liked'),
+  likesAsc('Least liked');
+
+  const _SongSort(this.label);
+  final String label;
+}
+
+int _playedMs(TopSong song) => song.lastPlayedAt?.millisecondsSinceEpoch ?? 0;
+
+List<TopSong> _sortedSongs(List<TopSong> songs, _SongSort sort) {
+  final copy = [...songs];
+  int title(TopSong a, TopSong b) =>
+      a.title.toLowerCase().compareTo(b.title.toLowerCase());
+  int directed(int value, bool reverse) => reverse ? -value : value;
+  copy.sort((a, b) {
+    final int primary;
+    switch (sort) {
+      case _SongSort.recent:
+      case _SongSort.recentAsc:
+        primary = directed(_playedMs(b).compareTo(_playedMs(a)), sort == _SongSort.recentAsc);
+      case _SongSort.views:
+      case _SongSort.viewsAsc:
+        primary = directed(b.viewCount.compareTo(a.viewCount), sort == _SongSort.viewsAsc);
+      case _SongSort.plays:
+      case _SongSort.playsAsc:
+        primary = directed(b.totalPlays.compareTo(a.totalPlays), sort == _SongSort.playsAsc);
+      case _SongSort.alpha:
+      case _SongSort.alphaDesc:
+        primary = directed(title(a, b), sort == _SongSort.alphaDesc);
+      case _SongSort.likes:
+      case _SongSort.likesAsc:
+        primary = directed(b.likeCount.compareTo(a.likeCount), sort == _SongSort.likesAsc);
+    }
+    if (primary != 0) return primary;
+    return title(a, b);
+  });
+  return copy;
 }
 
 String _weekdayLabel(String isoDate) {

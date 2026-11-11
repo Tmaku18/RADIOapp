@@ -26,6 +26,8 @@ interface SongAnalytics {
   creditsUsed: number;
   creditsRemaining: number;
   likeCount: number;
+  /** Times someone opened this song from the radio. */
+  viewCount: number;
   trialPlaysUsed: number;
   lastPlayedAt: string | null;
 }
@@ -542,6 +544,32 @@ export class AnalyticsService {
       .sort((a, b) => b.count - a.count);
   }
 
+  /** Profile opens per song. Capped so a busy catalog cannot pull the whole table. */
+  private async getProfileViewCounts(
+    songIds: string[],
+  ): Promise<Map<string, number>> {
+    const counts = new Map<string, number>();
+    if (songIds.length === 0) return counts;
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('profile_clicks')
+      .select('song_id')
+      .in('song_id', songIds)
+      .limit(5000);
+    if (error) {
+      this.logger.warn(
+        `Could not load song views: ${error.message}`,
+      );
+      return counts;
+    }
+    for (const row of data ?? []) {
+      const id = (row as { song_id?: string | null }).song_id;
+      if (!id) continue;
+      counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+    return counts;
+  }
+
   /**
    * Get comprehensive analytics for an artist.
    */
@@ -627,6 +655,7 @@ export class AnalyticsService {
       }
     }
 
+    const viewCountBySongId = await this.getProfileViewCounts(songIds);
     const earsBySongId = await this.getEarsReachedBySongId(songIds);
     const listensBySongId = await this.getListenCountBySongId(songIds);
     listenCountBySongId.clear();
@@ -747,6 +776,7 @@ export class AnalyticsService {
           creditsUsed: song.paid_play_count || 0,
           creditsRemaining: song.credits_remaining || 0,
           likeCount: likeCountBySongId.get(song.id) ?? (song.like_count || 0),
+          viewCount: viewCountBySongId.get(song.id) ?? 0,
           trialPlaysUsed: song.trial_plays_used || 0,
           lastPlayedAt: song.last_played_at,
         };
