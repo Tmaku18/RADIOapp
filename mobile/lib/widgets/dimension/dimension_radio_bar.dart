@@ -146,6 +146,7 @@ class DimensionRadioBar extends StatelessWidget {
                       artistName: ctrl.shareArtistName,
                       songTitle: ctrl.playlistSongTitle,
                       songId: ctrl.playlistSongId,
+                      artworkUrl: ctrl.shareArtworkUrl,
                     );
                   });
                 },

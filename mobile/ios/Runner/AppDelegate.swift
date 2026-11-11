@@ -6,10 +6,12 @@ import FirebaseMessaging
 import flutter_local_notifications
 
 @main
-@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
+@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate, UIDocumentInteractionControllerDelegate {
   /// APNs may arrive before Firebase Messaging is ready under
   /// FlutterImplicitEngineDelegate — hold it until plugins register.
   private var pendingApnsDeviceToken: Data?
+  /// Kept alive while the Instagram open-in menu is on screen.
+  private var instagramDocument: UIDocumentInteractionController?
 
   override func application(
     _ application: UIApplication,
@@ -37,6 +39,10 @@ import flutter_local_notifications
 
     let channel = FlutterMethodChannel(
       name: "com.tmaktechnologies.networxradio/video_mirror",
+      binaryMessenger: engineBridge.applicationRegistrar.messenger()
+    )
+    let instagram = FlutterMethodChannel(
+      name: "networx/instagram",
       binaryMessenger: engineBridge.applicationRegistrar.messenger()
     )
     LiveActivityBridge.register(messenger: engineBridge.applicationRegistrar.messenger())
@@ -79,6 +85,22 @@ import flutter_local_notifications
       }
     }
 
+    instagram.setMethodCallHandler { [weak self] call, result in
+      guard call.method == "shareImage" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      guard
+        let args = call.arguments as? [String: Any],
+        let path = args["path"] as? String,
+        !path.isEmpty
+      else {
+        result(FlutterError(code: "bad_args", message: "Expected a PNG path", details: nil))
+        return
+      }
+      self?.shareImageToInstagram(path: path, result: result)
+    }
+
     if let token = pendingApnsDeviceToken {
       Messaging.messaging().apnsToken = token
       pendingApnsDeviceToken = nil
@@ -103,5 +125,36 @@ import flutter_local_notifications
   ) {
     NSLog("APNs registration failed: \(error.localizedDescription)")
     super.application(application, didFailToRegisterForRemoteNotificationsWithError: error)
+  }
+
+  private func shareImageToInstagram(path: String, result: @escaping FlutterResult) {
+    guard
+      let scheme = URL(string: "instagram://app"),
+      UIApplication.shared.canOpenURL(scheme)
+    else {
+      result(FlutterError(code: "not_installed", message: "Instagram is not installed", details: nil))
+      return
+    }
+    let fileUrl = URL(fileURLWithPath: path)
+    let document = UIDocumentInteractionController(url: fileUrl)
+    document.uti = "com.instagram.photo"
+    document.delegate = self
+    instagramDocument = document
+    guard let view = Self.keyView() else {
+      result(FlutterError(code: "unavailable", message: "Could not open Instagram", details: nil))
+      return
+    }
+    let opened = document.presentOpenInMenu(from: view.bounds, in: view, animated: true)
+    if opened {
+      result(true)
+    } else {
+      result(FlutterError(code: "unavailable", message: "Could not open Instagram", details: nil))
+    }
+  }
+
+  private static func keyView() -> UIView? {
+    let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+    let window = scenes.flatMap { $0.windows }.first { $0.isKeyWindow }
+    return window?.rootViewController?.view
   }
 }

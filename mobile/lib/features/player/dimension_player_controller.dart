@@ -111,6 +111,12 @@ class DimensionPlayerController extends ChangeNotifier {
     return id;
   }
 
+  String? get shareArtworkUrl {
+    final uri = _media?.artUri?.toString().trim();
+    if (uri == null || uri.isEmpty) return null;
+    return uri;
+  }
+
   String? get shareArtistName {
     final name = _media?.artist?.trim();
     if (name == null || name.isEmpty) return null;

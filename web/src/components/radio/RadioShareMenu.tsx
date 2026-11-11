@@ -5,6 +5,7 @@ import { Share2 } from 'lucide-react';
 import {
   artistShareText,
   shareLink,
+  shareToInstagram,
   stationDisplayName,
   stationShareText,
   stationShareUrl,
@@ -63,6 +64,24 @@ export function RadioShareMenu({
     if (result === 'failed') flash('Could not share');
   };
 
+  const shareInstagram = async () => {
+    const text = artist
+      ? artistShareText({
+          artistId: artist,
+          artistName: artistName || 'This artist',
+          songId,
+          songTitle,
+        })
+      : station
+        ? stationShareText(station)
+        : '';
+    if (!text) return;
+    setOpen(false);
+    const result = await shareToInstagram(text);
+    if (result === 'failed') flash('Could not open Instagram');
+    else flash('Caption copied. Paste it in Instagram.');
+  };
+
   if (!station && !artist) return null;
 
   return (
@@ -113,6 +132,14 @@ export function RadioShareMenu({
               className="block w-full rounded-lg px-3 py-2 text-left text-sm text-white hover:bg-white/10 disabled:opacity-40"
             >
               Share artist page
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => void shareInstagram()}
+              className="block w-full rounded-lg px-3 py-2 text-left text-sm text-white hover:bg-white/10"
+            >
+              Share to Instagram
             </button>
           </div>
         </>

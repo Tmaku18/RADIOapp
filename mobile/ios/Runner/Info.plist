@@ -85,6 +85,11 @@
 				</array>
 			</dict>
 		</array>
+		<key>LSApplicationQueriesSchemes</key>
+		<array>
+			<string>instagram</string>
+			<string>instagram-stories</string>
+		</array>
 		<key>UIStatusBarHidden</key>
 		<false/>
 	</dict>

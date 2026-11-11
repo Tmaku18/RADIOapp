@@ -1,7 +1,12 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../radio/station_catalog.dart';
+import 'instagram_share_card.dart';
 
 /// Links a listener can send for the station on air, or the artist playing.
 ///
@@ -12,6 +17,7 @@ class RadioShare {
   RadioShare._();
 
   static const String siteOrigin = 'https://www.networxradio.com';
+  static const MethodChannel _instagram = MethodChannel('networx/instagram');
 
   static String stationLink(String stationId) =>
       '$siteOrigin/radio/${Uri.encodeComponent(stationId)}';
@@ -77,6 +83,77 @@ class RadioShare {
     );
   }
 
+  /// Opens Instagram with a story card. The https link is on the image and
+  /// copied, because Instagram does not accept the song file or a caption
+  /// from another app.
+  static Future<void> shareToInstagram(
+    BuildContext context, {
+    required String stationId,
+    String? artistId,
+    String? artistName,
+    String? songTitle,
+    String? songId,
+    String? artworkUrl,
+  }) async {
+    final artist = artistId?.trim() ?? '';
+    final title = (songTitle?.trim().isNotEmpty == true)
+        ? songTitle!.trim()
+        : stationLabel(stationId);
+    final name = artistName?.trim() ?? '';
+    final link = artist.isNotEmpty
+        ? artistLink(artist, songId: songId)
+        : stationLink(stationId);
+    final caption = artist.isNotEmpty
+        ? artistMessage(
+            artistId: artist,
+            artistName: name.isEmpty ? 'This artist' : name,
+            songTitle: songTitle,
+            songId: songId,
+          )
+        : stationMessage(stationId);
+    await Clipboard.setData(ClipboardData(text: caption));
+
+    File? card;
+    try {
+      final png = await renderInstagramShareCard(
+        title: title,
+        subtitle: name.isEmpty ? 'On NETWORX Radio' : name,
+        link: link,
+        artworkUrl: artworkUrl,
+      );
+      card = await writeInstagramShareCard(png);
+      await _instagram.invokeMethod<bool>('shareImage', {'path': card.path});
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Link copied. Paste it as the Instagram caption.'),
+        ),
+      );
+    } on PlatformException catch (error) {
+      if (!context.mounted) return;
+      final missing = error.code == 'not_installed';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            missing
+                ? 'Instagram is not installed. The link was copied.'
+                : 'Could not open Instagram. The link was copied.',
+          ),
+        ),
+      );
+      if (card != null) {
+        await SharePlus.instance.share(
+          ShareParams(files: [XFile(card.path)], text: caption),
+        );
+      }
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open Instagram. The link was copied.')),
+      );
+    }
+  }
+
   static Future<void> showSheet(
     BuildContext context, {
     required String stationId,
@@ -84,6 +161,7 @@ class RadioShare {
     String? artistName,
     String? songTitle,
     String? songId,
+    String? artworkUrl,
   }) {
     final artist = artistId?.trim() ?? '';
     return showModalBottomSheet<void>(
@@ -124,6 +202,26 @@ class RadioShare {
                         songId: songId,
                       );
                     },
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('Share to Instagram'),
+              subtitle: const Text('Opens Instagram with this song and link'),
+              onTap: () {
+                final parent = context;
+                Navigator.of(sheetContext).pop();
+                unawaited(
+                  shareToInstagram(
+                    parent,
+                    stationId: stationId,
+                    artistId: artist.isEmpty ? null : artist,
+                    artistName: artistName,
+                    songTitle: songTitle,
+                    songId: songId,
+                    artworkUrl: artworkUrl,
+                  ),
+                );
+              },
             ),
           ],
         ),

@@ -1,16 +1,19 @@
 package com.tmaktechnologies.networxradio
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.audiofx.Visualizer
 import android.os.Handler
 import android.os.Looper
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import com.ryanheise.audioservice.AudioServiceFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
 
 /**
  * Hosts a platform channel that taps the app's own audio output with
@@ -23,6 +26,7 @@ class MainActivity : AudioServiceFragmentActivity() {
     companion object {
         private const val METHOD_CHANNEL = "networx/visualizer"
         private const val EVENT_CHANNEL = "networx/visualizer/fft"
+        private const val INSTAGRAM_CHANNEL = "networx/instagram"
         private const val PERMISSION_REQUEST_CODE = 7301
     }
 
@@ -70,6 +74,54 @@ class MainActivity : AudioServiceFragmentActivity() {
                 eventSink = null
             }
         })
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            INSTAGRAM_CHANNEL,
+        ).setMethodCallHandler { call, result ->
+            if (call.method != "shareImage") {
+                result.notImplemented()
+                return@setMethodCallHandler
+            }
+            val path = call.argument<String>("path")
+            if (path.isNullOrBlank()) {
+                result.error("bad_args", "Expected a PNG path", null)
+                return@setMethodCallHandler
+            }
+            shareImageToInstagram(path, result)
+        }
+    }
+
+    private fun shareImageToInstagram(path: String, result: MethodChannel.Result) {
+        val file = File(path)
+        if (!file.exists()) {
+            result.error("missing_file", "Share image was not written", null)
+            return
+        }
+        val launch = packageManager.getLaunchIntentForPackage("com.instagram.android")
+        if (launch == null) {
+            result.error("not_installed", "Instagram is not installed", null)
+            return
+        }
+        try {
+            val uri = FileProvider.getUriForFile(
+                this,
+                "$packageName.instagramshare",
+                file,
+            )
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = "image/png"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                clipData = android.content.ClipData.newRawUri("NetworX", uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                setPackage("com.instagram.android")
+            }
+            grantUriPermission("com.instagram.android", uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            startActivity(intent)
+            result.success(true)
+        } catch (error: Exception) {
+            result.error("unavailable", error.message, null)
+        }
     }
 
     private fun hasRecordAudioPermission(): Boolean =

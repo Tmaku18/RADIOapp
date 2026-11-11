@@ -68,3 +68,23 @@ export async function shareLink(text: string, url: string): Promise<'shared' | '
     return 'failed';
   }
 }
+
+/** Opens Instagram with the caption copied. Instagram will not attach the audio file. */
+export async function shareToInstagram(text: string): Promise<'opened' | 'copied' | 'failed'> {
+  let copied = false;
+  try {
+    await navigator.clipboard.writeText(text);
+    copied = true;
+  } catch {
+    copied = false;
+  }
+
+  const isPhone = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (isPhone) {
+    window.location.href = 'instagram://story-camera';
+    return copied ? 'opened' : 'failed';
+  }
+
+  window.open('https://www.instagram.com/', '_blank', 'noopener,noreferrer');
+  return copied ? 'copied' : 'failed';
+}

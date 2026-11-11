@@ -789,6 +789,7 @@ class _PlayerBody extends StatelessWidget {
                         artistName: track.artistName,
                         songTitle: track.title,
                         songId: track.id,
+                        artworkUrl: track.artworkUrl,
                       );
                     },
                     icon: const Icon(Icons.ios_share),

@@ -114,6 +114,16 @@
                 <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
         </service>
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.instagramshare"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/instagram_share_paths" />
+        </provider>
+
         <receiver
             android:name="com.ryanheise.audioservice.MediaButtonReceiver"
             android:exported="true"
@@ -135,5 +145,6 @@
         </intent>
         <!-- Required for Google Sign-In / Credential Manager on Android 11+ -->
         <package android:name="com.google.android.gms" />
+        <package android:name="com.instagram.android" />
     </queries>
 </manifest>
