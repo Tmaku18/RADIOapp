@@ -192,6 +192,21 @@ import flutter_local_notifications
           result(FlutterError(code: "mux_failed", message: error.localizedDescription, details: nil))
         }
       }
+    case "burnOverlay":
+      let videoPath = args?["videoPath"] as? String ?? ""
+      let overlayPath = args?["overlayPath"] as? String ?? ""
+      guard !videoPath.isEmpty, !overlayPath.isEmpty else {
+        result(FlutterError(code: "bad_args", message: "Expected a clip and a credit", details: nil))
+        return
+      }
+      ClipMux.burn(videoPath: videoPath, overlayPath: overlayPath) { muxResult in
+        switch muxResult {
+        case .success(let path):
+          result(path)
+        case .failure(let error):
+          result(FlutterError(code: "mux_failed", message: error.localizedDescription, details: nil))
+        }
+      }
     case "share":
       let path = args?["path"] as? String ?? ""
       let target = args?["target"] as? String ?? ""
@@ -318,6 +333,108 @@ private enum ClipMux {
           durationMs: durationMs
         )
         DispatchQueue.main.async { completion(.success(out.path)) }
+      } catch {
+        DispatchQueue.main.async { completion(.failure(error)) }
+      }
+    }
+  }
+
+  static func burn(
+    videoPath: String,
+    overlayPath: String,
+    completion: @escaping (Result<String, Error>) -> Void
+  ) {
+    DispatchQueue.global(qos: .userInitiated).async {
+      do {
+        let asset = try loadAsset(URL(fileURLWithPath: videoPath))
+        guard let image = UIImage(contentsOfFile: overlayPath)?.cgImage else {
+          throw ClipMuxError.unreadable("Could not add the artist credit")
+        }
+        guard let videoTrack = asset.tracks(withMediaType: .video).first else {
+          throw ClipMuxError.unreadable("The video has no picture")
+        }
+        guard let audioTrack = asset.tracks(withMediaType: .audio).first else {
+          throw ClipMuxError.unreadable("The clip has no song")
+        }
+        let clip = videoTrack.timeRange.duration
+        if clip.seconds < 0.4 {
+          throw ClipMuxError.tooShort
+        }
+        let composition = AVMutableComposition()
+        guard
+          let compVideo = composition.addMutableTrack(
+            withMediaType: .video,
+            preferredTrackID: kCMPersistentTrackID_Invalid
+          ),
+          let compAudio = composition.addMutableTrack(
+            withMediaType: .audio,
+            preferredTrackID: kCMPersistentTrackID_Invalid
+          )
+        else {
+          throw ClipMuxError.unreadable("Could not add the artist credit")
+        }
+        try compVideo.insertTimeRange(CMTimeRange(start: .zero, duration: clip), of: videoTrack, at: .zero)
+        try compAudio.insertTimeRange(CMTimeRange(start: .zero, duration: clip), of: audioTrack, at: .zero)
+        let transformed = CGRect(origin: .zero, size: videoTrack.naturalSize)
+          .applying(videoTrack.preferredTransform)
+        var render = CGSize(width: abs(transformed.width), height: abs(transformed.height))
+        render.width = max(2, floor(render.width / 2) * 2)
+        render.height = max(2, floor(render.height / 2) * 2)
+        var fitted = videoTrack.preferredTransform
+        fitted.tx -= transformed.origin.x
+        fitted.ty -= transformed.origin.y
+        let out = FileManager.default.temporaryDirectory
+          .appendingPathComponent("networx-credit-\(Int(Date().timeIntervalSince1970 * 1000)).mp4")
+        try? FileManager.default.removeItem(at: out)
+        DispatchQueue.main.async {
+          let parent = CALayer()
+          let videoLayer = CALayer()
+          let overlay = CALayer()
+          let frame = CGRect(origin: .zero, size: render)
+          parent.frame = frame
+          videoLayer.frame = frame
+          overlay.frame = frame
+          overlay.contents = image
+          overlay.contentsGravity = .resize
+          overlay.isGeometryFlipped = true
+          parent.addSublayer(videoLayer)
+          parent.addSublayer(overlay)
+          let instruction = AVMutableVideoCompositionInstruction()
+          instruction.timeRange = CMTimeRange(start: .zero, duration: clip)
+          let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: compVideo)
+          layerInstruction.setTransform(fitted, at: .zero)
+          instruction.layerInstructions = [layerInstruction]
+          let videoComposition = AVMutableVideoComposition()
+          videoComposition.renderSize = render
+          videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
+          videoComposition.instructions = [instruction]
+          videoComposition.animationTool = AVVideoCompositionCoreAnimationTool(
+            postProcessingAsVideoLayer: videoLayer,
+            in: parent
+          )
+          guard let session = AVAssetExportSession(
+            asset: composition,
+            presetName: AVAssetExportPresetHighestQuality
+          ) else {
+            completion(.failure(ClipMuxError.unreadable("Could not add the artist credit")))
+            return
+          }
+          session.outputURL = out
+          session.outputFileType = .mp4
+          session.shouldOptimizeForNetworkUse = true
+          session.videoComposition = videoComposition
+          session.exportAsynchronously {
+            DispatchQueue.main.async {
+              if session.status == .completed {
+                completion(.success(out.path))
+              } else {
+                completion(.failure(
+                  ClipMuxError.unreadable(session.error?.localizedDescription ?? "Could not add the artist credit")
+                ))
+              }
+            }
+          }
+        }
       } catch {
         DispatchQueue.main.async { completion(.failure(error)) }
       }

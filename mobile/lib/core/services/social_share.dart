@@ -60,6 +60,16 @@ class SocialShare {
     });
   }
 
+  static Future<String> burnOverlay({
+    required String videoPath,
+    required String overlayPath,
+  }) {
+    return _mux('burnOverlay', {
+      'videoPath': videoPath,
+      'overlayPath': overlayPath,
+    });
+  }
+
   static Future<String> imageWithAudio({
     required String imagePath,
     required String audioPath,

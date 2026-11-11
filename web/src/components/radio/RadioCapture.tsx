@@ -12,7 +12,9 @@ import {
   startMirrorLoop,
   startMixedRecording,
 } from '@/lib/social-share';
+import { ArtistCreditOverlay, ArtistCreditTray } from '@/components/radio/ArtistCreditOverlay';
 import { SocialShareButtons } from '@/components/radio/SocialShareButtons';
+import { burnArtistCredit, type ArtistCreditStyle } from '@/lib/artist-credit';
 
 const CLIP_SECONDS = 15;
 
@@ -70,6 +72,13 @@ export function RadioCaptureDialog({
   const [posting, setPosting] = useState(false);
   const [postingStory, setPostingStory] = useState(false);
   const [storyPublic, setStoryPublic] = useState(true);
+  const [preparing, setPreparing] = useState(false);
+  const [creditStyle, setCreditStyle] = useState<ArtistCreditStyle | null>('words');
+  const [creditX, setCreditX] = useState(0.5);
+  const [creditY, setCreditY] = useState(0.58);
+  const [creditScale, setCreditScale] = useState(1);
+  const [aspect, setAspect] = useState<number | null>(null);
+  const burned = useRef<{ key: string; file: File } | null>(null);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -185,18 +194,40 @@ export function RadioCaptureDialog({
       clipUrl.current = null;
     }
     setClip(null);
+    burned.current = null;
+    setAspect(null);
     setPhase('ready');
     setSeconds(0);
     restartPreview();
   };
 
+  const creditKey = `${creditStyle}|${creditX.toFixed(3)}|${creditY.toFixed(3)}|${creditScale}`;
+
+  const clipWithCredit = async () => {
+    if (!clip) throw new Error('Record a clip first.');
+    if (!creditStyle) return clip.file;
+    if (burned.current?.key === creditKey) return burned.current.file;
+    const file = await burnArtistCredit(clip.file, {
+      style: creditStyle,
+      x: creditX,
+      y: creditY,
+      scale: creditScale,
+      title: track.title,
+      artist: track.artistName,
+    });
+    burned.current = { key: creditKey, file };
+    return file;
+  };
+
   const postStory = async () => {
     if (!clip || postingStory || !/^[0-9a-f-]{36}$/i.test(track.id)) return;
     setPostingStory(true);
+    setPreparing(creditStyle != null);
     setError(null);
     try {
+      const file = await clipWithCredit();
       const artist = track.artistName.trim();
-      await songStoriesApi.upload(clip.file, {
+      await songStoriesApi.upload(file, {
         songId: track.id,
         visibility: storyPublic ? 'public' : 'private',
         caption: artist ? `${track.title} — ${artist}` : track.title,
@@ -210,20 +241,24 @@ export function RadioCaptureDialog({
       setError('Could not post that story. Sign in if you have not, then try again.');
     } finally {
       setPostingStory(false);
+      setPreparing(false);
     }
   };
 
   const post = async () => {
     if (!clip || posting) return;
     setPosting(true);
+    setPreparing(creditStyle != null);
     setError(null);
     try {
-      await discoveryApi.createFeedPost(clip.file, captionFor(track));
+      const file = await clipWithCredit();
+      await discoveryApi.createFeedPost(file, captionFor(track));
       toast.success('Posted to your feed with this song.');
     } catch {
       setError('Could not post that clip. Sign in if you have not, then try again.');
     } finally {
       setPosting(false);
+      setPreparing(false);
     }
   };
 
@@ -242,7 +277,44 @@ export function RadioCaptureDialog({
       <div className="relative min-h-0 flex-1 bg-black">
         <video ref={videoRef} autoPlay muted playsInline className="hidden" />
         {phase === 'review' && clip ? (
-          <video src={clip.url} controls playsInline className="h-full w-full object-contain" />
+          <div className="flex h-full w-full items-center justify-center">
+            <div
+              className="relative h-full max-w-full"
+              style={{ aspectRatio: aspect && aspect > 0 ? String(aspect) : '9 / 16' }}
+              onPointerDown={(event) => {
+                const video = event.currentTarget.querySelector('video');
+                if (video?.paused) void video.play();
+              }}
+            >
+              <video
+                src={clip.url}
+                autoPlay
+                loop
+                playsInline
+                className="h-full w-full bg-black object-contain"
+                onLoadedMetadata={(event) => {
+                  const item = event.currentTarget;
+                  if (item.videoWidth > 0 && item.videoHeight > 0) {
+                    setAspect(item.videoWidth / item.videoHeight);
+                  }
+                }}
+              />
+              {creditStyle ? (
+                <ArtistCreditOverlay
+                  title={track.title}
+                  artist={track.artistName}
+                  style={creditStyle}
+                  x={creditX}
+                  y={creditY}
+                  scale={creditScale}
+                  onMove={(nextX, nextY) => {
+                    setCreditX(nextX);
+                    setCreditY(nextY);
+                  }}
+                />
+              ) : null}
+            </div>
+          </div>
         ) : (
           <canvas ref={canvasRef} className="h-full w-full object-cover" />
         )}
@@ -259,6 +331,14 @@ export function RadioCaptureDialog({
           <p className="text-sm">Adding the song…</p>
         ) : phase === 'review' && clip ? (
           <div className="space-y-3">
+            <ArtistCreditTray
+              style={creditStyle}
+              scale={creditScale}
+              disabled={posting || postingStory || preparing}
+              onStyle={setCreditStyle}
+              onScale={setCreditScale}
+            />
+            {preparing ? <p className="text-xs text-white/70">Adding the artist credit…</p> : null}
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
@@ -300,7 +380,14 @@ export function RadioCaptureDialog({
             ) : null}
             <SocialShareButtons
               caption={captionFor(track)}
-              getFile={async () => clip.file}
+              getFile={async () => {
+                setPreparing(creditStyle != null);
+                try {
+                  return await clipWithCredit();
+                } finally {
+                  setPreparing(false);
+                }
+              }}
             />
           </div>
         ) : (

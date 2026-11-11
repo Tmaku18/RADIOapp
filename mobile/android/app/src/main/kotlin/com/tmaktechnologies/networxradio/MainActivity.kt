@@ -123,6 +123,18 @@ class MainActivity : AudioServiceFragmentActivity() {
                         }
                     }
                 }
+                "burnOverlay" -> {
+                    val videoPath = call.argument<String>("videoPath")
+                    val overlayPath = call.argument<String>("overlayPath")
+                    if (videoPath.isNullOrBlank() || overlayPath.isNullOrBlank()) {
+                        result.error("bad_args", "Expected a clip and a credit", null)
+                    } else {
+                        ClipMuxer.burnOverlay(this, videoPath, overlayPath) { path, error ->
+                            if (path != null) result.success(path)
+                            else result.error("mux_failed", error ?: "Could not add the artist credit", null)
+                        }
+                    }
+                }
                 "share" -> {
                     val path = call.argument<String>("path")
                     val target = call.argument<String>("target")

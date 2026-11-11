@@ -15,6 +15,7 @@ import '../../core/services/social_share.dart';
 import '../../core/services/song_stories_service.dart';
 import '../../core/theme/dimension_tokens.dart';
 import '../../core/theme/networx_extensions.dart';
+import 'widgets/artist_credit_sticker.dart';
 import 'widgets/social_share_bar.dart';
 
 /// Front camera on the radio player. The mic stays off. The song that is on
@@ -72,6 +73,13 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
   bool _posting = false;
   bool _postingStory = false;
   bool _storyPublic = true;
+  bool _applyingCredit = false;
+  ArtistCreditStyle? _creditStyle = ArtistCreditStyle.words;
+  double _creditX = 0.5;
+  double _creditY = 0.58;
+  double _creditScale = 1;
+  String? _burnKey;
+  File? _burned;
   bool _stopping = false;
   int _startMs = 0;
   int? _knownDurationMs;
@@ -183,8 +191,8 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
         avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
         avAudioSessionCategoryOptions:
             AVAudioSessionCategoryOptions.defaultToSpeaker |
-                AVAudioSessionCategoryOptions.allowBluetooth |
-                AVAudioSessionCategoryOptions.mixWithOthers,
+            AVAudioSessionCategoryOptions.allowBluetooth |
+            AVAudioSessionCategoryOptions.mixWithOthers,
         avAudioSessionMode: AVAudioSessionMode.videoRecording,
         avAudioSessionRouteSharingPolicy:
             AVAudioSessionRouteSharingPolicy.defaultPolicy,
@@ -252,7 +260,9 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
 
   Future<void> _takePhoto() async {
     final cam = _camera;
-    if (cam == null || !cam.value.isInitialized || _phase != _CapturePhase.ready) {
+    if (cam == null ||
+        !cam.value.isInitialized ||
+        _phase != _CapturePhase.ready) {
       return;
     }
     setState(() => _phase = _CapturePhase.mixing);
@@ -279,7 +289,9 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
 
   Future<void> _startVideo() async {
     final cam = _camera;
-    if (cam == null || !cam.value.isInitialized || _phase != _CapturePhase.ready) {
+    if (cam == null ||
+        !cam.value.isInitialized ||
+        _phase != _CapturePhase.ready) {
       return;
     }
     try {
@@ -358,6 +370,8 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     final previous = _preview;
     _preview = null;
     _clip = null;
+    _burned = null;
+    _burnKey = null;
     await previous?.dispose();
     try {
       await _cue.seek(Duration(milliseconds: _startMs));
@@ -370,14 +384,47 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     });
   }
 
+  String get _creditKey =>
+      '${_creditStyle?.name}|${_creditX.toStringAsFixed(3)}|${_creditY.toStringAsFixed(3)}|$_creditScale';
+
+  Future<File> _clipWithCredit() async {
+    final source = _clip;
+    if (source == null) throw Exception('Record a clip first');
+    final style = _creditStyle;
+    if (style == null) return source;
+    final cached = _burned;
+    if (_burnKey == _creditKey && cached != null && await cached.exists()) {
+      return cached;
+    }
+    final aspect = _preview?.value.aspectRatio ?? (9 / 16);
+    final png = await ArtistCreditPainter.renderPng(
+      title: widget.title,
+      artist: widget.artistName,
+      style: style,
+      dx: _creditX,
+      dy: _creditY,
+      scale: _creditScale,
+      aspect: aspect,
+    );
+    final out = await SocialShare.burnOverlay(
+      videoPath: source.path,
+      overlayPath: png.path,
+    );
+    final file = File(out);
+    _burned = file;
+    _burnKey = _creditKey;
+    return file;
+  }
+
   Future<void> _post() async {
-    final file = _clip;
-    if (file == null || _posting) return;
+    if (_clip == null || _posting || _applyingCredit) return;
     setState(() {
       _posting = true;
+      _applyingCredit = _creditStyle != null;
       _error = null;
     });
     try {
+      final file = await _clipWithCredit();
       await ProNetworxService().createFeedPostViaStorage(
         file,
         caption: _caption,
@@ -392,21 +439,30 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
       if (!mounted) return;
       setState(() => _error = _friendly(error));
     } finally {
-      if (mounted) setState(() => _posting = false);
+      if (mounted) {
+        setState(() {
+          _posting = false;
+          _applyingCredit = false;
+        });
+      }
     }
   }
 
   Future<void> _postStory() async {
-    final file = _clip;
     final songId = widget.songId;
-    if (file == null || _postingStory || !SongStoriesService.isSongId(songId)) {
+    if (_clip == null ||
+        _postingStory ||
+        _applyingCredit ||
+        !SongStoriesService.isSongId(songId)) {
       return;
     }
     setState(() {
       _postingStory = true;
+      _applyingCredit = _creditStyle != null;
       _error = null;
     });
     try {
+      final file = await _clipWithCredit();
       final artist = widget.artistName.trim();
       await SongStoriesService().postClip(
         file: file,
@@ -428,7 +484,12 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
       if (!mounted) return;
       setState(() => _error = _friendly(error));
     } finally {
-      if (mounted) setState(() => _postingStory = false);
+      if (mounted) {
+        setState(() {
+          _postingStory = false;
+          _applyingCredit = false;
+        });
+      }
     }
   }
 
@@ -436,6 +497,9 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     final text = error.toString();
     if (text.contains('live stream')) {
       return 'This live stream cannot be saved into a clip.';
+    }
+    if (text.contains('credit')) {
+      return 'Could not add the artist credit.';
     }
     if (text.contains('download') || text.contains('song')) {
       return 'Could not add the song to this clip.';
@@ -458,7 +522,8 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     final surfaces = context.networxSurfaces;
     final cam = _camera;
     final preview = _preview;
-    final mirror = Platform.isAndroid &&
+    final mirror =
+        Platform.isAndroid &&
         cam?.description.lensDirection == CameraLensDirection.front;
     return Scaffold(
       backgroundColor: Colors.black,
@@ -473,36 +538,89 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
             : Column(
                 children: [
                   Expanded(
-                    child: _phase == _CapturePhase.review &&
+                    child:
+                        _phase == _CapturePhase.review &&
                             preview != null &&
                             preview.value.isInitialized
                         ? Center(
                             child: AspectRatio(
-                              aspectRatio: preview.value.aspectRatio,
-                              child: VideoPlayer(preview),
+                              aspectRatio: preview.value.aspectRatio == 0
+                                  ? 9 / 16
+                                  : preview.value.aspectRatio,
+                              child: LayoutBuilder(
+                                builder: (context, constraints) {
+                                  return Stack(
+                                    fit: StackFit.expand,
+                                    children: [
+                                      GestureDetector(
+                                        onPanUpdate: (details) {
+                                          final width = constraints.maxWidth;
+                                          final height = constraints.maxHeight;
+                                          if (width <= 0 || height <= 0) return;
+                                          if (_creditStyle == null) return;
+                                          setState(() {
+                                            _creditX =
+                                                (_creditX +
+                                                        details.delta.dx /
+                                                            width)
+                                                    .clamp(0.12, 0.88);
+                                            _creditY =
+                                                (_creditY +
+                                                        details.delta.dy /
+                                                            height)
+                                                    .clamp(0.12, 0.88);
+                                          });
+                                        },
+                                        child: Stack(
+                                          fit: StackFit.expand,
+                                          children: [
+                                            VideoPlayer(preview),
+                                            if (_creditStyle != null)
+                                              IgnorePointer(
+                                                child: CustomPaint(
+                                                  painter: ArtistCreditPainter(
+                                                    title: widget.title,
+                                                    artist: widget.artistName,
+                                                    style: _creditStyle!,
+                                                    dx: _creditX,
+                                                    dy: _creditY,
+                                                    scale: _creditScale,
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
                             ),
                           )
                         : cam != null && cam.value.isInitialized
-                            ? ClipRect(
-                                child: Transform(
-                                  alignment: Alignment.center,
-                                  transform: Matrix4.diagonal3Values(
-                                    mirror ? -1 : 1,
-                                    1,
-                                    1,
-                                  ),
-                                  child: CameraPreview(cam),
-                                ),
-                              )
-                            : const Center(
-                                child: CircularProgressIndicator(),
+                        ? ClipRect(
+                            child: Transform(
+                              alignment: Alignment.center,
+                              transform: Matrix4.diagonal3Values(
+                                mirror ? -1 : 1,
+                                1,
+                                1,
                               ),
+                              child: CameraPreview(cam),
+                            ),
+                          )
+                        : const Center(child: CircularProgressIndicator()),
                   ),
                   Container(
                     width: double.infinity,
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.sizeOf(context).height * 0.46,
+                    ),
                     color: surfaces.elevated.withValues(alpha: 0.96),
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                    child: _panel(),
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                      child: _panel(),
+                    ),
                   ),
                 ],
               ),
@@ -520,7 +638,9 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
   }
 
   Widget _panel() {
-    final title = widget.title.trim().isEmpty ? 'This song' : widget.title.trim();
+    final title = widget.title.trim().isEmpty
+        ? 'This song'
+        : widget.title.trim();
     final artist = widget.artistName.trim();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -537,18 +657,43 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
           _phase == _CapturePhase.recording
               ? 'Recording ${_recordedSeconds}s / ${SocialShare.clipMs ~/ 1000}s'
               : 'Mic stays off. The song that is playing is saved into the clip.',
-          style: TextStyle(color: context.networxSurfaces.textSecondary, fontSize: 12),
+          style: TextStyle(
+            color: context.networxSurfaces.textSecondary,
+            fontSize: 12,
+          ),
         ),
         if (_error != null) ...[
           const SizedBox(height: 8),
-          Text(_error!, style: const TextStyle(color: Colors.redAccent, fontSize: 12)),
+          Text(
+            _error!,
+            style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+          ),
         ],
         const SizedBox(height: 12),
         if (_phase == _CapturePhase.preparing || _phase == _CapturePhase.mixing)
           const Center(child: CircularProgressIndicator())
-        else if (_phase == _CapturePhase.review)
-          _reviewActions()
-        else
+        else if (_phase == _CapturePhase.review) ...[
+          ArtistCreditTray(
+            style: _creditStyle,
+            scale: _creditScale,
+            onStyle: _applyingCredit
+                ? (_) {}
+                : (value) => setState(() => _creditStyle = value),
+            onScale: _applyingCredit
+                ? (_) {}
+                : (value) => setState(() => _creditScale = value),
+          ),
+          const SizedBox(height: 10),
+          if (_applyingCredit)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: Text(
+                'Adding the artist credit…',
+                style: TextStyle(fontSize: 12),
+              ),
+            ),
+          _reviewActions(),
+        ] else
           Row(
             children: [
               Expanded(
@@ -564,14 +709,16 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
                   onPressed: _phase == _CapturePhase.recording
                       ? _stopVideo
                       : _phase == _CapturePhase.ready
-                          ? _startVideo
-                          : null,
+                      ? _startVideo
+                      : null,
                   icon: Icon(
                     _phase == _CapturePhase.recording
                         ? Icons.stop
                         : Icons.fiber_manual_record,
                   ),
-                  label: Text(_phase == _CapturePhase.recording ? 'Stop' : 'Video'),
+                  label: Text(
+                    _phase == _CapturePhase.recording ? 'Stop' : 'Video',
+                  ),
                   style: FilledButton.styleFrom(
                     backgroundColor: DimensionTokens.neonCyan,
                     foregroundColor: Colors.black,
@@ -616,14 +763,7 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
           child: const Text('Retake'),
         ),
         const SizedBox(height: 12),
-        SocialShareBar(
-          caption: _caption,
-          resolveFile: () async {
-            final file = _clip;
-            if (file == null) throw Exception('Record a clip first');
-            return file;
-          },
-        ),
+        SocialShareBar(caption: _caption, resolveFile: _clipWithCredit),
       ],
     );
   }

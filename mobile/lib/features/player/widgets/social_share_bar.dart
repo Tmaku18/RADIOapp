@@ -68,7 +68,8 @@ class _SocialShareBarState extends State<SocialShareBar> {
   String? _note;
 
   String _hint(SocialTarget target) {
-    final sheet = target.id.startsWith('snapchat') || target.id.startsWith('tiktok');
+    final sheet =
+        target.id.startsWith('snapchat') || target.id.startsWith('tiktok');
     if (Platform.isIOS && sheet) {
       final app = target.label.split(' ').first;
       return 'Choose $app in the share sheet. Caption copied.';
@@ -134,6 +135,7 @@ class _SocialShareBarState extends State<SocialShareBar> {
     if (text.contains('live stream')) {
       return 'This live stream cannot be saved into a clip.';
     }
+    if (text.contains('credit')) return 'Could not add the artist credit.';
     if (text.contains('download')) return 'Could not download this clip.';
     if (text.contains('song')) return 'Could not add the song to this clip.';
     return 'Could not share that clip. Try again.';
@@ -147,9 +149,9 @@ class _SocialShareBarState extends State<SocialShareBar> {
       children: [
         Text(
           'Share the clip',
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 4),
         Text(
@@ -179,7 +181,10 @@ class _SocialShareBarState extends State<SocialShareBar> {
         ),
         if (_note != null) ...[
           const SizedBox(height: 8),
-          Text(_note!, style: TextStyle(color: surfaces.textSecondary, fontSize: 12)),
+          Text(
+            _note!,
+            style: TextStyle(color: surfaces.textSecondary, fontSize: 12),
+          ),
         ],
       ],
     );
