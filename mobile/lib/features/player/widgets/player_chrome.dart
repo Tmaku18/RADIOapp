@@ -769,11 +769,31 @@ class _PlayerBody extends StatelessWidget {
                 ),
                 SizedBox(height: sectionGap),
               ],
-              Text(
-                track.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: DimensionTypography.cardTitle(fontSize: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      track.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: DimensionTypography.cardTitle(fontSize: 18),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Share',
+                    onPressed: () {
+                      RadioShare.showSheet(
+                        context,
+                        stationId: radioId,
+                        artistId: track.artistId,
+                        artistName: track.artistName,
+                        songTitle: track.title,
+                        songId: track.id,
+                      );
+                    },
+                    icon: const Icon(Icons.ios_share),
+                  ),
+                ],
               ),
               SizedBox(height: titleGap),
               GestureDetector(

@@ -14,6 +14,7 @@ import {
 import { ArtworkImage } from '@/components/common/ArtworkImage';
 import { useBassPulseRef } from '@/components/dimension/BassPulseLogo';
 import { FrequencyVisualizer } from '@/components/radio/FrequencyVisualizer';
+import { RadioShareMenu } from '@/components/radio/RadioShareMenu';
 import { usePlaybackOptional } from '@/components/playback/PlaybackProvider';
 import { signalRadioNavIntent } from '@/lib/playback-preferences';
 import type { DimensionPlayerModel } from '@/hooks/useDimensionPlayer';
@@ -272,6 +273,18 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
                 <FastForward className="w-4 h-4" />
               </button>
             ) : null}
+            <RadioShareMenu
+              compact
+              stationId={
+                playback?.state.source === 'radio'
+                  ? playback.state.track?.radioId || player.radioId
+                  : player.radioId
+              }
+              artistId={playback?.state.track?.artistId}
+              artistName={playback?.state.track?.artistName || player.artist}
+              songId={playback?.state.track?.id}
+              songTitle={playback?.state.track?.title || player.title}
+            />
             <div className="flex items-end h-6 ml-2 w-[72px] shrink-0">
               <FrequencyVisualizer
                 playing={player.isPlaying}

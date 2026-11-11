@@ -540,6 +540,8 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
               'source': 'radio',
               'radioId': effectiveRadioId,
               'songId': track.id,
+              if (track.artistId != null && track.artistId!.isNotEmpty)
+                'artistId': track.artistId,
             },
           ),
         ),

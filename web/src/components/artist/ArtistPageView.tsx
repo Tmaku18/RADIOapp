@@ -13,6 +13,7 @@ import { usePlayback } from '@/components/playback';
 import { ProRadioPaywallCard } from '@/components/pro-radio/ProRadioPaywallCard';
 import { SongLikesDialog } from '@/components/songs/SongLikesDialog';
 import { FanEmailCard } from '@/components/artist/FanEmailCard';
+import { AppDownloadBanner } from '@/components/marketing/AppDownloadBanner';
 
 type ArtistSong = {
   id: string;
@@ -622,6 +623,7 @@ export function ArtistPageView({
 
   return (
     <div className="space-y-6">
+      {mode === 'public' ? <AppDownloadBanner /> : null}
       <div className="rounded-xl overflow-hidden bg-gradient-to-b from-primary/40 to-card border border-border">
         <div className="p-6 md:p-8">
           <div className="flex flex-col md:flex-row md:items-end gap-4">

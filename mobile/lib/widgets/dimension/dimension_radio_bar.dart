@@ -9,6 +9,7 @@ import 'package:just_audio/just_audio.dart';
 import '../../core/brand/brand_assets.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/services/audio_player_service.dart';
+import '../../core/services/radio_share.dart';
 import '../../core/theme/dimension_tokens.dart';
 import '../../features/player/dimension_player_controller.dart';
 import '../../features/player/widgets/synced_lyrics_panel.dart';
@@ -131,6 +132,24 @@ class DimensionRadioBar extends StatelessWidget {
                     );
                   },
                 ),
+              ListTile(
+                leading: const Icon(Icons.ios_share),
+                title: const Text('Share'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  Future<void>.microtask(() {
+                    if (!context.mounted) return;
+                    RadioShare.showSheet(
+                      context,
+                      stationId: ctrl.shareRadioId,
+                      artistId: ctrl.shareArtistId,
+                      artistName: ctrl.shareArtistName,
+                      songTitle: ctrl.playlistSongTitle,
+                      songId: ctrl.playlistSongId,
+                    );
+                  });
+                },
+              ),
               ListTile(
                 leading: const Icon(Icons.lyrics_outlined),
                 title: const Text('Lyrics'),

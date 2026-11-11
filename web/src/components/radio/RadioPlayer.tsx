@@ -8,7 +8,6 @@ import {
   Heart,
   VolumeX,
   Radio as RadioIcon,
-  Share2,
   Star,
   Volume2,
 } from 'lucide-react';
@@ -16,7 +15,8 @@ import { usePlayback } from '@/components/playback';
 import type { PlaybackTrack } from '@/components/playback';
 import { SyncedLyricsPanel } from './SyncedLyricsPanel';
 import { prospectorApi, radioApi, leaderboardApi, analyticsApi, songsApi, songSalesApi, usersApi } from '@/lib/api';
-import { artistProfilePath, publicArtistProfilePath } from '@/lib/artist-links';
+import { artistProfilePath } from '@/lib/artist-links';
+import { RadioShareMenu } from '@/components/radio/RadioShareMenu';
 import { useAuth } from '@/contexts/AuthContext';
 import { hasListenerCapability } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
@@ -182,7 +182,6 @@ export function RadioPlayer({
   const [favoritedArtist, setFavoritedArtist] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
-  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportSubmitting, setReportSubmitting] = useState(false);
 
@@ -479,43 +478,6 @@ export function RadioPlayer({
     } finally {
       setFavoriteLoading(false);
     }
-  };
-
-  /**
-   * Share the song that's playing: a link to the artist's public page that
-   * auto-plays this song's sample (`?song=`). Prefers the native share sheet
-   * (user can pick Messages), falls back to an SMS compose link on phones and
-   * a clipboard copy on desktop.
-   */
-  const shareTrack = async () => {
-    const track = state.track;
-    if (!track?.artistId) return;
-    const url = `${window.location.origin}${publicArtistProfilePath(track.artistId)}?song=${encodeURIComponent(track.id)}`;
-    const text = `Listen to a sample of "${track.title}" by ${track.artistName || 'this artist'} on NETWORX Radio: ${url}`;
-
-    if (typeof navigator.share === 'function') {
-      try {
-        await navigator.share({ title: 'NETWORX Radio', text, url });
-        return;
-      } catch (error) {
-        if ((error as DOMException)?.name === 'AbortError') return;
-        // Share sheet unavailable/failed; fall through to SMS/clipboard.
-      }
-    }
-
-    const isPhone = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    if (isPhone) {
-      window.location.href = `sms:?&body=${encodeURIComponent(text)}`;
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(text);
-      setShareFeedback('Link copied');
-    } catch {
-      setShareFeedback('Could not share');
-    }
-    window.setTimeout(() => setShareFeedback(null), 2500);
   };
 
   /** Report the song that's playing (goes to admin user reports with song context). */
@@ -1502,18 +1464,13 @@ export function RadioPlayer({
                     </button>
                   </>
                 )}
-                {artistUserId && (
-                  <button
-                    type="button"
-                    onClick={() => void shareTrack()}
-                    disabled={!state.track}
-                    data-testid="radio-share-track"
-                    className="h-10 px-4 rounded-full border border-cyan-400/40 text-cyan-300 hover:bg-cyan-400/10 text-xs font-dim-mono tracking-[0.18em] uppercase transition disabled:opacity-40 inline-flex items-center gap-2"
-                  >
-                    <Share2 className="w-3.5 h-3.5" />
-                    {shareFeedback ?? 'Share'}
-                  </button>
-                )}
+                <RadioShareMenu
+                  stationId={state.track?.radioId || effectiveRadioId}
+                  artistId={artistUserId}
+                  artistName={state.track?.artistName}
+                  songId={state.track?.id}
+                  songTitle={state.track?.title}
+                />
                 {artistUserId && profile?.id && profile.id !== artistUserId && (
                   <button
                     type="button"
@@ -1858,6 +1815,14 @@ export function RadioPlayer({
               <VolumeX className="w-8 h-8" />
             )}
           </button>
+
+          <RadioShareMenu
+            stationId={state.track?.radioId || effectiveRadioId}
+            artistId={state.track?.artistId}
+            artistName={state.track?.artistName}
+            songId={state.track?.id}
+            songTitle={state.track?.title}
+          />
 
           <button
             onClick={() => void handleReaction('fire')}

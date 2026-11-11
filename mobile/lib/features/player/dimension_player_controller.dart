@@ -99,6 +99,24 @@ class DimensionPlayerController extends ChangeNotifier {
     return title.isEmpty ? null : title;
   }
 
+  String get shareRadioId {
+    final fromExtras = _media?.extras?['radioId']?.toString().trim();
+    if (fromExtras != null && fromExtras.isNotEmpty) return fromExtras;
+    return _radioId;
+  }
+
+  String? get shareArtistId {
+    final id = _media?.extras?['artistId']?.toString().trim();
+    if (id == null || id.isEmpty) return null;
+    return id;
+  }
+
+  String? get shareArtistName {
+    final name = _media?.artist?.trim();
+    if (name == null || name.isEmpty) return null;
+    return name;
+  }
+
   bool get canSkip {
     final media = _media;
     if (media == null) return false;

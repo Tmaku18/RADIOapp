@@ -26,6 +26,7 @@ import '../../core/services/venue_ads_service.dart';
 import '../../core/services/radio_background_sync_service.dart';
 import '../../core/services/radio_connection_monitor.dart';
 import '../../core/services/radio_presence_service.dart';
+import '../../core/services/radio_share.dart';
 import '../../core/services/station_events_service.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/models/venue_ad.dart';
@@ -591,6 +592,8 @@ class _PlayerScreenState extends State<PlayerScreen>
                 'source': 'radio',
                 'radioId': expectedRadioId,
                 'songId': track.id,
+                if (track.artistId != null && track.artistId!.isNotEmpty)
+                  'artistId': track.artistId,
               },
             ),
           ),

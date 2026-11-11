@@ -116,6 +116,8 @@ class RadioGuestPlaybackService {
               'source': 'radio',
               'radioId': radioId,
               'songId': track.id,
+              if (track.artistId != null && track.artistId!.isNotEmpty)
+                'artistId': track.artistId,
             },
           ),
         ),
