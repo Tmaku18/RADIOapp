@@ -55,6 +55,7 @@ export function RadioCaptureDialog({
   playbackRef.current = live;
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const reviewRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawStop = useRef<(() => void) | null>(null);
   const recorder = useRef<{ stop: () => Promise<File>; cancel: () => void } | null>(null);
@@ -77,6 +78,7 @@ export function RadioCaptureDialog({
   const [creditX, setCreditX] = useState(0.5);
   const [creditY, setCreditY] = useState(0.58);
   const [creditScale, setCreditScale] = useState(1);
+  const [reviewPlaying, setReviewPlaying] = useState(false);
   const [aspect, setAspect] = useState<number | null>(null);
   const burned = useRef<{ key: string; file: File } | null>(null);
 
@@ -171,6 +173,7 @@ export function RadioCaptureDialog({
         audioBuffer: buffer,
         offsetSeconds: offset,
         durationSeconds: length,
+        micStream: stream,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not start the recording.');
@@ -289,6 +292,7 @@ export function RadioCaptureDialog({
               }}
             >
               <video
+                ref={reviewRef}
                 src={clip.url}
                 autoPlay
                 loop
@@ -296,10 +300,14 @@ export function RadioCaptureDialog({
                 className="h-full w-full bg-black object-contain"
                 onLoadedMetadata={(event) => {
                   const item = event.currentTarget;
+                  item.muted = false;
+                  item.volume = 1;
                   if (item.videoWidth > 0 && item.videoHeight > 0) {
                     setAspect(item.videoWidth / item.videoHeight);
                   }
                 }}
+                onPlay={() => setReviewPlaying(true)}
+                onPause={() => setReviewPlaying(false)}
               />
               {creditStyle ? (
                 <ArtistCreditOverlay
@@ -320,19 +328,46 @@ export function RadioCaptureDialog({
         ) : (
           <canvas ref={canvasRef} className="h-full w-full object-cover" />
         )}
+        {phase === 'recording' ? (
+          <button
+            type="button"
+            onClick={() => {
+              if (recorder.current) void finish(recorder.current);
+            }}
+            className="absolute bottom-6 left-1/2 z-10 -translate-x-1/2 rounded-full bg-red-500 px-8 py-4 text-base font-semibold text-white shadow-lg"
+          >
+            Stop recording {seconds}s / {CLIP_SECONDS}s
+          </button>
+        ) : null}
       </div>
       <div className="space-y-3 bg-zinc-950 px-4 py-4">
         <p className="truncate text-sm font-semibold">{label}</p>
         <p className="text-xs text-white/60">
           {phase === 'recording'
-            ? `Recording ${seconds}s / ${CLIP_SECONDS}s`
-            : 'Mic stays off. The song that is playing is saved into the clip.'}
+            ? 'Recording. Tap the red Stop button when you are done.'
+            : phase === 'review'
+              ? 'This is your clip. Press play to watch it and hear your voice with the song.'
+              : 'Your microphone and the song are saved into the clip.'}
         </p>
         {error ? <p className="text-xs text-red-300">{error}</p> : null}
         {phase === 'saving' ? (
           <p className="text-sm">Adding the song…</p>
         ) : phase === 'review' && clip ? (
           <div className="space-y-3">
+            <button
+              type="button"
+              onClick={() => {
+                const video = reviewRef.current;
+                if (!video) return;
+                video.muted = false;
+                video.volume = 1;
+                if (video.paused) void video.play();
+                else video.pause();
+              }}
+              className="rounded-full border border-white/20 px-4 py-2 text-sm"
+            >
+              {reviewPlaying ? 'Pause' : 'Play clip'}
+            </button>
             <ArtistCreditTray
               style={creditStyle}
               scale={creditScale}
@@ -436,9 +471,13 @@ export function RadioCaptureDialog({
                 }
                 void begin('video');
               }}
-              className="flex-1 rounded-full bg-cyan-400 py-2 text-sm font-semibold text-black disabled:opacity-40"
+              className={`flex-1 rounded-full py-2 text-sm font-semibold disabled:opacity-40 ${
+                phase === 'recording'
+                  ? 'bg-red-500 text-white'
+                  : 'bg-cyan-400 text-black'
+              }`}
             >
-              {phase === 'recording' ? 'Stop' : 'Video'}
+              {phase === 'recording' ? 'Stop recording' : 'Video'}
             </button>
           </div>
         )}
@@ -471,14 +510,16 @@ export function RadioCaptureButton({ compact = false }: { compact?: boolean }) {
     try {
       stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user' },
-        audio: false,
+        audio: { echoCancellation: true, noiseSuppression: true },
       });
       const buffer = await loadAudioBuffer(current.audioUrl);
       setSession({ track: current, stream, buffer });
     } catch (error) {
       stream?.getTracks().forEach((item) => item.stop());
       toast.error(
-        error instanceof Error ? error.message : 'Allow camera access to record.',
+        error instanceof Error
+          ? error.message
+          : 'Allow the camera and microphone to record.',
       );
     } finally {
       setOpening(false);

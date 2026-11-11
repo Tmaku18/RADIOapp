@@ -18,9 +18,8 @@ import '../../core/theme/networx_extensions.dart';
 import 'widgets/artist_credit_sticker.dart';
 import 'widgets/social_share_bar.dart';
 
-/// Front camera on the radio player. The mic stays off. The song that is on
-/// is played into the headphones or speaker and then saved into the file so
-/// the feed, Instagram, Snapchat, and TikTok can play it.
+/// Front camera on the radio player. The mic and the song are both saved
+/// into the clip so the feed, Instagram, Snapchat, and TikTok can play them.
 class RadioCaptureScreen extends StatefulWidget {
   const RadioCaptureScreen({
     super.key,
@@ -224,7 +223,7 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     final camera = CameraController(
       chosen,
       ResolutionPreset.medium,
-      enableAudio: false,
+      enableAudio: true,
     );
     _camera = camera;
     await camera.initialize();
@@ -297,6 +296,7 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     try {
       final at = _cue.position.inMilliseconds;
       _recordStartMs = at > 0 ? at : _startMs;
+      await _cue.setVolume(0.35);
       await cam.startVideoRecording();
       _recordedSeconds = 0;
       _recordTimer?.cancel();
@@ -311,6 +311,9 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
       if (!mounted) return;
       setState(() => _phase = _CapturePhase.recording);
     } catch (error) {
+      try {
+        await _cue.setVolume(0.9);
+      } catch (_) {}
       if (!mounted) return;
       setState(() => _error = _friendly(error));
     }
@@ -351,9 +354,15 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     try {
       await _cue.pause();
     } catch (_) {}
+    try {
+      final session = await AudioSession.instance;
+      await session.configure(const AudioSessionConfiguration.music());
+      await session.setActive(true);
+    } catch (_) {}
     final controller = VideoPlayerController.file(file);
     await controller.initialize();
     await controller.setLooping(true);
+    await controller.setVolume(1);
     await controller.play();
     final previous = _preview;
     _preview = controller;
@@ -374,6 +383,8 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     _burnKey = null;
     await previous?.dispose();
     try {
+      await _configureSession();
+      await _cue.setVolume(0.9);
       await _cue.seek(Duration(milliseconds: _startMs));
       await _cue.play();
     } catch (_) {}
@@ -506,8 +517,13 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     if (text.contains('download') || text.contains('song')) {
       return 'Could not add the song to this clip.';
     }
+    if (text.contains('microphone') ||
+        text.contains('Microphone') ||
+        text.contains('AudioAccess')) {
+      return 'Allow the microphone so your voice is saved with the song.';
+    }
     if (text.contains('camera') || text.contains('Camera')) {
-      return 'Allow camera access to record.';
+      return 'Allow camera and microphone access to record.';
     }
     if (text.contains('401') ||
         text.contains('403') ||
@@ -590,6 +606,35 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
                                                   ),
                                                 ),
                                               ),
+                                            Positioned(
+                                              left: 12,
+                                              bottom: 12,
+                                              child: IconButton.filled(
+                                                style: IconButton.styleFrom(
+                                                  backgroundColor:
+                                                      Colors.black54,
+                                                  foregroundColor: Colors.white,
+                                                ),
+                                                tooltip: preview.value.isPlaying
+                                                    ? 'Pause'
+                                                    : 'Play',
+                                                onPressed: () {
+                                                  if (preview.value.isPlaying) {
+                                                    preview.pause();
+                                                  } else {
+                                                    preview.setVolume(1);
+                                                    preview.play();
+                                                  }
+                                                  setState(() {});
+                                                },
+                                                icon: Icon(
+                                                  preview.value.isPlaying
+                                                      ? Icons.pause_rounded
+                                                      : Icons
+                                                            .play_arrow_rounded,
+                                                ),
+                                              ),
+                                            ),
                                           ],
                                         ),
                                       ),
@@ -600,16 +645,42 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
                             ),
                           )
                         : cam != null && cam.value.isInitialized
-                        ? ClipRect(
-                            child: Transform(
-                              alignment: Alignment.center,
-                              transform: Matrix4.diagonal3Values(
-                                mirror ? -1 : 1,
-                                1,
-                                1,
+                        ? Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              ClipRect(
+                                child: Transform(
+                                  alignment: Alignment.center,
+                                  transform: Matrix4.diagonal3Values(
+                                    mirror ? -1 : 1,
+                                    1,
+                                    1,
+                                  ),
+                                  child: CameraPreview(cam),
+                                ),
                               ),
-                              child: CameraPreview(cam),
-                            ),
+                              if (_phase == _CapturePhase.recording)
+                                Positioned(
+                                  left: 16,
+                                  right: 16,
+                                  bottom: 24,
+                                  child: FilledButton.icon(
+                                    onPressed: _stopping ? null : _stopVideo,
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: Colors.redAccent,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 24,
+                                        vertical: 16,
+                                      ),
+                                    ),
+                                    icon: const Icon(Icons.stop_rounded),
+                                    label: Text(
+                                      'Stop recording  $_recordedSeconds / ${SocialShare.clipMs ~/ 1000}s',
+                                    ),
+                                  ),
+                                ),
+                            ],
                           )
                         : const Center(child: CircularProgressIndicator()),
                   ),
@@ -657,8 +728,10 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
         const SizedBox(height: 4),
         Text(
           _phase == _CapturePhase.recording
-              ? 'Recording ${_recordedSeconds}s / ${SocialShare.clipMs ~/ 1000}s'
-              : 'Mic stays off. The song that is playing is saved into the clip.',
+              ? 'Recording. Tap the red Stop button when you are done.'
+              : _phase == _CapturePhase.review
+              ? 'This is your clip. Press play to watch it and hear your voice with the song.'
+              : 'Your microphone and the song are saved into the clip.',
           style: TextStyle(
             color: context.networxSurfaces.textSecondary,
             fontSize: 12,
@@ -719,11 +792,17 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
                         : Icons.fiber_manual_record,
                   ),
                   label: Text(
-                    _phase == _CapturePhase.recording ? 'Stop' : 'Video',
+                    _phase == _CapturePhase.recording
+                        ? 'Stop recording'
+                        : 'Video',
                   ),
                   style: FilledButton.styleFrom(
-                    backgroundColor: DimensionTokens.neonCyan,
-                    foregroundColor: Colors.black,
+                    backgroundColor: _phase == _CapturePhase.recording
+                        ? Colors.redAccent
+                        : DimensionTokens.neonCyan,
+                    foregroundColor: _phase == _CapturePhase.recording
+                        ? Colors.white
+                        : Colors.black,
                   ),
                 ),
               ),

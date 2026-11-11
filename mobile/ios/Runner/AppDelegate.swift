@@ -353,7 +353,8 @@ private enum ClipMux {
         guard let videoTrack = asset.tracks(withMediaType: .video).first else {
           throw ClipMuxError.unreadable("The video has no picture")
         }
-        guard let audioTrack = asset.tracks(withMediaType: .audio).first else {
+        let audioTracks = asset.tracks(withMediaType: .audio)
+        if audioTracks.isEmpty {
           throw ClipMuxError.unreadable("The clip has no song")
         }
         let clip = videoTrack.timeRange.duration
@@ -365,16 +366,22 @@ private enum ClipMux {
           let compVideo = composition.addMutableTrack(
             withMediaType: .video,
             preferredTrackID: kCMPersistentTrackID_Invalid
-          ),
-          let compAudio = composition.addMutableTrack(
-            withMediaType: .audio,
-            preferredTrackID: kCMPersistentTrackID_Invalid
           )
         else {
           throw ClipMuxError.unreadable("Could not add the artist credit")
         }
         try compVideo.insertTimeRange(CMTimeRange(start: .zero, duration: clip), of: videoTrack, at: .zero)
-        try compAudio.insertTimeRange(CMTimeRange(start: .zero, duration: clip), of: audioTrack, at: .zero)
+        for audioTrack in audioTracks {
+          guard
+            let compAudio = composition.addMutableTrack(
+              withMediaType: .audio,
+              preferredTrackID: kCMPersistentTrackID_Invalid
+            )
+          else {
+            throw ClipMuxError.unreadable("Could not add the artist credit")
+          }
+          try compAudio.insertTimeRange(CMTimeRange(start: .zero, duration: clip), of: audioTrack, at: .zero)
+        }
         let transformed = CGRect(origin: .zero, size: videoTrack.naturalSize)
           .applying(videoTrack.preferredTransform)
         var render = CGSize(width: abs(transformed.width), height: abs(transformed.height))
@@ -491,6 +498,25 @@ private enum ClipMux {
     compVideo.preferredTransform = videoTrack.preferredTransform
     try compAudio.insertTimeRange(CMTimeRange(start: start, duration: clip), of: audioTrack, at: .zero)
 
+    var mixInputs: [AVAudioMixInputParameters] = []
+    let songMix = AVMutableAudioMixInputParameters(track: compAudio)
+    if let mic = videoAsset.tracks(withMediaType: .audio).first,
+       let compMic = composition.addMutableTrack(
+        withMediaType: .audio,
+        preferredTrackID: kCMPersistentTrackID_Invalid
+       ) {
+      try compMic.insertTimeRange(CMTimeRange(start: .zero, duration: clip), of: mic, at: .zero)
+      let micMix = AVMutableAudioMixInputParameters(track: compMic)
+      micMix.setVolume(1, at: .zero)
+      mixInputs.append(micMix)
+      songMix.setVolume(0.55, at: .zero)
+    } else {
+      songMix.setVolume(1, at: .zero)
+    }
+    mixInputs.append(songMix)
+    let audioMix = AVMutableAudioMix()
+    audioMix.inputParameters = mixInputs
+
     let out = FileManager.default.temporaryDirectory
       .appendingPathComponent("networx-clip-\(Int(Date().timeIntervalSince1970 * 1000)).mp4")
     try? FileManager.default.removeItem(at: out)
@@ -499,6 +525,7 @@ private enum ClipMux {
     }
     session.outputURL = out
     session.outputFileType = .mp4
+    session.audioMix = audioMix
     session.shouldOptimizeForNetworkUse = true
     let done = DispatchSemaphore(value: 0)
     session.exportAsynchronously { done.signal() }

@@ -3,6 +3,8 @@ package com.tmaktechnologies.networxradio
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.media.MediaExtractor
+import android.media.MediaFormat
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Handler
@@ -26,7 +28,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Bakes a slice of the on-air song into a photo or video.
  *
  * Instagram, Snapchat, and TikTok only play audio that is inside the file.
- * The mic is not part of this mix.
+ * A video keeps its microphone and the song is mixed under it.
  */
 @OptIn(UnstableApi::class)
 object ClipMuxer {
@@ -90,9 +92,10 @@ object ClipMuxer {
                 return
             }
 
+            val keepMic = videoPath != null && hasAudio(visualFile)
             val visual = if (videoPath != null) {
                 EditedMediaItem.Builder(MediaItem.fromUri(Uri.fromFile(visualFile)))
-                    .setRemoveAudio(true)
+                    .setRemoveAudio(!keepMic)
                     .build()
             } else {
                 EditedMediaItem.Builder(
@@ -114,8 +117,13 @@ object ClipMuxer {
                     )
                     .build(),
             ).build()
+            val picture = if (keepMic) {
+                EditedMediaItemSequence.withAudioAndVideoFrom(listOf(visual))
+            } else {
+                EditedMediaItemSequence.withVideoFrom(listOf(visual))
+            }
             val composition = Composition.Builder(
-                EditedMediaItemSequence.withVideoFrom(listOf(visual)),
+                picture,
                 EditedMediaItemSequence.withAudioFrom(listOf(audio)),
             ).build()
 
@@ -246,6 +254,24 @@ object ClipMuxer {
         } finally {
             try {
                 retriever.release()
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    private fun hasAudio(file: File): Boolean {
+        val extractor = MediaExtractor()
+        return try {
+            extractor.setDataSource(file.absolutePath)
+            (0 until extractor.trackCount).any { index ->
+                val mime = extractor.getTrackFormat(index).getString(MediaFormat.KEY_MIME) ?: ""
+                mime.startsWith("audio/")
+            }
+        } catch (_: Exception) {
+            false
+        } finally {
+            try {
+                extractor.release()
             } catch (_: Exception) {
             }
         }

@@ -55,14 +55,25 @@ export async function startMixedRecording(input: {
   offsetSeconds: number;
   durationSeconds: number;
   audible?: boolean;
+  /** Live microphone. Mixed into the file and kept off the speakers. */
+  micStream?: MediaStream | null;
 }): Promise<{ stop: () => Promise<File>; cancel: () => void }> {
   const ctx = new AudioContext();
   await ctx.resume();
   const dest = ctx.createMediaStreamDestination();
   const source = ctx.createBufferSource();
   source.buffer = input.audioBuffer;
-  source.connect(dest);
+  const micTracks =
+    input.micStream?.getAudioTracks().filter((track) => track.readyState === 'live') ?? [];
+  const songGain = ctx.createGain();
+  songGain.gain.value = micTracks.length > 0 ? 0.55 : 1;
+  source.connect(songGain);
+  songGain.connect(dest);
   if (input.audible !== false) source.connect(ctx.destination);
+  if (micTracks.length > 0) {
+    const mic = ctx.createMediaStreamSource(new MediaStream(micTracks));
+    mic.connect(dest);
+  }
   let offset = input.offsetSeconds;
   if (offset >= input.audioBuffer.duration - 0.25) {
     offset = Math.max(0, input.audioBuffer.duration - input.durationSeconds);
