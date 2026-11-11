@@ -499,6 +499,7 @@ class _PlayerBody extends StatelessWidget {
   final VoidCallback onAddToPlaylist;
   final VoidCallback onPlayPause;
   final VoidCallback onEnterRoom;
+  final double bottomOverlay;
   final AudioPlayer audioPlayer;
   final ValueNotifier<Offset> coverTilt;
 
@@ -528,6 +529,7 @@ class _PlayerBody extends StatelessWidget {
     required this.onAddToPlaylist,
     required this.onPlayPause,
     required this.onEnterRoom,
+    this.bottomOverlay = 0,
     required this.audioPlayer,
     required this.coverTilt,
   });
@@ -1039,13 +1041,13 @@ class _PlayerBody extends StatelessWidget {
             outerPadding,
             outerPadding,
             outerPadding,
-            8,
+            8 + bottomOverlay,
           ),
           child: ConstrainedBox(
             constraints: BoxConstraints(
               minHeight: math.max(
                 0,
-                constraints.maxHeight - outerPadding - 8,
+                constraints.maxHeight - outerPadding - 8 - bottomOverlay,
               ),
             ),
             child: Column(

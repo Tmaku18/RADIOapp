@@ -72,10 +72,18 @@ class _StationTuner {
 }
 
 class PlayerScreen extends StatefulWidget {
-  const PlayerScreen({super.key, this.onOpenNavDrawer, this.onUpload});
+  const PlayerScreen({
+    super.key,
+    this.onOpenNavDrawer,
+    this.onUpload,
+    this.bottomOverlay = 0,
+  });
 
   /// Opens the app's left navigation drawer (shown as a hamburger in the bar).
   final VoidCallback? onOpenNavDrawer;
+
+  /// Space taken by a glass tab bar drawn over the bottom of this screen.
+  final double bottomOverlay;
 
   /// Shown for Gem / Catalyst / Admin — web dashboard header Upload CTA.
   final VoidCallback? onUpload;
@@ -1598,6 +1606,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                       },
                       onPlayPause: _togglePlayPause,
                       onEnterRoom: () => _openRoom(providerContext),
+                      bottomOverlay: widget.bottomOverlay,
                       audioPlayer: _audioPlayer,
                       coverTilt: _coverTilt,
                     ),

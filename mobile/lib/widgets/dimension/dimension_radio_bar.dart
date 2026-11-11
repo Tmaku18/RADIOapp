@@ -31,6 +31,7 @@ class DimensionRadioBar extends StatelessWidget {
     super.key,
     this.onOpenPlayer,
     this.includeBottomInset = true,
+    this.shareParentGlass = false,
   });
 
   /// When set, a tap or upward drag opens the in-shell player instead of
@@ -40,6 +41,9 @@ class DimensionRadioBar extends StatelessWidget {
   /// Home indicator clearance. Off when a [NavigationBar] already sits under
   /// this row — otherwise the inset becomes an empty band between them.
   final bool includeBottomInset;
+
+  /// The home shell already frosts this row together with the tab bar.
+  final bool shareParentGlass;
 
   static const double _artSize = 48;
   static const double _rowHeight = 64;
@@ -252,11 +256,15 @@ class DimensionRadioBar extends StatelessWidget {
               },
               child: DecoratedBox(
               decoration: BoxDecoration(
-                color: (isDark ? const Color(0xFF1C1C1E) : Colors.white)
-                    .withValues(alpha: 0.86),
-                border: Border(
-                  top: BorderSide(color: DimensionTokens.glassBorder),
-                ),
+                color: shareParentGlass
+                    ? Colors.transparent
+                    : (isDark ? const Color(0xFF0A0A0C) : Colors.white)
+                        .withValues(alpha: isDark ? 0.38 : 0.55),
+                border: shareParentGlass
+                    ? null
+                    : Border(
+                        top: BorderSide(color: DimensionTokens.glassBorder),
+                      ),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -357,6 +365,7 @@ class DimensionRadioBar extends StatelessWidget {
             ),
             );
 
+            if (shareParentGlass) return bar;
             return ClipRect(
               child: BackdropFilter(
                 filter: ImageFilter.blur(

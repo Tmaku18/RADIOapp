@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -191,9 +192,23 @@ class _HomeScreenState extends State<HomeScreen> {
     // Rebuild Dimension chrome when ThemeMode changes (tokens are static).
     DimensionTokens.watch(context);
 
+    final safeBottom = MediaQuery.paddingOf(context).bottom;
+    const navHeight = 80.0;
+    final showMini = safeIndex != _tabRadio && !(canUpload && safeIndex == 4);
+    final barInset =
+        navHeight + safeBottom + (showMini ? DimensionTokens.radioBarHeight : 0);
+
+    Widget aboveBar(Widget child) {
+      return Padding(
+        padding: EdgeInsets.only(bottom: barInset),
+        child: child,
+      );
+    }
+
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: DimensionTokens.bgBase,
+      extendBody: true,
       drawer: DimensionNavDrawer(
         user: _user,
         isArtist: canUpload,
@@ -212,7 +227,7 @@ class _HomeScreenState extends State<HomeScreen> {
           IndexedStack(
             index: safeIndex,
             children: [
-              NetworxHomeScreen(
+              aboveBar(NetworxHomeScreen(
                 onOpenNavDrawer: _openNavDrawer,
                 onOpenRadio: () => _selectTab(_tabRadio),
                 onOpenFeed: () => _selectTab(_tabFeed),
@@ -229,45 +244,69 @@ class _HomeScreenState extends State<HomeScreen> {
                           context,
                           AppRoutes.proNetworxShell,
                         ),
+                ),
               ),
               _tabBuilt[1]
                   ? PlayerScreen(
                       onOpenNavDrawer: _openNavDrawer,
                       onUpload: _openUpload,
+                      bottomOverlay: navHeight + safeBottom,
                     )
                   : const SizedBox.shrink(),
               _tabBuilt[2]
-                  ? SocialFeedScreen(
+                  ? aboveBar(SocialFeedScreen(
                       onOpenNavDrawer: _openNavDrawer,
                       isActive: safeIndex == _tabFeed,
-                    )
+                    ))
                   : const SizedBox.shrink(),
               _tabBuilt[3]
-                  ? DiscoveryScreen(onOpenNavDrawer: _openNavDrawer)
+                  ? aboveBar(DiscoveryScreen(onOpenNavDrawer: _openNavDrawer))
                   : const SizedBox.shrink(),
               if (!_tabBuilt[4])
                 const SizedBox.shrink()
               else if (canUpload)
-                ProNetworxShellScreen(
+                aboveBar(ProNetworxShellScreen(
                   onExitToRadio: () => _selectTab(_tabRadio),
                   visible: safeIndex == 4,
-                )
+                ))
               else
-                CompetitionScreen(onOpenNavDrawer: _openNavDrawer),
+                aboveBar(CompetitionScreen(onOpenNavDrawer: _openNavDrawer)),
             ],
           ),
         ],
       ),
       // Mini player when not already on the Radio tab or Pro-Networx shell.
-      bottomNavigationBar: Column(
+      bottomNavigationBar: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(
+            sigmaX: DimensionTokens.glassStrongBlur,
+            sigmaY: DimensionTokens.glassStrongBlur,
+          ),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: (DimensionTokens.isDark
+                      ? const Color(0xFF0A0A0C)
+                      : Colors.white)
+                  .withValues(alpha: DimensionTokens.isDark ? 0.38 : 0.55),
+              border: Border(
+                top: BorderSide(color: DimensionTokens.glassBorder),
+              ),
+            ),
+            child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (safeIndex != _tabRadio && !(canUpload && safeIndex == 4))
+          if (showMini)
             DimensionRadioBar(
               onOpenPlayer: () => _selectTab(_tabRadio),
               includeBottomInset: false,
+              shareParentGlass: true,
             ),
           NavigationBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            shadowColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            indicatorColor: Colors.transparent,
             selectedIndex: safeIndex,
             onDestinationSelected: _selectTab,
             destinations: [
@@ -299,6 +338,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ],
+            ),
+          ),
+        ),
       ),
     );
   }
