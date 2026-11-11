@@ -5,6 +5,7 @@ import '../../core/models/pro_radio_models.dart';
 import '../../core/services/pro_radio_queue_service.dart';
 import '../../core/services/pro_radio_service.dart';
 import 'pro_radio_player_screen.dart';
+import 'pro_radio_video_screen.dart';
 
 /// Playlist detail: list tracks, play, and remove songs.
 class ProRadioPlaylistScreen extends StatefulWidget {
@@ -258,6 +259,20 @@ class _ProRadioPlaylistScreenState extends State<ProRadioPlaylistScreen> {
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
+                                  if (playable)
+                                    IconButton(
+                                      tooltip: 'Record from any part',
+                                      onPressed: () {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute<void>(
+                                            builder: (_) => ProRadioVideoScreen(
+                                              initial: t,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      icon: const Icon(Icons.videocam_outlined),
+                                    ),
                                   if (playable)
                                     IconButton(
                                       tooltip: 'Play',

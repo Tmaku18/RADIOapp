@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
@@ -41,6 +42,16 @@ export class PlaylistsController {
   async listMine(@CurrentUser() user: FirebaseUser) {
     const userId = await this.getUserId(user.uid);
     return this.playlists.listMine(userId);
+  }
+
+  /** Full Pro-Radio songs (not Discover clips or samples) for video making. */
+  @Get('catalog')
+  async catalog(
+    @CurrentUser() user: FirebaseUser,
+    @Query('q') query?: string,
+  ) {
+    const userId = await this.getUserId(user.uid);
+    return this.playlists.searchCatalog(userId, query ?? '');
   }
 
   @Post()

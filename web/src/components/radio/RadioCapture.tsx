@@ -32,16 +32,21 @@ function captionFor(track: PlaybackTrack): string {
   return name ? `${track.title} — ${name}` : track.title;
 }
 
-function RadioCaptureDialog({
+export function RadioCaptureDialog({
   track,
   stream,
   buffer,
   onClose,
+  offsetSeconds,
+  durationSeconds,
 }: {
   track: PlaybackTrack;
   stream: MediaStream;
   buffer: AudioBuffer;
   onClose: () => void;
+  /** Start point in the full song. Omit to use whatever the player is on. */
+  offsetSeconds?: number;
+  durationSeconds?: number;
 }) {
   const playbackRef = useRef(usePlaybackOptional());
   const live = usePlaybackOptional();
@@ -129,8 +134,10 @@ function RadioCaptureDialog({
       return;
     }
     const pb = playbackRef.current;
-    const offset = pb?.state.currentTime ?? 0;
-    const total = pb?.state.duration || track.durationSeconds || CLIP_SECONDS;
+    const offset = offsetSeconds ?? pb?.state.currentTime ?? 0;
+    const liveDuration = pb?.state.duration || track.durationSeconds || CLIP_SECONDS;
+    const total =
+      durationSeconds != null && durationSeconds > 0 ? durationSeconds : liveDuration;
     const length = Math.min(CLIP_SECONDS, Math.max(1, total - offset));
     if (pb && !pb.state.isMuted && !held.current) {
       wasMuted.current = false;

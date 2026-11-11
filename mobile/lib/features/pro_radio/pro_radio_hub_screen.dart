@@ -9,6 +9,7 @@ import '../../core/services/pro_radio_queue_service.dart';
 import '../../core/services/pro_radio_service.dart';
 import 'pro_radio_player_screen.dart';
 import 'pro_radio_playlist_screen.dart';
+import 'pro_radio_video_screen.dart';
 import 'widgets/pro_radio_paywall_sheet.dart';
 
 /// Pro-Radio hub: subscribe CTA, playlists, and on-demand player controls.
@@ -240,6 +241,20 @@ class _ProRadioHubScreenState extends State<ProRadioHubScreen> {
                   if (_error != null) ...[
                     const SizedBox(height: 12),
                     Text(_error!, style: TextStyle(color: cs.error)),
+                  ],
+                  if (_hasAccess == true) ...[
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const ProRadioVideoScreen(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.videocam_outlined),
+                      label: const Text('Make a video from any song'),
+                    ),
                   ],
                   if (_hasAccess != true) ...[
                     const SizedBox(height: 16),

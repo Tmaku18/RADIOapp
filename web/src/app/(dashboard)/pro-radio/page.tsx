@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePlayback } from '@/components/playback';
 import { ProRadioPaywallCard } from '@/components/pro-radio/ProRadioPaywallCard';
+import { ProRadioVideoMaker } from '@/components/pro-radio/ProRadioVideoMaker';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -30,6 +31,7 @@ export default function ProRadioPage() {
   const [playlistTracks, setPlaylistTracks] = useState<ProRadioPlaylistTrack[]>([]);
   const [tracksLoading, setTracksLoading] = useState(false);
   const [removingSongId, setRemovingSongId] = useState<string | null>(null);
+  const [recordToken, setRecordToken] = useState(0);
 
   const load = useCallback(async () => {
     if (!user?.uid) {
@@ -216,6 +218,20 @@ export default function ProRadioPage() {
                   </Button>
                   <Button
                     type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setRecordToken((n) => n + 1);
+                      document.getElementById('pro-radio-video')?.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start',
+                      });
+                    }}
+                  >
+                    Record this part
+                  </Button>
+                  <Button
+                    type="button"
                     variant={state.proRadioShuffle ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => actions.toggleShuffle()}
@@ -226,6 +242,26 @@ export default function ProRadioPage() {
               </CardContent>
             </Card>
           )}
+
+          <div id="pro-radio-video">
+            <ProRadioVideoMaker
+              focusToken={recordToken}
+              nowPlaying={
+                state.source === 'proRadio' && state.track?.audioUrl
+                  ? {
+                      songId: state.track.id,
+                      title: state.track.title,
+                      artistName: state.track.artistName,
+                      artistId: state.track.artistId,
+                      artworkUrl: state.track.artworkUrl,
+                      audioUrl: state.track.audioUrl,
+                      durationSeconds: state.track.durationSeconds,
+                      positionSeconds: state.currentTime,
+                    }
+                  : null
+              }
+            />
+          </div>
 
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-lg font-semibold">Your playlists</h2>

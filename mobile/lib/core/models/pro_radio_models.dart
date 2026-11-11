@@ -65,6 +65,7 @@ class ProRadioPlaylistTrack {
   final String songId;
   final String title;
   final String? artistName;
+  final String? artistId;
   final String? artworkUrl;
   final int durationSeconds;
   final String? streamUrl;
@@ -73,6 +74,7 @@ class ProRadioPlaylistTrack {
     required this.songId,
     required this.title,
     this.artistName,
+    this.artistId,
     this.artworkUrl,
     this.durationSeconds = 0,
     this.streamUrl,
@@ -83,6 +85,7 @@ class ProRadioPlaylistTrack {
       songId: (json['songId'] ?? '').toString(),
       title: (json['title'] ?? 'Track').toString(),
       artistName: json['artistName']?.toString(),
+      artistId: json['artistId']?.toString(),
       artworkUrl: json['artworkUrl']?.toString(),
       durationSeconds: int.tryParse('${json['durationSeconds'] ?? 0}') ?? 0,
       streamUrl: json['streamUrl']?.toString(),

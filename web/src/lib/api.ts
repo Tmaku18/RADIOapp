@@ -1877,6 +1877,10 @@ export const proRadioPlaylistsApi = {
   remove: (id: string) => api.delete<{ ok: true }>(`/playlists/${id}`),
   getTracks: (id: string) =>
     api.get<{ tracks: ProRadioPlaylistTrack[] }>(`/playlists/${id}/tracks`),
+  searchCatalog: (q?: string) =>
+    api.get<{ songs: ProRadioPlaylistTrack[] }>('/playlists/catalog', {
+      params: q?.trim() ? { q: q.trim() } : undefined,
+    }),
   addTrack: (id: string, songId: string) =>
     api.post(`/playlists/${id}/tracks`, { songId }),
   removeTrack: (id: string, songId: string) =>

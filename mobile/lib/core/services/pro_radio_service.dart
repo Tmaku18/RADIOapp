@@ -55,6 +55,23 @@ class ProRadioService {
     );
   }
 
+  /// Full Pro-Radio songs. Pass an empty query for the latest releases.
+  Future<List<ProRadioPlaylistTrack>> searchCatalog(String query) async {
+    final q = query.trim();
+    final path = q.isEmpty
+        ? 'playlists/catalog'
+        : 'playlists/catalog?q=${Uri.encodeQueryComponent(q)}';
+    final res = await _api.get(path);
+    final list = (res is Map ? res['songs'] : null);
+    if (list is! List) return const [];
+    return list
+        .whereType<Map>()
+        .map(
+          (e) => ProRadioPlaylistTrack.fromJson(Map<String, dynamic>.from(e)),
+        )
+        .toList();
+  }
+
   Future<List<ProRadioPlaylistTrack>> getPlaylistTracks(String id) async {
     final res = await _api.get('playlists/$id/tracks');
     final list = (res is Map ? res['tracks'] : null);

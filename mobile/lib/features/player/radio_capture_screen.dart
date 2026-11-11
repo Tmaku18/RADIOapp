@@ -29,6 +29,7 @@ class RadioCaptureScreen extends StatefulWidget {
     this.songId,
     this.stationId,
     this.durationMs,
+    this.startMs,
   });
 
   final String audioUrl;
@@ -38,6 +39,10 @@ class RadioCaptureScreen extends StatefulWidget {
   final String? songId;
   final String? stationId;
   final int? durationMs;
+
+  /// Where in the full song the clip should start. When this is set, the
+  /// clip does not follow the live radio playhead.
+  final int? startMs;
 
   @override
   State<RadioCaptureScreen> createState() => _RadioCaptureScreenState();
@@ -132,9 +137,15 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     final player = AudioPlayerService().player;
     final handler = AudioPlayerService.handler;
     _wasAudible = player.playing && !handler.userPaused;
-    _startMs = player.position.inMilliseconds;
-    if (_startMs < 0) _startMs = 0;
-    _knownDurationMs = player.duration?.inMilliseconds ?? widget.durationMs;
+    final chosen = widget.startMs;
+    if (chosen != null) {
+      _startMs = chosen < 0 ? 0 : chosen;
+      _knownDurationMs = widget.durationMs;
+    } else {
+      _startMs = player.position.inMilliseconds;
+      if (_startMs < 0) _startMs = 0;
+      _knownDurationMs = player.duration?.inMilliseconds ?? widget.durationMs;
+    }
     await handler.hardPauseMusicForCapture();
     _held = true;
     try {

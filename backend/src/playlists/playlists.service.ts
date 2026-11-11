@@ -32,6 +32,68 @@ export class PlaylistsService {
     return data;
   }
 
+  /**
+   * Songs an artist released to Pro-Radio. These are full tracks, not the
+   * 30-second sample or the Discover clip, and not whatever is live on air.
+   */
+  async searchCatalog(userId: string, query: string) {
+    await this.assertProRadio(userId);
+    const q = query.trim().slice(0, 80).replace(/[%_,.()"'\\]/g, ' ').trim();
+    const supabase = getSupabaseClient();
+    let request = supabase
+      .from('songs')
+      .select(
+        'id, title, artist_name, artist_id, artwork_url, duration_seconds, audio_url, opt_in_pro_radio, product_kind, status',
+      )
+      .eq('opt_in_pro_radio', true)
+      .not('audio_url', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(25);
+    if (q) {
+      request = request.or(`title.ilike.%${q}%,artist_name.ilike.%${q}%`);
+    }
+    const { data, error } = await request;
+    if (error) throw new BadRequestException(error.message);
+
+    const songs: Array<{
+      songId: string;
+      title: string;
+      artistName: string | null;
+      artistId: string | null;
+      artworkUrl: string | null;
+      durationSeconds: number;
+      streamUrl: string | null;
+    }> = [];
+    for (const row of data ?? []) {
+      const song = row as {
+        id?: string;
+        title?: string;
+        artist_name?: string | null;
+        artist_id?: string | null;
+        artwork_url?: string | null;
+        duration_seconds?: number | null;
+        audio_url?: string | null;
+        product_kind?: string | null;
+        status?: string | null;
+      };
+      if ((song.product_kind ?? 'song') === 'beat') continue;
+      const status = (song.status ?? '').toLowerCase();
+      if (status && status !== 'approved' && status !== 'active') continue;
+      const streamUrl = await signSongAudioUrl(song.audio_url ?? null);
+      if (!streamUrl) continue;
+      songs.push({
+        songId: String(song.id),
+        title: String(song.title ?? 'Track'),
+        artistName: song.artist_name ?? null,
+        artistId: song.artist_id ?? null,
+        artworkUrl: song.artwork_url ?? null,
+        durationSeconds: Number(song.duration_seconds ?? 0),
+        streamUrl,
+      });
+    }
+    return { songs };
+  }
+
   async listMine(userId: string) {
     await this.assertProRadio(userId);
     const supabase = getSupabaseClient();
