@@ -627,84 +627,116 @@ class _ChatPanelState extends State<ChatPanel> {
                   ),
                 ),
 
-              // Input area
-              if (chatService.chatEnabled)
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      top: BorderSide(color: surfaces.border),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _messageController,
-                          focusNode: _focusNode,
-                          maxLength: 280,
-                          maxLines: 1,
-                          style: TextStyle(color: scheme.onSurface),
-                          decoration: InputDecoration(
-                            hintText: 'Type a message...',
-                            hintStyle: TextStyle(color: surfaces.textMuted),
-                            filled: true,
-                            fillColor: surfaces.elevated,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(24),
-                              borderSide: BorderSide.none,
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 10),
-                            counterText: '',
-                          ),
-                          onSubmitted: (_) => _sendMessage(),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: scheme.primary,
-                          shape: BoxShape.circle,
-                        ),
-                        child: IconButton(
-                          onPressed: _isSending ? null : _sendMessage,
-                          icon: _isSending
-                              ? SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: scheme.onPrimary,
-                                  ),
-                                )
-                              : Icon(Icons.send, color: scheme.onPrimary),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-              // Character counter
+              // The radio chat sheet sits on the bottom of the screen, so the
+              // keyboard covers the field unless this row moves up with it.
               if (chatService.chatEnabled)
                 Padding(
-                  padding: const EdgeInsets.only(right: 16, bottom: 4),
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: ValueListenableBuilder<TextEditingValue>(
-                      valueListenable: _messageController,
-                      builder: (context, value, child) {
-                        final length = value.text.length;
-                        return Text(
-                          '$length/280',
-                          style: TextStyle(
-                            color: length > 260 
-                                ? (length > 280 ? scheme.error : surfaces.warning)
-                                : surfaces.textMuted,
-                            fontSize: 11,
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.viewInsetsOf(context).bottom,
+                  ),
+                  child: ColoredBox(
+                    color: scheme.surface,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              top: BorderSide(color: surfaces.border),
+                            ),
                           ),
-                        );
-                      },
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _messageController,
+                                  focusNode: _focusNode,
+                                  maxLength: 280,
+                                  maxLines: 1,
+                                  style: TextStyle(
+                                    color: scheme.onSurface,
+                                    fontSize: 16,
+                                  ),
+                                  cursorColor: scheme.onSurface,
+                                  decoration: InputDecoration(
+                                    hintText: 'Type a message...',
+                                    hintStyle:
+                                        TextStyle(color: surfaces.textMuted),
+                                    filled: true,
+                                    fillColor: surfaces.elevated,
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(24),
+                                      borderSide:
+                                          BorderSide(color: surfaces.border),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(24),
+                                      borderSide:
+                                          BorderSide(color: surfaces.border),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(24),
+                                      borderSide:
+                                          BorderSide(color: scheme.primary),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 10,
+                                    ),
+                                    counterText: '',
+                                  ),
+                                  onSubmitted: (_) => _sendMessage(),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: scheme.primary,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: IconButton(
+                                  onPressed: _isSending ? null : _sendMessage,
+                                  icon: _isSending
+                                      ? SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: scheme.onPrimary,
+                                          ),
+                                        )
+                                      : Icon(Icons.send,
+                                          color: scheme.onPrimary),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(right: 16, bottom: 6),
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: ValueListenableBuilder<TextEditingValue>(
+                              valueListenable: _messageController,
+                              builder: (context, value, child) {
+                                final length = value.text.length;
+                                return Text(
+                                  '$length/280',
+                                  style: TextStyle(
+                                    color: length > 260
+                                        ? (length > 280
+                                            ? scheme.error
+                                            : surfaces.warning)
+                                        : surfaces.textMuted,
+                                    fontSize: 11,
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
