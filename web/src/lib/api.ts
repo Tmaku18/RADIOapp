@@ -1413,13 +1413,15 @@ export const creatorNetworkApi = {
   getAccess: () => api.get<{ hasAccess: boolean }>('/creator-network/access'),
 };
 
+export type StoryVisibility = 'public' | 'private' | 'hidden';
+
 export interface SongStory {
   id: string;
   songId: string;
   mediaUrl: string;
   mediaMime: string | null;
   caption: string | null;
-  visibility: 'public' | 'private';
+  visibility: StoryVisibility;
   createdAt: string;
   expiresAt: string;
   mine: boolean;
@@ -1437,16 +1439,16 @@ export const songStoriesApi = {
   create: (data: {
     path: string;
     songId: string;
-    visibility: 'public' | 'private';
+    visibility: StoryVisibility;
     caption?: string;
     contentType?: string;
   }) => api.post<SongStory>('/song-stories', data),
-  setVisibility: (id: string, visibility: 'public' | 'private') =>
+  setVisibility: (id: string, visibility: StoryVisibility) =>
     api.patch<SongStory>(`/song-stories/${id}`, { visibility }),
   remove: (id: string) => api.delete(`/song-stories/${id}`),
   upload: async (
     file: File,
-    input: { songId: string; visibility: 'public' | 'private'; caption?: string },
+    input: { songId: string; visibility: StoryVisibility; caption?: string },
   ) => {
     const typed = (file.type || '').toLowerCase();
     const named = file.name.toLowerCase();
@@ -1481,6 +1483,11 @@ export const songStoriesApi = {
       contentType: mime,
     });
   },
+};
+
+export const moderationApi = {
+  report: (data: { targetType: string; targetId: string; reason: string }) =>
+    api.post('/moderation/reports', data),
 };
 
 export const messagesApi = {
@@ -2295,6 +2302,11 @@ export const adminApi = {
   removeFromFeed: (contentId: string) => api.patch(`/admin/feed-media/${contentId}/remove`),
   deleteFeedMedia: (contentId: string) => api.delete(`/admin/feed-media/${contentId}`),
   getPostReports: () => api.get('/admin/reports/posts'),
+  getContentReports: () => api.get('/admin/reports/content'),
+  removeReportedContent: (reportId: string) =>
+    api.post(`/admin/reports/content/${reportId}/remove`),
+  dismissContentReport: (reportId: string) =>
+    api.post(`/admin/reports/content/${reportId}/dismiss`),
   getUserReports: () => api.get('/admin/reports/users'),
   deleteDiscoverFeedPost: (postId: string) =>
     api.delete(`/admin/discover-feed-posts/${postId}`),

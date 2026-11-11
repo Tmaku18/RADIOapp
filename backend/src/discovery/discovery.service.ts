@@ -1469,6 +1469,17 @@ export class DiscoveryService {
     if (error) {
       throw new Error(`Failed to submit report: ${error.message}`);
     }
+    await supabase.from('content_reports').upsert(
+      {
+        reporter_user_id: viewerUserId,
+        author_user_id: post.author_user_id,
+        target_type: 'post',
+        target_id: postId,
+        reason: trimmed,
+        status: 'open',
+      },
+      { onConflict: 'reporter_user_id,target_type,target_id' },
+    );
     return { reported: true };
   }
 

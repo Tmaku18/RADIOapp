@@ -2054,6 +2054,15 @@ export class UsersService {
     return { items, total: count ?? legacyResult?.count ?? items.length };
   }
 
+  /** Mutual follows. Used for private stories and the friends list. */
+  async getMutualFriendIds(userId: string): Promise<Set<string>> {
+    const [following, followers] = await Promise.all([
+      this.getFollowedUserIds(userId).catch(() => new Set<string>()),
+      this.getFollowerUserIds(userId).catch(() => new Set<string>()),
+    ]);
+    return new Set([...following].filter((id) => followers.has(id)));
+  }
+
   /**
    * Friends = mutual follows (the user follows them and they follow back).
    * Drives the share-to-friends picker and the profile "Friends" tab.

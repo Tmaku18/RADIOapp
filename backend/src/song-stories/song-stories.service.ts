@@ -20,7 +20,7 @@ export interface SongStoryView {
   mediaUrl: string;
   mediaMime: string | null;
   caption: string | null;
-  visibility: 'public' | 'private';
+  visibility: 'public' | 'private' | 'hidden';
   createdAt: string;
   expiresAt: string;
   mine: boolean;
@@ -41,9 +41,18 @@ export class SongStoriesService {
   ) {}
 
   async listForSong(songId: string, viewerId: string): Promise<SongStoryView[]> {
-    if (!UUID_RE.test(songId)) return [];
+    if (!UUID_RE.test(songId) || !UUID_RE.test(viewerId)) return [];
     const supabase = getSupabaseClient();
     const now = new Date().toISOString();
+    const friends = UUID_RE.test(viewerId)
+      ? await this.users.getMutualFriendIds(viewerId)
+      : new Set<string>();
+    const visibleTo = [`visibility.eq.public`, `user_id.eq.${viewerId}`];
+    if (friends.size > 0) {
+      visibleTo.push(
+        `and(visibility.eq.private,user_id.in.(${[...friends].join(',')}))`,
+      );
+    }
     const { data, error } = await supabase
       .from('song_stories')
       .select(
@@ -51,7 +60,7 @@ export class SongStoriesService {
       )
       .eq('song_id', songId)
       .gt('expires_at', now)
-      .or(`visibility.eq.public,user_id.eq.${viewerId}`)
+      .or(visibleTo.join(','))
       .order('created_at', { ascending: false })
       .limit(40);
     if (error) {
@@ -81,7 +90,7 @@ export class SongStoriesService {
     userId: string;
     songId: string;
     path: string;
-    visibility: 'public' | 'private';
+    visibility: 'public' | 'private' | 'hidden';
     caption?: string | null;
     contentType?: string | null;
   }): Promise<SongStoryView> {
@@ -145,7 +154,7 @@ export class SongStoriesService {
   async setVisibility(
     userId: string,
     storyId: string,
-    visibility: 'public' | 'private',
+    visibility: 'public' | 'private' | 'hidden',
   ): Promise<SongStoryView> {
     const row = await this.requireOwn(userId, storyId);
     const supabase = getSupabaseClient();
@@ -166,6 +175,25 @@ export class SongStoriesService {
 
   async remove(userId: string, storyId: string): Promise<{ ok: true }> {
     const row = await this.requireOwn(userId, storyId);
+    return this.deleteRow(row, userId);
+  }
+
+  async removeAny(storyId: string): Promise<{ ok: true }> {
+    if (!UUID_RE.test(storyId)) throw new NotFoundException('Story not found');
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('song_stories')
+      .select('id, user_id, media_url')
+      .eq('id', storyId)
+      .maybeSingle();
+    if (error || !data) throw new NotFoundException('Story not found');
+    return this.deleteRow(data, String(data.user_id ?? ''));
+  }
+
+  private async deleteRow(
+    row: { id: string; media_url?: string | null },
+    ownerId: string,
+  ): Promise<{ ok: true }> {
     const supabase = getSupabaseClient();
     const { error } = await supabase.from('song_stories').delete().eq('id', row.id);
     if (error) {
@@ -176,7 +204,7 @@ export class SongStoriesService {
     const index = mediaUrl.indexOf(marker);
     if (index >= 0) {
       const path = decodeURIComponent(mediaUrl.slice(index + marker.length).split('?')[0]);
-      if (path.startsWith(`${userId}/`)) {
+      if (ownerId && path.startsWith(`${ownerId}/`)) {
         await this.uploads.removeFeedObject(path);
       }
     }
@@ -223,7 +251,10 @@ export class SongStoriesService {
       String(person?.display_name ?? '').trim() ||
       String(person?.username ?? '').trim() ||
       'Listener';
-    const visibility = row.visibility === 'private' ? 'private' : 'public';
+    const visibility =
+      row.visibility === 'private' || row.visibility === 'hidden'
+        ? row.visibility
+        : 'public';
     return {
       id: String(row.id),
       songId: String(row.song_id),

@@ -1,13 +1,16 @@
 import {
   Controller,
+  Delete,
   Get,
   Post,
   Body,
+  Param,
   Query,
   Logger,
   BadRequestException,
 } from '@nestjs/common';
 import { ChatService } from './chat.service';
+import { ChatAdminService } from './chat-admin.service';
 import { SendMessageDto } from './dto/send-message.dto';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
@@ -18,7 +21,10 @@ import { getSupabaseClient } from '../config/supabase.config';
 export class ChatController {
   private readonly logger = new Logger(ChatController.name);
 
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly chatAdmin: ChatAdminService,
+  ) {}
 
   /**
    * Get user info from Firebase UID
@@ -69,6 +75,17 @@ export class ChatController {
       this.logger.warn(`Chat send failed: ${message}`);
       throw new BadRequestException(message);
     }
+  }
+
+  /** Delete a room message you sent. */
+  @Delete('messages/:id')
+  async deleteOwnMessage(
+    @CurrentUser() firebaseUser: FirebaseUser,
+    @Param('id') messageId: string,
+  ) {
+    const user = await this.getUserInfo(firebaseUser.uid);
+    await this.chatAdmin.deleteOwnMessage(user.id, messageId);
+    return { ok: true };
   }
 
   /**

@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { Heart, MessageCircle, Send, Bookmark, Trash2, Maximize2, X } from 'lucide-react';
 import {
   discoveryApi,
+  moderationApi,
   proNetworkSubscriptionApi,
   type DiscoverFeedPost,
   type DiscoverFeedComment,
@@ -412,6 +413,38 @@ export function FeedPostCard({ post, onChange, onHidden, variant = 'feed' }: Fee
                       <span className="text-foreground whitespace-pre-wrap break-words">
                         {c.body}
                       </span>
+                      <div>
+                        {profile?.id === c.authorUserId ? (
+                          <button
+                            type="button"
+                            className="text-xs text-muted-foreground hover:underline"
+                            onClick={() => {
+                              void discoveryApi.deleteComment(c.id).then(() => {
+                                setComments((prev) => prev?.filter((item) => item.id !== c.id) ?? []);
+                              }).catch(() => toast.error('Could not delete that comment.'));
+                            }}
+                          >
+                            Delete
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="text-xs text-muted-foreground hover:underline"
+                            onClick={() => {
+                              const reason = window.prompt('Why are you reporting this comment?');
+                              if (!reason?.trim()) return;
+                              void moderationApi.report({
+                                targetType: 'comment',
+                                targetId: c.id,
+                                reason: reason.trim(),
+                              }).then(() => toast.success('Report sent. An admin will review it.'))
+                                .catch(() => toast.error('Could not send that report.'));
+                            }}
+                          >
+                            Report
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </li>
                 ))}

@@ -8,5 +8,6 @@ import { SongStoriesService } from './song-stories.service';
   imports: [UploadsModule, UsersModule],
   controllers: [SongStoriesController],
   providers: [SongStoriesService],
+  exports: [SongStoriesService],
 })
 export class SongStoriesModule {}

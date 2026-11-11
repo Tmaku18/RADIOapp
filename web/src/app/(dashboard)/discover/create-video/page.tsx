@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { discoverAudioApi, discoveryApi, songStoriesApi, type DiscoverAudioSongCard } from '@/lib/api';
+import { discoverAudioApi, discoveryApi, songStoriesApi, type DiscoverAudioSongCard, type StoryVisibility } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePlaybackOptional } from '@/components/playback/PlaybackProvider';
 import { Card, CardContent } from '@/components/ui/card';
@@ -59,7 +59,7 @@ export default function CreateDiscoverFeedVideoPage() {
       : null,
   );
   const [postingStory, setPostingStory] = useState(false);
-  const [storyPublic, setStoryPublic] = useState(true);
+  const [storyVisibility, setStoryVisibility] = useState<StoryVisibility>('public');
   const [likedClips, setLikedClips] = useState<
     Array<DiscoverAudioSongCard & { likedAt: string }>
   >([]);
@@ -484,13 +484,15 @@ export default function CreateDiscoverFeedVideoPage() {
     try {
       await songStoriesApi.upload(recordedFile, {
         songId: selectedClip.songId,
-        visibility: storyPublic ? 'public' : 'private',
+        visibility: storyVisibility,
         caption: caption.trim() || selectedClip.songTitle,
       });
       toast.success(
-        storyPublic
-          ? 'Story posted. It shows on the radio while this song plays, for 24 hours.'
-          : 'Private story posted. Only you can see it, for 24 hours.',
+        storyVisibility === 'hidden'
+          ? 'Hidden story posted. Only you can see it, for 24 hours.'
+          : storyVisibility === 'private'
+            ? 'Private story posted. Friends can see it, for 24 hours.'
+            : 'Story posted. It shows on the radio while this song plays, for 24 hours.',
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not post that story.');
@@ -732,15 +734,36 @@ export default function CreateDiscoverFeedVideoPage() {
               ) : null}
             </div>
             {selectedClip?.songId ? (
-              <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                <input
-                  type="checkbox"
-                  checked={storyPublic}
-                  disabled={postingStory}
-                  onChange={(event) => setStoryPublic(event.target.checked)}
-                />
-                Public. Shows on the radio while this song plays, for 24 hours.
-              </label>
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Who can see this story</p>
+                <div className="flex flex-wrap gap-2">
+                  {(
+                    [
+                      ['public', 'Public'],
+                      ['private', 'Private'],
+                      ['hidden', 'Hidden'],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <Button
+                      key={value}
+                      type="button"
+                      size="sm"
+                      variant={storyVisibility === value ? 'default' : 'outline'}
+                      disabled={postingStory}
+                      onClick={() => setStoryVisibility(value)}
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {storyVisibility === 'hidden'
+                    ? 'Hidden. Only you can see it. Lasts 24 hours.'
+                    : storyVisibility === 'private'
+                      ? 'Private. Friends can see it. Lasts 24 hours.'
+                      : 'Public. Shows on the radio while this song plays. Lasts 24 hours.'}
+                </p>
+              </div>
             ) : null}
             {recordedFile ? (
               <SocialShareButtons

@@ -1434,10 +1434,20 @@ export class ArtistLiveService {
     if (!session) {
       throw new NotFoundException('Live session not found');
     }
+    const { data: message } = await supabase
+      .from('stream_chat_messages')
+      .select('id, user_id')
+      .eq('id', messageId)
+      .eq('session_id', sessionId)
+      .maybeSingle();
+    if (!message) {
+      throw new NotFoundException('Message not found');
+    }
     const isHost = session.artist_id === requester.id;
     const isAdmin = requester.role === 'admin';
-    if (!isHost && !isAdmin) {
-      throw new ForbiddenException('Only the host or an admin can moderate chat');
+    const isAuthor = message.user_id === requester.id;
+    if (!isHost && !isAdmin && !isAuthor) {
+      throw new ForbiddenException('You can only delete your own message.');
     }
 
     const { error } = await supabase

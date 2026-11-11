@@ -62,11 +62,12 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
   VideoPlayerController? _previewPlayer;
   bool _uploading = false;
   bool _postingStory = false;
-  bool _storyPublic = true;
+  String _storyVisibility = 'public';
   bool _recording = false;
   String? _error;
   int _sentBytes = 0;
   int _totalBytes = 0;
+
   /// True when this screen muted live radio so clip preview/recording is solo.
   bool _didSoftPauseRadio = false;
 
@@ -261,8 +262,8 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
       await _stopClip();
       await _clearRecordedPreview();
       if (!mounted) return;
-      final maxSec = clip.clipDurationSeconds.isFinite &&
-              clip.clipDurationSeconds > 0
+      final maxSec =
+          clip.clipDurationSeconds.isFinite && clip.clipDurationSeconds > 0
           ? clip.clipDurationSeconds.clamp(3, _maxDurationSec).round()
           : _maxDurationSec;
 
@@ -393,7 +394,9 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
       SocialFeedRefresh.request();
       HomeTabIntent.openFeed();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Posted to Feed — find it on your profile too.')),
+        const SnackBar(
+          content: Text('Posted to Feed — find it on your profile too.'),
+        ),
       );
       Navigator.pop(context, true);
     } catch (e) {
@@ -429,16 +432,18 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
       await SongStoriesService().postClip(
         file: withSong,
         songId: selected.songId,
-        isPublic: _storyPublic,
+        visibility: _storyVisibility,
         caption: note.isEmpty ? selected.title : note,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            _storyPublic
-                ? 'Story posted. It shows on the radio while this song plays, for 24 hours.'
-                : 'Private story posted. Only you can see it, for 24 hours.',
+            _storyVisibility == 'hidden'
+                ? 'Hidden story posted. Only you can see it, for 24 hours.'
+                : _storyVisibility == 'private'
+                ? 'Private story posted. Friends can see it, for 24 hours.'
+                : 'Story posted. It shows on the radio while this song plays, for 24 hours.',
           ),
         ),
       );
@@ -551,7 +556,8 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
                         )
                       else
                         ..._likedClips.map((clip) {
-                          final selected = _selected?.songId == clip.songId &&
+                          final selected =
+                              _selected?.songId == clip.songId &&
                               _selected?.clipUrl == clip.clipUrl;
                           final artist =
                               clip.artistDisplayName ?? clip.artistName;
@@ -560,8 +566,9 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
                             padding: const EdgeInsets.only(bottom: 8),
                             child: Material(
                               color: selected
-                                  ? DimensionTokens.neonCyan
-                                      .withValues(alpha: 0.12)
+                                  ? DimensionTokens.neonCyan.withValues(
+                                      alpha: 0.12,
+                                    )
                                   : scheme.surface.withValues(alpha: 0.55),
                               borderRadius: BorderRadius.circular(14),
                               child: InkWell(
@@ -572,9 +579,9 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
                                 onDoubleTap: _uploading || _recording
                                     ? null
                                     : () => _selectClip(
-                                          clip,
-                                          startRecording: true,
-                                        ),
+                                        clip,
+                                        startRecording: true,
+                                      ),
                                 child: Padding(
                                   padding: const EdgeInsets.all(12),
                                   child: Row(
@@ -785,11 +792,8 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
                 hasVideo
                     ? 'Watch your take above, then publish — or delete / re-record.'
                     : '$_cameraCountdownSec-second selfie countdown · max '
-                        '$_maxDurationSec s · double-tap a song to jump straight in.',
-                style: TextStyle(
-                  color: surfaces.textSecondary,
-                  fontSize: 12,
-                ),
+                          '$_maxDurationSec s · double-tap a song to jump straight in.',
+                style: TextStyle(color: surfaces.textSecondary, fontSize: 12),
               ),
               const SizedBox(height: 10),
               if (!hasVideo) ...[
@@ -797,8 +801,9 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed:
-                            _uploading || _recording ? null : _previewClip,
+                        onPressed: _uploading || _recording
+                            ? null
+                            : _previewClip,
                         icon: const Icon(Icons.play_arrow),
                         label: const Text('Preview'),
                       ),
@@ -807,8 +812,9 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
                     Expanded(
                       flex: 2,
                       child: FilledButton.icon(
-                        onPressed:
-                            _uploading || _recording ? null : _recordWithClip,
+                        onPressed: _uploading || _recording
+                            ? null
+                            : _recordWithClip,
                         icon: _recording
                             ? const SizedBox(
                                 width: 18,
@@ -818,9 +824,7 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
                                 ),
                               )
                             : const Icon(Icons.videocam),
-                        label: Text(
-                          _recording ? 'Recording…' : 'Record',
-                        ),
+                        label: Text(_recording ? 'Recording…' : 'Record'),
                         style: FilledButton.styleFrom(
                           backgroundColor: DimensionTokens.neonCyan,
                           foregroundColor: Colors.black,
@@ -832,30 +836,56 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
                 ),
                 const SizedBox(height: 6),
                 TextButton(
-                  onPressed:
-                      _uploading || _recording ? null : _pickFromGallery,
+                  onPressed: _uploading || _recording ? null : _pickFromGallery,
                   child: const Text('Use gallery video instead'),
                 ),
               ] else ...[
                 FilledButton(
-                  onPressed: _uploading || _recording || _postingStory ? null : _publish,
+                  onPressed: _uploading || _recording || _postingStory
+                      ? null
+                      : _publish,
                   child: Text(_uploading ? _uploadLabel : 'Publish'),
                 ),
                 const SizedBox(height: 8),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Public story'),
-                  subtitle: const Text(
-                    'Shows on the radio while this song plays. Stories last 24 hours.',
-                  ),
-                  value: _storyPublic,
-                  onChanged: _uploading || _postingStory
-                      ? null
-                      : (value) => setState(() => _storyPublic = value),
+                const Text(
+                  'Who can see this story',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  children: [
+                    for (final option in const [
+                      ('public', 'Public'),
+                      ('private', 'Private'),
+                      ('hidden', 'Hidden'),
+                    ])
+                      ChoiceChip(
+                        label: Text(option.$2),
+                        selected: _storyVisibility == option.$1,
+                        onSelected: _uploading || _postingStory
+                            ? null
+                            : (_) =>
+                                  setState(() => _storyVisibility = option.$1),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _storyVisibility == 'hidden'
+                      ? 'Hidden. Only you can see it. Lasts 24 hours.'
+                      : _storyVisibility == 'private'
+                      ? 'Private. Friends can see it. Lasts 24 hours.'
+                      : 'Public. Shows on the radio while this song plays. Lasts 24 hours.',
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
                 OutlinedButton(
-                  onPressed: _uploading || _recording || _postingStory ? null : _postStory,
-                  child: Text(_postingStory ? 'Posting story…' : 'Post as story'),
+                  onPressed: _uploading || _recording || _postingStory
+                      ? null
+                      : _postStory,
+                  child: Text(
+                    _postingStory ? 'Posting story…' : 'Post as story',
+                  ),
                 ),
                 if (_uploading) ...[
                   const SizedBox(height: 10),
@@ -871,8 +901,8 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
                     _savingUpload
                         ? 'Upload complete — saving your post. Keep this screen open.'
                         : _totalBytes <= 0
-                            ? 'Preparing your upload…'
-                            : '${_mb(_sentBytes)} of ${_mb(_totalBytes)} MB sent',
+                        ? 'Preparing your upload…'
+                        : '${_mb(_sentBytes)} of ${_mb(_totalBytes)} MB sent',
                     style: TextStyle(
                       color: surfaces.textSecondary,
                       fontSize: 12,

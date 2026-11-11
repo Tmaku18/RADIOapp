@@ -22,6 +22,7 @@ class ChatPanel extends StatefulWidget {
   final VoidCallback? onToggleExpand;
   final bool fillHeightWhenExpanded;
   final double expandedHeight;
+
   /// When true, the panel is glass so a backdrop (e.g. butterflies) shows through.
   final bool transparentBackground;
 
@@ -55,7 +56,16 @@ class _ChatPanelState extends State<ChatPanel> {
   int _floaterId = 0;
 
   // Allowed emojis for reactions
-  static const List<String> _allowedEmojis = ['❤️', '🔥', '🎵', '👏', '😍', '🙌', '💯', '✨'];
+  static const List<String> _allowedEmojis = [
+    '❤️',
+    '🔥',
+    '🎵',
+    '👏',
+    '😍',
+    '🙌',
+    '💯',
+    '✨',
+  ];
 
   @override
   void initState() {
@@ -120,7 +130,7 @@ class _ChatPanelState extends State<ChatPanel> {
       chatService.setRadioId(widget.currentRadioId!);
     }
     // Handle song transitions
-    if (widget.currentSongTitle != null && 
+    if (widget.currentSongTitle != null &&
         widget.currentSongTitle != _lastSongTitle &&
         _lastSongTitle != null) {
       final chatService = Provider.of<ChatService>(context, listen: false);
@@ -132,7 +142,8 @@ class _ChatPanelState extends State<ChatPanel> {
   void _onScroll() {
     final chatService = Provider.of<ChatService>(context, listen: false);
     // Consider "at bottom" if within 50 pixels of the end
-    final isAtBottom = _scrollController.position.pixels >= 
+    final isAtBottom =
+        _scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 50;
     chatService.setIsUserAtBottom(isAtBottom);
   }
@@ -152,7 +163,7 @@ class _ChatPanelState extends State<ChatPanel> {
     if (message.isEmpty || _isSending) return;
 
     setState(() => _isSending = true);
-    
+
     final chatService = Provider.of<ChatService>(context, listen: false);
     if (_myUserId == null) {
       await _loadMyProfile();
@@ -197,7 +208,7 @@ class _ChatPanelState extends State<ChatPanel> {
   Widget _buildConnectionIndicator(ChatConnectionState state) {
     Color color;
     String tooltip;
-    
+
     switch (state) {
       case ChatConnectionState.connected:
         color = Colors.green;
@@ -250,98 +261,128 @@ class _ChatPanelState extends State<ChatPanel> {
     }
 
     return GestureDetector(
-      onLongPress: isOwnMessage || message.userId.isEmpty
-          ? null
-          : () => ReportBlockSheet.show(
-                context,
-                userId: message.userId,
-                displayName: message.displayName,
-                contextType: 'room_chat',
-                contextId: message.id,
+      onLongPress: () async {
+        if (isOwnMessage) {
+          final chat = context.read<ChatService>();
+          final messenger = ScaffoldMessenger.of(context);
+          final remove = await showModalBottomSheet<bool>(
+            context: context,
+            showDragHandle: true,
+            builder: (ctx) => SafeArea(
+              child: ListTile(
+                leading: const Icon(Icons.delete_outline),
+                title: const Text('Delete message'),
+                subtitle: const Text('This removes it for everyone.'),
+                onTap: () => Navigator.pop(ctx, true),
               ),
+            ),
+          );
+          if (remove != true || !mounted) return;
+          try {
+            await chat.deleteOwnMessage(message.id);
+          } catch (_) {
+            if (!mounted) return;
+            messenger.showSnackBar(
+              const SnackBar(content: Text('Could not delete that message.')),
+            );
+          }
+          return;
+        }
+        if (message.userId.isEmpty) return;
+        await ReportBlockSheet.show(
+          context,
+          userId: message.userId,
+          displayName: message.displayName,
+          contextType: 'room_chat',
+          contextId: message.id,
+        );
+      },
       child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: isOwnMessage 
-            ? MainAxisAlignment.end 
-            : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (!isOwnMessage) ...[
-            CircleAvatar(
-              radius: 14,
-              backgroundColor: scheme.primary.withValues(alpha: 0.25),
-              backgroundImage: message.avatarUrl != null
-                  ? NetworkImage(message.avatarUrl!)
-                  : null,
-              child: message.avatarUrl == null
-                  ? Text(
-                      message.displayName.isNotEmpty
-                          ? message.displayName[0].toUpperCase()
-                          : '?',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    )
-                  : null,
-            ),
-            const SizedBox(width: 8),
-          ],
-          Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: isOwnMessage 
-                    ? scheme.primary
-                    : surfaces.elevated,
-                borderRadius: BorderRadius.circular(16),
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          mainAxisAlignment: isOwnMessage
+              ? MainAxisAlignment.end
+              : MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (!isOwnMessage) ...[
+              CircleAvatar(
+                radius: 14,
+                backgroundColor: scheme.primary.withValues(alpha: 0.25),
+                backgroundImage: message.avatarUrl != null
+                    ? NetworkImage(message.avatarUrl!)
+                    : null,
+                child: message.avatarUrl == null
+                    ? Text(
+                        message.displayName.isNotEmpty
+                            ? message.displayName[0].toUpperCase()
+                            : '?',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    : null,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        message.displayName,
-                        style: TextStyle(
-                          color: isOwnMessage 
-                              ? scheme.onPrimary.withValues(alpha: 0.85)
-                              : surfaces.textSecondary,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
+              const SizedBox(width: 8),
+            ],
+            Flexible(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: isOwnMessage ? scheme.primary : surfaces.elevated,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          message.displayName,
+                          style: TextStyle(
+                            color: isOwnMessage
+                                ? scheme.onPrimary.withValues(alpha: 0.85)
+                                : surfaces.textSecondary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        _formatTime(message.createdAt),
-                        style: TextStyle(
-                          color: isOwnMessage 
-                              ? scheme.onPrimary.withValues(alpha: 0.65)
-                              : surfaces.textMuted,
-                          fontSize: 10,
+                        const SizedBox(width: 6),
+                        Text(
+                          _formatTime(message.createdAt),
+                          style: TextStyle(
+                            color: isOwnMessage
+                                ? scheme.onPrimary.withValues(alpha: 0.65)
+                                : surfaces.textMuted,
+                            fontSize: 10,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    message.message,
-                    style: TextStyle(
-                      color: isOwnMessage ? scheme.onPrimary : scheme.onSurface,
-                      fontSize: 14,
+                      ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 2),
+                    Text(
+                      message.message,
+                      style: TextStyle(
+                        color: isOwnMessage
+                            ? scheme.onPrimary
+                            : scheme.onSurface,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          if (isOwnMessage) const SizedBox(width: 8 + 28), // Avatar space
-        ],
+            if (isOwnMessage) const SizedBox(width: 8 + 28), // Avatar space
+          ],
+        ),
       ),
-    ),
     );
   }
 
@@ -368,14 +409,19 @@ class _ChatPanelState extends State<ChatPanel> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: scheme.surface,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
+                ),
                 border: Border(top: BorderSide(color: surfaces.border)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.chat_bubble_outline,
-                      color: surfaces.textSecondary, size: 18),
+                  Icon(
+                    Icons.chat_bubble_outline,
+                    color: surfaces.textSecondary,
+                    size: 18,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     'The Room · $channelLabel',
@@ -386,7 +432,10 @@ class _ChatPanelState extends State<ChatPanel> {
                   if (chatService.unreadCount > 0) ...[
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: scheme.primary,
                         borderRadius: BorderRadius.circular(10),
@@ -424,16 +473,20 @@ class _ChatPanelState extends State<ChatPanel> {
               GestureDetector(
                 onTap: widget.onToggleExpand,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(color: surfaces.border),
-                    ),
+                    border: Border(bottom: BorderSide(color: surfaces.border)),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.chat_bubble,
-                          color: scheme.onSurface, size: 18),
+                      Icon(
+                        Icons.chat_bubble,
+                        color: scheme.onSurface,
+                        size: 18,
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         'The Room · $channelLabel',
@@ -446,8 +499,10 @@ class _ChatPanelState extends State<ChatPanel> {
                       _buildConnectionIndicator(chatService.connectionState),
                       const Spacer(),
                       if (widget.onToggleExpand != null)
-                        Icon(Icons.keyboard_arrow_down,
-                            color: surfaces.textSecondary),
+                        Icon(
+                          Icons.keyboard_arrow_down,
+                          color: surfaces.textSecondary,
+                        ),
                     ],
                   ),
                 ),
@@ -457,9 +512,7 @@ class _ChatPanelState extends State<ChatPanel> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
                 decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(color: surfaces.border),
-                  ),
+                  border: Border(bottom: BorderSide(color: surfaces.border)),
                 ),
                 child: Row(
                   children: _allowedEmojis.map((emoji) {
@@ -509,13 +562,17 @@ class _ChatPanelState extends State<ChatPanel> {
                                 child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Icon(Icons.chat_bubble_outline,
-                                        size: 48, color: surfaces.textMuted),
+                                    Icon(
+                                      Icons.chat_bubble_outline,
+                                      size: 48,
+                                      color: surfaces.textMuted,
+                                    ),
                                     const SizedBox(height: 12),
                                     Text(
                                       'No messages yet',
                                       style: TextStyle(
-                                          color: surfaces.textSecondary),
+                                        color: surfaces.textSecondary,
+                                      ),
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
@@ -531,16 +588,17 @@ class _ChatPanelState extends State<ChatPanel> {
                             : ListView.builder(
                                 controller: _scrollController,
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 8),
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
                                 itemCount: chatService.messages.length,
                                 itemBuilder: (context, index) {
-                                  final message =
-                                      chatService.messages[index];
-                                  final isOwnMessage = _myUserId != null &&
+                                  final message = chatService.messages[index];
+                                  final isOwnMessage =
+                                      _myUserId != null &&
                                       _myUserId!.isNotEmpty &&
                                       message.userId == _myUserId;
-                                  return _buildMessage(
-                                      message, isOwnMessage);
+                                  return _buildMessage(message, isOwnMessage);
                                 },
                               ),
 
@@ -569,14 +627,17 @@ class _ChatPanelState extends State<ChatPanel> {
                                 onTap: _scrollToBottom,
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 6),
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: scheme.primary,
                                     borderRadius: BorderRadius.circular(16),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: scheme.shadow
-                                            .withValues(alpha: 0.18),
+                                        color: scheme.shadow.withValues(
+                                          alpha: 0.18,
+                                        ),
                                         blurRadius: 8,
                                       ),
                                     ],
@@ -593,8 +654,11 @@ class _ChatPanelState extends State<ChatPanel> {
                                         ),
                                       ),
                                       const SizedBox(width: 4),
-                                      Icon(Icons.arrow_downward,
-                                          color: scheme.onPrimary, size: 14),
+                                      Icon(
+                                        Icons.arrow_downward,
+                                        color: scheme.onPrimary,
+                                        size: 14,
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -614,12 +678,16 @@ class _ChatPanelState extends State<ChatPanel> {
                   color: surfaces.elevated,
                   child: Row(
                     children: [
-                      Icon(Icons.info_outline,
-                          color: surfaces.textMuted, size: 18),
+                      Icon(
+                        Icons.info_outline,
+                        color: surfaces.textMuted,
+                        size: 18,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          chatService.disabledReason ?? 'Chat is currently disabled',
+                          chatService.disabledReason ??
+                              'Chat is currently disabled',
                           style: TextStyle(color: surfaces.textSecondary),
                         ),
                       ),
@@ -661,24 +729,28 @@ class _ChatPanelState extends State<ChatPanel> {
                                   cursorColor: scheme.onSurface,
                                   decoration: InputDecoration(
                                     hintText: 'Type a message...',
-                                    hintStyle:
-                                        TextStyle(color: surfaces.textMuted),
+                                    hintStyle: TextStyle(
+                                      color: surfaces.textMuted,
+                                    ),
                                     filled: true,
                                     fillColor: surfaces.elevated,
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(24),
-                                      borderSide:
-                                          BorderSide(color: surfaces.border),
+                                      borderSide: BorderSide(
+                                        color: surfaces.border,
+                                      ),
                                     ),
                                     enabledBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(24),
-                                      borderSide:
-                                          BorderSide(color: surfaces.border),
+                                      borderSide: BorderSide(
+                                        color: surfaces.border,
+                                      ),
                                     ),
                                     focusedBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(24),
-                                      borderSide:
-                                          BorderSide(color: scheme.primary),
+                                      borderSide: BorderSide(
+                                        color: scheme.primary,
+                                      ),
                                     ),
                                     contentPadding: const EdgeInsets.symmetric(
                                       horizontal: 16,
@@ -706,8 +778,10 @@ class _ChatPanelState extends State<ChatPanel> {
                                             color: scheme.onPrimary,
                                           ),
                                         )
-                                      : Icon(Icons.send,
-                                          color: scheme.onPrimary),
+                                      : Icon(
+                                          Icons.send,
+                                          color: scheme.onPrimary,
+                                        ),
                                 ),
                               ),
                             ],
@@ -726,8 +800,8 @@ class _ChatPanelState extends State<ChatPanel> {
                                   style: TextStyle(
                                     color: length > 260
                                         ? (length > 280
-                                            ? scheme.error
-                                            : surfaces.warning)
+                                              ? scheme.error
+                                              : surfaces.warning)
                                         : surfaces.textMuted,
                                     fontSize: 11,
                                   ),
@@ -747,8 +821,9 @@ class _ChatPanelState extends State<ChatPanel> {
         final pane = widget.transparentBackground
             ? expandedPanel
             : ClipRRect(
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(16)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
+                ),
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -762,10 +837,7 @@ class _ChatPanelState extends State<ChatPanel> {
           return pane;
         }
 
-        return SizedBox(
-          height: widget.expandedHeight,
-          child: pane,
-        );
+        return SizedBox(height: widget.expandedHeight, child: pane);
       },
     );
   }
@@ -840,10 +912,7 @@ class _EmojiFloaterState extends State<_EmojiFloater>
             (widget.xFraction * 2) - 1,
             1 - (_rise.value * 1.35),
           ),
-          child: Opacity(
-            opacity: _fade.value.clamp(0.0, 1.0),
-            child: child,
-          ),
+          child: Opacity(opacity: _fade.value.clamp(0.0, 1.0), child: child),
         );
       },
       child: Text(widget.emoji, style: const TextStyle(fontSize: 28)),

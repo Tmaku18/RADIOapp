@@ -71,13 +71,37 @@ function formatDate(value: string) {
   return new Date(value).toLocaleString();
 }
 
+interface ContentReportGroup {
+  targetType: string;
+  targetId: string;
+  preview: string;
+  author: { userId: string; displayName: string | null; username: string | null };
+  reportCount: number;
+  reports: Array<{
+    id: string;
+    reason: string;
+    createdAt: string;
+    reporter: { userId: string; displayName: string | null };
+  }>;
+}
+
+const CONTENT_LABELS: Record<string, string> = {
+  story: 'Story',
+  post: 'Post',
+  comment: 'Comment',
+  room_chat: 'Radio chat',
+  live_chat: 'Live chat',
+  message: 'Message',
+};
+
 function displayName(user: { displayName: string | null; userId: string; username?: string | null }) {
   return user.displayName || user.username || user.userId.slice(0, 8);
 }
 
 export default function AdminReportsPage() {
-  const [tab, setTab] = useState<'posts' | 'users'>('posts');
+  const [tab, setTab] = useState<'posts' | 'content' | 'users'>('posts');
   const [postItems, setPostItems] = useState<PostReportItem[]>([]);
+  const [contentItems, setContentItems] = useState<ContentReportGroup[]>([]);
   const [userItems, setUserItems] = useState<UserReportItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
@@ -94,17 +118,25 @@ export default function AdminReportsPage() {
     setUserItems((res.data as { items: UserReportItem[] }).items ?? []);
   };
 
+  const loadContent = async () => {
+    const res = await adminApi.getContentReports();
+    setContentItems((res.data as { items: ContentReportGroup[] }).items ?? []);
+  };
+
   const load = async () => {
     setLoading(true);
     try {
       if (tab === 'posts') {
         await loadPosts();
+      } else if (tab === 'content') {
+        await loadContent();
       } else {
         await loadUsers();
       }
     } catch (e) {
       console.error('Failed to load reports:', e);
       if (tab === 'posts') setPostItems([]);
+      else if (tab === 'content') setContentItems([]);
       else setUserItems([]);
     } finally {
       setLoading(false);
@@ -134,11 +166,12 @@ export default function AdminReportsPage() {
       <Card>
         <CardContent className="pt-6">
           <p className="text-muted-foreground text-sm mb-4">
-            Review user-submitted reports from the Pro Networx feed. Delete posts that violate community guidelines.
+            Review reports. Remove a story, post, comment, chat message, or direct message after you review it, or dismiss the report.
           </p>
-          <Tabs value={tab} onValueChange={(v) => setTab(v as 'posts' | 'users')}>
-            <TabsList className="grid w-full max-w-xs grid-cols-2">
+          <Tabs value={tab} onValueChange={(v) => setTab(v as 'posts' | 'content' | 'users')}>
+            <TabsList className="grid w-full max-w-md grid-cols-3">
               <TabsTrigger value="posts">Posts</TabsTrigger>
+              <TabsTrigger value="content">Content</TabsTrigger>
               <TabsTrigger value="users">Users</TabsTrigger>
             </TabsList>
           </Tabs>
@@ -151,6 +184,80 @@ export default function AdminReportsPage() {
             <div className="flex justify-center py-12">
               <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
             </div>
+          ) : tab === 'content' ? (
+            contentItems.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                No open content reports.
+              </div>
+            ) : (
+              <ScrollArea className="w-full">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Content</TableHead>
+                      <TableHead>Author</TableHead>
+                      <TableHead className="text-center">Reports</TableHead>
+                      <TableHead className="w-[220px]">Review</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {contentItems.map((row) => (
+                      <TableRow key={`${row.targetType}-${row.targetId}`}>
+                        <TableCell>
+                          <Badge variant="secondary" className="mb-1">
+                            {CONTENT_LABELS[row.targetType] ?? row.targetType}
+                          </Badge>
+                          <p className="max-w-[280px] text-sm line-clamp-2">{row.preview}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {row.reports.map((report) => report.reason).join(' · ')}
+                          </p>
+                        </TableCell>
+                        <TableCell>{displayName(row.author)}</TableCell>
+                        <TableCell className="text-center">{row.reportCount}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              disabled={deletingPostId === row.reports[0]?.id}
+                              onClick={() => {
+                                const reportId = row.reports[0]?.id;
+                                if (!reportId) return;
+                                setDeletingPostId(reportId);
+                                void adminApi.removeReportedContent(reportId).then(() => {
+                                  setContentItems((prev) =>
+                                    prev.filter(
+                                      (item) =>
+                                        item.targetId !== row.targetId ||
+                                        item.targetType !== row.targetType,
+                                    ),
+                                  );
+                                }).finally(() => setDeletingPostId(null));
+                              }}
+                            >
+                              Remove
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                void Promise.all(
+                                  row.reports.map((report) =>
+                                    adminApi.dismissContentReport(report.id),
+                                  ),
+                                ).then(() => loadContent());
+                              }}
+                            >
+                              Dismiss
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            )
           ) : tab === 'posts' ? (
             postItems.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">

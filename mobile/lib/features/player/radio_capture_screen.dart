@@ -72,7 +72,7 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
   bool _released = false;
   bool _posting = false;
   bool _postingStory = false;
-  bool _storyPublic = true;
+  String _storyVisibility = 'public';
   bool _applyingCredit = false;
   ArtistCreditStyle? _creditStyle = ArtistCreditStyle.words;
   double _creditX = 0.5;
@@ -467,16 +467,18 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
       await SongStoriesService().postClip(
         file: file,
         songId: songId!,
-        isPublic: _storyPublic,
+        visibility: _storyVisibility,
         caption: artist.isEmpty ? widget.title : '${widget.title} — $artist',
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            _storyPublic
-                ? 'Story posted. It shows on the radio while this song plays, for 24 hours.'
-                : 'Private story posted. Only you can see it, for 24 hours.',
+            _storyVisibility == 'hidden'
+                ? 'Hidden story posted. Only you can see it, for 24 hours.'
+                : _storyVisibility == 'private'
+                ? 'Private story posted. Friends can see it, for 24 hours.'
+                : 'Story posted. It shows on the radio while this song plays, for 24 hours.',
           ),
         ),
       );
@@ -741,16 +743,36 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
         ),
         if (SongStoriesService.isSongId(widget.songId)) ...[
           const SizedBox(height: 8),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Public story'),
-            subtitle: const Text(
-              'Public stories show on the radio while this song plays. They last 24 hours.',
-            ),
-            value: _storyPublic,
-            onChanged: _postingStory
-                ? null
-                : (value) => setState(() => _storyPublic = value),
+          const Text(
+            'Who can see this story',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            children: [
+              for (final option in const [
+                ('public', 'Public'),
+                ('private', 'Private'),
+                ('hidden', 'Hidden'),
+              ])
+                ChoiceChip(
+                  label: Text(option.$2),
+                  selected: _storyVisibility == option.$1,
+                  onSelected: _postingStory
+                      ? null
+                      : (_) => setState(() => _storyVisibility = option.$1),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _storyVisibility == 'hidden'
+                ? 'Hidden. Only you can see it. Lasts 24 hours.'
+                : _storyVisibility == 'private'
+                ? 'Private. Friends can see it. Lasts 24 hours.'
+                : 'Public. Shows on the radio while this song plays. Lasts 24 hours.',
+            style: const TextStyle(fontSize: 12),
           ),
           OutlinedButton(
             onPressed: _posting || _postingStory ? null : _postStory,

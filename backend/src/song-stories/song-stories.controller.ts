@@ -15,6 +15,13 @@ import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { UsersService } from '../users/users.service';
 import { SongStoriesService } from './song-stories.service';
 
+function storyVisibility(
+  value: string | undefined,
+): 'public' | 'private' | 'hidden' {
+  if (value === 'private' || value === 'hidden') return value;
+  return 'public';
+}
+
 @Controller('song-stories')
 @UseGuards(FirebaseAuthGuard)
 export class SongStoriesController {
@@ -46,7 +53,7 @@ export class SongStoriesController {
     },
   ) {
     const userId = await this.users.getDbUserIdByFirebaseUid(user.uid);
-    const visibility = body?.visibility === 'private' ? 'private' : 'public';
+    const visibility = storyVisibility(body?.visibility);
     const story = await this.stories.create({
       userId,
       songId: (body?.songId ?? '').trim(),
@@ -65,7 +72,7 @@ export class SongStoriesController {
     @Body() body: { visibility?: string },
   ) {
     const userId = await this.users.getDbUserIdByFirebaseUid(user.uid);
-    const visibility = body?.visibility === 'private' ? 'private' : 'public';
+    const visibility = storyVisibility(body?.visibility);
     return this.stories.setVisibility(userId, id, visibility);
   }
 

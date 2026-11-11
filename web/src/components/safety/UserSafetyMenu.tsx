@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { MoreHorizontal, Flag, Ban, ShieldOff } from 'lucide-react';
 import { toast } from 'sonner';
-import { discoveryApi, usersApi } from '@/lib/api';
+import { discoveryApi, moderationApi, usersApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -67,6 +67,11 @@ export function UserSafetyMenu({
     try {
       if (reportTarget === 'post' && postId) {
         await discoveryApi.reportPost(postId, reason);
+        await moderationApi.report({
+          targetType: 'post',
+          targetId: postId,
+          reason,
+        });
         toast.success('Post reported. Our team will review it.');
         onPostHidden?.();
       } else {

@@ -10,6 +10,7 @@ class SongStory {
     required this.caption,
     required this.visibility,
     required this.mine,
+    required this.authorId,
     required this.authorName,
     required this.avatarUrl,
   });
@@ -20,10 +21,11 @@ class SongStory {
   final String? caption;
   final String visibility;
   final bool mine;
+  final String authorId;
   final String authorName;
   final String? avatarUrl;
 
-  bool get isPublic => visibility != 'private';
+  bool get isPublic => visibility == 'public';
 
   factory SongStory.fromJson(Map<String, dynamic> json) {
     final author = json['author'];
@@ -37,6 +39,7 @@ class SongStory {
       caption: json['caption']?.toString(),
       visibility: '${json['visibility'] ?? 'public'}',
       mine: json['mine'] == true,
+      authorId: '${authorMap['id'] ?? ''}',
       authorName: '${authorMap['displayName'] ?? 'Listener'}',
       avatarUrl: authorMap['avatarUrl']?.toString(),
     );
@@ -75,25 +78,27 @@ class SongStoriesService {
   Future<void> postClip({
     required File file,
     required String songId,
-    required bool isPublic,
+    required String visibility,
     String? caption,
   }) async {
     final lower = file.path.toLowerCase();
     final mime = lower.endsWith('.webm')
         ? 'video/webm'
         : lower.endsWith('.mov')
-            ? 'video/quicktime'
-            : 'video/mp4';
+        ? 'video/quicktime'
+        : 'video/mp4';
     final name = mime == 'video/webm'
         ? 'story.webm'
         : mime == 'video/quicktime'
-            ? 'story.mov'
-            : 'story.mp4';
+        ? 'story.mov'
+        : 'story.mp4';
     final ticket = await _api.post('discovery/feed/upload-url', {
       'contentType': mime,
       'filename': name,
     });
-    final signedUrl = ticket is Map ? '${ticket['signedUrl'] ?? ''}'.trim() : '';
+    final signedUrl = ticket is Map
+        ? '${ticket['signedUrl'] ?? ''}'.trim()
+        : '';
     final path = ticket is Map ? '${ticket['path'] ?? ''}'.trim() : '';
     if (signedUrl.isEmpty || path.isEmpty) {
       throw Exception('Could not start the upload');
@@ -102,15 +107,20 @@ class SongStoriesService {
     await _api.post('song-stories', {
       'path': path,
       'songId': songId,
-      'visibility': isPublic ? 'public' : 'private',
-      if (caption != null && caption.trim().isNotEmpty) 'caption': caption.trim(),
+      'visibility': visibility == 'private' || visibility == 'hidden'
+          ? visibility
+          : 'public',
+      if (caption != null && caption.trim().isNotEmpty)
+        'caption': caption.trim(),
       'contentType': mime,
     });
   }
 
-  Future<void> setVisibility(String storyId, bool isPublic) async {
+  Future<void> setVisibility(String storyId, String visibility) async {
     await _api.patch('song-stories/$storyId', {
-      'visibility': isPublic ? 'public' : 'private',
+      'visibility': visibility == 'private' || visibility == 'hidden'
+          ? visibility
+          : 'public',
     });
   }
 

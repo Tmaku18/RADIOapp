@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/services/moderation_service.dart';
 import '../../core/services/pro_networx_service.dart';
 import '../../core/services/users_service.dart';
 
@@ -96,8 +97,27 @@ class ReportBlockSheet {
     );
     if (reason == null || !context.mounted) return false;
     try {
+      const contentTypes = {
+        'story',
+        'post',
+        'comment',
+        'room_chat',
+        'live_chat',
+        'message',
+      };
       if (postId != null && postId.isNotEmpty) {
         await ProNetworxService().reportPost(postId, reason);
+      }
+      final contentId = (contextId ?? postId ?? '').trim();
+      final contentType = contextType ?? (postId != null ? 'post' : null);
+      if (contentType != null &&
+          contentTypes.contains(contentType) &&
+          contentId.isNotEmpty) {
+        await ModerationService().report(
+          targetType: contentType,
+          targetId: contentId,
+          reason: reason,
+        );
       }
       if (userId.trim().isNotEmpty) {
         await UsersService().reportUser(
@@ -116,7 +136,9 @@ class ReportBlockSheet {
     } catch (_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not send the report. Try again.')),
+          const SnackBar(
+            content: Text('Could not send the report. Try again.'),
+          ),
         );
       }
       return false;
@@ -152,15 +174,17 @@ class ReportBlockSheet {
     try {
       await UsersService().blockUser(userId);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Blocked $who')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Blocked $who')));
       }
       return true;
     } catch (_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not block this account. Try again.')),
+          const SnackBar(
+            content: Text('Could not block this account. Try again.'),
+          ),
         );
       }
       return false;

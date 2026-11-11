@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../core/services/song_stories_service.dart';
+import '../../../widgets/safety/report_block_sheet.dart';
 
 const _prefKey = 'networx_song_stories_on';
 
@@ -81,11 +82,14 @@ class _SongStoriesStripState extends State<SongStoriesStrip> {
   void _open(int index) {
     final songId = widget.songId;
     if (songId == null) return;
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => _SongStoryBrowser(songId: songId, initialIndex: index),
-      ),
-    ).then((_) => _load());
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute<void>(
+            builder: (_) =>
+                _SongStoryBrowser(songId: songId, initialIndex: index),
+          ),
+        )
+        .then((_) => _load());
   }
 
   @override
@@ -137,16 +141,23 @@ class _SongStoriesStripState extends State<SongStoriesStrip> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: story.isPublic ? const Color(0xFF67E8F9) : Colors.white24,
+                  color: story.isPublic
+                      ? const Color(0xFF67E8F9)
+                      : Colors.white24,
                   width: 2,
                 ),
               ),
               child: CircleAvatar(
-                backgroundImage: story.avatarUrl != null && story.avatarUrl!.isNotEmpty
+                backgroundImage:
+                    story.avatarUrl != null && story.avatarUrl!.isNotEmpty
                     ? NetworkImage(story.avatarUrl!)
                     : null,
                 child: story.avatarUrl == null || story.avatarUrl!.isEmpty
-                    ? Text(story.authorName.isEmpty ? '?' : story.authorName[0].toUpperCase())
+                    ? Text(
+                        story.authorName.isEmpty
+                            ? '?'
+                            : story.authorName[0].toUpperCase(),
+                      )
                     : null,
               ),
             ),
@@ -205,7 +216,9 @@ class _SongStoryBrowserState extends State<_SongStoryBrowser> {
     final previous = _player;
     _player = null;
     await previous?.dispose();
-    final controller = VideoPlayerController.networkUrl(Uri.parse(story.mediaUrl));
+    final controller = VideoPlayerController.networkUrl(
+      Uri.parse(story.mediaUrl),
+    );
     _player = controller;
     try {
       await controller.initialize();
@@ -229,10 +242,11 @@ class _SongStoryBrowserState extends State<_SongStoryBrowser> {
     await _play(_items[next]);
   }
 
-  Future<void> _toggleVisibility() async {
+  Future<void> _setVisibility(String visibility) async {
     final story = _items[_index];
+    if (story.visibility == visibility) return;
     try {
-      await _stories.setVisibility(story.id, !story.isPublic);
+      await _stories.setVisibility(story.id, visibility);
       await _load();
     } catch (_) {
       if (!mounted) return;
@@ -266,74 +280,99 @@ class _SongStoryBrowserState extends State<_SongStoryBrowser> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : story == null
-              ? Center(
-                  child: Text(
-                    _error ?? 'No stories for this song yet.',
-                    style: const TextStyle(color: Colors.white),
+          ? Center(
+              child: Text(
+                _error ?? 'No stories for this song yet.',
+                style: const TextStyle(color: Colors.white),
+              ),
+            )
+          : Column(
+              children: [
+                Expanded(
+                  child: Center(
+                    child: player != null && player.value.isInitialized
+                        ? AspectRatio(
+                            aspectRatio: player.value.aspectRatio == 0
+                                ? 9 / 16
+                                : player.value.aspectRatio,
+                            child: VideoPlayer(player),
+                          )
+                        : const CircularProgressIndicator(),
                   ),
-                )
-              : Column(
-                  children: [
-                    Expanded(
-                      child: Center(
-                        child: player != null && player.value.isInitialized
-                            ? AspectRatio(
-                                aspectRatio: player.value.aspectRatio == 0
-                                    ? 9 / 16
-                                    : player.value.aspectRatio,
-                                child: VideoPlayer(player),
-                              )
-                            : const CircularProgressIndicator(),
-                      ),
-                    ),
-                    if (story.caption != null && story.caption!.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                        child: Text(
-                          story.caption!,
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    if (story.visibility == 'private')
-                      const Padding(
-                        padding: EdgeInsets.only(top: 6),
-                        child: Text('Private', style: TextStyle(color: Colors.white70)),
-                      ),
-                    if (_error != null)
-                      Padding(
-                        padding: const EdgeInsets.all(8),
-                        child: Text(_error!, style: const TextStyle(color: Colors.redAccent)),
-                      ),
-                    Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Wrap(
-                        spacing: 8,
-                        children: [
-                          if (_index > 0)
-                            OutlinedButton(
-                              onPressed: () => _shift(-1),
-                              child: const Text('Previous'),
-                            ),
-                          if (_index < _items.length - 1)
-                            OutlinedButton(
-                              onPressed: () => _shift(1),
-                              child: const Text('Next'),
-                            ),
-                          if (story.mine)
-                            OutlinedButton(
-                              onPressed: _toggleVisibility,
-                              child: Text(story.isPublic ? 'Make private' : 'Make public'),
-                            ),
-                          if (story.mine)
-                            OutlinedButton(
-                              onPressed: _delete,
-                              child: const Text('Delete'),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
                 ),
+                if (story.caption != null && story.caption!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: Text(
+                      story.caption!,
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
+                if (story.visibility != 'public')
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      story.visibility == 'hidden'
+                          ? 'Hidden · only you'
+                          : 'Private · friends',
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                  ),
+                if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Text(
+                      _error!,
+                      style: const TextStyle(color: Colors.redAccent),
+                    ),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Wrap(
+                    spacing: 8,
+                    children: [
+                      if (_index > 0)
+                        OutlinedButton(
+                          onPressed: () => _shift(-1),
+                          child: const Text('Previous'),
+                        ),
+                      if (_index < _items.length - 1)
+                        OutlinedButton(
+                          onPressed: () => _shift(1),
+                          child: const Text('Next'),
+                        ),
+                      if (story.mine) ...[
+                        for (final option in const [
+                          ('public', 'Public'),
+                          ('private', 'Private'),
+                          ('hidden', 'Hidden'),
+                        ])
+                          OutlinedButton(
+                            onPressed: story.visibility == option.$1
+                                ? null
+                                : () => _setVisibility(option.$1),
+                            child: Text(option.$2),
+                          ),
+                        OutlinedButton(
+                          onPressed: _delete,
+                          child: const Text('Delete'),
+                        ),
+                      ] else
+                        OutlinedButton(
+                          onPressed: () => ReportBlockSheet.show(
+                            context,
+                            userId: story.authorId,
+                            displayName: story.authorName,
+                            contextType: 'story',
+                            contextId: story.id,
+                          ),
+                          child: const Text('Report'),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }

@@ -5,7 +5,7 @@ import { Video } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePlaybackOptional } from '@/components/playback/PlaybackProvider';
 import type { PlaybackTrack } from '@/components/playback';
-import { discoveryApi, songStoriesApi } from '@/lib/api';
+import { discoveryApi, songStoriesApi, type StoryVisibility } from '@/lib/api';
 import { artistShareText, stationShareText } from '@/lib/radio-share';
 import {
   loadAudioBuffer,
@@ -71,7 +71,7 @@ export function RadioCaptureDialog({
   const [clip, setClip] = useState<{ file: File; url: string } | null>(null);
   const [posting, setPosting] = useState(false);
   const [postingStory, setPostingStory] = useState(false);
-  const [storyPublic, setStoryPublic] = useState(true);
+  const [storyVisibility, setStoryVisibility] = useState<StoryVisibility>('public');
   const [preparing, setPreparing] = useState(false);
   const [creditStyle, setCreditStyle] = useState<ArtistCreditStyle | null>('words');
   const [creditX, setCreditX] = useState(0.5);
@@ -229,13 +229,15 @@ export function RadioCaptureDialog({
       const artist = track.artistName.trim();
       await songStoriesApi.upload(file, {
         songId: track.id,
-        visibility: storyPublic ? 'public' : 'private',
+        visibility: storyVisibility,
         caption: artist ? `${track.title} — ${artist}` : track.title,
       });
       toast.success(
-        storyPublic
-          ? 'Story posted. It shows on the radio while this song plays, for 24 hours.'
-          : 'Private story posted. Only you can see it, for 24 hours.',
+        storyVisibility === 'hidden'
+          ? 'Hidden story posted. Only you can see it, for 24 hours.'
+          : storyVisibility === 'private'
+            ? 'Private story posted. Friends can see it, for 24 hours.'
+            : 'Story posted. It shows on the radio while this song plays, for 24 hours.',
       );
     } catch {
       setError('Could not post that story. Sign in if you have not, then try again.');
@@ -368,15 +370,39 @@ export function RadioCaptureDialog({
               </button>
             </div>
             {/^[0-9a-f-]{36}$/i.test(track.id) ? (
-              <label className="flex items-center gap-2 text-xs text-white/70">
-                <input
-                  type="checkbox"
-                  checked={storyPublic}
-                  disabled={postingStory}
-                  onChange={(event) => setStoryPublic(event.target.checked)}
-                />
-                Public. Shows on the radio while this song plays, for 24 hours. Uncheck to keep it private.
-              </label>
+              <div className="space-y-2">
+                <p className="text-xs font-semibold">Who can see this story</p>
+                <div className="flex flex-wrap gap-2">
+                  {(
+                    [
+                      ['public', 'Public'],
+                      ['private', 'Private'],
+                      ['hidden', 'Hidden'],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      disabled={postingStory}
+                      onClick={() => setStoryVisibility(value)}
+                      className={
+                        storyVisibility === value
+                          ? 'rounded-full bg-cyan-400 px-3 py-1 text-xs font-semibold text-black'
+                          : 'rounded-full border border-white/20 px-3 py-1 text-xs'
+                      }
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-white/60">
+                  {storyVisibility === 'hidden'
+                    ? 'Hidden. Only you can see it. Lasts 24 hours.'
+                    : storyVisibility === 'private'
+                      ? 'Private. Friends can see it. Lasts 24 hours.'
+                      : 'Public. Shows on the radio while this song plays. Lasts 24 hours.'}
+                </p>
+              </div>
             ) : null}
             <SocialShareButtons
               caption={captionFor(track)}

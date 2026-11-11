@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { songStoriesApi, type SongStory } from '@/lib/api';
+import { moderationApi, songStoriesApi, usersApi, type SongStory, type StoryVisibility } from '@/lib/api';
 
 const PREF_KEY = 'networx.songStories';
 
@@ -133,7 +133,7 @@ function StoryViewer({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const setVisibility = async (visibility: 'public' | 'private') => {
+  const setVisibility = async (visibility: StoryVisibility) => {
     setBusy(true);
     setError(null);
     try {
@@ -141,6 +141,32 @@ function StoryViewer({
       onChanged();
     } catch {
       setError('Could not update this story.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const report = async () => {
+    const reason = window.prompt('Why are you reporting this story?');
+    if (!reason?.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await moderationApi.report({
+        targetType: 'story',
+        targetId: story.id,
+        reason: reason.trim(),
+      });
+      if (story.author.id) {
+        await usersApi.reportUser(story.author.id, {
+          reason: reason.trim(),
+          contextType: 'story',
+          contextId: story.id,
+        });
+      }
+      setError('Report sent. An admin will review it.');
+    } catch {
+      setError('Could not send that report.');
     } finally {
       setBusy(false);
     }
@@ -163,7 +189,11 @@ function StoryViewer({
       <div className="flex items-center justify-between px-4 py-3">
         <p className="truncate text-sm font-semibold">
           {story.author.displayName}
-          {story.visibility === 'private' ? ' · Private' : ''}
+          {story.visibility === 'hidden'
+            ? ' · Hidden'
+            : story.visibility === 'private'
+              ? ' · Private'
+              : ''}
         </p>
         <button type="button" onClick={onClose} className="text-sm text-white/80">
           Close
@@ -195,16 +225,23 @@ function StoryViewer({
           ) : null}
           {story.mine ? (
             <>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() =>
-                  void setVisibility(story.visibility === 'public' ? 'private' : 'public')
-                }
-                className="rounded-full border border-white/20 px-3 py-1.5 text-xs disabled:opacity-40"
-              >
-                {story.visibility === 'public' ? 'Make private' : 'Make public'}
-              </button>
+              {(
+                [
+                  ['public', 'Public'],
+                  ['private', 'Private'],
+                  ['hidden', 'Hidden'],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  disabled={busy || story.visibility === value}
+                  onClick={() => void setVisibility(value)}
+                  className="rounded-full border border-white/20 px-3 py-1.5 text-xs disabled:opacity-40"
+                >
+                  {label}
+                </button>
+              ))}
               <button
                 type="button"
                 disabled={busy}
@@ -214,7 +251,16 @@ function StoryViewer({
                 Delete
               </button>
             </>
-          ) : null}
+          ) : (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void report()}
+              className="rounded-full border border-white/20 px-3 py-1.5 text-xs disabled:opacity-40"
+            >
+              Report
+            </button>
+          )}
         </div>
       </div>
     </div>

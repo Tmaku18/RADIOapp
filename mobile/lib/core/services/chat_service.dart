@@ -270,6 +270,12 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
+  Future<void> deleteOwnMessage(String id) async {
+    await _apiService.delete('chat/messages/$id');
+    _messages.removeWhere((message) => message.id == id);
+    notifyListeners();
+  }
+
   /// Local optimistic burst so the sender sees feedback immediately.
   void emitLocalEmojiBurst(String emoji, {int count = 1}) {
     if (emoji.isEmpty || count < 1) return;

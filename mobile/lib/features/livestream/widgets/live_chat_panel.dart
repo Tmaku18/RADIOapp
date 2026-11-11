@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../../core/services/users_service.dart';
 import '../../../widgets/safety/report_block_sheet.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/services/livestream_service.dart';
@@ -48,10 +49,12 @@ class _LiveChatPanelState extends State<LiveChatPanel> {
   final TextEditingController _chatInput = TextEditingController();
   final ScrollController _chatScroll = ScrollController();
   bool _sending = false;
+  String? _myUserId;
 
   @override
   void initState() {
     super.initState();
+    unawaited(_loadMe());
     _startPolling();
     _subscribeDeletes();
   }
@@ -63,6 +66,14 @@ class _LiveChatPanelState extends State<LiveChatPanel> {
     _chatInput.dispose();
     _chatScroll.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadMe() async {
+    try {
+      final me = await UsersService().getMe();
+      if (!mounted) return;
+      setState(() => _myUserId = me['id']?.toString());
+    } catch (_) {}
   }
 
   void _startPolling() {
@@ -93,22 +104,24 @@ class _LiveChatPanelState extends State<LiveChatPanel> {
   void _subscribeDeletes() {
     try {
       final client = Supabase.instance.client;
-      _deleteChannel = client
-          .channel('stream-chat:${widget.sessionId}')
-          .onBroadcast(
-            event: 'message_deleted',
-            callback: (payload) {
-              final data = _unwrapBroadcast(payload);
-              final sid = data['sessionId']?.toString();
-              if (sid != null && sid != widget.sessionId) return;
-              final id = (data['messageId'] ?? data['message_id'] ?? data['id'])
-                  ?.toString();
-              if (id != null && id.isNotEmpty && mounted) {
-                _removeChat([id]);
-              }
-            },
-          )
-        ..subscribe();
+      _deleteChannel =
+          client
+              .channel('stream-chat:${widget.sessionId}')
+              .onBroadcast(
+                event: 'message_deleted',
+                callback: (payload) {
+                  final data = _unwrapBroadcast(payload);
+                  final sid = data['sessionId']?.toString();
+                  if (sid != null && sid != widget.sessionId) return;
+                  final id =
+                      (data['messageId'] ?? data['message_id'] ?? data['id'])
+                          ?.toString();
+                  if (id != null && id.isNotEmpty && mounted) {
+                    _removeChat([id]);
+                  }
+                },
+              )
+            ..subscribe();
     } catch (_) {
       // Poll tombstones still cover moderation without realtime.
     }
@@ -151,7 +164,8 @@ class _LiveChatPanelState extends State<LiveChatPanel> {
       _chat.add(m);
       added = true;
       final ts = m['createdAt']?.toString();
-      if (ts != null && (_lastChatTs == null || ts.compareTo(_lastChatTs!) > 0)) {
+      if (ts != null &&
+          (_lastChatTs == null || ts.compareTo(_lastChatTs!) > 0)) {
         _lastChatTs = ts;
       }
     }
@@ -209,8 +223,11 @@ class _LiveChatPanelState extends State<LiveChatPanel> {
             ListTile(
               leading: const Icon(Icons.delete_outline, color: Colors.red),
               title: const Text('Remove this message'),
-              subtitle: Text((m['message'] ?? '').toString(),
-                  maxLines: 2, overflow: TextOverflow.ellipsis),
+              subtitle: Text(
+                (m['message'] ?? '').toString(),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
               onTap: () {
                 Navigator.pop(ctx);
                 _delete(id);
@@ -230,8 +247,9 @@ class _LiveChatPanelState extends State<LiveChatPanel> {
         ? const [Shadow(color: Colors.black, blurRadius: 3)]
         : null;
     final titleColor = overlay ? Colors.white : null;
-    final emptyColor =
-        overlay ? Colors.white70 : theme.colorScheme.onSurfaceVariant;
+    final emptyColor = overlay
+        ? Colors.white70
+        : theme.colorScheme.onSurfaceVariant;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -247,9 +265,7 @@ class _LiveChatPanelState extends State<LiveChatPanel> {
         Expanded(
           child: Container(
             decoration: BoxDecoration(
-              color: overlay
-                  ? Colors.black.withValues(alpha: 0.4)
-                  : null,
+              color: overlay ? Colors.black.withValues(alpha: 0.4) : null,
               border: Border.all(
                 color: overlay
                     ? Colors.white.withValues(alpha: 0.15)
@@ -280,7 +296,11 @@ class _LiveChatPanelState extends State<LiveChatPanel> {
                         onLongPress: () {
                           final userId = (m['userId'] ?? m['user_id'] ?? '')
                               .toString();
-                          if (widget.canModerate) {
+                          final mine =
+                              _myUserId != null &&
+                              userId.isNotEmpty &&
+                              userId == _myUserId;
+                          if (widget.canModerate || mine) {
                             _confirmDelete(m);
                             return;
                           }
@@ -309,15 +329,19 @@ class _LiveChatPanelState extends State<LiveChatPanel> {
                                       padding: const EdgeInsets.only(right: 4),
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(
-                                            horizontal: 4, vertical: 1),
+                                          horizontal: 4,
+                                          vertical: 1,
+                                        ),
                                         decoration: BoxDecoration(
                                           color: overlay
-                                              ? Colors.white
-                                                  .withValues(alpha: 0.25)
+                                              ? Colors.white.withValues(
+                                                  alpha: 0.25,
+                                                )
                                               : theme.colorScheme.primary
-                                                  .withValues(alpha: 0.2),
-                                          borderRadius:
-                                              BorderRadius.circular(999),
+                                                    .withValues(alpha: 0.2),
+                                          borderRadius: BorderRadius.circular(
+                                            999,
+                                          ),
                                         ),
                                         child: Text(
                                           'HOST',
@@ -338,8 +362,8 @@ class _LiveChatPanelState extends State<LiveChatPanel> {
                                     fontWeight: FontWeight.w600,
                                     color: isHost
                                         ? (overlay
-                                            ? Colors.white
-                                            : theme.colorScheme.primary)
+                                              ? Colors.white
+                                              : theme.colorScheme.primary)
                                         : _colorForName(name),
                                   ),
                                 ),
@@ -371,8 +395,9 @@ class _LiveChatPanelState extends State<LiveChatPanel> {
                   counterText: '',
                   isDense: true,
                   filled: overlay,
-                  fillColor:
-                      overlay ? Colors.white.withValues(alpha: 0.1) : null,
+                  fillColor: overlay
+                      ? Colors.white.withValues(alpha: 0.1)
+                      : null,
                   border: const OutlineInputBorder(),
                 ),
               ),

@@ -6,6 +6,7 @@ import { RadioModule } from '../radio/radio.module';
 import { AppVersionModule } from '../app-version/app-version.module';
 import { PushNotificationModule } from '../push-notifications/push-notification.module';
 import { PaymentsModule } from '../payments/payments.module';
+import { ModerationModule } from '../moderation/moderation.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { PaymentsModule } from '../payments/payments.module';
     AppVersionModule,
     PushNotificationModule,
     PaymentsModule,
+    ModerationModule,
   ],
   controllers: [AdminController],
   providers: [AdminService],

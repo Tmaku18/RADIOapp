@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 
 /**
@@ -160,6 +165,21 @@ export class ChatAdminService {
       shadowBannedUntil: user.shadow_banned_until,
       isPermanent: !user.shadow_banned_until,
     }));
+  }
+
+  /** The author can take their own room message down. */
+  async deleteOwnMessage(userId: string, messageId: string) {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .select('id, user_id')
+      .eq('id', messageId)
+      .maybeSingle();
+    if (error || !data) throw new NotFoundException('Message not found');
+    if (data.user_id !== userId) {
+      throw new ForbiddenException('You can only delete your own message.');
+    }
+    return this.deleteMessage(messageId);
   }
 
   /**

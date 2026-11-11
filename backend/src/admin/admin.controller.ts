@@ -19,6 +19,7 @@ import { getSupabaseClient } from '../config/supabase.config';
 import { DEFAULT_RADIO_ID } from '../radio/radio-state.service';
 import { AppVersionService } from '../app-version/app-version.service';
 import { PaymentsService } from '../payments/payments.service';
+import { ModerationService } from '../moderation/moderation.service';
 
 @Controller('admin')
 @Roles('admin')
@@ -27,6 +28,7 @@ export class AdminController {
     private readonly adminService: AdminService,
     private readonly appVersionService: AppVersionService,
     private readonly paymentsService: PaymentsService,
+    private readonly moderationService: ModerationService,
   ) {}
 
   /**
@@ -686,6 +688,31 @@ export class AdminController {
   @Get('reports/users')
   async getUserReports() {
     return this.adminService.getUserReports();
+  }
+
+  @Get('reports/content')
+  async getContentReports() {
+    return this.moderationService.listOpen();
+  }
+
+  @Post('reports/content/:id/remove')
+  async removeReportedContent(
+    @CurrentUser() admin: FirebaseUser,
+    @Param('id') reportId: string,
+  ) {
+    const adminId = await this.getAdminDbId(admin.uid, admin.email);
+    if (!adminId) throw new BadRequestException('Admin user not found');
+    return this.moderationService.removeTarget(reportId, adminId);
+  }
+
+  @Post('reports/content/:id/dismiss')
+  async dismissContentReport(
+    @CurrentUser() admin: FirebaseUser,
+    @Param('id') reportId: string,
+  ) {
+    const adminId = await this.getAdminDbId(admin.uid, admin.email);
+    if (!adminId) throw new BadRequestException('Admin user not found');
+    return this.moderationService.dismiss(reportId, adminId);
   }
 
   @Delete('discover-feed-posts/:postId')

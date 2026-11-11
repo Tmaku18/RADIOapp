@@ -61,8 +61,10 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
       });
     } catch (_) {
       try {
-        final me = await Provider.of<AuthService>(context, listen: false)
-            .getUserProfile();
+        final me = await Provider.of<AuthService>(
+          context,
+          listen: false,
+        ).getUserProfile();
         if (!mounted || me == null) return;
         setState(() {
           _myUserId = me.id;
@@ -112,9 +114,9 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not delete: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not delete: $e')));
     }
   }
 
@@ -125,8 +127,10 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
     setState(() {
       _busy = true;
       post.likedByMe = !wasLiked;
-      post.likeCount =
-          (post.likeCount + (post.likedByMe ? 1 : -1)).clamp(0, 1 << 31);
+      post.likeCount = (post.likeCount + (post.likedByMe ? 1 : -1)).clamp(
+        0,
+        1 << 31,
+      );
     });
     widget.onChange(post);
     try {
@@ -138,8 +142,10 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
     } catch (_) {
       setState(() {
         post.likedByMe = wasLiked;
-        post.likeCount =
-            (post.likeCount + (post.likedByMe ? 1 : -1)).clamp(0, 1 << 31);
+        post.likeCount = (post.likeCount + (post.likedByMe ? 1 : -1)).clamp(
+          0,
+          1 << 31,
+        );
       });
       widget.onChange(post);
     } finally {
@@ -203,14 +209,16 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
       widget.onChange(widget.post);
     } on ApiException catch (e) {
       // Commenting is a paid Pro-Networx feature; reading stays free.
-      final requiresSub = e.statusCode == 403 &&
+      final requiresSub =
+          e.statusCode == 403 &&
           (e.responseBody?.contains('PRO_NETWORK_SUBSCRIPTION_REQUIRED') ??
               false);
       if (requiresSub && mounted) {
         final subscribed = await ProNetworkPaywallSheet.show(
           context,
           title: 'Subscribe to comment',
-          description: 'Reading comments is free. Commenting unlocks with a '
+          description:
+              'Reading comments is free. Commenting unlocks with a '
               'Pro-Networx subscription. Cancel anytime.',
         );
         if (subscribed == true && mounted) {
@@ -229,8 +237,7 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
     final isDark = theme.brightness == Brightness.dark;
     final post = widget.post;
     final canDelete =
-        _myUserId != null &&
-        (_myUserId == post.authorUserId || _isAdmin);
+        _myUserId != null && (_myUserId == post.authorUserId || _isAdmin);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -284,9 +291,12 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
                           backgroundImage:
                               post.authorAvatarUrl != null &&
                                   post.authorAvatarUrl!.isNotEmpty
-                              ? CachedNetworkImageProvider(post.authorAvatarUrl!)
+                              ? CachedNetworkImageProvider(
+                                  post.authorAvatarUrl!,
+                                )
                               : null,
-                          child: (post.authorAvatarUrl == null ||
+                          child:
+                              (post.authorAvatarUrl == null ||
                                   post.authorAvatarUrl!.isEmpty)
                               ? const Icon(Icons.brush, size: 18)
                               : null,
@@ -466,20 +476,59 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: _comments!
                           .map(
-                            (c) => Padding(
-                              padding: const EdgeInsets.only(bottom: 6),
-                              child: RichText(
-                                text: TextSpan(
-                                  style: theme.textTheme.bodySmall,
-                                  children: [
-                                    TextSpan(
-                                      text: '${c.authorDisplayName ?? 'Creator'} ',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
+                            (c) => GestureDetector(
+                              onLongPress: () async {
+                                final mine =
+                                    _myUserId != null &&
+                                    c.authorUserId == _myUserId;
+                                if (mine) {
+                                  final messenger = ScaffoldMessenger.of(
+                                    context,
+                                  );
+                                  try {
+                                    await _service.deleteComment(c.id);
+                                    if (!mounted) return;
+                                    setState(() {
+                                      _comments = _comments
+                                          ?.where((item) => item.id != c.id)
+                                          .toList();
+                                    });
+                                  } catch (_) {
+                                    if (!mounted) return;
+                                    messenger.showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Could not delete that comment.',
+                                        ),
                                       ),
-                                    ),
-                                    TextSpan(text: c.body),
-                                  ],
+                                    );
+                                  }
+                                  return;
+                                }
+                                await ReportBlockSheet.show(
+                                  context,
+                                  userId: c.authorUserId,
+                                  displayName: c.authorDisplayName,
+                                  contextType: 'comment',
+                                  contextId: c.id,
+                                );
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 6),
+                                child: RichText(
+                                  text: TextSpan(
+                                    style: theme.textTheme.bodySmall,
+                                    children: [
+                                      TextSpan(
+                                        text:
+                                            '${c.authorDisplayName ?? 'Creator'} ',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      TextSpan(text: c.body),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
@@ -513,4 +562,3 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
     );
   }
 }
-
