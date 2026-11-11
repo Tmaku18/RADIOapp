@@ -924,8 +924,8 @@ class _PlayerBody extends StatelessWidget {
                         duration: const Duration(milliseconds: 180),
                         child: Icon(
                           isPlaying
-                              ? Icons.volume_off_rounded
-                              : Icons.volume_up_rounded,
+                              ? Icons.volume_up_rounded
+                              : Icons.volume_off_rounded,
                           key: ValueKey(isPlaying),
                         ),
                       ),

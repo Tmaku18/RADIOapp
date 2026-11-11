@@ -1459,9 +1459,9 @@ export function RadioPlayer({
                   className="w-16 h-16 rounded-full bg-cyan-400 text-black flex items-center justify-center glow-cyan hover:bg-white disabled:opacity-40"
                 >
                   {isPlayingNow ? (
-                    <VolumeX className="w-6 h-6" />
-                  ) : (
                     <Volume2 className="w-6 h-6" />
+                  ) : (
+                    <VolumeX className="w-6 h-6" />
                   )}
                 </button>
                 {artistUserId && profile?.id && profile.id !== artistUserId && (
@@ -1853,9 +1853,9 @@ export function RadioPlayer({
             className="w-16 h-16 rounded-full flex items-center justify-center transition-colors disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {state.isPlaying && !state.isMuted ? (
-              <VolumeX className="w-8 h-8" />
-            ) : (
               <Volume2 className="w-8 h-8" />
+            ) : (
+              <VolumeX className="w-8 h-8" />
             )}
           </button>
 

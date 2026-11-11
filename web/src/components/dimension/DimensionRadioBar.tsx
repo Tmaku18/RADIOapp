@@ -250,9 +250,9 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
             >
               {playback?.state.source === 'radio' ? (
                 player.isPlaying ? (
-                  <VolumeX className="w-4 h-4" />
-                ) : (
                   <Volume2 className="w-4 h-4" />
+                ) : (
+                  <VolumeX className="w-4 h-4" />
                 )
               ) : player.isPlaying ? (
                 <Pause className="w-4 h-4" />
