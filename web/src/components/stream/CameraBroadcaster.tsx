@@ -115,7 +115,11 @@ export function CameraBroadcaster({
       const wantCamera = !startCameraOffRef.current;
       const stream = await navigator.mediaDevices.getUserMedia({
         video: wantCamera ? { facingMode: facingRef.current } : false,
-        audio: true,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
       });
       streamRef.current = stream;
       if (videoRef.current) {

@@ -1,8 +1,13 @@
 import 'dart:async';
 
+import 'package:audio_session/audio_session.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/audio/headphone_route.dart';
+import '../../core/audio/station_cue_player.dart';
 import '../../core/models/admin_models.dart';
+import '../../core/models/track.dart';
+import '../../core/radio/radio_sync.dart';
 import '../../core/services/admin_service.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/services/dj_booth_service.dart';
@@ -58,11 +63,18 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
   bool _hasQueueEdits = false;
   /// True when we muted radio so WHIP mic capture can own the audio session.
   bool _didSoftPauseRadio = false;
+  bool _headphones = false;
+  bool _droppingMic = false;
+  StreamSubscription<Set<AudioDevice>>? _headphoneSub;
+  final StationCuePlayer _cue = StationCuePlayer();
+  Track? _cueTrack;
+  bool _cueAudible = false;
 
   @override
   void initState() {
     super.initState();
     unawaited(_bootstrap());
+    unawaited(_watchHeadphones());
   }
 
   @override
@@ -70,8 +82,11 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
     _pollTimer?.cancel();
     _realtimeRefreshTimer?.cancel();
     _micLevelTimer?.cancel();
+    unawaited(_headphoneSub?.cancel() ?? Future.value());
+    _cue.silence();
     unawaited(_eventSub?.cancel() ?? Future.value());
     unawaited(() async {
+      await _cue.dispose();
       await _micBroadcaster.dispose();
       await AudioPlayerService.handler.setSuppressVoiceOverlay(false);
       await _softResumeRadioAfterMic();
@@ -95,7 +110,84 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
     } catch (_) {}
   }
 
+  Future<void> _watchHeadphones() async {
+    try {
+      final session = await AudioSession.instance;
+      final initial = await session.getDevices();
+      if (!mounted) return;
+      setState(() => _headphones = headphonesConnected(initial));
+      _headphoneSub = session.devicesStream.listen((devices) {
+        final on = headphonesConnected(devices);
+        if (!on) _cue.silence();
+        final was = _headphones;
+        _headphones = on;
+        if (mounted) setState(() {});
+        if (was && !on && (_publishing || _sessionConnected)) {
+          unawaited(_dropMicBecauseHeadphones());
+        } else if (on && _publishing) {
+          unawaited(_syncCue());
+        }
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _syncCue() async {
+    if (!_publishing || !_headphones) {
+      _cue.silence();
+      return;
+    }
+    final track = _cueTrack;
+    if (track == null ||
+        track.audioUrl.isEmpty ||
+        !_cueAudible ||
+        _transportPaused) {
+      await _cue.sync(url: '', position: Duration.zero, playing: false);
+      return;
+    }
+    await _cue.sync(
+      url: track.audioUrl,
+      position: Duration(seconds: liveTargetSeconds(track)),
+      playing: true,
+    );
+  }
+
+  Future<void> _dropMicBecauseHeadphones() async {
+    if (_droppingMic) return;
+    _droppingMic = true;
+    _cue.silence();
+    final stationId = _stationId;
+    try {
+      await _cue.stop();
+      await _micBroadcaster.dispose();
+      _publishing = false;
+      await AudioPlayerService.handler.setSuppressVoiceOverlay(false);
+      if (stationId != null) {
+        try {
+          await _booth.micOff(stationId);
+        } catch (_) {}
+        try {
+          await _booth.deleteMicSession(stationId);
+        } catch (_) {}
+      }
+      _didSoftPauseRadio = false;
+      if (!mounted) return;
+      setState(() {
+        _publishing = false;
+        _sessionConnected = false;
+        _micActive = false;
+        _error =
+            'Headphones disconnected. The mic was turned off so the station does not play through the speakers.';
+      });
+    } finally {
+      _droppingMic = false;
+    }
+  }
+
   Future<void> _softResumeRadioAfterMic() async {
+    if (!_headphones) {
+      _didSoftPauseRadio = false;
+      return;
+    }
     if (!_didSoftPauseRadio) {
       try {
         await AudioPlayerService.restoreMusicSession();
@@ -246,9 +338,21 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
         original = draft.map((r) => r.stackId).toList();
       }
 
+      Track? cueTrack;
+      var cueAudible = false;
+      if (currentTrack is Map) {
+        final raw = Map<String, dynamic>.from(currentTrack);
+        cueTrack = Track.fromJson(raw).copyWith(receivedAt: DateTime.now());
+        cueAudible = raw['is_playing'] != false &&
+            raw['transport_paused'] != true &&
+            !paused;
+      }
+
       setState(() {
         _transportPaused = paused;
         _micActive = micActive;
+        _cueTrack = cueTrack;
+        _cueAudible = cueAudible;
         _duckVolume = duck;
         _whipUrl = (whip != null && whip.isNotEmpty) ? whip : null;
         _sessionConnected = connected;
@@ -261,6 +365,8 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
         _clips = clips;
         _error = null;
       });
+
+      if (_publishing) unawaited(_syncCue());
 
       // Resume WHIP if a booth session is already open. Only re-assert ON AIR
       // when the server already has micActive (don't force talk-over on open).
@@ -328,6 +434,14 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
     final whip = _whipUrl;
     final stationId = _stationId;
     if (whip == null || stationId == null || _publishing) return;
+    if (!_headphones) {
+      if (mounted) {
+        setState(() {
+          _error = 'Plug in headphones or a headset before going live.';
+        });
+      }
+      return;
+    }
     try {
       // This device is the broadcaster: it must NOT also play the talk-over
       // back to itself. Starting the local WHEP overlay reconfigures the iOS
@@ -335,7 +449,7 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
       await AudioPlayerService.handler.setSuppressVoiceOverlay(true);
       // Mute radio so WebRTC can own the mic (matches Go Live).
       await _softPauseRadioForMic();
-      await AudioPlayerService.prepareForBroadcast();
+      await AudioPlayerService.prepareForHeadphoneBroadcast();
       // Let the audio session settle before getUserMedia.
       await Future<void>.delayed(const Duration(milliseconds: 350));
       if (!mounted) return;
@@ -390,6 +504,7 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
         await _loadStatus();
       }
       _startMicLevelMeter();
+      unawaited(_syncCue());
     } catch (e) {
       await _micBroadcaster.dispose();
       await AudioPlayerService.handler.setSuppressVoiceOverlay(false);
@@ -428,6 +543,8 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
       try {
         await _booth.micOff(stationId);
       } catch (_) {}
+      _cue.silence();
+      await _cue.stop();
       await _micBroadcaster.dispose();
       _publishing = false;
       await AudioPlayerService.handler.setSuppressVoiceOverlay(false);
@@ -608,6 +725,7 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
                   ),
                   const SizedBox(height: 24),
                   _MicSection(
+                    headphonesOn: _headphones,
                     micActive: _micActive,
                     sessionConnected: _sessionConnected,
                     publishing: _publishing,
@@ -801,6 +919,7 @@ class _NowPlayingCard extends StatelessWidget {
 
 class _MicSection extends StatelessWidget {
   const _MicSection({
+    required this.headphonesOn,
     required this.micActive,
     required this.sessionConnected,
     required this.publishing,
@@ -813,6 +932,7 @@ class _MicSection extends StatelessWidget {
     required this.onDuckChanged,
   });
 
+  final bool headphonesOn;
   final bool micActive;
   final bool sessionConnected;
   final bool publishing;
@@ -864,7 +984,9 @@ class _MicSection extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          'Audio-only talk-over for station listeners. Radio mutes on this phone while the mic is connected so your voice can be captured.',
+          headphonesOn
+              ? 'Talk over the station for listeners. You hear the song in your headphones while the mic is live.'
+              : 'Plug in headphones or a headset to go live. The station plays in your ears so it does not feed back into the mic.',
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -876,7 +998,7 @@ class _MicSection extends StatelessWidget {
           children: [
             if (!sessionConnected)
               FilledButton(
-                onPressed: busy ? null : onConnect,
+                onPressed: busy || !headphonesOn ? null : onConnect,
                 child: const Text('Connect Mic'),
               )
             else ...[

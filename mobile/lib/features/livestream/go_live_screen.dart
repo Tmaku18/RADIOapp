@@ -1,10 +1,16 @@
 import 'dart:async';
 
+import 'package:audio_service/audio_service.dart';
+import 'package:audio_session/audio_session.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import '../../core/audio/headphone_route.dart';
+import '../../core/audio/station_cue_player.dart';
+import '../../core/radio/radio_sync.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/services/livestream_service.dart';
+import '../../core/services/radio_service.dart';
 import '../../core/services/whip_broadcaster.dart';
 import '../../core/ui/media_permission.dart';
 import 'widgets/live_chat_panel.dart';
@@ -43,6 +49,13 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
   // releases the phone camera/mic so the encoder can take over.
   String _streamSource = 'device';
   bool _didSoftPauseRadio = false;
+  bool _keepRadioPaused = false;
+  bool _headphones = false;
+  bool _headphonesKnown = false;
+  StreamSubscription<Set<AudioDevice>>? _headphoneSub;
+  Timer? _cueTimer;
+  final StationCuePlayer _cue = StationCuePlayer();
+  final RadioService _radio = RadioService();
 
   @override
   void initState() {
@@ -50,6 +63,9 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
     // Mute radio immediately — opening camera/mic must not un-duck a quiet
     // radio stream into a sudden full-volume blast.
     unawaited(_softPauseRadio());
+    if (widget.hostType == 'dj') {
+      unawaited(_watchHeadphones());
+    }
     _renderer.initialize().then((_) {
       if (!mounted) return;
       // Re-bind if WHIP already attached a stream before init finished.
@@ -67,6 +83,10 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
   void dispose() {
     // Best-effort teardown if the host swipes away / the route is removed
     // without tapping End live — otherwise the session stays "live" server-side.
+    _cueTimer?.cancel();
+    _cue.silence();
+    unawaited(_headphoneSub?.cancel());
+    unawaited(_cue.dispose());
     if (_live2 || _sessionId != null) {
       unawaited(_teardownBroadcast(callApi: true));
     } else {
@@ -108,7 +128,110 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
     } catch (_) {}
   }
 
+  bool get _djNeedsHeadphones => widget.hostType == 'dj';
+
+  String _djStationId() {
+    try {
+      final tag = AudioPlayerService().player.sequenceState.currentSource?.tag;
+      if (tag is MediaItem) {
+        final id = tag.extras?['radioId']?.toString().trim();
+        if (id != null && id.isNotEmpty) return id;
+      }
+    } catch (_) {}
+    return RadioService.defaultRadioId;
+  }
+
+  Future<void> _watchHeadphones() async {
+    try {
+      final session = await AudioSession.instance;
+      final initial = await session.getDevices();
+      _applyHeadphones(headphonesConnected(initial), known: true);
+      _headphoneSub = session.devicesStream.listen((devices) {
+        _applyHeadphones(headphonesConnected(devices), known: true);
+      });
+    } catch (_) {
+      if (mounted) setState(() => _headphonesKnown = true);
+    }
+  }
+
+  void _applyHeadphones(bool on, {required bool known}) {
+    if (!on) _cue.silence();
+    final was = _headphones;
+    _headphones = on;
+    _headphonesKnown = known;
+    if (!on) {
+      unawaited(_softPauseRadio());
+      if (was && _live2 && _streamSource == 'device') {
+        unawaited(_abortBecauseSpeakers());
+      }
+    } else if (!_live2) {
+      _keepRadioPaused = false;
+      unawaited(_softResumeRadioIfNeeded());
+    } else if (_streamSource == 'device') {
+      unawaited(_syncGoLiveCue());
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _syncGoLiveCue() async {
+    if (!_djNeedsHeadphones || !_live2 || !_headphones) {
+      _cue.silence();
+      return;
+    }
+    final result = await _radio.getCurrentTrack(radioId: _djStationId());
+    final track = result.track;
+    if (!mounted || !_headphones || !_live2) return;
+    if (track == null || track.audioUrl.isEmpty || track.transportPaused) {
+      await _cue.sync(url: '', position: Duration.zero, playing: false);
+      return;
+    }
+    await _cue.sync(
+      url: track.audioUrl,
+      position: Duration(seconds: liveTargetSeconds(track)),
+      playing: true,
+    );
+  }
+
+  void _startCueLoop() {
+    _cueTimer?.cancel();
+    if (!_djNeedsHeadphones) return;
+    unawaited(_syncGoLiveCue());
+    _cueTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      unawaited(_syncGoLiveCue());
+    });
+  }
+
+  Future<void> _abortBecauseSpeakers() async {
+    _keepRadioPaused = true;
+    _cue.silence();
+    _cueTimer?.cancel();
+    try {
+      await _cue.stop();
+    } catch (_) {}
+    try {
+      await _teardownBroadcast(callApi: true);
+    } catch (_) {}
+    _didSoftPauseRadio = false;
+    if (!mounted) return;
+    setState(() {
+      _live2 = false;
+      _ingest = null;
+      _sessionId = null;
+      _statusText = null;
+      _loading = false;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Headphones disconnected. The live mic was turned off so the station does not play through the speakers.',
+        ),
+      ),
+    );
+  }
+
   Future<void> _softResumeRadioIfNeeded() async {
+    if (_keepRadioPaused) return;
+    if (_djNeedsHeadphones && !_headphones) return;
     if (!_didSoftPauseRadio) return;
     _didSoftPauseRadio = false;
     try {
@@ -124,8 +247,21 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
     });
     var sessionCreated = false;
     try {
+      if (_djNeedsHeadphones && !_headphones) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Plug in headphones or a headset before going live.'),
+          ),
+        );
+        return;
+      }
       await _softPauseRadio();
-      await AudioPlayerService.prepareForBroadcast();
+      if (_djNeedsHeadphones) {
+        await AudioPlayerService.prepareForHeadphoneBroadcast();
+      } else {
+        await AudioPlayerService.prepareForBroadcast();
+      }
       final data = await _live.start(
         title: _title.text.trim().isEmpty ? null : _title.text.trim(),
         description:
@@ -151,6 +287,7 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
           _streamSource = 'obs';
           _statusText = 'Live session created. Use the RTMP details below.';
         });
+        _startCueLoop();
         return;
       }
 
@@ -198,6 +335,7 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
       setState(() {
         _statusText = null;
       });
+      _startCueLoop();
     } catch (e) {
       // Don't leave a ghost "starting" session that blacks out watchers and
       // blocks the next Go Live attempt.
@@ -262,7 +400,14 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
         final wantVideo = widget.hostType != 'dj';
         setState(() => _statusText =
             wantVideo ? 'Requesting camera & mic…' : 'Requesting microphone…');
-        await AudioPlayerService.prepareForBroadcast();
+        if (_djNeedsHeadphones && !_headphones) {
+          throw Exception('Plug in headphones or a headset before going live.');
+        }
+        if (_djNeedsHeadphones) {
+          await AudioPlayerService.prepareForHeadphoneBroadcast();
+        } else {
+          await AudioPlayerService.prepareForBroadcast();
+        }
         final local = await _broadcaster.acquireLocalMedia(video: wantVideo);
         _renderer.srcObject = local;
         if (mounted) {
@@ -282,6 +427,7 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
         setState(() {
           _statusText = null;
         });
+        _startCueLoop();
       }
     } catch (e) {
       if (!mounted) return;
@@ -327,6 +473,9 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
     if (!mounted) return false;
     setState(() => _loading = true);
     try {
+      _cueTimer?.cancel();
+      _cue.silence();
+      await _cue.stop();
       await _teardownBroadcast(callApi: true);
       if (!mounted) return true;
       setState(() {
@@ -459,9 +608,24 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
           maxLength: 64,
         ),
         const SizedBox(height: 16),
+        if (_djNeedsHeadphones) ...[
+          Text(
+            !_headphonesKnown
+                ? 'Checking for headphones…'
+                : _headphones
+                    ? 'Headphones connected. You will hear the station in your headset while you are live.'
+                    : 'Plug in headphones or a headset to go live. The station plays in your ears so it does not feed back into the mic.',
+            style: TextStyle(
+              color: _headphones
+                  ? Theme.of(context).colorScheme.primary
+                  : Theme.of(context).colorScheme.error,
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
         FilledButton.icon(
-          onPressed: _loading ? null : _start,
-          icon: const Icon(Icons.videocam),
+          onPressed: _loading || (_djNeedsHeadphones && !_headphones) ? null : _start,
+          icon: Icon(_djNeedsHeadphones ? Icons.headphones : Icons.videocam),
           label: Text(_loading ? (_statusText ?? 'Starting…') : 'Start live'),
         ),
         const SizedBox(height: 12),

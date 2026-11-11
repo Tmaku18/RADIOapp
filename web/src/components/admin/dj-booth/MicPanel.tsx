@@ -1,10 +1,12 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { djBoothApi } from '@/lib/api';
 import { CameraBroadcaster } from '@/components/stream/CameraBroadcaster';
+import { HeadphoneGate, useHeadphones } from '@/components/admin/dj-booth/HeadphoneGate';
+import { StationCue } from '@/components/admin/dj-booth/StationCue';
 
 type Props = {
   stationId: string;
@@ -26,8 +28,14 @@ export function MicPanel({
   const [busy, setBusy] = useState(false);
   const [localDuck, setLocalDuck] = useState(duckVolume);
   const [error, setError] = useState<string | null>(null);
+  const headphones = useHeadphones();
+  const droppingRef = useRef(false);
 
   const connect = async () => {
+    if (!headphones.allowed) {
+      setError('Plug in headphones or a headset before going live.');
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -91,6 +99,23 @@ export function MicPanel({
     }
   };
 
+  useEffect(() => {
+    if (!sessionConnected || headphones.detected.kind !== 'speakers' || droppingRef.current) {
+      return;
+    }
+    droppingRef.current = true;
+    setError(
+      'Headphones disconnected. The mic was turned off so the station does not play through the speakers.',
+    );
+    void djBoothApi
+      .deleteMicSession(stationId)
+      .catch(() => undefined)
+      .finally(() => {
+        droppingRef.current = false;
+        onRefresh();
+      });
+  }, [headphones.detected.kind, onRefresh, sessionConnected, stationId]);
+
   const saveDuck = useCallback(async () => {
     setBusy(true);
     try {
@@ -116,9 +141,17 @@ export function MicPanel({
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
+      <HeadphoneGate headphones={headphones} />
+      <StationCue
+        active={sessionConnected && headphones.allowed}
+        stationId={stationId}
+        sinkId={headphones.sinkId}
+        resumeWhenDone={headphones.allowed}
+      />
+
       <div className="flex flex-wrap gap-2">
         {!sessionConnected ? (
-          <Button type="button" disabled={busy} onClick={connect}>
+          <Button type="button" disabled={busy || !headphones.allowed} onClick={connect}>
             Connect Mic
           </Button>
         ) : (
@@ -155,10 +188,11 @@ export function MicPanel({
         />
       </div>
 
-      {whipUrl && sessionConnected && (
+      {whipUrl && sessionConnected && headphones.allowed && (
         <div className="rounded-lg border p-3 bg-muted/30">
           <p className="text-xs text-muted-foreground mb-2">
-            Audio-only broadcast to station listeners (Cloudflare WHIP).
+            Audio-only broadcast to station listeners. The station plays in your
+            headphones while this mic is live.
           </p>
           <CameraBroadcaster
             whipUrl={whipUrl}

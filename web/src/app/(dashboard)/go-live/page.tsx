@@ -12,6 +12,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CameraBroadcaster } from '@/components/stream/CameraBroadcaster';
 import { LiveChat } from '@/components/stream/LiveChat';
+import { HeadphoneGate, useHeadphones } from '@/components/admin/dj-booth/HeadphoneGate';
+import { StationCue } from '@/components/admin/dj-booth/StationCue';
+import { DEFAULT_STATION_ID } from '@/data/station-map';
+import { getLastRadioStationId } from '@/lib/playback-preferences';
 
 type Ingest = {
   rtmpUrl: string | null;
@@ -39,6 +43,10 @@ export default function GoLiveStudioPage() {
   const [startLoading, setStartLoading] = useState(false);
   const [stopLoading, setStopLoading] = useState(false);
   const [checking, setChecking] = useState(true);
+  const headphones = useHeadphones();
+  const [cueStationId] = useState(
+    () => getLastRadioStationId() || DEFAULT_STATION_ID,
+  );
 
   useEffect(() => {
     // `?as=dj` / `?as=musician` (set by the go-live entry points) tags the
@@ -74,6 +82,10 @@ export default function GoLiveStudioPage() {
 
   const handleStart = async () => {
     if (!artistId) return;
+    if (hostKind === 'dj' && !headphones.allowed) {
+      setError('Plug in headphones or a headset before going live.');
+      return;
+    }
     setError(null);
     setStartLoading(true);
     try {
@@ -199,7 +211,27 @@ export default function GoLiveStudioPage() {
             </p>
           </div>
 
-          {source === 'device' ? (
+          {hostKind === 'dj' && (
+            <>
+              <HeadphoneGate headphones={headphones} />
+              <StationCue
+                active={isLive && headphones.allowed}
+                stationId={cueStationId}
+                sinkId={headphones.sinkId}
+                resumeWhenDone={headphones.allowed}
+              />
+            </>
+          )}
+
+          {hostKind === 'dj' && source === 'device' && headphones.detected.kind === 'speakers' ? (
+            <Card>
+              <CardContent className="py-6 text-sm text-muted-foreground">
+                Plug in headphones or a headset to keep the mic on. The station
+                plays in your ears, and the mic stays off while speakers are the
+                output so the music doesn&apos;t feed back.
+              </CardContent>
+            </Card>
+          ) : source === 'device' ? (
             ingest?.webRtcUrl ? (
               // DJ sets default to audio-only (camera off) unless the DJ turns
               // the camera on. Musician performances start with the camera on.
@@ -376,10 +408,11 @@ export default function GoLiveStudioPage() {
                 maxLength={64}
               />
             </div>
+            {hostKind === 'dj' && <HeadphoneGate headphones={headphones} />}
             <Button
               className="w-full"
               onClick={handleStart}
-              disabled={startLoading || !artistId}
+              disabled={startLoading || !artistId || (hostKind === 'dj' && !headphones.allowed)}
             >
               {startLoading ? 'Starting…' : '🔴 Start stream'}
             </Button>

@@ -113,6 +113,10 @@ class AudioPlayerService {
   static Future<void> prepareForBroadcast() =>
       WebRtcAudioSession.prepareForBroadcast();
 
+  /// Play-and-record routed to headphones, not the loudspeaker.
+  static Future<void> prepareForHeadphoneBroadcast() =>
+      WebRtcAudioSession.prepareForHeadphoneBroadcast();
+
   /// Prepare the AVAudioSession so WHEP / WebRTC *receive* audio is audible
   /// while radio music keeps playing.
   static Future<void> prepareForWebRtcReceive() =>

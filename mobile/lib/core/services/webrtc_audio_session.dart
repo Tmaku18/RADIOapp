@@ -54,6 +54,66 @@ class WebRtcAudioSession {
     }
   }
 
+  /// Play-and-record without forcing the loudspeaker.
+  ///
+  /// Used when a DJ monitors the station in headphones while the mic is live.
+  /// [defaultToSpeaker] would put that music back into the microphone.
+  static Future<void> prepareForHeadphoneBroadcast() async {
+    try {
+      final session = await AudioSession.instance;
+      await session.configure(
+        AudioSessionConfiguration(
+          avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
+          avAudioSessionCategoryOptions:
+              AVAudioSessionCategoryOptions.allowBluetooth |
+                  AVAudioSessionCategoryOptions.allowBluetoothA2dp |
+                  AVAudioSessionCategoryOptions.mixWithOthers,
+          avAudioSessionMode: AVAudioSessionMode.videoRecording,
+          androidAudioAttributes: const AndroidAudioAttributes(
+            contentType: AndroidAudioContentType.music,
+            usage: AndroidAudioUsage.voiceCommunication,
+          ),
+          androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
+          androidWillPauseWhenDucked: false,
+        ),
+      );
+      await session.setActive(true);
+    } catch (e) {
+      debugPrint('WebRtcAudioSession.prepareForHeadphoneBroadcast session: $e');
+    }
+
+    try {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+        await Helper.setAppleAudioConfiguration(
+          AppleAudioConfiguration(
+            appleAudioCategory: AppleAudioCategory.playAndRecord,
+            appleAudioCategoryOptions: {
+              AppleAudioCategoryOption.allowBluetooth,
+              AppleAudioCategoryOption.allowBluetoothA2DP,
+              AppleAudioCategoryOption.mixWithOthers,
+            },
+            appleAudioMode: AppleAudioMode.videoRecording,
+          ),
+        );
+      } else if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        await Helper.setAndroidAudioConfiguration(
+          AndroidAudioConfiguration(
+            manageAudioFocus: true,
+            androidAudioMode: AndroidAudioMode.inCommunication,
+            androidAudioFocusMode: AndroidAudioFocusMode.gain,
+            androidAudioStreamType: AndroidAudioStreamType.voiceCall,
+            androidAudioAttributesUsageType:
+                AndroidAudioAttributesUsageType.voiceCommunication,
+            androidAudioAttributesContentType:
+                AndroidAudioAttributesContentType.music,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('WebRtcAudioSession.prepareForHeadphoneBroadcast webrtc: $e');
+    }
+  }
+
   /// Before WHEP receive while radio music is still playing.
   /// Plain music/`playback` sessions silence remote WebRTC audio on iOS.
   static Future<void> prepareForReceive() async {
