@@ -8,6 +8,7 @@ import '../../core/services/analytics_service.dart';
 import '../../core/theme/dimension_tokens.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 import '../../widgets/notifications_bell_button.dart';
+import '../player/widgets/butterfly_swarm_backdrop.dart';
 
 /// Signed-in Networx Home — web `/dashboard` parity (hero, stats, role actions).
 class NetworxHomeScreen extends StatefulWidget {
@@ -320,10 +321,22 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
             : 'Prospector';
         final actions = _actionsForRole(role);
 
-        return Scaffold(
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            const Positioned.fill(
+              child: IgnorePointer(
+                child: ButterflySwarmBackdrop(butterflyCount: 22),
+              ),
+            ),
+            Scaffold(
           backgroundColor: Colors.transparent,
+          extendBodyBehindAppBar: true,
           appBar: AppBar(
             backgroundColor: Colors.transparent,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            scrolledUnderElevation: 0,
             leading: widget.onOpenNavDrawer != null
                 ? IconButton(
                     icon: const Icon(Icons.menu),
@@ -331,7 +344,7 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
                     onPressed: widget.onOpenNavDrawer,
                   )
                 : null,
-            title: const Text('Home'),
+            title: const Text('Home', style: TextStyle(color: Colors.white)),
             actions: [
               IconButton(
                 tooltip: 'Search',
@@ -351,30 +364,36 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
           body: RefreshIndicator(
             onRefresh: _loadStats,
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+              padding: EdgeInsets.fromLTRB(
+                16,
+                MediaQuery.paddingOf(context).top + kToolbarHeight,
+                16,
+                32,
+              ),
               children: [
                 // A large greeting in place of the card-in-a-card hero: an
                 // eyebrow label, a two-tone slogan, a subtitle and a marketing
                 // banner all stacked inside a bordered panel.
                 Text(
                   _greeting(),
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 15,
-                    color: DimensionTokens.textSecondary,
+                    color: Colors.white70,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   name,
-                  style: DimensionTypography.pageTitle(fontSize: 32),
+                  style: DimensionTypography.pageTitle(fontSize: 32)
+                      .copyWith(color: Colors.white),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   _roleHomeSubtitle(role),
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 15,
                     height: 1.4,
-                    color: DimensionTokens.textSecondary,
+                    color: Colors.white70,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -403,7 +422,10 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
                       ],
                     ),
                   ),
-                DimensionSectionHeader(title: _roleHomeTitle(role)),
+                DimensionSectionHeader(
+                  title: _roleHomeTitle(role),
+                  color: Colors.white,
+                ),
                 // A single grouped list, the way iOS settings and Apple Music's
                 // library present a set of destinations.
                 GlassCard(
@@ -455,6 +477,8 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
               ],
             ),
           ),
+            ),
+          ],
         );
       },
     );
