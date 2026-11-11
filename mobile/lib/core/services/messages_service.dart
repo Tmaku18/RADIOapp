@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import '../env.dart';
 import '../models/messages_models.dart';
 import 'api_service.dart';
 
@@ -132,9 +135,63 @@ class MessagesService {
   }) async {
     final res = await _api.post('messages/upload-url', {
       'contentType': contentType,
-      'fileName': fileName,
+      'filename': fileName,
     });
     return (res is Map<String, dynamic>) ? res : <String, dynamic>{};
+  }
+
+  /// Upload one clip, then deliver it as a video message to each friend.
+  Future<void> sendVideoToFriends({
+    required File file,
+    required List<String> friendIds,
+    String caption = '',
+  }) async {
+    if (friendIds.isEmpty) {
+      throw Exception('Pick at least one friend');
+    }
+    final lower = file.path.toLowerCase();
+    final String mime;
+    final String messageType;
+    final String name;
+    if (lower.endsWith('.png')) {
+      mime = 'image/png';
+      messageType = 'image';
+      name = 'networx-clip.png';
+    } else if (lower.endsWith('.webp')) {
+      mime = 'image/webp';
+      messageType = 'image';
+      name = 'networx-clip.webp';
+    } else if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
+      mime = 'image/jpeg';
+      messageType = 'image';
+      name = 'networx-clip.jpg';
+    } else if (lower.endsWith('.webm')) {
+      mime = 'video/webm';
+      messageType = 'video';
+      name = 'networx-clip.webm';
+    } else {
+      mime = 'video/mp4';
+      messageType = 'video';
+      name = 'networx-clip.mp4';
+    }
+    final ticket = await getMessageUploadUrl(contentType: mime, fileName: name);
+    final signedUrl = '${ticket['signedUrl'] ?? ''}'.trim();
+    final path = '${ticket['path'] ?? ''}'.trim();
+    final base = (env('SUPABASE_URL') ?? '').trim().replaceAll(RegExp(r'/+$'), '');
+    if (signedUrl.isEmpty || path.isEmpty || base.isEmpty) {
+      throw Exception('Could not upload the clip');
+    }
+    await _api.putFileToSignedUrl(signedUrl, file, contentType: mime);
+    final mediaUrl = '$base/storage/v1/object/public/dm-media/$path';
+    for (final friendId in friendIds) {
+      await sendMessage(
+        friendId,
+        caption,
+        messageType: messageType,
+        mediaUrl: mediaUrl,
+        mediaMime: mime,
+      );
+    }
   }
 
   Future<bool> hasCreatorNetworkAccess() async {

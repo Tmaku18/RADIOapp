@@ -11,6 +11,7 @@ import '../../core/services/pro_networx_service.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 import '../pro_networx/widgets/pro_network_paywall_sheet.dart';
+import 'dm_video_bubble.dart';
 import '../../widgets/safety/report_block_sheet.dart';
 import '../../widgets/states/app_states.dart';
 
@@ -613,20 +614,15 @@ class _ThreadScreenState extends State<ThreadScreen> {
               ),
             ),
           );
+        } else if (m.messageType == 'video') {
+          children.add(DmVideoBubble(url: m.mediaUrl!, color: fg));
         } else {
           children.add(Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                m.messageType == 'video' ? Icons.videocam : Icons.mic,
-                size: 18,
-                color: fg,
-              ),
+              Icon(Icons.mic, size: 18, color: fg),
               const SizedBox(width: 6),
-              Text(
-                m.messageType == 'video' ? 'Video' : 'Voice message',
-                style: TextStyle(color: fg),
-              ),
+              Text('Voice message', style: TextStyle(color: fg)),
             ],
           ));
         }

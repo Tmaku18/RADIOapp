@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../core/services/social_share.dart';
 import '../../../core/theme/networx_extensions.dart';
+import '../../messages/send_clip_sheet.dart';
 
 class SocialTarget {
   const SocialTarget(this.id, this.label, this.hint);
@@ -75,6 +76,24 @@ class _SocialShareBarState extends State<SocialShareBar> {
     return target.hint;
   }
 
+  Future<void> _sendToFriends() async {
+    if (_busy != null) return;
+    setState(() {
+      _busy = 'friends';
+      _note = null;
+    });
+    try {
+      final file = await widget.resolveFile();
+      if (!mounted) return;
+      await SendClipSheet.show(context, file: file, caption: widget.caption);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _note = _friendly(error));
+    } finally {
+      if (mounted) setState(() => _busy = null);
+    }
+  }
+
   Future<void> _share(SocialTarget target) async {
     if (_busy != null) return;
     setState(() {
@@ -138,6 +157,12 @@ class _SocialShareBarState extends State<SocialShareBar> {
           style: TextStyle(color: surfaces.textSecondary, fontSize: 12),
         ),
         const SizedBox(height: 10),
+        FilledButton.icon(
+          onPressed: _busy == null ? _sendToFriends : null,
+          icon: const Icon(Icons.send),
+          label: Text(_busy == 'friends' ? 'Preparing…' : 'Send to friends'),
+        ),
+        const SizedBox(height: 8),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
