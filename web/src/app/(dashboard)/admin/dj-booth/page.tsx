@@ -393,6 +393,17 @@ export default function DjBoothPage() {
           next.splice(target, 0, item);
           setDraftStackIds(next);
         }}
+        onReorder={(from, to) => {
+          setDraftStackIds((prev) => {
+            if (from === to || from < 0 || to < 0 || from >= prev.length || to >= prev.length) {
+              return prev;
+            }
+            const next = [...prev];
+            const [item] = next.splice(from, 1);
+            next.splice(to, 0, item);
+            return next;
+          });
+        }}
         onRemove={(index) => {
           const next = [...draftStackIds];
           next.splice(index, 1);
@@ -400,7 +411,11 @@ export default function DjBoothPage() {
         }}
         onAdd={() =>
           run(async () => {
-            await addToQueue(selectedRadioId, selectedAddStackId);
+            setDraftStackIds((prev) => [
+              selectedAddStackId,
+              ...prev.filter((id) => id !== selectedAddStackId),
+            ]);
+            await addToQueue(selectedRadioId, selectedAddStackId, 0);
           })
         }
         onSave={() =>

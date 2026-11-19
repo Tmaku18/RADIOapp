@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { adminApi } from '@/lib/api';
 import { DEFAULT_STATION_ID } from '@/data/station-map';
+import { useQueueDrag } from '@/components/admin/use-queue-drag';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
@@ -277,8 +278,30 @@ export default function AdminQueuePage() {
 
   const addSelected = () => {
     if (!selectedAddStackId) return;
-    setDraftStackIds((prev) => [...prev, selectedAddStackId]);
+    setDraftStackIds((prev) => [
+      selectedAddStackId,
+      ...prev.filter((id) => id !== selectedAddStackId),
+    ]);
   };
+
+  const reorderRow = (from: number, to: number) => {
+    setDraftStackIds((prev) => {
+      if (
+        from === to ||
+        from < 0 ||
+        to < 0 ||
+        from >= prev.length ||
+        to >= prev.length
+      ) {
+        return prev;
+      }
+      const next = [...prev];
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item);
+      return next;
+    });
+  };
+  const drag = useQueueDrag(reorderRow);
 
   const saveQueue = async () => {
     setSaving(true);
@@ -404,7 +427,7 @@ export default function AdminQueuePage() {
             </select>
           </div>
           <Button onClick={addSelected} disabled={!selectedAddStackId}>
-            Add to Draft Queue
+            Add next
           </Button>
         </div>
       </Card>
@@ -427,12 +450,19 @@ export default function AdminQueuePage() {
         ) : draftRows.length === 0 ? (
           <p className="text-sm text-muted-foreground">No upcoming entries.</p>
         ) : (
-          <div className="space-y-2">
+          <div
+            ref={drag.listRef}
+            className="max-h-[70vh] space-y-2 overflow-y-auto pr-1"
+          >
             {draftRows.map((entry, idx) => (
               <div
                 key={`${entry.stackId}-${idx}`}
-                className="flex items-center gap-3 rounded-md border p-3"
+                data-queue-index={idx}
+                className={`flex items-center gap-3 rounded-md border p-3 ${
+                  drag.draggingIndex === idx ? 'bg-muted/60 opacity-70' : ''
+                }`}
               >
+                <button {...drag.handleProps(idx)}>⋮⋮</button>
                 <div className="w-10 text-sm text-muted-foreground">#{idx + 1}</div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{entry.title}</p>

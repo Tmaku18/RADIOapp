@@ -3993,10 +3993,11 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       throw new BadRequestException('At least one queue item is required');
     }
     const positionRaw = payload.position;
-    const insertAt =
-      typeof positionRaw === 'number' && Number.isFinite(positionRaw)
-        ? Math.min(Math.max(0, Math.floor(positionRaw)), existing.length)
-        : existing.length;
+    const explicitPosition =
+      typeof positionRaw === 'number' && Number.isFinite(positionRaw);
+    let insertAt = explicitPosition
+      ? Math.min(Math.max(0, Math.floor(positionRaw)), existing.length)
+      : existing.length;
 
     const normalizedItems: string[] = [];
     for (const item of payload.items ?? []) {
@@ -4004,24 +4005,30 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       normalizedItems.push(stackId);
     }
 
+    const placing = allowDuplicates
+      ? normalizedItems
+      : normalizedItems.filter(
+          (id, idx) => normalizedItems.indexOf(id) === idx,
+        );
+    let queue = existing;
     if (!allowDuplicates) {
-      const existingSet = new Set(existing);
-      for (const id of normalizedItems) {
-        if (existingSet.has(id)) continue;
-        existingSet.add(id);
+      if (explicitPosition) {
+        // A chosen slot means "put it here", including a song already queued.
+        const placingSet = new Set(placing);
+        queue = existing.filter((id) => !placingSet.has(id));
+        insertAt = Math.min(Math.max(0, insertAt), queue.length);
+      } else {
+        const existingSet = new Set(existing);
+        const fresh = placing.filter((id) => !existingSet.has(id));
+        placing.length = 0;
+        placing.push(...fresh);
       }
-      const deduped = normalizedItems.filter(
-        (id, idx) =>
-          normalizedItems.indexOf(id) === idx && !existing.includes(id),
-      );
-      normalizedItems.length = 0;
-      normalizedItems.push(...deduped);
     }
 
     const next = [
-      ...existing.slice(0, insertAt),
-      ...normalizedItems,
-      ...existing.slice(insertAt),
+      ...queue.slice(0, insertAt),
+      ...placing,
+      ...queue.slice(insertAt),
     ].slice(0, maxQueueSize);
 
     await this.radioStateService.setFreeRotationStack(next, radioId);

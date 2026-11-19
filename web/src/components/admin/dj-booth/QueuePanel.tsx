@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { djBoothApi } from '@/lib/api';
+import { useQueueDrag } from '@/components/admin/use-queue-drag';
 
 type QueueEntry = {
   position: number;
@@ -30,6 +31,7 @@ type Props = {
   busy: boolean;
   onSelectAdd: (stackId: string) => void;
   onMove: (index: number, direction: -1 | 1) => void;
+  onReorder: (from: number, to: number) => void;
   onRemove: (index: number) => void;
   onAdd: () => void;
   onSave: () => void;
@@ -51,10 +53,12 @@ export function QueuePanel({
   busy,
   onSelectAdd,
   onMove,
+  onReorder,
   onRemove,
   onAdd,
   onSave,
 }: Props) {
+  const drag = useQueueDrag(onReorder);
   return (
     <Card className="p-4 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -72,12 +76,16 @@ export function QueuePanel({
         </div>
       )}
 
-      <ul className="space-y-1 max-h-64 overflow-y-auto">
+      <div ref={drag.listRef} className="max-h-96 space-y-1 overflow-y-auto">
         {draftRows.map((row, index) => (
-          <li
+          <div
             key={`${row.stackId}-${index}`}
-            className="flex items-center gap-2 border rounded-md px-2 py-1.5 text-sm"
+            data-queue-index={index}
+            className={`flex items-center gap-2 border rounded-md px-2 py-1.5 text-sm ${
+              drag.draggingIndex === index ? 'bg-muted/60 opacity-70' : ''
+            }`}
           >
+            <button {...drag.handleProps(index)}>⋮⋮</button>
             <span className="text-muted-foreground w-6">{index + 1}</span>
             <span className="flex-1 truncate">
               {row.title} {row.artistName ? `— ${row.artistName}` : ''}{' '}
@@ -98,9 +106,9 @@ export function QueuePanel({
             <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => onRemove(index)}>
               ✕
             </Button>
-          </li>
+          </div>
         ))}
-      </ul>
+      </div>
 
       <div className="flex flex-wrap gap-2 items-center">
         <select
@@ -115,7 +123,7 @@ export function QueuePanel({
           ))}
         </select>
         <Button type="button" variant="outline" disabled={busy || !selectedAddStackId} onClick={onAdd}>
-          Add to queue
+          Play next
         </Button>
       </div>
     </Card>

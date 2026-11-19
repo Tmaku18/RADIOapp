@@ -342,7 +342,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           artistName: 'Unknown artist',
         );
     setState(() {
-      _queueDraft = [..._queueDraft, item];
+      final next = List<AdminQueueItem>.from(_queueDraft)
+        ..removeWhere((row) => row.stackId == item.stackId);
+      next.insert(0, item);
+      _queueDraft = next;
+      _syncQueueDraftCtrl();
+    });
+  }
+
+  void _reorderQueueDraft(int oldIndex, int newIndex) {
+    setState(() {
+      if (oldIndex == newIndex) return;
+      final next = List<AdminQueueItem>.from(_queueDraft);
+      final item = next.removeAt(oldIndex);
+      next.insert(newIndex, item);
+      _queueDraft = next;
       _syncQueueDraftCtrl();
     });
   }

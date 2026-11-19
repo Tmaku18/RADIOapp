@@ -398,7 +398,7 @@ extension AdminDashboardTabs on _AdminDashboardScreenState {
                   onPressed: _selectedAddStackId == null
                       ? null
                       : _addSelectedToQueueDraft,
-                  child: const Text('Add to Draft Queue'),
+                  child: const Text('Add next'),
                 ),
               ],
             ),
@@ -441,93 +441,119 @@ extension AdminDashboardTabs on _AdminDashboardScreenState {
                     ),
                   )
                 else
-                  ...List.generate(_queueDraft.length, (idx) {
-                    final entry = _queueDraft[idx];
-                    final title = entry.title.trim().isEmpty
-                        ? entry.stackId
-                        : entry.title;
-                    final artist = entry.artistName.trim().isEmpty
-                        ? 'Unknown artist'
-                        : entry.artistName;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.12),
-                          ),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          children: [
-                            SizedBox(
-                              width: 36,
-                              child: Text(
-                                '#${idx + 1}',
-                                style: TextStyle(
-                                  color:
-                                      Colors.white.withValues(alpha: 0.55),
+                  SizedBox(
+                    height: _queueDraft.length * 76.0 > 560
+                        ? 560
+                        : _queueDraft.length * 76.0,
+                    child: ReorderableListView.builder(
+                      padding: EdgeInsets.zero,
+                      buildDefaultDragHandles: false,
+                      itemCount: _queueDraft.length,
+                      onReorderItem: _reorderQueueDraft,
+                      itemBuilder: (context, idx) {
+                        final entry = _queueDraft[idx];
+                        final title = entry.title.trim().isEmpty
+                            ? entry.stackId
+                            : entry.title;
+                        final artist = entry.artistName.trim().isEmpty
+                            ? 'Unknown artist'
+                            : entry.artistName;
+                        return Padding(
+                          key: ValueKey(identityHashCode(entry)),
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.12),
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              children: [
+                                ReorderableDragStartListener(
+                                  index: idx,
+                                  child: const Padding(
+                                    padding: EdgeInsets.only(right: 6),
+                                    child: Icon(Icons.drag_handle, size: 20),
+                                  ),
                                 ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  Text(
-                                    artist,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                                SizedBox(
+                                  width: 36,
+                                  child: Text(
+                                    '#${idx + 1}',
                                     style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.white
-                                          .withValues(alpha: 0.55),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.55,
+                                      ),
                                     ),
                                   ),
-                                ],
-                              ),
+                                ),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      Text(
+                                        artist,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.white.withValues(
+                                            alpha: 0.55,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  tooltip: 'Up',
+                                  onPressed: idx == 0
+                                      ? null
+                                      : () => _moveQueueDraft(idx, -1),
+                                  icon: const Icon(
+                                    Icons.arrow_upward,
+                                    size: 18,
+                                  ),
+                                ),
+                                IconButton(
+                                  tooltip: 'Down',
+                                  onPressed: idx >= _queueDraft.length - 1
+                                      ? null
+                                      : () => _moveQueueDraft(idx, 1),
+                                  icon: const Icon(
+                                    Icons.arrow_downward,
+                                    size: 18,
+                                  ),
+                                ),
+                                IconButton(
+                                  tooltip: 'Remove',
+                                  onPressed: () => _removeQueueDraftAt(idx),
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    size: 18,
+                                  ),
+                                ),
+                              ],
                             ),
-                            IconButton(
-                              tooltip: 'Up',
-                              onPressed: idx == 0
-                                  ? null
-                                  : () => _moveQueueDraft(idx, -1),
-                              icon: const Icon(Icons.arrow_upward, size: 18),
-                            ),
-                            IconButton(
-                              tooltip: 'Down',
-                              onPressed: idx >= _queueDraft.length - 1
-                                  ? null
-                                  : () => _moveQueueDraft(idx, 1),
-                              icon:
-                                  const Icon(Icons.arrow_downward, size: 18),
-                            ),
-                            IconButton(
-                              tooltip: 'Remove',
-                              onPressed: () => _removeQueueDraftAt(idx),
-                              icon: const Icon(
-                                Icons.delete_outline,
-                                size: 18,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                 const SizedBox(height: 4),
                 TextButton(
                   onPressed: () {

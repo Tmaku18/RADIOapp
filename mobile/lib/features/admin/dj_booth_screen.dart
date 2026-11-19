@@ -769,21 +769,24 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
                         orElse: () => {},
                       );
                       setState(() {
-                        _queueDraft = [
-                          ..._queueDraft,
-                          _QueueRow(
-                            stackId: id,
-                            title: (song['title'] ?? 'Untitled').toString(),
-                            artistName: (song['users'] is Map
-                                    ? (song['users'] as Map)['display_name']
-                                    : null)
-                                ?.toString() ??
-                                (song['artist_name'] ?? 'Unknown').toString(),
-                            durationSeconds:
-                                (song['duration_seconds'] as num?)?.toInt() ??
-                                    0,
-                          ),
-                        ];
+                        final next = [..._queueDraft];
+                        final existing = next.indexWhere((row) => row.stackId == id);
+                        final row = existing >= 0
+                            ? next.removeAt(existing)
+                            : _QueueRow(
+                                stackId: id,
+                                title: (song['title'] ?? 'Untitled').toString(),
+                                artistName: (song['users'] is Map
+                                        ? (song['users'] as Map)['display_name']
+                                        : null)
+                                    ?.toString() ??
+                                    (song['artist_name'] ?? 'Unknown').toString(),
+                                durationSeconds:
+                                    (song['duration_seconds'] as num?)?.toInt() ??
+                                        0,
+                              );
+                        next.insert(0, row);
+                        _queueDraft = next;
                         _hasQueueEdits = true;
                       });
                     },
@@ -1120,38 +1123,61 @@ class _QueueSection extends StatelessWidget {
             ),
           )
         else
-          ...List.generate(rows.length, (i) {
-            final row = rows[i];
-            return ListTile(
-              contentPadding: EdgeInsets.zero,
-              dense: true,
-              title: Text(row.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-              subtitle: Text(
-                row.artistName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_upward, size: 18),
-                    onPressed: busy || i == 0 ? null : () => onMove(i, i - 1),
+          SizedBox(
+            height: rows.length * 64.0 > 420 ? 420 : rows.length * 64.0,
+            child: ReorderableListView.builder(
+              padding: EdgeInsets.zero,
+              buildDefaultDragHandles: false,
+              itemCount: rows.length,
+              onReorderItem: (oldIndex, newIndex) {
+                if (oldIndex == newIndex) return;
+                onMove(oldIndex, newIndex);
+              },
+              itemBuilder: (context, i) {
+                final row = rows[i];
+                return ListTile(
+                  key: ValueKey(identityHashCode(row)),
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  leading: ReorderableDragStartListener(
+                    index: i,
+                    child: const Icon(Icons.drag_handle),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.arrow_downward, size: 18),
-                    onPressed: busy || i >= rows.length - 1
-                        ? null
-                        : () => onMove(i, i + 1),
+                  title: Text(
+                    row.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 18),
-                    onPressed: busy ? null : () => onRemove(i),
+                  subtitle: Text(
+                    row.artistName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ],
-              ),
-            );
-          }),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_upward, size: 18),
+                        onPressed: busy || i == 0
+                            ? null
+                            : () => onMove(i, i - 1),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.arrow_downward, size: 18),
+                        onPressed: busy || i >= rows.length - 1
+                            ? null
+                            : () => onMove(i, i + 1),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 18),
+                        onPressed: busy ? null : () => onRemove(i),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
         if (candidates.isNotEmpty) ...[
           const SizedBox(height: 8),
           Row(
@@ -1176,7 +1202,7 @@ class _QueueSection extends StatelessWidget {
               const SizedBox(width: 8),
               FilledButton.tonal(
                 onPressed: busy || selectedAddStackId == null ? null : onAdd,
-                child: const Text('Add'),
+                child: const Text('Next'),
               ),
             ],
           ),
