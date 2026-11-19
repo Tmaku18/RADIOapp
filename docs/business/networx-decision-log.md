@@ -17,6 +17,7 @@ Structured ADR-style record. Each entry: **Context → Decision → Rationale �
 | 11 | Monetization: credits + Pro-Networx sub | Monetization | 2025 | Accepted |
 | 12 | Android package `com.discovermeradio.networxradio` | Infra | 2026-03 | Accepted |
 | 13 | Discovery placement targets ~100 exposures | Monetization | 2026-11-19 | Accepted |
+| 14 | Placement pack bonuses | Monetization | 2026-11-19 | Accepted |
 
 ---
 
@@ -134,3 +135,12 @@ Structured ADR-style record. Each entry: **Context → Decision → Rationale �
 **Decision:** One placement still costs $1.99 and still buys one placement. The exposure it adds to the song is 100, one tenth of the previous target. Welcome placements use the same 100.  
 **Rationale:** The delivery promise on the buy screen and in pricing was too high for the price.  
 **Impact:** `EXPOSURES_PER_PLACEMENT`, Buy placements on web and mobile, pricing page, FAQ, features, Play listing, and the finance briefing.
+
+---
+
+## 14. Placement pack bonuses
+
+**Context:** Artists buy placements in packs of 1, 3, 5, 10, 25, 50, or 100 at $1.99 each.  
+**Decision:** The price stays the pack price. Extra placements are added when the purchase is applied: 3 gets 1 free, 5 gets 2, 10 gets 4, 25 gets 10, 50 gets 20, and 100 gets 40. One placement has no bonus.  
+**Rationale:** Larger packs should deliver more than the paid count.  
+**Impact:** `bonusPlacementsFor` in payments, Buy placements on web and mobile, pricing page.

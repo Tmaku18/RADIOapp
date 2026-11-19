@@ -45,6 +45,29 @@ import { assertStripeAllowedForDigitalGoods as assertStripeAllowed } from './sto
  */
 export const EXPOSURES_PER_PLACEMENT = 100;
 
+/**
+ * Free placements added on top of a paid pack. A single placement has none.
+ * 3→1, 5→2, 10→4, 25→10, 50→20, 100→40.
+ */
+export function bonusPlacementsFor(paid: number): number {
+  switch (paid) {
+    case 3:
+      return 1;
+    case 5:
+      return 2;
+    case 10:
+      return 4;
+    case 25:
+      return 10;
+    case 50:
+      return 20;
+    case 100:
+      return 40;
+    default:
+      return 0;
+  }
+}
+
 /** Flat $1.99 per discovery placement. Returns cents. */
 export function pricePerPlacementCents(): number {
   return 199;
@@ -1127,15 +1150,17 @@ export class PaymentsService {
 
   /**
    * Credits a song's rotation budget for purchased discovery placements.
-   * `placements` is the number of $1.99 placements bought; each grants
-   * EXPOSURES_PER_PLACEMENT plays (verified listener exposures).
+   * `placements` is the number of $1.99 placements bought. Pack bonuses from
+   * bonusPlacementsFor are included. Each granted placement is
+   * EXPOSURES_PER_PLACEMENT verified listener exposures.
    */
   private async addPlaysToSong(
     supabase: any,
     songId: string,
     placements: number,
   ): Promise<void> {
-    const exposures = placements * EXPOSURES_PER_PLACEMENT;
+    const granted = placements + bonusPlacementsFor(placements);
+    const exposures = granted * EXPOSURES_PER_PLACEMENT;
     const { data: song } = await supabase
       .from('songs')
       .select('credits_remaining')
@@ -1839,12 +1864,15 @@ export class PaymentsService {
     // is a flat $1.99 and targets ~EXPOSURES_PER_PLACEMENT verified exposures.
     const options = ALLOWED_PLAYS_LIST.map((placements) => {
       const totalCents = placements * pricePerPlacementCentsVal;
+      const bonusPlacements = bonusPlacementsFor(placements);
+      const granted = placements + bonusPlacements;
       return {
         // `plays` retains its name for client/IAP compatibility but now counts
         // placements purchased (not individual plays).
         plays: placements,
         placements,
-        exposures: placements * EXPOSURES_PER_PLACEMENT,
+        bonusPlacements,
+        exposures: granted * EXPOSURES_PER_PLACEMENT,
         totalCents,
         totalDollars: (totalCents / 100).toFixed(2),
       };
@@ -1898,7 +1926,7 @@ export class PaymentsService {
 
     const session = await this.stripeService.createCheckoutSessionSongPlays(
       option.totalCents,
-      `${dto.plays} live listener placement${dto.plays === 1 ? '' : 's'} – ${price.title}`,
+      `${dto.plays} live listener placement${dto.plays === 1 ? '' : 's'}${bonusPlacementsFor(dto.plays) > 0 ? ` + ${bonusPlacementsFor(dto.plays)} free` : ''} – ${price.title}`,
       `$${price.pricePerPlacementDollars}/placement · ~${option.exposures.toLocaleString()} verified exposures ($${option.totalDollars} total)`,
       {
         userId,

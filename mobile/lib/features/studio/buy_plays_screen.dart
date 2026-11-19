@@ -48,16 +48,37 @@ class SongPlayPrice {
   }
 }
 
+int bonusPlacementsFor(int paid) {
+  switch (paid) {
+    case 3:
+      return 1;
+    case 5:
+      return 2;
+    case 10:
+      return 4;
+    case 25:
+      return 10;
+    case 50:
+      return 20;
+    case 100:
+      return 40;
+    default:
+      return 0;
+  }
+}
+
 class PriceOption {
   /// Number of discovery placements (kept as `plays` on the wire for
   /// client/IAP compatibility).
   final int plays;
+  final int bonusPlacements;
   final int exposures;
   final int totalCents;
   final String totalDollars;
 
   PriceOption({
     required this.plays,
+    required this.bonusPlacements,
     required this.exposures,
     required this.totalCents,
     required this.totalDollars,
@@ -65,9 +86,14 @@ class PriceOption {
 
   factory PriceOption.fromJson(Map<String, dynamic> json) {
     final placements = (json['plays'] as num?)?.toInt() ?? 0;
+    final bonus =
+        (json['bonusPlacements'] as num?)?.toInt() ??
+        bonusPlacementsFor(placements);
     return PriceOption(
       plays: placements,
-      exposures: (json['exposures'] as num?)?.toInt() ?? placements * 100,
+      bonusPlacements: bonus,
+      exposures:
+          (json['exposures'] as num?)?.toInt() ?? (placements + bonus) * 100,
       totalCents: (json['totalCents'] as num?)?.toInt() ?? 0,
       totalDollars: json['totalDollars'] as String? ?? '0.00',
     );
@@ -514,7 +540,7 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Each placement targets ~${_withCommas(_price!.exposuresPerPlacement)} verified listener exposures.',
+                            'Each placement targets ~${_withCommas(_price!.exposuresPerPlacement)} verified listener exposures. Packs of 3, 5, 10, 25, 50, and 100 include free placements.',
                             style: TextStyle(
                               color: surfaces.textMuted,
                               fontSize: 12,
@@ -585,6 +611,15 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
                                           color: scheme.onSurface,
                                         ),
                                       ),
+                                      if (option.bonusPlacements > 0)
+                                        Text(
+                                          '+ ${option.bonusPlacements} free',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                            color: scheme.primary,
+                                          ),
+                                        ),
                                       Text(
                                         '~${_withCommas(option.exposures)} exposures',
                                         style: TextStyle(

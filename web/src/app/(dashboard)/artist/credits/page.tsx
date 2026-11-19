@@ -59,7 +59,7 @@ export default function CreditsPage() {
             There is no credit bank — you buy placements for each approved song.
           </p>
           <p className="text-muted-foreground mb-2">
-            Go to <strong className="text-foreground">My Songs</strong>, then click <strong className="text-foreground">Buy placements</strong> on an approved track to choose 1, 3, 5, 10, 25, 50, or 100 placements.
+            Go to <strong className="text-foreground">My Songs</strong>, then click <strong className="text-foreground">Buy placements</strong> on an approved track to choose 1, 3, 5, 10, 25, 50, or 100 placements. Packs include free placements: 3 gets 1, 5 gets 2, 10 gets 4, 25 gets 10, 50 gets 20, and 100 gets 40.
           </p>
           <Button variant="default" asChild>
             <Link href="/artist/songs">Open My Songs →</Link>

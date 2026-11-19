@@ -23,9 +23,29 @@ function errorMessage(err: unknown, fallback: string): string {
 interface PriceOption {
   plays: number;
   placements?: number;
+  bonusPlacements?: number;
   exposures?: number;
   totalCents: number;
   totalDollars: string;
+}
+
+function bonusPlacementsFor(paid: number): number {
+  switch (paid) {
+    case 3:
+      return 1;
+    case 5:
+      return 2;
+    case 10:
+      return 4;
+    case 25:
+      return 10;
+    case 50:
+      return 20;
+    case 100:
+      return 40;
+    default:
+      return 0;
+  }
 }
 
 interface SongPlayPrice {
@@ -186,8 +206,11 @@ export default function BuyPlaysPage() {
   const exposuresPerPlacement = price.exposuresPerPlacement ?? 100;
   const placementPriceDollars =
     price.pricePerPlacementDollars ?? price.pricePerPlayDollars;
+  const bonusFor = (option: PriceOption) =>
+    option.bonusPlacements ?? bonusPlacementsFor(option.plays);
   const exposuresFor = (option: PriceOption) =>
-    option.exposures ?? option.plays * exposuresPerPlacement;
+    option.exposures ??
+    (option.plays + bonusFor(option)) * exposuresPerPlacement;
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -282,7 +305,7 @@ export default function BuyPlaysPage() {
         <CardContent className="pt-6">
           <p className="text-sm text-muted-foreground mb-1">Price per placement</p>
           <p className="text-2xl font-semibold text-foreground">${placementPriceDollars} <span className="text-base font-normal text-muted-foreground">/ placement</span></p>
-          <p className="text-xs text-muted-foreground mt-1">Flat $1.99 per placement · targets ~{exposuresPerPlacement.toLocaleString()} verified listener exposures</p>
+          <p className="text-xs text-muted-foreground mt-1">Flat $1.99 per placement · targets ~{exposuresPerPlacement.toLocaleString()} verified listener exposures. Packs of 3, 5, 10, 25, 50, and 100 include free placements.</p>
 
           <div className="mt-6">
             <p className="text-sm font-medium text-foreground mb-3">Choose number of placements</p>
@@ -304,6 +327,9 @@ export default function BuyPlaysPage() {
                     )}
                   >
                     <div className="font-medium text-foreground">{placements} {placements === 1 ? 'placement' : 'placements'}</div>
+                    {bonusFor(option) > 0 && (
+                      <div className="text-xs font-medium text-primary">+ {bonusFor(option)} free</div>
+                    )}
                     <div className="text-xs text-muted-foreground">~{exposuresFor(option).toLocaleString()} exposures</div>
                     <div className="text-sm text-muted-foreground">${option.totalDollars}</div>
                   </button>
@@ -322,7 +348,8 @@ export default function BuyPlaysPage() {
             <div>
               {selectedOption && (
                 <p className="text-sm text-muted-foreground">
-                  Total: <span className="font-semibold text-foreground">${selectedOption.totalDollars}</span> for {selectedPlays} {selectedPlays === 1 ? 'placement' : 'placements'} · ~{exposuresFor(selectedOption).toLocaleString()} exposures
+                  Total: <span className="font-semibold text-foreground">${selectedOption.totalDollars}</span> for {selectedPlays} {selectedPlays === 1 ? 'placement' : 'placements'}
+                  {bonusFor(selectedOption) > 0 ? ` + ${bonusFor(selectedOption)} free` : ''} · ~{exposuresFor(selectedOption).toLocaleString()} exposures
                 </p>
               )}
             </div>
