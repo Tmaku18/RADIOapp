@@ -168,6 +168,20 @@ import flutter_local_notifications
   private func handleSocial(call: FlutterMethodCall, result: @escaping FlutterResult) {
     let args = call.arguments as? [String: Any]
     switch call.method {
+    case "makePlayable":
+      let videoPath = args?["videoPath"] as? String ?? ""
+      guard !videoPath.isEmpty else {
+        result(FlutterError(code: "bad_args", message: "Expected a video", details: nil))
+        return
+      }
+      ClipMux.normalize(videoPath: videoPath) { muxResult in
+        switch muxResult {
+        case .success(let path):
+          result(path)
+        case .failure(let error):
+          result(FlutterError(code: "mux_failed", message: error.localizedDescription, details: nil))
+        }
+      }
     case "attachAudio", "imageWithAudio":
       let audioPath = args?["audioPath"] as? String ?? ""
       let startMs = args?["startMs"] as? Int ?? 0
@@ -542,6 +556,73 @@ private enum ClipMux {
     fallback.shouldOptimizeForNetworkUse = true
     if tryExport(fallback) { return out }
     throw ClipMuxError.unreadable("Could not add the song")
+  }
+
+  /// Rebuild a camera recording so the player can open it. The file the
+  /// camera plugin writes often will not play until it is exported again.
+  static func normalize(
+    videoPath: String,
+    completion: @escaping (Result<String, Error>) -> Void
+  ) {
+    DispatchQueue.global(qos: .userInitiated).async {
+      do {
+        let asset = try loadAsset(URL(fileURLWithPath: videoPath))
+        guard let videoTrack = asset.tracks(withMediaType: .video).first else {
+          throw ClipMuxError.unreadable("The video has no picture")
+        }
+        let clip = videoTrack.timeRange.duration
+        if clip.seconds < 0.4 {
+          throw ClipMuxError.tooShort
+        }
+        let composition = AVMutableComposition()
+        guard
+          let compVideo = composition.addMutableTrack(
+            withMediaType: .video,
+            preferredTrackID: kCMPersistentTrackID_Invalid
+          )
+        else {
+          throw ClipMuxError.unreadable("Could not play the clip")
+        }
+        try compVideo.insertTimeRange(
+          CMTimeRange(start: .zero, duration: clip),
+          of: videoTrack,
+          at: .zero
+        )
+        compVideo.preferredTransform = videoTrack.preferredTransform
+        for audioTrack in asset.tracks(withMediaType: .audio) {
+          guard
+            let compAudio = composition.addMutableTrack(
+              withMediaType: .audio,
+              preferredTrackID: kCMPersistentTrackID_Invalid
+            )
+          else { continue }
+          try compAudio.insertTimeRange(
+            CMTimeRange(start: .zero, duration: clip),
+            of: audioTrack,
+            at: .zero
+          )
+        }
+        let out = FileManager.default.temporaryDirectory
+          .appendingPathComponent("networx-play-\(Int(Date().timeIntervalSince1970 * 1000)).mp4")
+        try? FileManager.default.removeItem(at: out)
+        guard let session = AVAssetExportSession(
+          asset: composition,
+          presetName: AVAssetExportPreset1280x720
+        ) else {
+          throw ClipMuxError.unreadable("Could not play the clip")
+        }
+        session.outputURL = out
+        session.outputFileType = .mp4
+        session.shouldOptimizeForNetworkUse = true
+        if tryExport(session) {
+          DispatchQueue.main.async { completion(.success(out.path)) }
+        } else {
+          throw ClipMuxError.unreadable("Could not play the clip")
+        }
+      } catch {
+        DispatchQueue.main.async { completion(.failure(error)) }
+      }
+    }
   }
 
   /// Export without waiting forever. A stuck callback used to leave the

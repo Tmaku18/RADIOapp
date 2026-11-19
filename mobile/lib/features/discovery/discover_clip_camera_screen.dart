@@ -102,7 +102,7 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
               AVAudioSessionCategoryOptions.defaultToSpeaker |
               AVAudioSessionCategoryOptions.allowBluetooth |
               AVAudioSessionCategoryOptions.mixWithOthers,
-          avAudioSessionMode: AVAudioSessionMode.videoRecording,
+          avAudioSessionMode: AVAudioSessionMode.defaultMode,
           avAudioSessionRouteSharingPolicy:
               AVAudioSessionRouteSharingPolicy.defaultPolicy,
           avAudioSessionSetActiveOptions: AVAudioSessionSetActiveOptions.none,

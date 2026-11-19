@@ -229,7 +229,9 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
               AVAudioSessionCategoryOptions.defaultToSpeaker |
               AVAudioSessionCategoryOptions.allowBluetooth |
               AVAudioSessionCategoryOptions.mixWithOthers,
-          avAudioSessionMode: AVAudioSessionMode.videoRecording,
+          // videoRecording mode will not play audio at the same time. The song
+          // cue and the finished clip then die, and the take never finishes.
+          avAudioSessionMode: AVAudioSessionMode.defaultMode,
           avAudioSessionRouteSharingPolicy:
               AVAudioSessionRouteSharingPolicy.defaultPolicy,
           avAudioSessionSetActiveOptions: AVAudioSessionSetActiveOptions.none,
@@ -445,6 +447,8 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
         setState(() => _phase = _CapturePhase.ready);
         return;
       }
+      File clip;
+      String? warning;
       try {
         final song = await _songFile();
         final out = await SocialShare.attachAudio(
@@ -453,24 +457,12 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
           startMs: _recordStartMs,
           durationMs: _lengthFrom(_recordStartMs),
         );
-        await _showClip(File(out));
+        clip = File(out);
       } catch (error) {
-        final raw = File(recorded.path);
-        try {
-          await _showClip(raw, warning: _friendly(error));
-        } catch (_) {
-          if (await raw.exists() && await raw.length() > 1000) {
-            _clip = raw;
-            if (!mounted) return;
-            setState(() {
-              _phase = _CapturePhase.review;
-              _error = _friendly(error);
-            });
-            return;
-          }
-          rethrow;
-        }
+        warning = _friendly(error);
+        clip = await _playableCopy(File(recorded.path));
       }
+      await _showClip(clip, warning: warning);
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -482,24 +474,22 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     }
   }
 
-  Future<void> _showClip(File file, {String? warning}) async {
+  Future<File> _playableCopy(File recorded) async {
     try {
-      await _cue.pause();
+      final cleaned = await SocialShare.makePlayable(recorded.path);
+      final file = File(cleaned);
+      if (await file.exists() && await file.length() > 1000) return file;
     } catch (_) {}
-    try {
-      final session = await AudioSession.instance;
-      await session.configure(const AudioSessionConfiguration.music());
-      await session.setActive(true);
-      await AudioPlayerService.handler.reassertExternalSilence();
-    } catch (_) {}
-    VideoPlayerController? controller;
+    return recorded;
+  }
+
+  Future<VideoPlayerController?> _openClipFile(File file) async {
     Object? lastError;
-    for (var attempt = 0; attempt < 3; attempt++) {
+    for (var attempt = 0; attempt < 2; attempt++) {
       final next = VideoPlayerController.file(file);
       try {
-        await next.initialize().timeout(const Duration(seconds: 8));
-        controller = next;
-        break;
+        await next.initialize().timeout(const Duration(seconds: 6));
+        return next;
       } catch (error) {
         lastError = error;
         try {
@@ -508,10 +498,32 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
         await Future<void>.delayed(Duration(milliseconds: 250 * (attempt + 1)));
       }
     }
+    if (lastError != null) {
+      debugPrint('RadioCapture preview: $lastError');
+    }
+    return null;
+  }
+
+  Future<void> _showClip(File file, {String? warning}) async {
+    try {
+      await _cue.pause();
+    } catch (_) {}
+    // Opening the file while the camera session is still up works. Switching
+    // to a music-only session first is what made the preview fail.
+    var controller = await _openClipFile(file);
+    if (controller == null) {
+      try {
+        final session = await AudioSession.instance;
+        await session.configure(const AudioSessionConfiguration.music());
+        await session.setActive(true);
+        await AudioPlayerService.handler.reassertExternalSilence();
+      } catch (_) {}
+      controller = await _openClipFile(file);
+    }
     if (controller == null) {
       final saved = await file.exists() && await file.length() > 1000;
       if (!saved) {
-        throw lastError ?? Exception('Could not play the clip');
+        throw Exception('Could not play the clip');
       }
       _clip = file;
       if (!mounted) return;
@@ -679,7 +691,13 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     if (text.contains('credit')) {
       return 'Could not add the artist credit.';
     }
-    if (text.contains('download') || text.contains('song')) {
+    if (text.contains('download') ||
+        text.contains('song') ||
+        text.contains('Socket') ||
+        text.contains('ClientException') ||
+        text.contains('Connection') ||
+        text.contains('Timeout') ||
+        text.contains('timed out')) {
       return 'Could not add the song to this clip.';
     }
     if (text.contains('microphone') ||
@@ -706,7 +724,8 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
         text.contains('not recording') ||
         text.contains('Setup Writer') ||
         text.contains('no picture') ||
-        text.contains('Could not play')) {
+        text.contains('Could not play') ||
+        text.contains('Failed to load')) {
       return 'That recording did not save. Hold the button a little longer and try again.';
     }
     if (text.contains('401') ||

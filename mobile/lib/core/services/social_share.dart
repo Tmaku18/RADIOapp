@@ -46,6 +46,11 @@ class SocialShare {
     return file;
   }
 
+  /// Rewrite a camera recording into a file the player can open.
+  static Future<String> makePlayable(String videoPath) {
+    return _mux('makePlayable', {'videoPath': videoPath});
+  }
+
   static Future<String> attachAudio({
     required String videoPath,
     required String audioPath,

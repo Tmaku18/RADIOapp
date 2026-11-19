@@ -99,6 +99,14 @@ class MainActivity : AudioServiceFragmentActivity() {
             SOCIAL_CHANNEL,
         ).setMethodCallHandler { call, result ->
             when (call.method) {
+                "makePlayable" -> {
+                    val videoPath = call.argument<String>("videoPath")
+                    if (videoPath.isNullOrBlank()) {
+                        result.error("bad_args", "Expected a video", null)
+                    } else {
+                        result.success(videoPath)
+                    }
+                }
                 "attachAudio", "imageWithAudio" -> {
                     val audioPath = call.argument<String>("audioPath")
                     val startMs = call.argument<Int>("startMs") ?: 0
