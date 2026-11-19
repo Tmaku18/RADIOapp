@@ -1,6 +1,7 @@
 import Flutter
 import UIKit
 import AVFoundation
+import CoreImage
 import UserNotifications
 import FirebaseCore
 import FirebaseMessaging
@@ -385,6 +386,7 @@ private enum ClipMux {
           throw ClipMuxError.unreadable("Could not add the artist credit")
         }
         try compVideo.insertTimeRange(CMTimeRange(start: .zero, duration: clip), of: videoTrack, at: .zero)
+        compVideo.preferredTransform = videoTrack.preferredTransform
         for audioTrack in audioTracks {
           guard
             let compAudio = composition.addMutableTrack(
@@ -396,63 +398,50 @@ private enum ClipMux {
           }
           try compAudio.insertTimeRange(CMTimeRange(start: .zero, duration: clip), of: audioTrack, at: .zero)
         }
-        let transformed = CGRect(origin: .zero, size: videoTrack.naturalSize)
-          .applying(videoTrack.preferredTransform)
-        var render = CGSize(width: abs(transformed.width), height: abs(transformed.height))
-        render.width = max(2, floor(render.width / 2) * 2)
-        render.height = max(2, floor(render.height / 2) * 2)
-        var fitted = videoTrack.preferredTransform
-        fitted.tx -= transformed.origin.x
-        fitted.ty -= transformed.origin.y
+        // Core Animation overlays export as a solid black frame on current
+        // iOS. Draw the credit in Core Image instead so the camera picture stays.
+        let overlayImage = CIImage(cgImage: image)
+        let videoComposition = AVMutableVideoComposition(
+          asset: composition,
+          applyingCIFiltersWithHandler: { request in
+            let source = request.sourceImage
+            let bounds = source.extent
+            if bounds.isEmpty || bounds.isInfinite || bounds.width < 2 || bounds.height < 2 {
+              request.finish(with: source, context: nil)
+              return
+            }
+            var stamp = overlayImage
+            let sx = bounds.width / max(stamp.extent.width, 1)
+            let sy = bounds.height / max(stamp.extent.height, 1)
+            stamp = stamp.transformed(by: CGAffineTransform(scaleX: sx, y: sy))
+            stamp = stamp.transformed(by: CGAffineTransform(
+              translationX: bounds.origin.x - stamp.extent.origin.x,
+              y: bounds.origin.y - stamp.extent.origin.y
+            ))
+            request.finish(with: stamp.composited(over: source), context: nil)
+          }
+        )
         let out = FileManager.default.temporaryDirectory
           .appendingPathComponent("networx-credit-\(Int(Date().timeIntervalSince1970 * 1000)).mp4")
         try? FileManager.default.removeItem(at: out)
-        DispatchQueue.main.async {
-          let parent = CALayer()
-          let videoLayer = CALayer()
-          let overlay = CALayer()
-          let frame = CGRect(origin: .zero, size: render)
-          parent.frame = frame
-          videoLayer.frame = frame
-          overlay.frame = frame
-          overlay.contents = image
-          overlay.contentsGravity = .resize
-          overlay.isGeometryFlipped = true
-          parent.addSublayer(videoLayer)
-          parent.addSublayer(overlay)
-          let instruction = AVMutableVideoCompositionInstruction()
-          instruction.timeRange = CMTimeRange(start: .zero, duration: clip)
-          let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: compVideo)
-          layerInstruction.setTransform(fitted, at: .zero)
-          instruction.layerInstructions = [layerInstruction]
-          let videoComposition = AVMutableVideoComposition()
-          videoComposition.renderSize = render
-          videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
-          videoComposition.instructions = [instruction]
-          videoComposition.animationTool = AVVideoCompositionCoreAnimationTool(
-            postProcessingAsVideoLayer: videoLayer,
-            in: parent
-          )
-          guard let session = AVAssetExportSession(
-            asset: composition,
-            presetName: AVAssetExportPresetHighestQuality
-          ) else {
-            completion(.failure(ClipMuxError.unreadable("Could not add the artist credit")))
-            return
-          }
-          session.outputURL = out
-          session.outputFileType = .mp4
-          session.shouldOptimizeForNetworkUse = true
-          session.videoComposition = videoComposition
-          session.exportAsynchronously {
-            DispatchQueue.main.async {
-              if session.status == .completed {
-                completion(.success(out.path))
-              } else {
-                completion(.failure(
-                  ClipMuxError.unreadable(session.error?.localizedDescription ?? "Could not add the artist credit")
-                ))
-              }
+        guard let session = AVAssetExportSession(
+          asset: composition,
+          presetName: AVAssetExportPresetHighestQuality
+        ) else {
+          throw ClipMuxError.unreadable("Could not add the artist credit")
+        }
+        session.outputURL = out
+        session.outputFileType = .mp4
+        session.shouldOptimizeForNetworkUse = true
+        session.videoComposition = videoComposition
+        session.exportAsynchronously {
+          DispatchQueue.main.async {
+            if session.status == .completed {
+              completion(.success(out.path))
+            } else {
+              completion(.failure(
+                ClipMuxError.unreadable(session.error?.localizedDescription ?? "Could not add the artist credit")
+              ))
             }
           }
         }
