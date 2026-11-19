@@ -495,7 +495,7 @@ export function FeedPostCard({ post, onChange, onHidden, variant = 'feed' }: Fee
           <button
             type="button"
             aria-label="Close"
-            className="absolute right-4 top-[max(1rem,env(safe-area-inset-top))] z-10 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25"
+            className="absolute right-4 top-[max(1rem,env(safe-area-inset-top))] z-10 inline-flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-cyan-300 hover:bg-black/70"
             onClick={() => setVideoOpen(false)}
           >
             <X className="h-5 w-5" />
@@ -506,7 +506,7 @@ export function FeedPostCard({ post, onChange, onHidden, variant = 'feed' }: Fee
             controls
             autoPlay
             playsInline
-            className="max-h-full max-w-full"
+            className="max-h-full max-w-full accent-[#00F5FF]"
           />
         </div>
       )}

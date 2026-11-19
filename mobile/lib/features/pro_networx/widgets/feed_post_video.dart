@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../core/services/audio_player_service.dart';
+import '../../../core/theme/networx_tokens.dart';
 
 /// Whether the feed surface that owns these clips is the one on screen.
 ///
@@ -440,7 +441,11 @@ class _FeedVideoFullscreenPageState extends State<_FeedVideoFullscreenPage> {
               child: IconButton(
                 tooltip: 'Close',
                 onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.close, color: Colors.white),
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.black54,
+                  foregroundColor: NetworxTokens.electricCyan,
+                ),
+                icon: const Icon(Icons.close, color: NetworxTokens.electricCyan),
               ),
             ),
           ),
@@ -456,18 +461,26 @@ class _FeedVideoFullscreenPageState extends State<_FeedVideoFullscreenPage> {
                       IconButton(
                         tooltip: c.value.isPlaying ? 'Pause' : 'Play',
                         onPressed: _togglePlay,
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.black54,
+                          foregroundColor: NetworxTokens.electricCyan,
+                        ),
                         icon: Icon(
                           c.value.isPlaying ? Icons.pause : Icons.play_arrow,
-                          color: Colors.white,
+                          color: NetworxTokens.electricCyan,
                           size: 36,
                         ),
                       ),
                       IconButton(
                         tooltip: _muted ? 'Unmute' : 'Mute',
                         onPressed: _toggleMute,
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.black54,
+                          foregroundColor: NetworxTokens.electricCyan,
+                        ),
                         icon: Icon(
                           _muted ? Icons.volume_off : Icons.volume_up,
-                          color: Colors.white,
+                          color: NetworxTokens.electricCyan,
                         ),
                       ),
                     ],
