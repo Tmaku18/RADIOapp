@@ -13,10 +13,12 @@ class SongStoriesStrip extends StatefulWidget {
     super.key,
     required this.songId,
     this.compact = false,
+    this.trailing,
   });
 
   final String? songId;
   final bool compact;
+  final Widget? trailing;
 
   static Future<void> open(BuildContext context, String songId) {
     return Navigator.of(context).push(
@@ -95,7 +97,9 @@ class _SongStoriesStripState extends State<SongStoriesStrip> {
   @override
   Widget build(BuildContext context) {
     if (!SongStoriesService.isSongId(widget.songId)) {
-      return const SizedBox.shrink();
+      final trailing = widget.trailing;
+      if (trailing == null) return const SizedBox.shrink();
+      return Align(alignment: Alignment.centerRight, child: trailing);
     }
     if (widget.compact) {
       if (!_enabled || _items.isEmpty) return const SizedBox.shrink();
@@ -104,14 +108,20 @@ class _SongStoriesStripState extends State<SongStoriesStrip> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        TextButton(
-          onPressed: _toggle,
-          style: TextButton.styleFrom(
-            padding: EdgeInsets.zero,
-            minimumSize: const Size(0, 32),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-          child: Text(_enabled ? 'Hide song stories' : 'Show song stories'),
+        Row(
+          children: [
+            TextButton(
+              onPressed: _toggle,
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(0, 32),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(_enabled ? 'Hide song stories' : 'Show song stories'),
+            ),
+            const Spacer(),
+            if (widget.trailing != null) widget.trailing!,
+          ],
         ),
         if (_enabled && _items.isNotEmpty) _avatars(),
         if (_enabled && _items.isEmpty)

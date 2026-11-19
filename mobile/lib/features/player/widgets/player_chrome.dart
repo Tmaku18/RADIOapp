@@ -32,61 +32,16 @@ class _PlayerAction extends StatelessWidget {
 /// progress bar and emoji tallies, plus two more emoji buttons in the transport
 /// row — the same information competing with itself in two places.
 class _ReactionStrip extends StatelessWidget {
-  const _ReactionStrip({
-    required this.canVote,
-    required this.isVoting,
-    required this.selectedReaction,
-    required this.fireVotes,
-    required this.shitVotes,
-    required this.temperaturePercent,
-    required this.onReact,
-    required this.onAddToPlaylist,
-  });
+  const _ReactionStrip({required this.temperaturePercent});
 
-  final bool canVote;
-  final bool isVoting;
-  final String? selectedReaction;
-  final int fireVotes;
-  final int shitVotes;
   final int temperaturePercent;
-  final void Function(String reaction) onReact;
-  final VoidCallback onAddToPlaylist;
 
   @override
   Widget build(BuildContext context) {
     DimensionTokens.watch(context);
     final scheme = Theme.of(context).colorScheme;
 
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _ReactionChip(
-              emoji: '🔥',
-              count: fireVotes,
-              selected: selectedReaction == 'fire',
-              enabled: canVote && !isVoting,
-              onTap: () => onReact('fire'),
-            ),
-            const SizedBox(width: 10),
-            _ReactionChip(
-              emoji: '💩',
-              count: shitVotes,
-              selected: selectedReaction == 'shit',
-              enabled: canVote && !isVoting,
-              onTap: () => onReact('shit'),
-            ),
-            const SizedBox(width: 10),
-            _PlayerAction(
-              icon: Icons.playlist_add_rounded,
-              tooltip: 'Add to playlist',
-              onPressed: onAddToPlaylist,
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
+    return Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             SizedBox(
@@ -111,9 +66,7 @@ class _ReactionStrip extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ],
-    );
+        );
   }
 }
 
@@ -123,6 +76,7 @@ class _ReactionChip extends StatelessWidget {
     required this.count,
     required this.selected,
     required this.enabled,
+    this.compact = false,
     required this.onTap,
   });
 
@@ -130,6 +84,7 @@ class _ReactionChip extends StatelessWidget {
   final int count;
   final bool selected;
   final bool enabled;
+  final bool compact;
   final VoidCallback onTap;
 
   @override
@@ -148,16 +103,19 @@ class _ReactionChip extends StatelessWidget {
         customBorder: const StadiumBorder(),
         onTap: enabled ? onTap : null,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          padding: EdgeInsets.symmetric(
+            horizontal: compact ? 8 : 14,
+            vertical: compact ? 4 : 8,
+          ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(emoji, style: const TextStyle(fontSize: 15)),
-              const SizedBox(width: 6),
+              Text(emoji, style: TextStyle(fontSize: compact ? 16 : 15)),
+              SizedBox(width: compact ? 4 : 6),
               Text(
                 '$count',
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: compact ? 12 : 13,
                   fontWeight: FontWeight.w600,
                   color: DimensionTokens.textPrimary,
                 ),
@@ -759,41 +717,33 @@ class _PlayerBody extends StatelessWidget {
                       style: DimensionTypography.cardTitle(fontSize: 18),
                     ),
                   ),
+                  const SizedBox(width: 8),
+                  _ReactionChip(
+                    emoji: '🔥',
+                    count: fireVotes,
+                    selected: selectedReaction == 'fire',
+                    enabled: canVote && !isVoting,
+                    compact: true,
+                    onTap: () => onReact('fire'),
+                  ),
+                  const SizedBox(width: 6),
+                  _ReactionChip(
+                    emoji: '💩',
+                    count: shitVotes,
+                    selected: selectedReaction == 'shit',
+                    enabled: canVote && !isVoting,
+                    compact: true,
+                    onTap: () => onReact('shit'),
+                  ),
                   IconButton(
-                    tooltip: 'Record with this song',
-                    onPressed: () {
-                      final url = track.audioUrl.trim();
-                      if (url.isEmpty || url.toLowerCase().contains('.m3u8')) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'This live stream cannot be saved into a clip.',
-                            ),
-                          ),
-                        );
-                        return;
-                      }
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute<void>(
-                          builder: (_) => RadioCaptureScreen(
-                            audioUrl: url,
-                            title: track.title,
-                            artistName: track.artistName,
-                            artistId: track.artistId,
-                            songId: track.id,
-                            stationId: radioId,
-                            durationMs: track.durationSeconds > 0
-                                ? track.durationSeconds * 1000
-                                : null,
-                          ),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.videocam_outlined),
+                    tooltip: 'Add to playlist',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: onAddToPlaylist,
+                    icon: const Icon(Icons.playlist_add_rounded),
                   ),
                   IconButton(
                     tooltip: 'Share',
+                    visualDensity: VisualDensity.compact,
                     onPressed: () {
                       RadioShare.showSheet(
                         context,
@@ -929,7 +879,43 @@ class _PlayerBody extends StatelessWidget {
                 },
               ),
               SizedBox(height: afterProgressGap),
-              SongStoriesStrip(songId: track.id),
+              SongStoriesStrip(
+                songId: track.id,
+                trailing: IconButton(
+                  tooltip: 'Record with this song',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () {
+                    final url = track.audioUrl.trim();
+                    if (url.isEmpty || url.toLowerCase().contains('.m3u8')) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'This live stream cannot be saved into a clip.',
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => RadioCaptureScreen(
+                          audioUrl: url,
+                          title: track.title,
+                          artistName: track.artistName,
+                          artistId: track.artistId,
+                          songId: track.id,
+                          stationId: radioId,
+                          durationMs: track.durationSeconds > 0
+                              ? track.durationSeconds * 1000
+                              : null,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.videocam_outlined),
+                ),
+              ),
               SizedBox(height: afterProgressGap),
               // Transport comes first now, and it is one big centered play
               // control flanked by the two most-used actions. It used to be
@@ -979,16 +965,7 @@ class _PlayerBody extends StatelessWidget {
                 ],
               ),
               SizedBox(height: afterProgressGap),
-              _ReactionStrip(
-                canVote: canVote,
-                isVoting: isVoting,
-                selectedReaction: selectedReaction,
-                fireVotes: fireVotes,
-                shitVotes: shitVotes,
-                temperaturePercent: temperaturePercent,
-                onReact: onReact,
-                onAddToPlaylist: onAddToPlaylist,
-              ),
+              _ReactionStrip(temperaturePercent: temperaturePercent),
               SizedBox(height: afterProgressGap),
               buyAction(),
               SizedBox(height: afterProgressGap),
