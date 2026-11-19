@@ -5,9 +5,11 @@ import 'package:audio_session/audio_session.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../../core/services/audio_player_service.dart';
+import '../../widgets/camera_stage.dart';
 import '../../widgets/capture_shutter.dart';
 
 /// Full-screen selfie camera. Hold the circle to record. The clip starts after
@@ -163,14 +165,17 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
     final previous = _camera;
     final next = CameraController(
       description,
-      // Medium keeps ~15s phone takes under typical edge/proxy body limits.
-      ResolutionPreset.medium,
+      // 16:9. Medium is 4:3, which looks bent when it fills the phone.
+      ResolutionPreset.high,
       enableAudio: true,
       imageFormatGroup: ImageFormatGroup.jpeg,
     );
     _camera = next;
     await previous?.dispose();
     await next.initialize();
+    try {
+      await next.lockCaptureOrientation(DeviceOrientation.portraitUp);
+    } catch (_) {}
     if (!mounted) return;
     setState(() {});
   }
@@ -380,27 +385,7 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
         fit: StackFit.expand,
         children: [
           if (ready)
-            // Snapchat-style selfie: flip on Android only (iOS is native-mirrored).
-            SizedBox.expand(
-              child: FittedBox(
-                fit: BoxFit.cover,
-                child: SizedBox(
-                  width: cam.value.previewSize?.height ?? 1,
-                  height: cam.value.previewSize?.width ?? 1,
-                  child: Transform(
-                    alignment: Alignment.center,
-                    transform: Matrix4.identity()
-                      ..scaleByDouble(
-                        _shouldFlipPreview ? -1.0 : 1.0,
-                        1.0,
-                        1.0,
-                        1.0,
-                      ),
-                    child: CameraPreview(cam),
-                  ),
-                ),
-              ),
-            )
+            CameraStage(controller: cam, mirror: _shouldFlipPreview)
           else
             const Center(child: CircularProgressIndicator(color: Colors.white)),
           SafeArea(

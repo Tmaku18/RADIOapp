@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:audio_session/audio_session.dart';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:video_player/video_player.dart';
 
@@ -13,6 +14,7 @@ import '../../core/services/pro_networx_service.dart';
 import '../../core/services/radio_share.dart';
 import '../../core/services/social_share.dart';
 import '../../core/services/song_stories_service.dart';
+import '../../widgets/camera_stage.dart';
 import '../../widgets/capture_shutter.dart';
 import 'widgets/artist_credit_sticker.dart';
 import 'widgets/social_share_bar.dart';
@@ -265,12 +267,17 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     }
     final camera = CameraController(
       chosen,
-      ResolutionPreset.medium,
+      // 16:9. The medium preset is 4:3, and stretching that to the phone
+      // bows the picture.
+      ResolutionPreset.high,
       enableAudio: true,
     );
     _camera = camera;
     try {
       await camera.initialize();
+      try {
+        await camera.lockCaptureOrientation(DeviceOrientation.portraitUp);
+      } catch (_) {}
     } catch (error) {
       _camera = null;
       try {
@@ -848,22 +855,7 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
                         ),
                       )
                     : cam != null && cam.value.isInitialized
-                    ? Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          ClipRect(
-                            child: Transform(
-                              alignment: Alignment.center,
-                              transform: Matrix4.diagonal3Values(
-                                mirror ? -1 : 1,
-                                1,
-                                1,
-                              ),
-                              child: CameraPreview(cam),
-                            ),
-                          ),
-                        ],
-                      )
+                    ? CameraStage(controller: cam, mirror: mirror)
                     : const Center(child: CircularProgressIndicator()),
                 SafeArea(child: _chrome()),
               ],
