@@ -165,7 +165,7 @@ class _ProNetworxShellScreenState extends State<ProNetworxShellScreen> {
                   ],
                 ),
               ),
-              const DimensionRadioBar(),
+              if (widget.onExitToRadio == null) const DimensionRadioBar(),
             ],
           ),
         ],

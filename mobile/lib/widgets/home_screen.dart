@@ -194,7 +194,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final safeBottom = MediaQuery.paddingOf(context).bottom;
     const navHeight = 80.0;
-    final showMini = safeIndex != _tabRadio && !(canUpload && safeIndex == 4);
+    final showMini = safeIndex != _tabRadio;
     final barInset =
         navHeight + safeBottom + (showMini ? DimensionTokens.radioBarHeight : 0);
 
@@ -275,7 +275,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      // Mini player when not already on the Radio tab or Pro-Networx shell.
+      // Mini player on every tab except Radio, which is already the full player.
       bottomNavigationBar: ClipRect(
         child: BackdropFilter(
           filter: ImageFilter.blur(
