@@ -392,23 +392,6 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
                         child: const Icon(Icons.broken_image_outlined),
                       ),
                     ),
-                  if (canDelete)
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: Material(
-                        color: Colors.black54,
-                        shape: const CircleBorder(),
-                        child: IconButton(
-                          icon: const Icon(Icons.delete_outline),
-                          color: Colors.white,
-                          tooltip: post.mediaType == 'video'
-                              ? 'Delete video'
-                              : 'Delete post',
-                          onPressed: _confirmDelete,
-                        ),
-                      ),
-                    ),
                 ],
               ),
             ),
