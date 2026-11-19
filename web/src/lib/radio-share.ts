@@ -26,9 +26,24 @@ export function artistShareUrl(artistId: string, songId?: string | null): string
   return `${base}?song=${encodeURIComponent(song)}`;
 }
 
-export function stationShareText(stationId: string): string {
+export function stationShareLead(stationId: string): string {
   const name = stationDisplayName(stationId);
-  return `Listen to ${name} on NETWORX Radio.\n${stationShareUrl(stationId)}\n\nIf you don't have the app yet, this link takes you to download it.`;
+  return `Listen to ${name} on NETWORX Radio.`;
+}
+
+export function stationShareText(stationId: string): string {
+  return `${stationShareLead(stationId)}\n${stationShareUrl(stationId)}\n\nIf you don't have the app yet, this link takes you to download it.`;
+}
+
+export function artistShareLead(input: {
+  artistName: string;
+  songTitle?: string | null;
+}): string {
+  const name = input.artistName.trim() || 'This artist';
+  const title = input.songTitle?.trim();
+  return title
+    ? `${name} is on NETWORX Radio right now with "${title}".`
+    : `${name} is on NETWORX Radio.`;
 }
 
 export function artistShareText(input: {
@@ -37,11 +52,7 @@ export function artistShareText(input: {
   songTitle?: string | null;
   songId?: string | null;
 }): string {
-  const name = input.artistName.trim() || 'This artist';
-  const title = input.songTitle?.trim();
-  const lead = title
-    ? `${name} is on NETWORX Radio right now with "${title}".`
-    : `${name} is on NETWORX Radio.`;
+  const lead = artistShareLead(input);
   return `${lead}\n${artistShareUrl(input.artistId, input.songId)}`;
 }
 

@@ -150,10 +150,12 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
   int _startMs = 0;
   int? _knownDurationMs;
   int _recordStartMs = 0;
+  late final TextEditingController _captionCtrl;
 
   @override
   void initState() {
     super.initState();
+    _captionCtrl = TextEditingController(text: _songLine);
     unawaited(_setup());
   }
 
@@ -162,6 +164,7 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     _recordTimer?.cancel();
     _holdTimer?.cancel();
     _recordProgress.dispose();
+    _captionCtrl.dispose();
     final cam = _camera;
     _camera = null;
     if (cam != null) {
@@ -177,6 +180,28 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     super.dispose();
   }
 
+  /// Song line with no link. Shown in the caption box so it can be edited.
+  String get _songLine {
+    final artist = widget.artistId?.trim() ?? '';
+    if (artist.isNotEmpty) {
+      return RadioShare.artistLead(
+        artistName: widget.artistName,
+        songTitle: widget.title,
+      );
+    }
+    final station = widget.stationId?.trim() ?? '';
+    if (station.isNotEmpty) return RadioShare.stationLead(station);
+    final name = widget.artistName.trim();
+    return name.isEmpty ? widget.title : '${widget.title} — $name';
+  }
+
+  /// What gets posted. A cleared box still posts the song line, never the link.
+  String get _feedCaption {
+    final typed = _captionCtrl.text.trim();
+    return typed.isEmpty ? _songLine : typed;
+  }
+
+  /// Share sheet keeps the link so someone can open the song.
   String get _caption {
     final artist = widget.artistId?.trim() ?? '';
     if (artist.isNotEmpty) {
@@ -189,8 +214,7 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     }
     final station = widget.stationId?.trim() ?? '';
     if (station.isNotEmpty) return RadioShare.stationMessage(station);
-    final name = widget.artistName.trim();
-    return name.isEmpty ? widget.title : '${widget.title} — $name';
+    return _songLine;
   }
 
   Future<void> _setup() async {
@@ -741,7 +765,7 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
       final file = await _clipWithCredit();
       await ProNetworxService().createFeedPostViaStorage(
         file,
-        caption: _caption,
+        caption: _feedCaption,
         kind: FeedMediaKind.video,
       );
       if (!mounted) return;
@@ -1175,6 +1199,35 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        TextField(
+          controller: _captionCtrl,
+          enabled: !_posting && !_postingStory,
+          minLines: 2,
+          maxLines: 4,
+          maxLength: 280,
+          style: const TextStyle(color: Colors.white, fontSize: 14),
+          decoration: InputDecoration(
+            labelText: 'Caption',
+            hintText: 'Write a caption',
+            helperText: 'Clear this to post the song line without a link.',
+            helperMaxLines: 2,
+            labelStyle: const TextStyle(color: Colors.white70),
+            hintStyle: const TextStyle(color: Colors.white38),
+            helperStyle: const TextStyle(color: Colors.white54, fontSize: 11),
+            counterStyle: const TextStyle(color: Colors.white38),
+            filled: true,
+            fillColor: Colors.white10,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.white24),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.white24),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
         FilledButton(
           onPressed: _posting || _postingStory ? null : _post,
           child: Text(_posting ? 'Posting…' : 'Post to feed'),

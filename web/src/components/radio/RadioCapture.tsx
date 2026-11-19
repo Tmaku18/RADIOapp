@@ -6,7 +6,12 @@ import { toast } from 'sonner';
 import { usePlaybackOptional } from '@/components/playback/PlaybackProvider';
 import type { PlaybackTrack } from '@/components/playback';
 import { discoveryApi, songStoriesApi, type StoryVisibility } from '@/lib/api';
-import { artistShareText, stationShareText } from '@/lib/radio-share';
+import {
+  artistShareLead,
+  artistShareText,
+  stationShareLead,
+  stationShareText,
+} from '@/lib/radio-share';
 import { startLiveSongRecording, startMirrorLoop } from '@/lib/social-share';
 import { ArtistCreditOverlay, ArtistCreditTray } from '@/components/radio/ArtistCreditOverlay';
 import { CaptureShutter } from '@/components/radio/CaptureShutter';
@@ -14,6 +19,20 @@ import { SocialShareButtons } from '@/components/radio/SocialShareButtons';
 import { burnArtistCredit, type ArtistCreditStyle } from '@/lib/artist-credit';
 
 const CLIP_SECONDS = 15;
+
+function songLine(track: PlaybackTrack): string {
+  const artist = track.artistId?.trim();
+  if (artist) {
+    return artistShareLead({
+      artistName: track.artistName,
+      songTitle: track.title,
+    });
+  }
+  const station = track.radioId?.trim();
+  if (station) return stationShareLead(station);
+  const name = track.artistName.trim();
+  return name ? `${track.title} — ${name}` : track.title;
+}
 
 function captionFor(track: PlaybackTrack): string {
   const artist = track.artistId?.trim();
@@ -27,8 +46,7 @@ function captionFor(track: PlaybackTrack): string {
   }
   const station = track.radioId?.trim();
   if (station) return stationShareText(station);
-  const name = track.artistName.trim();
-  return name ? `${track.title} — ${name}` : track.title;
+  return songLine(track);
 }
 
 export function RadioCaptureDialog({
@@ -76,6 +94,7 @@ export function RadioCaptureDialog({
   const pressGen = useRef(0);
   const recordingFlag = useRef(false);
   const [aspect, setAspect] = useState<number | null>(null);
+  const [caption, setCaption] = useState(() => songLine(track));
   const burned = useRef<{ key: string; file: File } | null>(null);
 
   useEffect(() => {
@@ -270,7 +289,8 @@ export function RadioCaptureDialog({
     setError(null);
     try {
       const file = await clipWithCredit();
-      await discoveryApi.createFeedPost(file, captionFor(track));
+      const typed = caption.trim();
+      await discoveryApi.createFeedPost(file, typed || songLine(track));
       toast.success('Posted to your feed with this song.');
     } catch {
       setError('Could not post that clip. Sign in if you have not, then try again.');
@@ -391,6 +411,21 @@ export function RadioCaptureDialog({
               onScale={setCreditScale}
             />
             {preparing ? <p className="text-xs text-white/70">Adding the artist credit…</p> : null}
+            <label className="block space-y-1">
+              <span className="text-xs font-semibold">Caption</span>
+              <textarea
+                value={caption}
+                maxLength={280}
+                rows={3}
+                disabled={posting || postingStory}
+                placeholder="Write a caption"
+                onChange={(event) => setCaption(event.target.value)}
+                className="w-full resize-none rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-white/40 disabled:opacity-50"
+              />
+              <span className="text-[11px] text-white/50">
+                Clear this to post the song line without a link.
+              </span>
+            </label>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"

@@ -29,10 +29,25 @@ class RadioShare {
     return '$base?song=${Uri.encodeComponent(song)}';
   }
 
-  static String stationMessage(String stationId) {
+  static String stationLead(String stationId) {
     final name = stationLabel(stationId);
-    return 'Listen to $name on NETWORX Radio.\n${stationLink(stationId)}\n\n'
+    return 'Listen to $name on NETWORX Radio.';
+  }
+
+  static String stationMessage(String stationId) {
+    return '${stationLead(stationId)}\n${stationLink(stationId)}\n\n'
         "If you don't have the app yet, this link takes you to download it.";
+  }
+
+  static String artistLead({
+    required String artistName,
+    String? songTitle,
+  }) {
+    final name = artistName.trim().isEmpty ? 'This artist' : artistName.trim();
+    final title = songTitle?.trim() ?? '';
+    return title.isEmpty
+        ? '$name is on NETWORX Radio.'
+        : '$name is on NETWORX Radio right now with "$title".';
   }
 
   static String artistMessage({
@@ -41,12 +56,8 @@ class RadioShare {
     String? songTitle,
     String? songId,
   }) {
-    final name = artistName.trim().isEmpty ? 'This artist' : artistName.trim();
-    final title = songTitle?.trim() ?? '';
-    final lead = title.isEmpty
-        ? '$name is on NETWORX Radio.'
-        : '$name is on NETWORX Radio right now with "$title".';
-    return '$lead\n${artistLink(artistId, songId: songId)}';
+    return '${artistLead(artistName: artistName, songTitle: songTitle)}\n'
+        '${artistLink(artistId, songId: songId)}';
   }
 
   static Future<void> shareStation(
