@@ -244,7 +244,7 @@ class PlayBillingService {
   /// Prefers `IOS_APP_STORE_SONG_PLAYS_PRICE_PRODUCT_MAP_JSON` on iOS, then
   /// `ANDROID_PLAY_SONG_PLAYS_PRICE_PRODUCT_MAP_JSON`.
   ///
-  /// Key format: `plays:totalCents` (example: `5:995`)
+  /// Key format: `plays:totalCents` (example: `5:999`)
   String? songPlaysProductIdForPricing({
     required int plays,
     required int totalCents,

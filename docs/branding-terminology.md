@@ -132,7 +132,7 @@ Detailed entries for each term follow below.
 ## Artist Discovery Placement (paid promotion)
 
 - **Term**: **Artist Discovery Placement** (a.k.a. discovery placement)
-- **Meaning**: A paid promotion that seeds a track into the discovery pipeline with a *target* (not guaranteed) delivery of about 100 verified listener exposures per $1.99 placement. Replaces any "buy airtime" framing to avoid radio-royalty confusion.
+- **Meaning**: A paid promotion that seeds a track into the discovery pipeline with a *target* (not guaranteed) delivery of about 100 verified listener exposures per placement. One placement is $1.99. Packs are $4.99 (3), $9.99 (5), $17.99 (10), $39.99 (25), $75.99 (50), and $150 (100), the same on the website and in the app. Packs of 3 or more include free placements. Replaces any "buy airtime" framing to avoid radio-royalty confusion.
 - **Where used**: Marketing (For Gems), FAQ, pricing, artist dashboard.
 
 ## Listens (discovery metric)

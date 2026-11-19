@@ -50,7 +50,7 @@ const faqs = [
       },
       {
         q: 'How do artist discovery placements work?',
-        a: 'Seed a track into the Networx discovery pipeline for $1.99, with a target delivery of roughly 100 verified listener exposures. Placements are built on real, tracked delivery and engagement - and you get full campaign analytics (votes, downvotes, and conversion) in The Wake. No bots, no fake streams.',
+        a: 'One placement is $1.99 and targets about 100 verified listener exposures. Packs are $4.99 for 3, $9.99 for 5, $17.99 for 10, $39.99 for 25, $75.99 for 50, and $150 for 100. Buying 3, 5, 10, 25, 50, or 100 also adds free placements (1, 2, 4, 10, 20, or 40). The website and the app charge these same prices. You get campaign analytics (votes, downvotes, and conversion) in The Wake. No bots, no fake streams.',
       },
       {
         q: 'Can I sell my music on Networx?',

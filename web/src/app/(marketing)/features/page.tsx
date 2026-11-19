@@ -62,7 +62,7 @@ const GROUPS: FeatureGroup[] = [
       {
         title: 'Verified Listener Exposure',
         tag: 'Artist Discovery Placements',
-        body: 'Seed a track into the Networx discovery pipeline for $1.99, with a target delivery of roughly 100 verified listener exposures. Placements are built around real, tracked delivery and engagement - not vanity numbers.',
+        body: 'Seed a track into the Networx discovery pipeline. One placement is $1.99 and targets about 100 verified listener exposures. Packs are $4.99 for 3, $9.99 for 5, $17.99 for 10, $39.99 for 25, $75.99 for 50, and $150 for 100, with free placements on every pack except a single. The same prices are charged on the website and in the app. Delivery is tracked, not a vanity count.',
       },
       {
         title: 'Sell Full Tracks Directly',

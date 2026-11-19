@@ -143,4 +143,6 @@ Structured ADR-style record. Each entry: **Context → Decision → Rationale �
 **Context:** Artists buy placements in packs of 1, 3, 5, 10, 25, 50, or 100.  
 **Decision:** One placement is $1.99. Pack prices are $4.99 for 3, $9.99 for 5, $17.99 for 10, $39.99 for 25, $75.99 for 50, and $150 for 100. Extra placements are added when the purchase is applied: 3 gets 1 free, 5 gets 2, 10 gets 4, 25 gets 10, 50 gets 20, and 100 gets 40. One placement has no bonus.  
 **Rationale:** Larger packs should deliver more than the paid count.  
-**Impact:** `bonusPlacementsFor` in payments, Buy placements on web and mobile, pricing page.
+**Impact:** `bonusPlacementsFor` and `packPriceCents` in payments. Web checkout and the mobile store catalog both use that table, so the list price is the same. Store consoles still have to be set to these amounts or Apple and Google charge the old price.
+
+**Income planning (Nov 2026):** subscriptions stay on the previous model (2% Pro Bundle, 2% Pro-Networx, 1.5% Pro-Radio, 25% blended store cut). Discovery changes to 2% of monthly active users buying one pack. The mix averages $8.38 before the store cut. At 10,000 monthly active users that is about $5,860 net per month, about $70,320 per year, before hosting, payroll, refunds, and tax.

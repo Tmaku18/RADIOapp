@@ -15,7 +15,7 @@ Use this document as the canonical Play Console copy. It is aligned with the cur
 | App name **RADIOapp** | Product is **Networx Radio** (`NETWORX Radio: The Butterfly Effect`) | **Updated** title and copy |
 | **Spotify login** | Not implemented — Google, Apple, and email auth only | **Removed** |
 | Main radio = artists “broadcasting live” | Always-on **synchronized democratic radio**; separate **artist livestreams** (DJ / performances) | **Clarified** |
-| Generic **credits** boosts | **Discovery placements** at **$1.99** (~100 verified exposures each) + credit allocation for rotation | **Clarified** |
+| Generic **credits** boosts | **Discovery placements**: **$1.99** for 1, **$4.99** for 3, **$9.99** for 5, **$17.99** for 10, **$39.99** for 25, **$75.99** for 50, **$150** for 100 (~100 verified exposures each) | **Clarified** |
 | No **ProNetworx** | Full Pro-Networx shell: profiles, feed, services, directory, messaging (subscription) | **Added** |
 | No **The Refinery** / **The Yield** | Both shipped on mobile | **Added** |
 | No direct **song sales** | 30-second preview + purchase full track | **Added** |

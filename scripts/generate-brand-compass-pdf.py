@@ -265,7 +265,7 @@ def build_pdf(out_path: Path) -> None:
     pillars = [
         ["Pillar", "Status", "Notes"],
         ["Live Discovery", "✅ Shipped", "Radio, fire/pass, temperature, Ripples, Trial by Fire, chat, livestreams"],
-        ["Direct Monetization", "✅ Shipped", "Preview→purchase, $1.99 placements, credits, Stripe/Play Billing"],
+        ["Direct Monetization", "✅ Shipped", "Preview→purchase, placements $1.99–$150, credits, Stripe/Play Billing"],
         ["Creator Intelligence", "✅ Shipped", "The Wake, ROI, heatmap, live platform stats"],
         ["Prospector Rewards", "✅ Shipped", "The Refinery + The Yield"],
         ["Pro-Networx Network", "✅ Shipped", "Profiles, feed, services, directory, messaging (subscription)"],
@@ -300,7 +300,7 @@ def build_pdf(out_path: Path) -> None:
         "Democratic always-on radio with synchronized playback",
         "Fire/pass voting, temperature, Ripples, competition leaderboards",
         "The Wake analytics, The Refinery, The Yield",
-        "Discovery placements ($1.99 / ~100 exposures)",
+        "Discovery placements ($1.99, packs $4.99 / $9.99 / $17.99 / $39.99 / $75.99 / $150, ~100 exposures)",
         "Direct-to-fan preview + purchase + library",
         "Pro-Networx profiles, feed, services, directory, messaging",
         "Artist livestreaming + live chat",

@@ -52,7 +52,7 @@ A people-powered label means NETWORX gives independent creators tools labels usu
 - Fan engagement data (The Wake, Prospector heatmap)
 - Track sales (30-second preview → full purchase)
 - Earnings visibility (analytics, transactions, Yield for Prospectors)
-- Discovery placements ($1.99 verified-exposure units)
+- Discovery placements ($1.99 each, or packs at $4.99 / $9.99 / $17.99 / $39.99 / $75.99 / $150)
 - Creator analytics (The Wake)
 - Pro-Networx profiles, services marketplace, and messaging
 - Direct relationship ownership (artist profiles, DMs with subscription)
@@ -262,7 +262,7 @@ Visual: premium achievement cards — dark glass background, clean metrics, **Ne
 | Pillar | Shipped | Notes |
 |--------|---------|-------|
 | **Live Discovery** | ✅ | Always-on synchronized radio, fire/pass voting, temperature (0–100), Ripples, Trial by Fire, competition leaderboards, live chat, artist livestreams (DJ + performances) |
-| **Direct Monetization** | ✅ | 30s preview → full track purchase (Stripe), discovery placements ($1.99 / ~100 exposures), credits allocation, Google Play Billing on Android |
+| **Direct Monetization** | ✅ | 30s preview → full track purchase (Stripe), discovery placements ($1.99, packs $4.99–$150, ~100 exposures each), credits allocation, Google Play Billing on Android |
 | **Creator Intelligence** | ✅ | The Wake analytics, ROI, Prospector heatmap, platform live stats (ears reached, live listeners) |
 | **Prospector Rewards** | ✅ | The Refinery (rank, survey, comment), The Yield (balance + redemption) |
 | **Pro-Networx Network** | ✅ | Profiles, feed, services marketplace, directory, search, messaging (subscription), jobs — web + mobile |
@@ -285,7 +285,7 @@ The original PDF framed a 30-day storefront-first MVP. **What actually shipped**
 6. ✅ Artist livestreaming (approved streamers)  
 7. ✅ The Wake analytics  
 8. ✅ The Refinery + The Yield  
-9. ✅ Discovery placements ($1.99) + credit packs  
+9. ✅ Discovery placements ($1.99 and packs through $150) + credit packs  
 10. ✅ Direct-to-fan track preview + purchase + library  
 11. ✅ Pro-Networx (profiles, feed, services, directory, messaging)  
 12. ✅ Push notifications (FCM mobile)  
