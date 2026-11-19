@@ -66,8 +66,6 @@ function Stage1Gem({ activeRef, progressRef }) {
   const forearmRef = useRef();
   const torsoRef = useRef();
   const pickaxe = useRef();
-  const gem = useRef();
-  const gemCore = useRef();
   const gemSpin = useRef();
   const sparksRef = useRef();
   const dustRef = useRef();
@@ -103,6 +101,9 @@ function Stage1Gem({ activeRef, progressRef }) {
   const prospectorMap = useTexture("/lore/prospector.png");
   prospectorMap.colorSpace = THREE.SRGBColorSpace;
   prospectorMap.anisotropy = 8;
+  const oreMap = useTexture("/lore/ore.png");
+  oreMap.colorSpace = THREE.SRGBColorSpace;
+  oreMap.anisotropy = 8;
 
   // Spark particles
   useEffect(() => {
@@ -199,13 +200,10 @@ function Stage1Gem({ activeRef, progressRef }) {
       gemLight.current.intensity = (1.5 + local * 1.1 + flash * 4.5) * a;
     }
     if (gemSpin.current) {
-      gemSpin.current.rotation.y = time * 0.35;
-      gemSpin.current.position.y = -0.56 + Math.sin(time * 1.4) * 0.012;
+      gemSpin.current.position.y = -0.58 + Math.sin(time * 1.4) * 0.006;
       const punch = Math.max(0, 1 - sinceStrike / 0.16);
-      gemSpin.current.scale.setScalar(1 + punch * 0.1);
+      gemSpin.current.scale.setScalar(1 + punch * 0.045);
     }
-    if (gem.current) gem.current.material.emissiveIntensity = 0.4 + local * 0.4 + flash * 1.5;
-    if (gemCore.current) gemCore.current.material.emissiveIntensity = 1.5 + flash * 2.4;
     if (dustRef.current) {
       const u = sinceStrike / 0.55;
       if (sinceStrike > 0 && u < 1) {
@@ -236,64 +234,13 @@ function Stage1Gem({ activeRef, progressRef }) {
         />
       </mesh>
 
-      {[
-        [-0.55, -0.78, 0.2, 0.42, 0.26, 0.34, 0.35, 0.2, 0.1],
-        [0.52, -0.8, 0.16, 0.48, 0.3, 0.36, 0.2, -0.4, 0.25],
-        [0.08, -0.86, 0.38, 0.3, 0.18, 0.26, 0.5, 0.3, 0.05],
-        [-0.16, -0.88, -0.26, 0.38, 0.22, 0.32, 0.25, 1.1, 0.15],
-        [0.82, -0.9, -0.08, 0.24, 0.16, 0.2, 0.4, 0.2, 0.3],
-        [-0.88, -0.9, -0.02, 0.2, 0.13, 0.16, 0.15, 0.7, 0.2],
-      ].map((r, i) => (
-        <mesh
-          key={i}
-          position={[r[0], r[1], r[2]]}
-          scale={[r[3], r[4], r[5]]}
-          rotation={[r[6], r[7], r[8]]}
-        >
-          <icosahedronGeometry args={[1, 0]} />
-          <meshStandardMaterial
-            color={i % 2 === 0 ? "#23262e" : "#2c2824"}
-            roughness={0.92}
-            metalness={0.08}
-            flatShading
-          />
-        </mesh>
-      ))}
-      {[
-        [0.18, -0.64, 0.12],
-        [-0.28, -0.66, 0.08],
-        [0.4, -0.66, 0.02],
-      ].map((f, i) => (
-        <mesh key={`fleck-${i}`} position={f} scale={0.045}>
-          <octahedronGeometry args={[1, 0]} />
-          <meshStandardMaterial
-            color={YELLOW}
-            emissive={YELLOW}
-            emissiveIntensity={0.6}
-            metalness={0.7}
-            roughness={0.2}
-          />
-        </mesh>
-      ))}
-
-      <group ref={gemSpin} position={[0, -0.56, 0]}>
-        <mesh ref={gem}>
-          <octahedronGeometry args={[0.22, 1]} />
-          <meshStandardMaterial
-            color="#ffe7a0"
-            emissive={YELLOW}
-            emissiveIntensity={0.55}
-            roughness={0.12}
-            metalness={0.78}
-          />
-        </mesh>
-        <mesh ref={gemCore} scale={0.52}>
-          <octahedronGeometry args={[0.22, 0]} />
-          <meshStandardMaterial
-            color="#fff8dc"
-            emissive="#fff1b0"
-            emissiveIntensity={1.6}
-            roughness={0.05}
+      <group ref={gemSpin} position={[-0.02, -0.58, 0.08]}>
+        <mesh position={[0, 0, 0]}>
+          <planeGeometry args={[1.28, 1.28]} />
+          <meshBasicMaterial
+            map={oreMap}
+            transparent
+            alphaTest={0.04}
             toneMapped={false}
           />
         </mesh>
@@ -358,42 +305,46 @@ function Stage1Gem({ activeRef, progressRef }) {
 }
 
 // =====================================================================
-// STAGE 2 ??? RIPPLE: growing concentric waves
+// STAGE 2 — a drop falls into a lake and the ripples open into waves
 // =====================================================================
-function RippleRing({ delay, color }) {
-  const ref = useRef();
-  useFrame((state) => {
-    const t = state.clock.elapsedTime;
-    const cycle = 3.0;
-    const local = ((t + delay) % cycle) / cycle; // 0..1
-    if (ref.current) {
-      const scale = 0.05 + local * 2.4;
-      ref.current.scale.set(scale, scale, scale);
-      const op = (1 - local) * 0.85;
-      ref.current.material.opacity = op;
-      ref.current.rotation.z = local * 0.6;
-    }
-  });
-  return (
-    <mesh ref={ref} rotation={[-Math.PI / 2, 0, 0]}>
-      <ringGeometry args={[0.96, 1.0, 96]} />
-      <meshBasicMaterial
-        color={color}
-        transparent
-        opacity={0}
-        side={THREE.DoubleSide}
-        toneMapped={false}
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-      />
-    </mesh>
-  );
-}
-
 function Stage2Ripple({ activeRef }) {
   const root = useRef();
-  const core = useRef();
-  const halo = useRef();
+  const waterRef = useRef();
+  const dropRef = useRef();
+  const splashRef = useRef();
+  const ringsRef = useRef();
+  const lake = useMemo(() => {
+    const rings = 42;
+    const segs = 80;
+    const radius = 1.85;
+    const positions = [0, 0, 0];
+    const indices = [];
+    for (let r = 1; r <= rings; r++) {
+      const rad = (r / rings) * radius;
+      for (let s = 0; s < segs; s++) {
+        const a = (s / segs) * Math.PI * 2;
+        positions.push(Math.cos(a) * rad, 0, Math.sin(a) * rad);
+      }
+    }
+    for (let s = 0; s < segs; s++) {
+      indices.push(0, 1 + ((s + 1) % segs), 1 + s);
+    }
+    for (let r = 0; r < rings - 1; r++) {
+      for (let s = 0; s < segs; s++) {
+        const a = 1 + r * segs + s;
+        const b = 1 + r * segs + ((s + 1) % segs);
+        const c = 1 + (r + 1) * segs + s;
+        const d = 1 + (r + 1) * segs + ((s + 1) % segs);
+        indices.push(a, b, d, a, d, c);
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    const base = new Float32Array(geo.attributes.position.array);
+    return { geo, base };
+  }, []);
 
   useFrame((state) => {
     const a = activeRef.current;
@@ -402,50 +353,150 @@ function Stage2Ripple({ activeRef }) {
     applyOpacity(root.current, a);
 
     const t = state.clock.elapsedTime;
-    if (core.current) {
-      const pulse = 1 + Math.sin(t * 4.5) * 0.12;
-      core.current.scale.set(pulse, pulse, pulse);
-      core.current.material.emissiveIntensity = 1.5 + Math.sin(t * 4.5) * 0.6;
+    const cycle = 4.2;
+    const phase = (t % cycle) / cycle;
+    const impact = 0.34;
+    const fall = smoothstep(0, impact, phase);
+    const since = Math.max(0, phase - impact);
+    const age = since * cycle;
+
+    if (dropRef.current) {
+      const falling = phase < impact;
+      dropRef.current.visible = falling && a > 0.02;
+      dropRef.current.position.y = THREE.MathUtils.lerp(1.72, 0.03, fall * fall);
+      const stretch = 1 + (1 - fall) * 0.45;
+      dropRef.current.scale.set(0.72, stretch, 0.72);
     }
-    if (halo.current) {
-      halo.current.rotation.z = t * 0.6;
+
+    const pos = lake.geo.attributes.position;
+    const src = lake.base;
+    for (let i = 0; i < pos.count; i++) {
+      const x = src[i * 3];
+      const z = src[i * 3 + 2];
+      const r = Math.hypot(x, z);
+      let y =
+        Math.sin(x * 1.6 + t * 0.65) * 0.01 +
+        Math.cos(z * 1.25 - t * 0.5) * 0.008;
+      if (since > 0) {
+        const rippleFront = age * 1.15;
+        const rippleGap = r - rippleFront;
+        const ripple =
+          Math.sin(rippleGap * 18 - age * 8) *
+          Math.exp(-age * 0.9) *
+          Math.exp(-rippleGap * rippleGap * 8) *
+          0.16;
+        const waveFront = age * 0.55;
+        const waveGap = r - waveFront;
+        const wave =
+          Math.sin(waveGap * 3.4 - age * 1.8) *
+          Math.exp(-age * 0.18) *
+          Math.exp(-waveGap * waveGap * 0.55) *
+          Math.min(1, age * 1.2) *
+          0.22;
+        y += ripple + wave;
+      }
+      const shore = smoothstep(1.35, 1.85, r);
+      pos.setXYZ(i, x, y * (1 - shore), z);
+    }
+    pos.needsUpdate = true;
+    lake.geo.computeVertexNormals();
+
+    if (waterRef.current) {
+      waterRef.current.material.transparent = true;
+      waterRef.current.material.depthWrite = false;
+      waterRef.current.material.opacity = 0.96 * a;
+    }
+
+    if (splashRef.current) {
+      const kids = splashRef.current.children;
+      const burst = since > 0 && age < 0.85 ? age / 0.85 : -1;
+      kids.forEach((drop, i) => {
+        if (burst < 0) {
+          drop.visible = false;
+          return;
+        }
+        drop.visible = true;
+        const ang = (i / kids.length) * Math.PI * 2;
+        const travel = burst * (0.35 + (i % 3) * 0.08);
+        const hop = Math.sin(burst * Math.PI) * (0.28 + (i % 4) * 0.04);
+        drop.position.set(Math.cos(ang) * travel, hop, Math.sin(ang) * travel);
+        drop.scale.setScalar((1 - burst) * 0.7);
+        drop.material.transparent = true;
+        drop.material.depthWrite = false;
+        drop.material.opacity = (1 - burst) * a;
+      });
+    }
+
+    if (ringsRef.current) {
+      ringsRef.current.children.forEach((ring, i) => {
+        const delay = i * 0.18;
+        const localAge = age - delay;
+        if (since <= 0 || localAge < 0) {
+          ring.material.opacity = 0;
+          return;
+        }
+        const ripple = i < 3;
+        const maxR = ripple ? 1.35 : 1.62;
+        const spread = Math.min(maxR, 0.06 + localAge * (ripple ? 0.62 : 0.34));
+        ring.scale.set(spread, spread, spread);
+        const fade = 1 - spread / maxR;
+        ring.material.transparent = true;
+        ring.material.depthWrite = false;
+        ring.material.opacity = fade * (ripple ? 0.55 : 0.28) * a;
+      });
     }
   });
 
   return (
-    <group ref={root}>
-      {/* Central pulsing core sphere */}
-      <mesh ref={core}>
-        <sphereGeometry args={[0.32, 32, 32]} />
+    <group ref={root} position={[-0.72, -0.15, 0]}>
+      <mesh position={[0, -0.06, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[2.05, 64]} />
+        <meshBasicMaterial color="#041018" />
+      </mesh>
+      <mesh ref={waterRef} geometry={lake.geo} position={[0, 0, 0]}>
         <meshStandardMaterial
-          color="#ffe4f0"
-          emissive={PINK}
-          emissiveIntensity={1.6}
-          roughness={0.15}
-          metalness={0.5}
-          toneMapped={false}
+          color="#1a5670"
+          roughness={0.08}
+          metalness={0.72}
+          emissive="#083044"
+          emissiveIntensity={0.45}
         />
       </mesh>
-      {/* Halo behind core */}
-      <mesh ref={halo} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.45, 0.55, 64]} />
-        <meshBasicMaterial
-          color={PINK}
+      <mesh ref={dropRef} position={[0, 1.72, 0]}>
+        <sphereGeometry args={[0.085, 24, 24]} />
+        <meshPhysicalMaterial
+          color="#e7f7ff"
+          roughness={0.04}
+          metalness={0.05}
+          transmission={0.92}
+          thickness={0.18}
+          ior={1.33}
           transparent
-          opacity={0.35}
-          side={THREE.DoubleSide}
-          toneMapped={false}
-          blending={THREE.AdditiveBlending}
         />
       </mesh>
-      {/* Concentric ripple rings, staggered */}
-      {[0, 0.55, 1.1, 1.6, 2.15].map((d, i) => (
-        <RippleRing
-          key={i}
-          delay={d}
-          color={i % 2 === 0 ? PINK : "#ff66b0"}
-        />
-      ))}
+      <group ref={splashRef}>
+        {Array.from({ length: 14 }, (_, i) => (
+          <mesh key={i} visible={false}>
+            <sphereGeometry args={[0.028, 10, 10]} />
+            <meshStandardMaterial color="#f4fbff" roughness={0.08} metalness={0.2} />
+          </mesh>
+        ))}
+      </group>
+      <group ref={ringsRef} position={[0, 0.02, 0]}>
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <mesh key={i} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[i < 3 ? 0.985 : 0.9, 1.0, 96]} />
+            <meshBasicMaterial
+              color={i < 3 ? "#e9f8ff" : "#7ec4e4"}
+              transparent
+              opacity={0}
+              side={THREE.DoubleSide}
+              depthWrite={false}
+              toneMapped={false}
+            />
+          </mesh>
+        ))}
+      </group>
     </group>
   );
 }
@@ -629,65 +680,26 @@ function Stage3Wings({ activeRef, progressRef }) {
 }
 
 // =====================================================================
-// STAGE 4 ??? DIAMOND: proper faceted diamond with sparkles
+// STAGE 4 — a photographed brilliant-cut diamond
 // =====================================================================
-function diamondGeometry() {
-  // Build a brilliant-cut-ish geometry: top pyramid (crown), middle band (girdle), bottom inverted pyramid (pavilion)
-  const verts = [];
-  const idx = [];
-  const sides = 10;
-  const crownRadius = 1.0;
-  const girdleY = 0.0;
-  const crownTopY = 0.55;
-  const pavilionTipY = -1.1;
-  // top center
-  verts.push(0, crownTopY, 0); // 0
-  // crown ring around girdle - slightly above girdle level
-  const crownRingY = girdleY + 0.05;
-  for (let i = 0; i < sides; i++) {
-    const a = (i / sides) * Math.PI * 2;
-    verts.push(Math.cos(a) * crownRadius, crownRingY, Math.sin(a) * crownRadius);
-  }
-  // pavilion tip
-  verts.push(0, pavilionTipY, 0); // index = 1 + sides
-  const tipIdx = 1 + sides;
-  // crown faces (top -> ring i, ring i+1)
-  for (let i = 0; i < sides; i++) {
-    const a = 1 + i;
-    const b = 1 + ((i + 1) % sides);
-    idx.push(0, a, b);
-  }
-  // pavilion faces (ring i, tip, ring i+1)
-  for (let i = 0; i < sides; i++) {
-    const a = 1 + i;
-    const b = 1 + ((i + 1) % sides);
-    idx.push(a, tipIdx, b);
-  }
-  const geom = new THREE.BufferGeometry();
-  geom.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
-  geom.setIndex(idx);
-  geom.computeVertexNormals();
-  return geom;
-}
-
 function Stage4Diamond({ activeRef }) {
   const root = useRef();
   const dia = useRef();
-  const innerDia = useRef();
+  const glint = useRef();
   const sparkleRef = useRef();
-  const geom = useMemo(() => diamondGeometry(), []);
-  const wireGeom = useMemo(() => diamondGeometry(), []);
+  const glintMap = useMemo(() => radialTexture(), []);
+  const diamondMap = useTexture("/lore/diamond.png");
+  diamondMap.colorSpace = THREE.SRGBColorSpace;
+  diamondMap.anisotropy = 8;
 
-  // Sparkles around the diamond
   const sparklePositions = useMemo(() => {
-    const arr = new Float32Array(120 * 3);
-    for (let i = 0; i < 120; i++) {
-      const r = 1.6 + Math.random() * 1.4;
+    const arr = new Float32Array(28 * 3);
+    for (let i = 0; i < 28; i++) {
+      const r = 0.15 + Math.random() * 0.72;
       const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-      arr[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-      arr[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-      arr[i * 3 + 2] = r * Math.cos(phi);
+      arr[i * 3] = Math.cos(theta) * r;
+      arr[i * 3 + 1] = (Math.random() - 0.45) * 0.55;
+      arr[i * 3 + 2] = Math.sin(theta) * r * 0.35;
     }
     return arr;
   }, []);
@@ -700,63 +712,48 @@ function Stage4Diamond({ activeRef }) {
 
     const t = state.clock.elapsedTime;
     if (dia.current) {
-      dia.current.rotation.y = t * 0.6;
-      dia.current.rotation.x = Math.sin(t * 0.5) * 0.15;
-      const mat = dia.current.material;
-      if (mat) mat.emissiveIntensity = 0.4 + Math.sin(t * 2.2) * 0.25;
+      dia.current.position.y = Math.sin(t * 0.8) * 0.04;
+      dia.current.material.transparent = true;
+      dia.current.material.depthWrite = false;
+      dia.current.material.opacity = a;
     }
-    if (innerDia.current) {
-      innerDia.current.rotation.y = -t * 0.4;
-      innerDia.current.rotation.x = Math.cos(t * 0.5) * 0.15;
+    if (glint.current) {
+      const sweep = (Math.sin(t * 0.7) + 1) / 2;
+      glint.current.position.x = THREE.MathUtils.lerp(-0.35, 0.4, sweep);
+      glint.current.material.transparent = true;
+      glint.current.material.depthWrite = false;
+      glint.current.material.opacity = a * (0.18 + Math.sin(t * 1.7) * 0.08);
     }
     if (sparkleRef.current) {
-      sparkleRef.current.rotation.y = t * 0.2;
-      sparkleRef.current.material.opacity = a * (0.7 + Math.sin(t * 3) * 0.3);
+      sparkleRef.current.material.opacity = a * (0.35 + Math.sin(t * 3) * 0.2);
     }
   });
 
   return (
-    <group ref={root}>
-      {/* Outer faceted shell */}
-      <mesh ref={dia} geometry={geom}>
-        <meshPhysicalMaterial
-          color="#E6FCFF"
-          emissive={CYAN}
-          emissiveIntensity={0.5}
-          roughness={0.05}
-          metalness={0.8}
-          clearcoat={1}
-          clearcoatRoughness={0.05}
-          flatShading
+    <group ref={root} position={[-0.78, 0.08, 0]}>
+      <mesh ref={dia} position={[0, 0.05, 0]}>
+        <planeGeometry args={[2.35, 2.35]} />
+        <meshBasicMaterial
+          map={diamondMap}
+          transparent
+          alphaTest={0.04}
           toneMapped={false}
+          depthWrite={false}
         />
       </mesh>
-
-      {/* Inner reverse-rotating diamond for refraction feel */}
-      <mesh ref={innerDia} geometry={wireGeom} scale={0.78}>
+      <mesh ref={glint} position={[0, 0.12, 0.02]}>
+        <planeGeometry args={[0.7, 0.7]} />
         <meshBasicMaterial
-          color={CYAN}
+          map={glintMap}
+          color="#ffffff"
           transparent
-          opacity={0.25}
-          wireframe
-          toneMapped={false}
-        />
-      </mesh>
-
-      {/* Halo ring around the girdle */}
-      <mesh rotation={[Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[1.18, 1.32, 64]} />
-        <meshBasicMaterial
-          color={CYAN}
-          transparent
-          opacity={0.25}
-          side={THREE.DoubleSide}
-          toneMapped={false}
+          opacity={0}
+          depthWrite={false}
           blending={THREE.AdditiveBlending}
+          toneMapped={false}
         />
       </mesh>
-
-      {/* Sparkles */}
+      <pointLight position={[0.4, 1.2, 1.6]} intensity={6} color="#ffffff" distance={4} decay={2} />
       <Points
         ref={sparkleRef}
         positions={sparklePositions}
@@ -766,7 +763,7 @@ function Stage4Diamond({ activeRef }) {
         <PointMaterial
           transparent
           color={WHITE}
-          size={0.06}
+          size={0.035}
           sizeAttenuation
           depthWrite={false}
           opacity={0}
