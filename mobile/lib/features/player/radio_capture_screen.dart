@@ -52,6 +52,64 @@ class RadioCaptureScreen extends StatefulWidget {
 
 enum _CapturePhase { preparing, ready, recording, mixing, review, failed }
 
+/// Sits above the review tray so a drag on the credit is not stolen by the
+/// tray's scroll view. Empty space still passes taps through to the buttons.
+class _CreditDragOverlay extends StatelessWidget {
+  const _CreditDragOverlay({
+    required this.aspectRatio,
+    required this.dx,
+    required this.dy,
+    required this.scale,
+    required this.onMove,
+  });
+
+  final double aspectRatio;
+  final double dx;
+  final double dy;
+  final double scale;
+  final void Function(double dx, double dy) onMove;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxW = constraints.maxWidth;
+        final maxH = constraints.maxHeight;
+        if (maxW <= 0 || maxH <= 0) return const SizedBox.shrink();
+        final fitted = applyBoxFit(
+          BoxFit.contain,
+          Size(aspectRatio * 1000, 1000),
+          Size(maxW, maxH),
+        );
+        final videoW = fitted.destination.width;
+        final videoH = fitted.destination.height;
+        if (videoW <= 0 || videoH <= 0) return const SizedBox.shrink();
+        final left = (maxW - videoW) / 2;
+        final top = (maxH - videoH) / 2;
+        final hitW = videoW * 0.84 < 140 ? 140.0 : videoW * 0.84;
+        final hitH = videoW * 0.34 * scale < 96 ? 96.0 : videoW * 0.34 * scale;
+        return Stack(
+          children: [
+            Positioned(
+              left: left + videoW * dx - hitW / 2,
+              top: top + videoH * dy - hitH / 2,
+              width: hitW,
+              height: hitH,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onPanUpdate: (details) {
+                  onMove(details.delta.dx / videoW, details.delta.dy / videoH);
+                },
+                child: const SizedBox.expand(),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
   final AudioPlayer _cue = AudioPlayer(
     handleInterruptions: false,
@@ -949,6 +1007,26 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
                       )
                     : const Center(child: CircularProgressIndicator()),
                 SafeArea(child: _chrome()),
+                if (_phase == _CapturePhase.review &&
+                    preview != null &&
+                    preview.value.isInitialized &&
+                    _creditStyle != null)
+                  Positioned.fill(
+                    child: _CreditDragOverlay(
+                      aspectRatio: preview.value.aspectRatio == 0
+                          ? 9 / 16
+                          : preview.value.aspectRatio,
+                      dx: _creditX,
+                      dy: _creditY,
+                      scale: _creditScale,
+                      onMove: (dx, dy) {
+                        setState(() {
+                          _creditX = (_creditX + dx).clamp(0.12, 0.88);
+                          _creditY = (_creditY + dy).clamp(0.12, 0.88);
+                        });
+                      },
+                    ),
+                  ),
               ],
             ),
     );
