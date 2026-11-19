@@ -1,10 +1,10 @@
 'use client';
 
-import StudiosDirectoryPage from '@/app/(ProNetworx)/pro-networx/(dashboard)/studios/page';
+import { StudiosDirectory } from '@/components/studios/StudiosDirectory';
 
 export default function RadioStudiosPage() {
   return (
-    <StudiosDirectoryPage
+    <StudiosDirectory
       studioPrefix="/studios"
       newStudioHref="/studios/me?new=1"
     />

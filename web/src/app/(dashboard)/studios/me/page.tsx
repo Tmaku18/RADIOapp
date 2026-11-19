@@ -1,7 +1,7 @@
 'use client';
 
-import MyStudioPage from '@/app/(ProNetworx)/pro-networx/(dashboard)/me/studio/page';
+import { MyStudioEditor } from '@/components/studios/MyStudioEditor';
 
 export default function RadioMyStudioPage() {
-  return <MyStudioPage viewPrefix="/studios" />;
+  return <MyStudioEditor viewPrefix="/studios" />;
 }
