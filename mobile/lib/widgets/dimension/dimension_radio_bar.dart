@@ -259,7 +259,7 @@ class DimensionRadioBar extends StatelessWidget {
                 color: shareParentGlass
                     ? Colors.transparent
                     : (isDark ? const Color(0xFF0A0A0C) : Colors.white)
-                        .withValues(alpha: isDark ? 0.38 : 0.55),
+                        .withValues(alpha: isDark ? 0.25 : 0.55),
                 border: shareParentGlass
                     ? null
                     : Border(

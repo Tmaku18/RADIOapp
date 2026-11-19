@@ -142,7 +142,9 @@ class DimensionTokens {
 
   static BoxDecoration glassDecoration({BorderRadius? borderRadius}) {
     return BoxDecoration(
-      color: isDark ? _bgSurfaceDark : Colors.white,
+      color: isDark
+          ? _bgSurfaceDark.withValues(alpha: 0.25)
+          : Colors.white,
       borderRadius: borderRadius ?? BorderRadius.circular(cardRadius),
       border: Border.all(color: glassBorder),
       boxShadow: isDark ? null : _softShadow(10, 0.06),

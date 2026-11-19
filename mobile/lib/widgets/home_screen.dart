@@ -289,7 +289,7 @@ class _HomeScreenState extends State<HomeScreen> {
               color: (DimensionTokens.isDark
                       ? const Color(0xFF0A0A0C)
                       : Colors.white)
-                  .withValues(alpha: DimensionTokens.isDark ? 0.38 : 0.55),
+                  .withValues(alpha: DimensionTokens.isDark ? 0.25 : 0.55),
               border: Border(
                 top: BorderSide(color: DimensionTokens.glassBorder),
               ),

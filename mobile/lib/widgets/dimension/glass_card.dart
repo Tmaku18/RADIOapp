@@ -3,10 +3,8 @@ import '../../core/theme/dimension_tokens.dart';
 
 /// A plain content card.
 ///
-/// Named for the frosted-glass treatment it used to carry. The blur is gone:
-/// stacking translucent panels over a busy backdrop cost a full-screen
-/// `BackdropFilter` per card and left text sitting on whatever colour happened
-/// to be behind it. These are now opaque surfaces with a hairline border.
+/// Named for the frosted-glass treatment it used to carry. The blur is gone.
+/// In the dark theme the fill is 25% grey so the backdrop shows through.
 class GlassCard extends StatelessWidget {
   const GlassCard({
     super.key,
