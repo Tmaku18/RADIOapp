@@ -262,11 +262,13 @@ export function RadioCaptureDialog({
     try {
       const file = await clipWithCredit();
       const artist = track.artistName.trim();
-      await songStoriesApi.upload(file, {
+      const created = await songStoriesApi.upload(file, {
         songId: track.id,
         visibility: storyVisibility,
         caption: artist ? `${track.title} — ${artist}` : track.title,
       });
+      if (!created.data?.id) throw new Error('Could not post that story.');
+      window.dispatchEvent(new Event('networx-stories-changed'));
       toast.success(
         storyVisibility === 'hidden'
           ? 'Hidden story posted. Only you can see it, for 24 hours.'
@@ -275,7 +277,9 @@ export function RadioCaptureDialog({
             : 'Story posted. It shows on the radio while this song plays, for 24 hours.',
       );
     } catch {
-      setError('Could not post that story. Sign in if you have not, then try again.');
+      const message = 'The story did not save, so it will not show on the radio.';
+      setError(message);
+      toast.error(message);
     } finally {
       setPostingStory(false);
       setPreparing(false);

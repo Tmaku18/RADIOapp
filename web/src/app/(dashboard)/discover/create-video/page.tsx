@@ -471,11 +471,13 @@ export default function CreateDiscoverFeedVideoPage() {
     setPostingStory(true);
     setError(null);
     try {
-      await songStoriesApi.upload(recordedFile, {
+      const created = await songStoriesApi.upload(recordedFile, {
         songId: selectedClip.songId,
         visibility: storyVisibility,
         caption: caption.trim() || selectedClip.songTitle,
       });
+      if (!created.data?.id) throw new Error('Could not post that story.');
+      window.dispatchEvent(new Event('networx-stories-changed'));
       toast.success(
         storyVisibility === 'hidden'
           ? 'Hidden story posted. Only you can see it, for 24 hours.'
@@ -483,8 +485,10 @@ export default function CreateDiscoverFeedVideoPage() {
             ? 'Private story posted. Friends can see it, for 24 hours.'
             : 'Story posted. It shows on the radio while this song plays, for 24 hours.',
       );
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not post that story.');
+    } catch {
+      const message = 'The story did not save, so it will not show on the radio.';
+      setError(message);
+      toast.error(message);
     } finally {
       setPostingStory(false);
     }

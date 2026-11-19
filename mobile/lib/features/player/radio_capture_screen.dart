@@ -822,7 +822,11 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
       );
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = _friendly(error));
+      final message = _friendly(error);
+      setState(() => _error = message);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -835,6 +839,9 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
 
   String _friendly(Object error) {
     final text = error.toString();
+    if (text.contains('story') || text.contains('song-stories')) {
+      return 'The story did not save, so it will not show on the radio.';
+    }
     if (text.contains('live stream')) {
       return 'This live stream cannot be saved into a clip.';
     }

@@ -18,6 +18,7 @@ export function SongStoriesBar({
 }) {
   const [enabled, setEnabled] = useState(true);
   const [stories, setStories] = useState<SongStory[]>([]);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   useEffect(() => {
@@ -27,13 +28,16 @@ export function SongStoriesBar({
   const load = useCallback(async () => {
     if (!songIdOk(songId)) {
       setStories([]);
+      setLoadFailed(false);
       return;
     }
     try {
       const res = await songStoriesApi.list(songId);
       setStories(res.data?.stories ?? []);
+      setLoadFailed(false);
     } catch {
       setStories([]);
+      setLoadFailed(true);
     }
   }, [songId]);
 
@@ -41,6 +45,14 @@ export function SongStoriesBar({
     if (!enabled) return;
     void load();
   }, [enabled, load]);
+
+  useEffect(() => {
+    const onPosted = () => {
+      void load();
+    };
+    window.addEventListener('networx-stories-changed', onPosted);
+    return () => window.removeEventListener('networx-stories-changed', onPosted);
+  }, [load]);
 
   const toggle = () => {
     const next = !enabled;
@@ -93,7 +105,9 @@ export function SongStoriesBar({
       ) : null}
       {enabled && !compact && stories.length === 0 ? (
         <p className="text-xs text-white/45">
-          No stories for this song yet. Public stories stay up for 24 hours.
+          {loadFailed
+            ? 'Stories could not load. Try again in a moment.'
+            : 'No stories for this song yet. Public stories stay up for 24 hours.'}
         </p>
       ) : null}
       {open && openIndex != null ? (

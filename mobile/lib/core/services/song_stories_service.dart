@@ -1,6 +1,15 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+
 import 'api_service.dart';
+
+/// Bumped after a story is saved so the radio row reloads.
+class SongStoriesRefresh {
+  SongStoriesRefresh._();
+  static final ticks = ValueNotifier<int>(0);
+  static void request() => ticks.value++;
+}
 
 class SongStory {
   const SongStory({
@@ -75,7 +84,7 @@ class SongStoriesService {
         .toList();
   }
 
-  Future<void> postClip({
+  Future<String> postClip({
     required File file,
     required String songId,
     required String visibility,
@@ -104,7 +113,7 @@ class SongStoriesService {
       throw Exception('Could not start the upload');
     }
     await _api.putFileToSignedUrl(signedUrl, file, contentType: mime);
-    await _api.post('song-stories', {
+    final created = await _api.post('song-stories', {
       'path': path,
       'songId': songId,
       'visibility': visibility == 'private' || visibility == 'hidden'
@@ -114,6 +123,12 @@ class SongStoriesService {
         'caption': caption.trim(),
       'contentType': mime,
     });
+    final id = created is Map ? '${created['id'] ?? ''}'.trim() : '';
+    if (id.isEmpty) {
+      throw Exception('Could not post that story.');
+    }
+    SongStoriesRefresh.request();
+    return id;
   }
 
   Future<void> setVisibility(String storyId, String visibility) async {

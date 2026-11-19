@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
@@ -37,11 +39,23 @@ class _SongStoriesStripState extends State<SongStoriesStrip> {
   final SongStoriesService _stories = SongStoriesService();
   bool _enabled = true;
   List<SongStory> _items = const [];
+  bool _loadFailed = false;
 
   @override
   void initState() {
     super.initState();
+    SongStoriesRefresh.ticks.addListener(_onRefresh);
     _boot();
+  }
+
+  void _onRefresh() {
+    if (_enabled) unawaited(_load());
+  }
+
+  @override
+  void dispose() {
+    SongStoriesRefresh.ticks.removeListener(_onRefresh);
+    super.dispose();
   }
 
   @override
@@ -60,16 +74,27 @@ class _SongStoriesStripState extends State<SongStoriesStrip> {
   Future<void> _load() async {
     final songId = widget.songId;
     if (!SongStoriesService.isSongId(songId)) {
-      if (mounted) setState(() => _items = const []);
+      if (mounted) {
+        setState(() {
+          _items = const [];
+          _loadFailed = false;
+        });
+      }
       return;
     }
     try {
       final items = await _stories.list(songId!);
       if (!mounted) return;
-      setState(() => _items = items);
+      setState(() {
+        _items = items;
+        _loadFailed = false;
+      });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _items = const []);
+      setState(() {
+        _items = const [];
+        _loadFailed = true;
+      });
     }
   }
 
@@ -127,7 +152,9 @@ class _SongStoriesStripState extends State<SongStoriesStrip> {
         if (_enabled && _items.isNotEmpty) _avatars(),
         if (_enabled && _items.isEmpty)
           Text(
-            'No stories for this song yet. Public stories stay up for 24 hours.',
+            _loadFailed
+                ? 'Stories could not load. Try again in a moment.'
+                : 'No stories for this song yet. Public stories stay up for 24 hours.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
       ],
