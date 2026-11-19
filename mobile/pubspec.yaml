@@ -175,11 +175,19 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # NETWORX typography (bundled font assets)
+  # NETWORX typography. Files are bundled so the first launch does not
+  # wait on a font download. Satoshi is headings, DM Sans is body text,
+  # Space Grotesk is numbers, rewards, and short labels.
   fonts:
-    - family: Inter
+    - family: Satoshi
       fonts:
-        - asset: assets/fonts/Inter-Variable.ttf
+        - asset: assets/fonts/Satoshi-Variable.ttf
+    - family: DM Sans
+      fonts:
+        - asset: assets/fonts/DMSans-Variable.ttf
+    - family: Space Grotesk
+      fonts:
+        - asset: assets/fonts/SpaceGrotesk-Variable.ttf
 
   # Assets (include .env so flutter_dotenv can load it at runtime on device/emulator)
   assets:

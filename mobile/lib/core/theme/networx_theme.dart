@@ -7,10 +7,14 @@ import 'networx_tokens.dart';
 
 enum NetworxBrand { listener, artist }
 
-/// Single UI family for the whole app. Inter is bundled in `pubspec.yaml`, so
-/// it renders offline and on first launch — and it tracks closely enough to
-/// the system UI font that native controls sit comfortably beside it.
-const String kNetworxFontFamily = 'Inter';
+/// Body and interface text. Bundled in `pubspec.yaml`.
+const String kNetworxFontFamily = 'DM Sans';
+
+/// Headings. Bundled in `pubspec.yaml`.
+const String kNetworxHeadingFont = 'Satoshi';
+
+/// Statistics, counts, rewards, and short labels. Bundled in `pubspec.yaml`.
+const String kNetworxAccentFont = 'Space Grotesk';
 
 /// Label/icon colour that stays legible on a filled [accent] surface.
 ///
@@ -111,11 +115,17 @@ ThemeData buildNetworxTheme({
     dividerColor: border,
   );
 
-  // A compact, system-like scale. Headings get weight and negative tracking
-  // rather than a second display face.
-  TextStyle t(double size, FontWeight weight, {double tracking = 0, double? height}) {
+  // Sizes and colors stay as they are. Only the family changes:
+  // Satoshi for headings, DM Sans for everything else on this scale.
+  TextStyle t(
+    double size,
+    FontWeight weight, {
+    double tracking = 0,
+    double? height,
+    String family = kNetworxFontFamily,
+  }) {
     return TextStyle(
-      fontFamily: kNetworxFontFamily,
+      fontFamily: family,
       fontSize: size,
       fontWeight: weight,
       letterSpacing: tracking,
@@ -124,16 +134,20 @@ ThemeData buildNetworxTheme({
     );
   }
 
+  TextStyle heading(double size, FontWeight weight, {double tracking = 0, double? height}) {
+    return t(size, weight, tracking: tracking, height: height, family: kNetworxHeadingFont);
+  }
+
   final textTheme = TextTheme(
-    displayLarge: t(34, FontWeight.w700, tracking: -0.7, height: 1.1),
-    displayMedium: t(28, FontWeight.w700, tracking: -0.6, height: 1.15),
-    displaySmall: t(24, FontWeight.w700, tracking: -0.5, height: 1.2),
-    headlineLarge: t(22, FontWeight.w700, tracking: -0.4, height: 1.2),
-    headlineMedium: t(20, FontWeight.w700, tracking: -0.4, height: 1.25),
-    headlineSmall: t(18, FontWeight.w600, tracking: -0.3, height: 1.3),
-    titleLarge: t(17, FontWeight.w600, tracking: -0.3),
-    titleMedium: t(16, FontWeight.w600, tracking: -0.2),
-    titleSmall: t(15, FontWeight.w600, tracking: -0.1),
+    displayLarge: heading(34, FontWeight.w700, tracking: -0.7, height: 1.1),
+    displayMedium: heading(28, FontWeight.w700, tracking: -0.6, height: 1.15),
+    displaySmall: heading(24, FontWeight.w700, tracking: -0.5, height: 1.2),
+    headlineLarge: heading(22, FontWeight.w700, tracking: -0.4, height: 1.2),
+    headlineMedium: heading(20, FontWeight.w700, tracking: -0.4, height: 1.25),
+    headlineSmall: heading(18, FontWeight.w600, tracking: -0.3, height: 1.3),
+    titleLarge: heading(17, FontWeight.w600, tracking: -0.3),
+    titleMedium: heading(16, FontWeight.w600, tracking: -0.2),
+    titleSmall: heading(15, FontWeight.w600, tracking: -0.1),
     bodyLarge: t(17, FontWeight.w400, height: 1.4),
     bodyMedium: t(15, FontWeight.w400, height: 1.45),
     bodySmall: t(13, FontWeight.w400, height: 1.4).copyWith(color: textSecondary),
@@ -153,7 +167,7 @@ ThemeData buildNetworxTheme({
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: false,
-      titleTextStyle: t(20, FontWeight.w700, tracking: -0.4),
+      titleTextStyle: heading(20, FontWeight.w700, tracking: -0.4),
       iconTheme: IconThemeData(color: textPrimary),
     ),
     cardTheme: CardThemeData(
@@ -314,7 +328,7 @@ ThemeData buildNetworxTheme({
     dialogTheme: DialogThemeData(
       backgroundColor: isDark ? NetworxTokens.darkElevated : NetworxTokens.lightBg,
       surfaceTintColor: Colors.transparent,
-      titleTextStyle: t(18, FontWeight.w700, tracking: -0.3),
+      titleTextStyle: heading(18, FontWeight.w700, tracking: -0.3),
       contentTextStyle: textTheme.bodyMedium?.copyWith(color: textSecondary),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     ),

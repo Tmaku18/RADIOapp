@@ -173,7 +173,7 @@ export function DimensionHomeSections({
                 { v: formatMetricCount(stats.totalLikes), l: 'Ripples' },
               ].map((s, i) => (
                 <Reveal key={s.l} delay={1 + i * 0.1}>
-                  <div className="font-unbounded font-black text-3xl text-white">{s.v}</div>
+                  <div className="font-accent font-black text-3xl text-white">{s.v}</div>
                   <div className="font-dim-mono text-[10px] tracking-[0.3em] text-white/50 uppercase">
                     {s.l}
                   </div>

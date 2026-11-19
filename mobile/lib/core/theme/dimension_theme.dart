@@ -25,15 +25,16 @@ class DimensionTheme extends ThemeExtension<DimensionTheme> {
         (Theme.of(context).brightness == Brightness.light ? light() : dark());
   }
 
-  static TextStyle _inter(
+  static TextStyle _face(
     double size,
     FontWeight weight, {
+    required String family,
     double tracking = 0,
     double? height,
     required Color color,
   }) {
     return TextStyle(
-      fontFamily: kNetworxFontFamily,
+      fontFamily: family,
       fontSize: size,
       fontWeight: weight,
       letterSpacing: tracking,
@@ -46,27 +47,31 @@ class DimensionTheme extends ThemeExtension<DimensionTheme> {
     DimensionTokens.bindBrightness(brightness);
     final isDark = brightness == Brightness.dark;
     return DimensionTheme(
-      headlineStyle: _inter(
+      headlineStyle: _face(
         28,
         FontWeight.w700,
+        family: kNetworxHeadingFont,
         tracking: -0.6,
         height: 1.15,
         color: DimensionTokens.textPrimary,
       ),
-      sectionLabelStyle: _inter(
+      sectionLabelStyle: _face(
         13,
         FontWeight.w600,
+        family: kNetworxHeadingFont,
         color: DimensionTokens.textSecondary,
       ),
-      monoLabelStyle: _inter(
+      monoLabelStyle: _face(
         12,
         FontWeight.w500,
+        family: kNetworxAccentFont,
         tracking: 0.2,
         color: DimensionTokens.textMuted,
       ),
-      bodyStyle: _inter(
+      bodyStyle: _face(
         15,
         FontWeight.w400,
+        family: kNetworxFontFamily,
         height: 1.45,
         color: DimensionTokens.textSecondary,
       ),
