@@ -526,6 +526,7 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
     required bool reportPlay,
     String? radioId,
   }) async {
+    if (AudioPlayerService.handler.holdsExternalAudio) return;
     final effectiveRadioId =
         radioId ?? _radioId ?? env('RADIO_STATION_ID') ?? _defaultBootstrapStationId;
     // Start where the song is *now*, not where it was when the server replied —
@@ -558,6 +559,7 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
       return;
     }
     if (!applied) return;
+    if (AudioPlayerService.handler.holdsExternalAudio) return;
     _loadedTrack = track;
     // A stale rate from an interrupted catch-up must not carry into the new
     // song.

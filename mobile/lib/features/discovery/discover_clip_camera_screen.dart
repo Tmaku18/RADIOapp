@@ -83,6 +83,9 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
     try {
       await AudioPlayerService().player.pause();
     } catch (_) {}
+    try {
+      await AudioPlayerService.handler.releasePlaybackForCapture();
+    } catch (_) {}
   }
 
   Future<void> _setup() async {

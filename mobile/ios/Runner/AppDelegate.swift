@@ -527,13 +527,33 @@ private enum ClipMux {
     session.outputFileType = .mp4
     session.audioMix = audioMix
     session.shouldOptimizeForNetworkUse = true
+    if tryExport(session) { return out }
+    session.cancelExport()
+    try? FileManager.default.removeItem(at: out)
+    guard let fallback = AVAssetExportSession(
+      asset: composition,
+      presetName: AVAssetExportPreset1280x720
+    ) else {
+      throw ClipMuxError.unreadable("Could not add the song")
+    }
+    fallback.outputURL = out
+    fallback.outputFileType = .mp4
+    fallback.audioMix = audioMix
+    fallback.shouldOptimizeForNetworkUse = true
+    if tryExport(fallback) { return out }
+    throw ClipMuxError.unreadable("Could not add the song")
+  }
+
+  /// Export without waiting forever. A stuck callback used to leave the
+  /// recorder on a spinner; a timeout lets the raw camera file still play.
+  private static func tryExport(_ session: AVAssetExportSession) -> Bool {
     let done = DispatchSemaphore(value: 0)
     session.exportAsynchronously { done.signal() }
-    done.wait()
-    if session.status != .completed {
-      throw ClipMuxError.unreadable(session.error?.localizedDescription ?? "Could not add the song")
+    if done.wait(timeout: .now() + 25) == .timedOut {
+      session.cancelExport()
+      return false
     }
-    return out
+    return session.status == .completed
   }
 
   private static func stillVideo(imagePath: String, durationMs: Int) throws -> URL {

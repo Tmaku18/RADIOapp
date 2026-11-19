@@ -212,6 +212,7 @@ class ProRadioQueueService {
   Future<void> _playCurrent() async {
     final item = current;
     if (item == null) return;
+    if (AudioPlayerService.handler.holdsExternalAudio) return;
     final generation = ++_playGeneration;
     final handler = AudioPlayerService.handler;
 

@@ -579,6 +579,7 @@ class _PlayerScreenState extends State<PlayerScreen>
     final expectedSwitchId = switchId ?? _stationSwitchGeneration;
     final expectedRadioId = radioId ?? _radioId;
     if (_stationContextLost(expectedSwitchId, expectedRadioId)) return;
+    if (AudioPlayerService.handler.holdsExternalAudio) return;
 
     final audio = AudioPlayerService();
     Object? lastError;
@@ -588,6 +589,7 @@ class _PlayerScreenState extends State<PlayerScreen>
     final startAt = liveTargetSeconds(track);
     for (var attempt = 0; attempt < 3; attempt++) {
       if (_stationContextLost(expectedSwitchId, expectedRadioId)) return;
+      if (AudioPlayerService.handler.holdsExternalAudio) return;
       try {
         applied = await audio.loadSource(
           AudioSource.uri(
@@ -648,7 +650,13 @@ class _PlayerScreenState extends State<PlayerScreen>
     // song.
     if (_audioPlayer.speed != 1.0) await _audioPlayer.setSpeed(1.0);
     await _applyMainVolumeForTrack(track);
-    if (AudioPlayerService.handler.userPaused) {
+    if (AudioPlayerService.handler.holdsExternalAudio) {
+      // A clip or video owns the microphone. Starting the station here, even
+      // at volume 0, steals the audio unit and the recording cannot finish.
+      try {
+        await _audioPlayer.pause();
+      } catch (_) {}
+    } else if (AudioPlayerService.handler.userPaused) {
       // Muted: keep the stream live & advancing (silent) so this device stays
       // synced with everyone else. Don't start if admin transport is paused.
       await _audioPlayer.setVolume(0);
@@ -849,7 +857,9 @@ class _PlayerScreenState extends State<PlayerScreen>
       }
     } else if (_globalTransportPaused) {
       _globalTransportPaused = false;
-      if (!_audioPlayer.playing && _currentTrack != null) {
+      if (!_audioPlayer.playing &&
+          _currentTrack != null &&
+          !AudioPlayerService.handler.holdsExternalAudio) {
         await _audioPlayer.play();
         if (mounted) setState(() => _isPlaying = true);
       }
@@ -1044,6 +1054,9 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   Future<void> _syncCurrentTrack({bool force = false}) async {
     if (!mounted || _trackSyncInFlight || _trackAdvanceInFlight) return;
+    // Reloading or seeking the station while a camera is recording makes the
+    // take fail ("Could not finish that clip").
+    if (AudioPlayerService.handler.holdsExternalAudio) return;
     // A buried instance must not poll alongside the top one: with two drivers,
     // each reload the other's station and the radio flips between songs.
     if (!_isSyncDriver) return;
@@ -1201,6 +1214,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   /// things worse and loops. [decideRadioSync] therefore prefers a small rate
   /// nudge and never seeks backwards mid-song.
   Future<void> _applyLiveSync(Track serverTrack) async {
+    if (AudioPlayerService.handler.holdsExternalAudio) return;
     final decision = decideRadioSync(
       localSeconds: _audioPlayer.position.inSeconds,
       targetSeconds: liveTargetSeconds(serverTrack),

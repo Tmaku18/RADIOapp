@@ -295,6 +295,13 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
     });
   }
 
+  /// True while a clip, video, or other player owns the output.
+  ///
+  /// Live sync must not call [AudioPlayer.play] or seek during this window.
+  /// A silent "keep the stream live" play still grabs the iOS audio unit and
+  /// the camera recording then fails.
+  bool get holdsExternalAudio => _externalAudioHolds > 0;
+
   /// Silence live radio for another player. Pair every call with
   /// [releaseExternalAudio]. If something starts the station again while held,
   /// it is paused again.
@@ -481,6 +488,20 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
     } catch (_) {}
     try {
       await voice.pause();
+    } catch (_) {}
+  }
+
+  /// Drop the music player's audio unit so the camera can record.
+  ///
+  /// Pause leaves the decoder attached. On iOS that keeps the shared session
+  /// busy, the camera's writer never gets samples, and the take fails.
+  /// [stop] keeps the current source so a later [play] can resume it.
+  Future<void> releasePlaybackForCapture() async {
+    try {
+      await music.stop();
+    } catch (_) {}
+    try {
+      await voice.stop();
     } catch (_) {}
   }
 

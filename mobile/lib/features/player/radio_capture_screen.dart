@@ -134,16 +134,41 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
       await _holdRadio();
       await _configureSession();
       await _openCamera();
+      // The camera plugin resets the session category while attaching the mic.
+      // Put video-recording mode back before the user holds the shutter.
+      await _configureSession();
+      try {
+        await _camera?.prepareForVideoRecording();
+      } catch (_) {}
+      await _configureSession();
       _audioDownload = SocialShare.downloadToTemp(widget.audioUrl);
       if (!mounted) return;
-      setState(() => _phase = _CapturePhase.ready);
+      setState(() {
+        _phase = _CapturePhase.ready;
+        _error = null;
+      });
     } catch (error) {
+      await _dropCamera();
       if (!mounted) return;
       setState(() {
         _phase = _CapturePhase.failed;
         _error = _friendly(error);
       });
     }
+  }
+
+  Future<void> _dropCamera() async {
+    final cam = _camera;
+    _camera = null;
+    if (cam == null) return;
+    try {
+      if (cam.value.isRecordingVideo) {
+        await cam.stopVideoRecording();
+      }
+    } catch (_) {}
+    try {
+      await cam.dispose();
+    } catch (_) {}
   }
 
   Future<void> _holdRadio() async {
@@ -154,14 +179,29 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
       _startMs = chosen < 0 ? 0 : chosen;
       _knownDurationMs = widget.durationMs;
     } else {
-      _startMs = player.position.inMilliseconds;
+      try {
+        _startMs = player.position.inMilliseconds;
+        _knownDurationMs = player.duration?.inMilliseconds ?? widget.durationMs;
+      } catch (_) {
+        _startMs = 0;
+        _knownDurationMs = widget.durationMs;
+      }
       if (_startMs < 0) _startMs = 0;
-      _knownDurationMs = player.duration?.inMilliseconds ?? widget.durationMs;
     }
-    handler.holdForExternalAudio();
-    _held = true;
+    // Set the hold before any await so a live-sync tick cannot start the
+    // station again while the camera is coming up.
+    if (!_held) {
+      handler.holdForExternalAudio();
+      _held = true;
+    }
+    try {
+      await handler.reassertExternalSilence();
+    } catch (_) {}
     try {
       await handler.hardPauseMusicForCapture();
+    } catch (_) {}
+    try {
+      await handler.releasePlaybackForCapture();
     } catch (_) {}
   }
 
@@ -179,27 +219,36 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
 
   Future<void> _configureSession() async {
     final session = await AudioSession.instance;
-    await session.configure(
-      AudioSessionConfiguration(
-        avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
-        avAudioSessionCategoryOptions:
-            AVAudioSessionCategoryOptions.defaultToSpeaker |
-            AVAudioSessionCategoryOptions.allowBluetooth |
-            AVAudioSessionCategoryOptions.mixWithOthers,
-        avAudioSessionMode: AVAudioSessionMode.videoRecording,
-        avAudioSessionRouteSharingPolicy:
-            AVAudioSessionRouteSharingPolicy.defaultPolicy,
-        avAudioSessionSetActiveOptions: AVAudioSessionSetActiveOptions.none,
-        androidAudioAttributes: const AndroidAudioAttributes(
-          contentType: AndroidAudioContentType.music,
-          flags: AndroidAudioFlags.none,
-          usage: AndroidAudioUsage.media,
+    try {
+      await session.configure(
+        AudioSessionConfiguration(
+          avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
+          avAudioSessionCategoryOptions:
+              AVAudioSessionCategoryOptions.defaultToSpeaker |
+              AVAudioSessionCategoryOptions.allowBluetooth |
+              AVAudioSessionCategoryOptions.mixWithOthers,
+          avAudioSessionMode: AVAudioSessionMode.videoRecording,
+          avAudioSessionRouteSharingPolicy:
+              AVAudioSessionRouteSharingPolicy.defaultPolicy,
+          avAudioSessionSetActiveOptions: AVAudioSessionSetActiveOptions.none,
+          androidAudioAttributes: const AndroidAudioAttributes(
+            contentType: AndroidAudioContentType.music,
+            flags: AndroidAudioFlags.none,
+            usage: AndroidAudioUsage.media,
+          ),
+          androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
+          androidWillPauseWhenDucked: false,
         ),
-        androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
-        androidWillPauseWhenDucked: false,
-      ),
-    );
-    await session.setActive(true);
+      );
+    } catch (_) {}
+    try {
+      await session.setActive(true);
+    } catch (_) {
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      try {
+        await session.setActive(true);
+      } catch (_) {}
+    }
   }
 
   Future<void> _openCamera() async {
@@ -220,7 +269,15 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
       enableAudio: true,
     );
     _camera = camera;
-    await camera.initialize();
+    try {
+      await camera.initialize();
+    } catch (error) {
+      _camera = null;
+      try {
+        await camera.dispose();
+      } catch (_) {}
+      rethrow;
+    }
     if (!mounted) return;
     setState(() {});
   }
@@ -326,6 +383,7 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
       try {
         await cam.prepareForVideoRecording();
       } catch (_) {}
+      await _configureSession();
       await cam.startVideoRecording();
       _recordStartedAt = DateTime.now();
       _recordProgress.value = 0;
@@ -390,7 +448,21 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
         );
         await _showClip(File(out));
       } catch (error) {
-        await _showClip(File(recorded.path), warning: _friendly(error));
+        final raw = File(recorded.path);
+        try {
+          await _showClip(raw, warning: _friendly(error));
+        } catch (_) {
+          if (await raw.exists() && await raw.length() > 1000) {
+            _clip = raw;
+            if (!mounted) return;
+            setState(() {
+              _phase = _CapturePhase.review;
+              _error = _friendly(error);
+            });
+            return;
+          }
+          rethrow;
+        }
       }
     } catch (error) {
       if (!mounted) return;
@@ -413,11 +485,41 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
       await session.setActive(true);
       await AudioPlayerService.handler.reassertExternalSilence();
     } catch (_) {}
-    final controller = VideoPlayerController.file(file);
-    await controller.initialize();
+    VideoPlayerController? controller;
+    Object? lastError;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      final next = VideoPlayerController.file(file);
+      try {
+        await next.initialize().timeout(const Duration(seconds: 8));
+        controller = next;
+        break;
+      } catch (error) {
+        lastError = error;
+        try {
+          await next.dispose();
+        } catch (_) {}
+        await Future<void>.delayed(Duration(milliseconds: 250 * (attempt + 1)));
+      }
+    }
+    if (controller == null) {
+      final saved = await file.exists() && await file.length() > 1000;
+      if (!saved) {
+        throw lastError ?? Exception('Could not play the clip');
+      }
+      _clip = file;
+      if (!mounted) return;
+      setState(() {
+        _phase = _CapturePhase.review;
+        _error =
+            warning ?? 'The clip is saved, but the preview could not start.';
+      });
+      return;
+    }
     await controller.setLooping(true);
     await controller.setVolume(1);
-    await controller.play();
+    try {
+      await controller.play();
+    } catch (_) {}
     await AudioPlayerService.handler.reassertExternalSilence();
     final previous = _preview;
     _preview = controller;
@@ -578,8 +680,27 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
         text.contains('AudioAccess')) {
       return 'Allow the microphone so your voice is saved with the song.';
     }
-    if (text.contains('camera') || text.contains('Camera')) {
+    if (text.contains('denied') ||
+        text.contains('Denied') ||
+        text.contains('not authorized') ||
+        text.contains('Permission')) {
       return 'Allow camera and microphone access to record.';
+    }
+    if (text.contains('camera') || text.contains('Camera')) {
+      return 'The camera could not start. Try again.';
+    }
+    if (text.contains('Session activation') ||
+        text.contains('setActive') ||
+        text.contains('AVAudioSession') ||
+        text.contains('audio unit')) {
+      return 'The radio was still using the speaker. Try again.';
+    }
+    if (text.contains('AVAssetWriter') ||
+        text.contains('not recording') ||
+        text.contains('Setup Writer') ||
+        text.contains('no picture') ||
+        text.contains('Could not play')) {
+      return 'That recording did not save. Hold the button a little longer and try again.';
     }
     if (text.contains('401') ||
         text.contains('403') ||
@@ -587,6 +708,9 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
         text.contains('sign in') ||
         text.contains('Sign in')) {
       return 'Sign in to post this to your feed. You can still share the clip.';
+    }
+    if (text.contains('Null check') || text.contains('is not a subtype')) {
+      return 'The camera could not start. Try again.';
     }
     return 'Could not finish that clip. Try again.';
   }
@@ -601,7 +725,38 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       body: _phase == _CapturePhase.failed
-          ? SafeArea(child: _message(_error ?? 'Could not open the camera.'))
+            ? SafeArea(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  _message(_error ?? 'Could not open the camera.'),
+                  Positioned(
+                    top: 4,
+                    left: 4,
+                    child: IconButton(
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      tooltip: 'Close',
+                      icon: const Icon(Icons.close, color: Colors.white),
+                    ),
+                  ),
+                  Positioned(
+                    left: 24,
+                    right: 24,
+                    bottom: 32,
+                    child: FilledButton(
+                      onPressed: () {
+                        setState(() {
+                          _phase = _CapturePhase.preparing;
+                          _error = null;
+                        });
+                        unawaited(_setup());
+                      },
+                      child: const Text('Try again'),
+                    ),
+                  ),
+                ],
+              ),
+            )
           : Stack(
               fit: StackFit.expand,
               children: [
@@ -720,7 +875,11 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
-        child: Text(text, textAlign: TextAlign.center),
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+        ),
       ),
     );
   }
