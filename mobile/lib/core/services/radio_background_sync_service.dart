@@ -195,8 +195,14 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
     RadioConnectionMonitor.instance.addRestoreListener(_onConnectionRestored);
     AudioPlayerService.handler.onMusicPlaybackFailure = _recoverPlayback;
     AudioPlayerService.handler.onTuneStation = tuneFromExternal;
+    NowPlayingWidgetSync.listenForLockMute();
     AudioPlayerService.handler.mediaItem.listen((item) {
       unawaited(NowPlayingWidgetSync.push(item));
+    });
+    AudioPlayerService.handler.userPausedNotifier.addListener(() {
+      unawaited(
+        NowPlayingWidgetSync.push(AudioPlayerService.handler.mediaItem.valueOrNull),
+      );
     });
     unawaited(_bootstrapLiveRadioIfIdle());
     _schedulePoll();

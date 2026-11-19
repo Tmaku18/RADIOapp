@@ -25,6 +25,7 @@
 		NW0200000000000000000002 /* LiveActivityBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = NW0100000000000000000006 /* LiveActivityBridge.swift */; };
 		NW0200000000000000000003 /* NowPlayingAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = NW0100000000000000000001 /* NowPlayingAttributes.swift */; };
 		NW0200000000000000000004 /* NowPlayingWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = NW0100000000000000000002 /* NowPlayingWidget.swift */; };
+		NW0200000000000000000006 /* ToggleRadioMuteIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = NW0100000000000000000007 /* ToggleRadioMuteIntent.swift */; };
 		NW0200000000000000000005 /* NowPlayingWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = NW0100000000000000000005 /* NowPlayingWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -104,6 +105,7 @@
 		NW0100000000000000000004 /* NowPlayingWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = NowPlayingWidget.entitlements; sourceTree = "<group>"; };
 		NW0100000000000000000005 /* NowPlayingWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = NowPlayingWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		NW0100000000000000000006 /* LiveActivityBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityBridge.swift; sourceTree = "<group>"; };
+		NW0100000000000000000007 /* ToggleRadioMuteIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToggleRadioMuteIntent.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -224,6 +226,7 @@
 			children = (
 				NW0100000000000000000001 /* NowPlayingAttributes.swift */,
 				NW0100000000000000000002 /* NowPlayingWidget.swift */,
+				NW0100000000000000000007 /* ToggleRadioMuteIntent.swift */,
 				NW0100000000000000000003 /* Info.plist */,
 				NW0100000000000000000004 /* NowPlayingWidget.entitlements */,
 			);
@@ -492,6 +495,7 @@
 			files = (
 				NW0200000000000000000003 /* NowPlayingAttributes.swift in Sources */,
 				NW0200000000000000000004 /* NowPlayingWidget.swift in Sources */,
+				NW0200000000000000000006 /* ToggleRadioMuteIntent.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

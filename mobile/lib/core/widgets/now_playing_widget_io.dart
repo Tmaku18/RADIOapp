@@ -5,11 +5,26 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:home_widget/home_widget.dart';
 
+import '../services/audio_player_service.dart';
+
 const _appGroupId = 'group.com.tmaktechnologies.networxradio';
 const _liveActivity = MethodChannel('networx/live_activity');
 
 /// Pushes the current song onto the home-screen widget and the iOS lock screen.
 class NowPlayingWidgetSync {
+  static bool _listening = false;
+
+  /// Lock-screen Mute asks the playing app to silence the station.
+  static void listenForLockMute() {
+    if (_listening || !Platform.isIOS) return;
+    _listening = true;
+    _liveActivity.setMethodCallHandler((call) async {
+      if (call.method != 'toggleMute') return;
+      final handler = AudioPlayerService.handler;
+      await handler.setUserPaused(!handler.userPaused);
+    });
+  }
+
   static Future<void> push(MediaItem? item) async {
     final title = (item?.title ?? '').trim();
     final artist = (item?.artist ?? '').trim();
@@ -39,6 +54,8 @@ class NowPlayingWidgetSync {
         'title': shownTitle,
         'artist': shownArtist,
         'station': station.isEmpty ? 'NetworX Radio' : station,
+        'artworkUrl': item.artUri?.toString() ?? '',
+        'isMuted': AudioPlayerService.handler.userPaused,
       });
     } catch (e) {
       debugPrint('Live Activity update skipped: $e');
