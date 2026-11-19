@@ -104,6 +104,10 @@ export function RadioCaptureDialog({
     video.srcObject = stream;
     video.muted = true;
     void video.play().catch(() => undefined);
+    const pb = playbackRef.current;
+    if (pb && !pb.state.isMuted && pb.state.source === 'radio') {
+      void pb.actions.softResume();
+    }
     drawStop.current = startMirrorLoop(video, canvas);
     return () => {
       drawStop.current?.();

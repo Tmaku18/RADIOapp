@@ -219,7 +219,6 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
 
   Future<void> _setup() async {
     try {
-      await _holdRadio();
       await _configureSession();
       await _openCamera();
       // The camera plugin resets the session category while attaching the mic.
@@ -229,6 +228,7 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
         await _camera?.prepareForVideoRecording();
       } catch (_) {}
       await _configureSession();
+      await _keepRadioAudible();
       _audioDownload = SocialShare.downloadToTemp(widget.audioUrl);
       if (!mounted) return;
       setState(() {
@@ -259,9 +259,19 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     } catch (_) {}
   }
 
-  Future<void> _holdRadio() async {
-    final player = AudioPlayerService().player;
+  /// The station stays audible while the camera is up so the listener can
+  /// wait for the moment in the song, then press record.
+  Future<void> _keepRadioAudible() async {
     final handler = AudioPlayerService.handler;
+    if (handler.userPaused || handler.holdsExternalAudio) return;
+    try {
+      await AudioPlayerService().player.play();
+    } catch (_) {}
+  }
+
+  /// Freeze the song at the shutter, then free the audio unit for the mic.
+  Future<void> _captureSongMoment() async {
+    final player = AudioPlayerService().player;
     final chosen = widget.startMs;
     if (chosen != null) {
       _startMs = chosen < 0 ? 0 : chosen;
@@ -276,8 +286,12 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
       }
       if (_startMs < 0) _startMs = 0;
     }
-    // Set the hold before any await so a live-sync tick cannot start the
-    // station again while the camera is coming up.
+    _recordStartMs = _startMs;
+    await _silenceRadioForTake();
+  }
+
+  Future<void> _silenceRadioForTake() async {
+    final handler = AudioPlayerService.handler;
     if (!_held) {
       handler.holdForExternalAudio();
       _held = true;
@@ -291,6 +305,22 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     try {
       await handler.releasePlaybackForCapture();
     } catch (_) {}
+  }
+
+  /// Back to the live station after a take is thrown away, so they can time
+  /// the next one.
+  Future<void> _resumeRadioForTiming() async {
+    try {
+      await _cue.pause();
+    } catch (_) {}
+    if (_held) {
+      _held = false;
+      try {
+        await AudioPlayerService.restoreMusicSession();
+      } catch (_) {}
+      AudioPlayerService.handler.releaseExternalAudio();
+    }
+    await _keepRadioAudible();
   }
 
   Future<void> _releaseRadio() async {
@@ -501,6 +531,7 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     }
     setState(() => _phase = _CapturePhase.mixing);
     try {
+      await _captureSongMoment();
       final shot = await cam.takePicture();
       try {
         final song = await _songFile();
@@ -513,12 +544,16 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
         await _showClip(File(out));
       } catch (error) {
         if (!mounted) return;
+        await _resumeRadioForTiming();
+        if (!mounted) return;
         setState(() {
           _phase = _CapturePhase.ready;
           _error = _friendly(error);
         });
       }
     } catch (error) {
+      if (!mounted) return;
+      await _resumeRadioForTiming();
       if (!mounted) return;
       setState(() {
         _phase = _CapturePhase.ready;
@@ -535,7 +570,7 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
       return;
     }
     try {
-      _recordStartMs = _startMs;
+      await _captureSongMoment();
       try {
         await cam.prepareForVideoRecording();
       } catch (_) {}
@@ -560,6 +595,7 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
       setState(() => _phase = _CapturePhase.recording);
       unawaited(_startCue());
     } catch (error) {
+      await _resumeRadioForTiming();
       if (!mounted) return;
       setState(() => _error = _friendly(error));
     }
@@ -593,6 +629,7 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
           : DateTime.now().difference(started);
       _recordStartedAt = null;
       if (elapsed < const Duration(milliseconds: 500)) {
+        await _resumeRadioForTiming();
         if (!mounted) return;
         setState(() => _phase = _CapturePhase.ready);
         return;

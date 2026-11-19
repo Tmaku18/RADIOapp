@@ -278,7 +278,6 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
     });
 
     try {
-      await _holdRadio();
       await _stopClip();
       await _clearRecordedPreview(keepRadioHold: true);
       if (!mounted) return;
@@ -348,8 +347,7 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
   }
 
   Future<void> _reRecord() async {
-    await _holdRadio();
-    await _clearRecordedPreview(keepRadioHold: true);
+    await _clearRecordedPreview();
     await _recordWithClip();
   }
 

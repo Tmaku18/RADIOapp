@@ -49,6 +49,7 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
   final ValueNotifier<double> _recordProgress = ValueNotifier<double>(0);
 
   bool _initializing = true;
+  bool _silencedRadio = false;
   bool _recording = false;
   bool _startingRecord = false;
   bool _finishing = false;
@@ -71,6 +72,10 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
     unawaited(cam?.dispose() ?? Future<void>.value());
     // Hand audio route back to music before parent unmutes radio.
     unawaited(AudioPlayerService.restoreMusicSession());
+    if (_silencedRadio) {
+      _silencedRadio = false;
+      AudioPlayerService.handler.releaseExternalAudio();
+    }
     super.dispose();
   }
 
@@ -79,23 +84,34 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
   /// camera mic can start recording (iOS rejects startVideoRecording while
   /// another player still owns the session).
   Future<void> _pauseRadioForCamera() async {
+    if (_silencedRadio) return;
+    _silencedRadio = true;
+    final handler = AudioPlayerService.handler;
+    handler.holdForExternalAudio();
     try {
-      final handler = AudioPlayerService.handler;
-      if (!handler.userPaused) {
-        await handler.setUserPaused(true);
-      }
+      await handler.hardPauseMusicForCapture();
     } catch (_) {}
     try {
-      await AudioPlayerService().player.pause();
-    } catch (_) {}
-    try {
-      await AudioPlayerService.handler.releasePlaybackForCapture();
+      await handler.releasePlaybackForCapture();
     } catch (_) {}
   }
 
-  Future<void> _setup() async {
-    await _pauseRadioForCamera();
+  Future<void> _hearRadioAgain() async {
+    if (_silencedRadio) {
+      _silencedRadio = false;
+      try {
+        await AudioPlayerService.restoreMusicSession();
+      } catch (_) {}
+      AudioPlayerService.handler.releaseExternalAudio();
+    }
+    final handler = AudioPlayerService.handler;
+    if (handler.userPaused || handler.holdsExternalAudio) return;
+    try {
+      await AudioPlayerService().player.play();
+    } catch (_) {}
+  }
 
+  Future<void> _mixRadioWithCamera() async {
     try {
       final session = await AudioSession.instance;
       await session.configure(
@@ -120,6 +136,10 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
       );
       await session.setActive(true);
     } catch (_) {}
+  }
+
+  Future<void> _setup() async {
+    await _mixRadioWithCamera();
 
     try {
       final all = await availableCameras();
@@ -150,6 +170,8 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
       }
       if (!mounted) return;
       setState(() => _initializing = false);
+      await _mixRadioWithCamera();
+      await _hearRadioAgain();
       unawaited(_preloadClip());
     } catch (e) {
       if (!mounted) return;
@@ -355,6 +377,7 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
           : DateTime.now().difference(started);
       _recordStartedAt = null;
       if (elapsed < const Duration(milliseconds: 500)) {
+        await _hearRadioAgain();
         if (!mounted) return;
         setState(() {
           _finishing = false;

@@ -428,7 +428,6 @@ export default function CreateDiscoverFeedVideoPage() {
     const clip = clipOverride ?? selectedClip;
     if (!clip?.clipUrl) return;
     activeClipRef.current = clip;
-    holdRadio();
     try {
       await ensureCamera();
     } catch (err) {
@@ -462,6 +461,7 @@ export default function CreateDiscoverFeedVideoPage() {
   };
 
   const reRecord = async () => {
+    releaseRadio();
     clearRecordedPreview();
     await armCamera();
   };
