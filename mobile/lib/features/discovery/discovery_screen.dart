@@ -1150,7 +1150,7 @@ class _LibraryTabState extends State<_LibraryTab> {
               surfaces,
               items: favorites,
               emptyMessage: _favorites.isEmpty
-                  ? 'No favorites yet. Tap ⭐ next to 🔥 on the radio to star a song for alerts.'
+                  ? 'No favorites yet. On the radio, tap the star to the right of the speaker button to save a song and get play alerts.'
                   : 'No favorites match “$query”.',
             ),
             'liked' => _buildHistorySection(

@@ -16,9 +16,10 @@ class CoachTips {
       builder: (context) => AlertDialog(
         title: const Text('A quick look around'),
         content: const Text(
-          'Radio is the live station. Swipe the artwork to change station. '
-          'Fire and the other reaction sit beside the title, and the star '
-          'saves a song for play alerts. Discover is where you meet artists.',
+          'Radio is the live station. Swipe the artwork sideways to change '
+          'station. 🔥 and 💩 sit to the right of the song title. The star to '
+          'the right of the speaker button saves a song and turns on play '
+          'alerts. Discover is where you meet artists.',
         ),
         actions: [
           TextButton(

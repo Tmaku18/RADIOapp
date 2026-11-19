@@ -98,6 +98,8 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) return;
     if (!mounted) return;
     await CoachTips.showOnce(context);
+    if (!mounted) return;
+    await _startAppTutorial(force: false);
   }
 
   Future<void> _startAppTutorial({required bool force}) async {

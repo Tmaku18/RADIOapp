@@ -815,7 +815,7 @@ class _StudioScreenState extends State<StudioScreen>
         padding: const EdgeInsets.all(16),
         children: [
           Text(
-            'Songs you liked with 🔥. These stay here — they don’t trigger radio alerts.',
+            'Songs you liked with 🔥. On the radio, 🔥 is to the right of the song title. Likes stay here and do not send play alerts.',
             style: TextStyle(color: surfaces.textSecondary, fontSize: 13),
           ),
           const SizedBox(height: 12),
@@ -824,7 +824,7 @@ class _StudioScreenState extends State<StudioScreen>
               padding: const EdgeInsets.symmetric(vertical: 32),
               child: Center(
                 child: Text(
-                  'No liked songs yet. Tap 🔥 on the radio to like a track.',
+                  'No liked songs yet. On the radio, tap 🔥 to the right of the song title.',
                   style: TextStyle(color: surfaces.textSecondary),
                   textAlign: TextAlign.center,
                 ),
@@ -857,7 +857,7 @@ class _StudioScreenState extends State<StudioScreen>
         padding: const EdgeInsets.all(16),
         children: [
           Text(
-            'Songs you starred. We’ll notify you when they’re about to play.',
+            'Songs you starred. On the radio, the star is to the right of the speaker button, under the progress bar. We’ll notify you when they’re about to play.',
             style: TextStyle(color: surfaces.textSecondary, fontSize: 13),
           ),
           const SizedBox(height: 12),
@@ -866,7 +866,7 @@ class _StudioScreenState extends State<StudioScreen>
               padding: const EdgeInsets.symmetric(vertical: 32),
               child: Center(
                 child: Text(
-                  'No favorites yet. Tap ⭐ next to 🔥 on the radio to star a song.',
+                  'No favorites yet. On the radio, tap the star to the right of the speaker button.',
                   style: TextStyle(color: surfaces.textSecondary),
                   textAlign: TextAlign.center,
                 ),

@@ -39,7 +39,7 @@ class AppTutorial {
   AppTutorial._();
 
   static const replayHint =
-      'You can replay this anytime in Settings → Help → App tour.';
+      'You can replay this anytime from the menu: More → Help & Legal → App tour.';
 
   static OverlayEntry? _entry;
   static bool get isShowing => _entry != null;
@@ -61,28 +61,39 @@ class AppTutorial {
       title: 'Radio',
       body:
           'Listen to live stations with everyone else in sync. The station '
-          'picker is at the top, and you can swipe the artwork to change '
-          'station. The mini player stays with you while you browse.',
+          'picker is at the top. Swipe the artwork sideways to change station. '
+          'The mini player stays at the bottom while you browse.\n\n'
+          'On the player, the big speaker button in the center mutes and '
+          'unmutes the station.',
       nav: TutorialNavTarget.radio,
     ),
     TutorialStep(
       title: 'React, save, share',
       body:
-          'Beside the song title: 🔥 likes it and 💩 passes on it. Those '
-          'reactions, plus how long people listen, help choose what plays next. '
-          'Playlist and share are on that same row.\n\n'
-          'The star under the player saves it to Favorites and turns on play '
-          'alerts. Only the star sends on-air and up-next notifications.',
+          'On the song title row, the buttons sit to the right of the title. '
+          '🔥 likes the song. 💩 passes on it. Those reactions, plus how long '
+          'people listen, help choose what plays next. The playlist icon adds '
+          'it to a playlist, and the share icon sends it.\n\n'
+          'Lower down, under the progress bar, three controls sit in a row. '
+          'The chat bubble on the left opens The Room. The speaker in the '
+          'center mutes the station. The star on the right saves the song to '
+          'Favorites and turns on play alerts. Only the star sends on-air and '
+          'up-next notifications.',
       nav: TutorialNavTarget.radio,
     ),
     TutorialStep(
       title: 'Record a clip',
       body:
-          'The video button sits with Show song stories. Hold the circle to '
-          'record and let go to save. A short tap on the radio camera takes a '
-          'photo. The song starts after your microphone is on.\n\n'
-          'The radio stays quiet while you watch that clip, or any other video, '
-          'until you delete the take or the video stops.',
+          'The video camera is at the right end of the Show song stories row, '
+          'just under the progress bar. It opens the camera on this song.\n\n'
+          'The camera starts fully zoomed out. Hold the circle to record and '
+          'let go to stop. A short tap takes a photo. While you hold, slide '
+          'up to zoom in and down to zoom out. Slide left onto the lock to '
+          'keep recording without holding, then tap the circle to stop. The '
+          'flip button in the top right switches between the front and back '
+          'cameras.\n\n'
+          'The song starts after your microphone is on. The radio stays quiet '
+          'while that clip, or any other video, is playing.',
       nav: TutorialNavTarget.radio,
     ),
     TutorialStep(
@@ -106,8 +117,14 @@ class AppTutorial {
     TutorialStep(
       title: 'Discover',
       body:
-          'Swipe short clips. Clip audio mutes the radio while it plays. '
-          'Library holds Favorites, Liked, Disliked, and My Music.',
+          'Discover has three tabs.\n\n'
+          'Swipe plays short clips. Swipe right to like a clip and left to '
+          'pass. Clip audio mutes the radio while it plays. This tab has no '
+          'search bar.\n\n'
+          'Artists keeps the search bar. Type a name to look up artists.\n\n'
+          'Library is your own Favorites, Liked, Disliked, and My Music. Its '
+          'search bar filters those lists. Favorites are songs you starred. '
+          'Liked and Disliked are clips you swiped.',
       nav: TutorialNavTarget.discover,
     ),
     TutorialStep(
@@ -168,26 +185,36 @@ class AppTutorial {
       title: 'Radio',
       body:
           'Listen to live stations. The station picker is at the top, and a '
-          'swipe on the artwork changes station. Fans who star a song get play '
-          'alerts when it is about to air.',
+          'sideways swipe on the artwork changes station. The big speaker '
+          'button in the center of the player mutes and unmutes the station.',
       nav: TutorialNavTarget.radio,
     ),
     TutorialStep(
       title: 'React, save, share',
       body:
-          'Beside the title, 🔥 likes a song and 💩 passes on it. Listening '
-          'time and how many people hear it also shape what plays next. '
-          'Playlist and share are on that row. The star under the player is '
-          'Favorites plus radio alerts.',
+          'On the song title row, the buttons sit to the right of the title. '
+          '🔥 likes the song. 💩 passes on it. Listening time and how many '
+          'people hear it also shape what plays next. The playlist icon and '
+          'the share icon are the last two on that row.\n\n'
+          'Under the progress bar, the chat bubble on the left opens The Room '
+          'and the speaker in the center mutes the station. The star on the '
+          'right saves the song to Favorites and turns on play alerts. Fans '
+          'who star a song get notified when it is about to air. 🔥 does not '
+          'send those alerts.',
       nav: TutorialNavTarget.radio,
     ),
     TutorialStep(
       title: 'Record a clip',
       body:
-          'The video button sits with Show song stories. Hold the circle to '
-          'record and let go to save. A short tap takes a photo. The song '
-          'starts after the microphone is on, and the radio stays quiet while '
-          'that clip is playing.',
+          'The video camera is at the right end of the Show song stories row, '
+          'just under the progress bar.\n\n'
+          'The camera starts fully zoomed out. Hold the circle to record and '
+          'let go to stop. A short tap takes a photo. While you hold, slide '
+          'up to zoom in and down to zoom out. Slide left onto the lock to '
+          'keep recording without holding, then tap the circle to stop. The '
+          'flip button in the top right switches cameras.\n\n'
+          'The song starts after the microphone is on, and the radio stays '
+          'quiet while that clip is playing.',
       nav: TutorialNavTarget.radio,
     ),
     TutorialStep(
@@ -210,8 +237,11 @@ class AppTutorial {
     TutorialStep(
       title: 'Discover',
       body:
-          'Swipe clips and check Library for Favorites and Liked. Short Discover '
-          'clips from your uploads show up here after review.',
+          'Discover has three tabs. Swipe plays short clips: right to like, '
+          'left to pass, and there is no search bar on that tab. Artists has '
+          'the search bar for looking up people by name. Library filters your '
+          'own Favorites, Liked, Disliked, and My Music.\n\n'
+          'Short Discover clips from your uploads show up in Swipe after review.',
       nav: TutorialNavTarget.discover,
     ),
     TutorialStep(
@@ -254,8 +284,11 @@ class AppTutorial {
       title: 'Submit & My Songs',
       body:
           'Submit songs for review and rotation, or list beats for sale. Find '
-          'uploads under My Songs → Tracks. Liked and Favorites are for songs '
-          'you fire / star.',
+          'uploads under My Songs → Tracks.\n\n'
+          'Liked is every song you tapped 🔥 on. That button is to the right of '
+          'the song title on the radio. Favorites is every song you starred. '
+          'That star is to the right of the speaker button, under the progress '
+          'bar. Only a star turns on play alerts.',
       nav: TutorialNavTarget.studio,
     ),
     TutorialStep(
@@ -563,7 +596,7 @@ class _TutorialOverlayState extends State<_TutorialOverlay> {
                     ),
                     const SizedBox(height: 8),
                     ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 180),
+                      constraints: const BoxConstraints(maxHeight: 240),
                       child: SingleChildScrollView(
                         child: Text(
                           step.body,
