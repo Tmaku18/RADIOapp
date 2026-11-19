@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import localFont from 'next/font/local';
-import { Lora, Caveat } from 'next/font/google';
+import { Inter, Space_Grotesk, Geist_Mono, Lora, Caveat, Unbounded, Outfit, JetBrains_Mono } from 'next/font/google';
 import { ThemeProvider } from 'next-themes';
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import './globals.css';
@@ -15,25 +14,14 @@ const APP_DESCRIPTION =
   "Discover underground artists and promote your music on Networx. Artists upload and pay for airplay while Prospectors tune into continuous curated music.";
 const SITE_URL = getSiteUrl();
 
-const satoshi = localFont({
-  src: '../fonts/Satoshi-Variable.woff2',
-  variable: '--font-satoshi',
-  weight: '300 900',
-  display: 'swap',
+const inter = Inter({
+  variable: '--font-inter',
+  subsets: ['latin'],
 });
 
-const dmSans = localFont({
-  src: '../fonts/DMSans-Variable.ttf',
-  variable: '--font-dm-sans',
-  weight: '100 1000',
-  display: 'swap',
-});
-
-const spaceGrotesk = localFont({
-  src: '../fonts/SpaceGrotesk-Variable.ttf',
+const spaceGrotesk = Space_Grotesk({
   variable: '--font-space-grotesk',
-  weight: '300 700',
-  display: 'swap',
+  subsets: ['latin'],
 });
 
 const lora = Lora({
@@ -42,11 +30,34 @@ const lora = Lora({
   weight: ['400', '500', '600', '700'],
 });
 
+const geistMono = Geist_Mono({
+  variable: '--font-geist-mono',
+  subsets: ['latin'],
+});
+
 // Story / “4 AM” moments: human, imperfect, handwritten authenticity.
 const story = Caveat({
   variable: '--font-story',
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
+});
+
+const unbounded = Unbounded({
+  variable: '--font-unbounded',
+  subsets: ['latin'],
+  weight: ['400', '700', '800', '900'],
+});
+
+const outfit = Outfit({
+  variable: '--font-outfit',
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  variable: '--font-jetbrains-mono',
+  subsets: ['latin'],
+  weight: ['400', '500', '700'],
 });
 
 export const metadata: Metadata = {
@@ -103,7 +114,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${satoshi.variable} ${dmSans.variable} ${spaceGrotesk.variable} ${lora.variable} ${story.variable} antialiased font-sans`}
+        className={`${inter.variable} ${spaceGrotesk.variable} ${lora.variable} ${geistMono.variable} ${story.variable} ${unbounded.variable} ${outfit.variable} ${jetbrainsMono.variable} antialiased font-sans`}
         suppressHydrationWarning
       >
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem storageKey="networx-theme" disableTransitionOnChange>

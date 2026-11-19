@@ -35,7 +35,7 @@ export default function PricingPage() {
         <Reveal>
           <DimensionCard highlight className="text-center max-w-3xl mx-auto mb-16">
             <h2 className="font-unbounded font-black text-2xl text-white mb-2">For Everyone</h2>
-            <div className="font-accent font-black text-5xl text-cyan-300 mb-2">Free</div>
+            <div className="font-unbounded font-black text-5xl text-cyan-300 mb-2">Free</div>
             <p className="text-white/60 mb-6 max-w-lg mx-auto">
               Listen, discover, upload, and use the job board. Free forever — supported by light,
               non-intrusive ads, not listener fees.
@@ -75,7 +75,7 @@ export default function PricingPage() {
             <Badge className="mb-4 bg-cyan-400/20 text-cyan-300 border-cyan-400/30">
               VERIFIED EXPOSURE
             </Badge>
-            <div className="font-accent font-black text-5xl text-white mb-2">$1.99</div>
+            <div className="font-unbounded font-black text-5xl text-white mb-2">$1.99</div>
             <div className="text-white/50 font-dim-mono text-sm mb-6 tracking-wider">
               PER TRACK PLACEMENT
             </div>

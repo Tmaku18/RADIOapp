@@ -19,18 +19,16 @@
   color: #000;
 }
 
-.font-unbounded,
-.font-heading {
-  font-family: var(--font-satoshi), "Satoshi", sans-serif;
+.font-unbounded {
+  font-family: var(--font-unbounded), "Unbounded", sans-serif;
 }
 
 .font-outfit {
-  font-family: var(--font-dm-sans), "DM Sans", sans-serif;
+  font-family: var(--font-outfit), "Outfit", sans-serif;
 }
 
-.font-dim-mono,
-.font-accent {
-  font-family: var(--font-space-grotesk), "Space Grotesk", sans-serif;
+.font-dim-mono {
+  font-family: var(--font-jetbrains-mono), "JetBrains Mono", monospace;
 }
 
 /* Glassmorphism */

@@ -211,7 +211,7 @@ function DimensionStatCard({
         <Icon className={`w-4 h-4 ${valueClass}`} />
       </span>
       <div>
-        <div className={`font-accent font-black text-2xl ${valueClass}`}>{value}</div>
+        <div className={`font-unbounded font-black text-2xl ${valueClass}`}>{value}</div>
         <div className="font-dim-mono text-[9px] tracking-[0.25em] text-white/50 uppercase">{label}</div>
       </div>
     </div>

@@ -313,7 +313,7 @@ export default function StatsPage() {
       <Card className="border-primary/30 bg-primary/5">
         <CardContent className="pt-6">
           <div className="text-sm text-muted-foreground font-medium">Placement plays remaining</div>
-          <div className="font-accent text-4xl font-bold text-primary mt-1">{(analytics?.creditsRemaining ?? credits.balance).toLocaleString()}</div>
+          <div className="text-4xl font-bold text-primary mt-1">{(analytics?.creditsRemaining ?? credits.balance).toLocaleString()}</div>
           <p className="text-sm text-muted-foreground mt-2">Paid radio plays still queued for your tracks</p>
         </CardContent>
       </Card>
@@ -322,7 +322,7 @@ export default function StatsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground font-medium">Ears Reached</div>
-            <div className="font-accent text-3xl font-bold text-foreground mt-1">{totalEars.toLocaleString()}</div>
+            <div className="text-3xl font-bold text-foreground mt-1">{totalEars.toLocaleString()}</div>
             <div className="text-sm text-primary mt-2">Each person once. Does not reset.</div>
           </CardContent>
         </Card>
@@ -330,7 +330,7 @@ export default function StatsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground font-medium">Unique Listeners</div>
-            <div className="font-accent text-3xl font-bold text-foreground mt-1">{totalUniqueListeners.toLocaleString()}</div>
+            <div className="text-3xl font-bold text-foreground mt-1">{totalUniqueListeners.toLocaleString()}</div>
             <div className="text-sm text-primary mt-2">Every time someone listens, all time</div>
           </CardContent>
         </Card>
@@ -338,7 +338,7 @@ export default function StatsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground font-medium">Plays</div>
-            <div className="font-accent text-3xl font-bold text-foreground mt-1">{(analytics?.totalPlays ?? 0).toLocaleString()}</div>
+            <div className="text-3xl font-bold text-foreground mt-1">{(analytics?.totalPlays ?? 0).toLocaleString()}</div>
             <div className="text-sm text-primary mt-2">Radio play events</div>
           </CardContent>
         </Card>
@@ -346,7 +346,7 @@ export default function StatsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground font-medium">Unique Listeners This Week</div>
-            <div className="font-accent text-3xl font-bold text-foreground mt-1">{uniqueListenersThisWeek.toLocaleString()}</div>
+            <div className="text-3xl font-bold text-foreground mt-1">{uniqueListenersThisWeek.toLocaleString()}</div>
             <div className="text-sm text-primary mt-2">Every listen in the last 7 days</div>
           </CardContent>
         </Card>
@@ -354,7 +354,7 @@ export default function StatsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground font-medium">Likes This Week</div>
-            <div className="font-accent text-3xl font-bold text-foreground mt-1">{likesThisWeek.toLocaleString()}</div>
+            <div className="text-3xl font-bold text-foreground mt-1">{likesThisWeek.toLocaleString()}</div>
             <div className="text-sm text-primary mt-2">Ripples received, last 7 days</div>
           </CardContent>
         </Card>
@@ -364,7 +364,7 @@ export default function StatsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground font-medium">Unique Listeners This Month</div>
-            <div className="font-accent text-3xl font-bold text-foreground mt-1">{uniqueListenersThisMonth.toLocaleString()}</div>
+            <div className="text-3xl font-bold text-foreground mt-1">{uniqueListenersThisMonth.toLocaleString()}</div>
             <div className="text-sm text-primary mt-2">Every listen in the last 30 days</div>
           </CardContent>
         </Card>
@@ -372,7 +372,7 @@ export default function StatsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground font-medium">Likes This Month</div>
-            <div className="font-accent text-3xl font-bold text-foreground mt-1">{likesThisMonth.toLocaleString()}</div>
+            <div className="text-3xl font-bold text-foreground mt-1">{likesThisMonth.toLocaleString()}</div>
             <div className="text-sm text-primary mt-2">Ripples received, last 30 days</div>
           </CardContent>
         </Card>
@@ -380,7 +380,7 @@ export default function StatsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground font-medium">Paid Plays</div>
-            <div className="font-accent text-3xl font-bold text-foreground mt-1">{(analytics?.totalPaidPlays ?? 0).toLocaleString()}</div>
+            <div className="text-3xl font-bold text-foreground mt-1">{(analytics?.totalPaidPlays ?? 0).toLocaleString()}</div>
             <div className="text-sm text-primary mt-2">Credit-backed</div>
           </CardContent>
         </Card>
@@ -388,7 +388,7 @@ export default function StatsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground font-medium">Free Plays</div>
-            <div className="font-accent text-3xl font-bold text-foreground mt-1">{(analytics?.totalFreePlays ?? 0).toLocaleString()}</div>
+            <div className="text-3xl font-bold text-foreground mt-1">{(analytics?.totalFreePlays ?? 0).toLocaleString()}</div>
             <div className="text-sm text-primary mt-2">Trial/opt-in/fallback</div>
           </CardContent>
         </Card>
@@ -398,7 +398,7 @@ export default function StatsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground font-medium">Placement plays used</div>
-            <div className="font-accent text-3xl font-bold text-foreground mt-1">{(analytics?.totalCreditsUsed ?? credits.totalUsed).toLocaleString()}</div>
+            <div className="text-3xl font-bold text-foreground mt-1">{(analytics?.totalCreditsUsed ?? credits.totalUsed).toLocaleString()}</div>
             <div className="text-sm text-primary mt-2">{(analytics?.creditsRemaining ?? credits.balance).toLocaleString()} remaining</div>
           </CardContent>
         </Card>
@@ -406,7 +406,7 @@ export default function StatsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground font-medium">New Followers</div>
-            <div className="font-accent text-3xl font-bold text-foreground mt-1">
+            <div className="text-3xl font-bold text-foreground mt-1">
               {(roi?.newFollowers ?? 0).toLocaleString()}
             </div>
             <div className="text-xs text-muted-foreground mt-2">
@@ -420,7 +420,7 @@ export default function StatsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground font-medium">Right Swipes</div>
-            <div className="font-accent text-3xl font-bold text-foreground mt-1">
+            <div className="text-3xl font-bold text-foreground mt-1">
               {(discoverSwipes?.rightSwipes ?? 0).toLocaleString()}
             </div>
             <div className="text-sm text-primary mt-2">Last {discoverSwipes?.days ?? 30} days</div>
@@ -429,7 +429,7 @@ export default function StatsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground font-medium">Left Swipes</div>
-            <div className="font-accent text-3xl font-bold text-foreground mt-1">
+            <div className="text-3xl font-bold text-foreground mt-1">
               {(discoverSwipes?.leftSwipes ?? 0).toLocaleString()}
             </div>
             <div className="text-sm text-primary mt-2">Last {discoverSwipes?.days ?? 30} days</div>
@@ -438,7 +438,7 @@ export default function StatsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground font-medium">Avg Time to Swipe</div>
-            <div className="font-accent text-3xl font-bold text-foreground mt-1">
+            <div className="text-3xl font-bold text-foreground mt-1">
               {discoverSwipes?.avgDecisionMs == null
                 ? '—'
                 : `${(discoverSwipes.avgDecisionMs / 1000).toFixed(1)}s`}

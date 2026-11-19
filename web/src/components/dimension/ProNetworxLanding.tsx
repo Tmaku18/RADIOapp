@@ -264,7 +264,7 @@ export function ProNetworxLanding({
                 { v: heroStats.matchesThisMonth, l: 'Matches/mo' },
               ].map((s, i) => (
                 <Reveal key={s.l} delay={1.1 + i * 0.07}>
-                  <div className="font-accent font-black text-2xl text-white">{s.v}</div>
+                  <div className="font-unbounded font-black text-2xl text-white">{s.v}</div>
                   <div className="font-dim-mono text-[9px] tracking-[0.25em] text-white/50 uppercase">
                     {s.l}
                   </div>
@@ -396,7 +396,7 @@ export function ProNetworxLanding({
                 FREE FOREVER
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="font-accent font-black text-5xl">$0</span>
+                <span className="font-unbounded font-black text-5xl">$0</span>
                 <span className="font-dim-mono text-[11px] tracking-[0.2em] text-white/40">
                   /MONTH
                 </span>
@@ -433,7 +433,7 @@ export function ProNetworxLanding({
                   <Sparkles className="w-4 h-4 text-yellow-300" />
                 </div>
                 <div className="flex items-baseline gap-3">
-                  <span className="font-accent font-black text-5xl text-glow-cyan">
+                  <span className="font-unbounded font-black text-5xl text-glow-cyan">
                     ${proPricing.intro}
                   </span>
                   <span className="font-dim-mono text-[11px] tracking-[0.2em] text-white/50">
