@@ -53,7 +53,7 @@ export function FeedPostCard({ post, onChange, onHidden, variant = 'feed' }: Fee
     const pb = playbackRef.current;
     const holdRadio =
       pb?.state.source === 'radio' && !pb.state.isMuted && pb.state.isPlaying;
-    if (holdRadio) pb.softPause();
+    if (holdRadio) pb.actions.softPause();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setVideoOpen(false);
     };
@@ -61,7 +61,7 @@ export function FeedPostCard({ post, onChange, onHidden, variant = 'feed' }: Fee
     return () => {
       window.removeEventListener('keydown', onKey);
       fullscreenVideoRef.current?.pause();
-      if (holdRadio) void playbackRef.current?.softResume();
+      if (holdRadio) void playbackRef.current?.actions.softResume();
     };
   }, [videoOpen]);
   const isOwnPost = profile?.id === post.authorUserId;
@@ -270,26 +270,28 @@ export function FeedPostCard({ post, onChange, onHidden, variant = 'feed' }: Fee
 
       <div className="relative w-full bg-muted aspect-square">
         {post.mediaType === 'video' ? (
-          <video
-            ref={videoRef}
-            src={post.imageUrl}
-            controls
-            playsInline
-            className="absolute inset-0 w-full h-full object-contain bg-black"
-          />
-          <button
-            type="button"
-            aria-label="Full screen"
-            title="Full screen"
-            className="absolute inset-x-0 top-0 bottom-14 z-10 cursor-pointer"
-            onClick={() => {
-              videoRef.current?.pause();
-              setVideoOpen(true);
-            }}
-          />
-          <span className="pointer-events-none absolute right-2 top-2 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white">
-            <Maximize2 className="h-4 w-4" />
-          </span>
+          <>
+            <video
+              ref={videoRef}
+              src={post.imageUrl}
+              controls
+              playsInline
+              className="absolute inset-0 w-full h-full object-contain bg-black"
+            />
+            <button
+              type="button"
+              aria-label="Full screen"
+              title="Full screen"
+              className="absolute inset-x-0 top-0 bottom-14 z-10 cursor-pointer"
+              onClick={() => {
+                videoRef.current?.pause();
+                setVideoOpen(true);
+              }}
+            />
+            <span className="pointer-events-none absolute right-2 top-2 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white">
+              <Maximize2 className="h-4 w-4" />
+            </span>
+          </>
         ) : (
           <Image
             src={post.imageUrl}
