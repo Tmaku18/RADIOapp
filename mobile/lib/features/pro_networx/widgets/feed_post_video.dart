@@ -128,21 +128,15 @@ class _FeedPostVideoState extends State<FeedPostVideo> {
   }
 
   Future<void> _softPauseRadio() async {
-    try {
-      final handler = AudioPlayerService.handler;
-      if (!handler.userPaused) {
-        await handler.setUserPaused(true);
-        _didSoftPauseRadio = true;
-      }
-    } catch (_) {}
+    if (_didSoftPauseRadio) return;
+    _didSoftPauseRadio = true;
+    AudioPlayerService.handler.holdForExternalAudio();
   }
 
   Future<void> _softResumeRadioIfNeeded() async {
     if (!_didSoftPauseRadio) return;
     _didSoftPauseRadio = false;
-    try {
-      await AudioPlayerService.handler.setUserPaused(false);
-    } catch (_) {}
+    AudioPlayerService.handler.releaseExternalAudio();
   }
 
   /// Radio only yields when this clip is actually audible.
@@ -375,21 +369,15 @@ class _FeedVideoFullscreenPageState extends State<_FeedVideoFullscreenPage> {
   }
 
   Future<void> _softPauseRadio() async {
-    try {
-      final handler = AudioPlayerService.handler;
-      if (!handler.userPaused) {
-        await handler.setUserPaused(true);
-        _didSoftPauseRadio = true;
-      }
-    } catch (_) {}
+    if (_didSoftPauseRadio) return;
+    _didSoftPauseRadio = true;
+    AudioPlayerService.handler.holdForExternalAudio();
   }
 
   Future<void> _softResumeRadioIfNeeded() async {
     if (!_didSoftPauseRadio) return;
     _didSoftPauseRadio = false;
-    try {
-      await AudioPlayerService.handler.setUserPaused(false);
-    } catch (_) {}
+    AudioPlayerService.handler.releaseExternalAudio();
   }
 
   Future<void> _toggleMute() async {

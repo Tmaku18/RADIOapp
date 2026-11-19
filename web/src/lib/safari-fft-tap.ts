@@ -53,6 +53,7 @@ export function createSafariFftTap(ctxRef: {
     if (typeof window === 'undefined') return null;
     if (el) return el;
     el = document.createElement('audio');
+    el.dataset.networxSilent = '1';
     // CORS-clean so the FFT can read samples (storage returns ACAO:*).
     el.crossOrigin = 'anonymous';
     el.preload = 'auto';

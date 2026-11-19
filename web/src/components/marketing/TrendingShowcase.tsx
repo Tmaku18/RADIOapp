@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { resolveListens } from '@/lib/analytics-metrics';
 import { useEffect, useRef, useState } from 'react';
+import { usePlaybackOptional } from '@/components/playback';
 import { Card, CardContent } from '@/components/ui/card';
 import { ButterflyPattern } from '@/components/marketing/ButterflyPattern';
 
@@ -65,6 +66,21 @@ function PlayIcon({ playing }: { playing: boolean }) {
 }
 
 export function TrendingShowcase({ data }: { data: TrendingData }) {
+  const playback = usePlaybackOptional();
+  const playbackRef = useRef(playback);
+  playbackRef.current = playback;
+  const heldRadioRef = useRef(false);
+  const releaseRadioRef = useRef(() => {});
+  releaseRadioRef.current = () => {
+    if (!heldRadioRef.current) return;
+    heldRadioRef.current = false;
+    playbackRef.current?.actions.releaseExternalMedia();
+  };
+  const holdRadio = () => {
+    if (heldRadioRef.current) return;
+    heldRadioRef.current = true;
+    playbackRef.current?.actions.holdForExternalMedia();
+  };
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
 
@@ -72,12 +88,16 @@ export function TrendingShowcase({ data }: { data: TrendingData }) {
     const audio = new Audio();
     audio.preload = 'none';
     audioRef.current = audio;
-    const onEnded = () => setPlayingId(null);
+    const onEnded = () => {
+      setPlayingId(null);
+      releaseRadioRef.current();
+    };
     audio.addEventListener('ended', onEnded);
     return () => {
       audio.removeEventListener('ended', onEnded);
       audio.pause();
       audioRef.current = null;
+      releaseRadioRef.current();
     };
   }, []);
 
@@ -87,14 +107,19 @@ export function TrendingShowcase({ data }: { data: TrendingData }) {
     if (playingId === song.id) {
       audio.pause();
       setPlayingId(null);
+      releaseRadioRef.current();
       return;
     }
+    holdRadio();
     audio.src = song.clipUrl;
     audio.currentTime = 0;
     void audio
       .play()
       .then(() => setPlayingId(song.id))
-      .catch(() => setPlayingId(null));
+      .catch(() => {
+        setPlayingId(null);
+        releaseRadioRef.current();
+      });
   };
 
   if (data.songs.length === 0) return null;

@@ -9,6 +9,7 @@ import { DimensionSongCard } from './DimensionSongCard';
 import { PlatformLiveStats } from '@/components/marketing/PlatformLiveStats';
 import type { TrendingData } from '@/components/marketing/TrendingShowcase';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePlaybackOptional } from '@/components/playback';
 import { usePlatformLiveStats } from '@/hooks/usePlatformLiveStats';
 import { resolveArtistProfileHref } from '@/lib/artist-links';
 import { DEFAULT_STATION_ID } from '@/data/station-map';
@@ -33,6 +34,21 @@ export function DimensionHomeSections({
   trending: TrendingData;
 }) {
   const { profile } = useAuth();
+  const playback = usePlaybackOptional();
+  const playbackRef = useRef(playback);
+  playbackRef.current = playback;
+  const heldRadioRef = useRef(false);
+  const releaseRadioRef = useRef(() => {});
+  releaseRadioRef.current = () => {
+    if (!heldRadioRef.current) return;
+    heldRadioRef.current = false;
+    playbackRef.current?.actions.releaseExternalMedia();
+  };
+  const holdRadio = () => {
+    if (heldRadioRef.current) return;
+    heldRadioRef.current = true;
+    playbackRef.current?.actions.holdForExternalMedia();
+  };
   const liveStats = usePlatformLiveStats({
     liveListeners: stats.liveListeners,
     listens: stats.listens,
@@ -45,12 +61,16 @@ export function DimensionHomeSections({
     const audio = new Audio();
     audio.preload = 'none';
     audioRef.current = audio;
-    const onEnded = () => setPlayingId(null);
+    const onEnded = () => {
+      setPlayingId(null);
+      releaseRadioRef.current();
+    };
     audio.addEventListener('ended', onEnded);
     return () => {
       audio.removeEventListener('ended', onEnded);
       audio.pause();
       audioRef.current = null;
+      releaseRadioRef.current();
     };
   }, []);
 
@@ -60,13 +80,15 @@ export function DimensionHomeSections({
     if (playingId === songId) {
       audio.pause();
       setPlayingId(null);
+      releaseRadioRef.current();
       return;
     }
-    document.querySelectorAll('audio').forEach((el) => {
-      if (el !== audio) el.pause();
-    });
+    holdRadio();
     audio.src = clipUrl;
-    audio.play().catch(() => setPlayingId(null));
+    audio.play().catch(() => {
+      setPlayingId(null);
+      releaseRadioRef.current();
+    });
     setPlayingId(songId);
   };
 

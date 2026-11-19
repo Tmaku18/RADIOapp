@@ -39,6 +39,19 @@ export default function CreateDiscoverFeedVideoPage() {
   const searchParams = useSearchParams();
   const { profile } = useAuth();
   const playback = usePlaybackOptional();
+  const playbackRef = useRef(playback);
+  playbackRef.current = playback;
+  const radioHeldRef = useRef(false);
+  const holdRadio = () => {
+    if (radioHeldRef.current) return;
+    radioHeldRef.current = true;
+    playbackRef.current?.actions.holdForExternalMedia();
+  };
+  const releaseRadio = () => {
+    if (!radioHeldRef.current) return;
+    radioHeldRef.current = false;
+    playbackRef.current?.actions.releaseExternalMedia();
+  };
 
   const initialClipUrl = searchParams.get('clipUrl') ?? '';
   const initialSongTitle = searchParams.get('title') ?? 'Discover clip';
@@ -148,6 +161,14 @@ export default function CreateDiscoverFeedVideoPage() {
 
   // Any signed-in user can post a short video to a liked Discover clip.
   const canPostToFeed = Boolean(profile?.id);
+
+  useEffect(() => {
+    return () => {
+      if (!radioHeldRef.current) return;
+      radioHeldRef.current = false;
+      playbackRef.current?.actions.releaseExternalMedia();
+    };
+  }, []);
 
   useEffect(() => {
     if (selectedClip) return;
@@ -271,6 +292,7 @@ export default function CreateDiscoverFeedVideoPage() {
     }
     setError(null);
     setStarting(true);
+    holdRadio();
     try {
       resetRecorderSession();
       clearRecordedPreview({ resetState: false });
@@ -406,7 +428,7 @@ export default function CreateDiscoverFeedVideoPage() {
     const clip = clipOverride ?? selectedClip;
     if (!clip?.clipUrl) return;
     activeClipRef.current = clip;
-    playback?.actions.softPause();
+    holdRadio();
     try {
       await ensureCamera();
     } catch (err) {
@@ -633,7 +655,10 @@ export default function CreateDiscoverFeedVideoPage() {
             <div className="flex flex-wrap gap-2">
               <Button
                 variant="outline"
-                onClick={() => clearRecordedPreview()}
+                onClick={() => {
+                  releaseRadio();
+                  clearRecordedPreview();
+                }}
                 disabled={posting}
               >
                 Delete take

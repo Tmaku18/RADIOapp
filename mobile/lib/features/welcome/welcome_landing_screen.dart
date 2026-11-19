@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../../core/navigation/app_routes.dart';
+import '../../core/services/audio_player_service.dart';
 import '../../core/services/analytics_service.dart';
 import '../../core/services/songs_service.dart';
 import '../../core/theme/dimension_tokens.dart';
@@ -433,6 +434,7 @@ class _TrendingShowcase extends StatefulWidget {
 class _TrendingShowcaseState extends State<_TrendingShowcase> {
   final AudioPlayer _clipPlayer = AudioPlayer();
   String? _playingId;
+  bool _radioHeld = false;
   StreamSubscription<PlayerState>? _playerStateSub;
 
   @override
@@ -441,6 +443,7 @@ class _TrendingShowcaseState extends State<_TrendingShowcase> {
     _playerStateSub = _clipPlayer.playerStateStream.listen((state) {
       if (!mounted) return;
       if (state.processingState == ProcessingState.completed) {
+        _releaseRadio();
         setState(() => _playingId = null);
       }
     });
@@ -449,8 +452,21 @@ class _TrendingShowcaseState extends State<_TrendingShowcase> {
   @override
   void dispose() {
     _playerStateSub?.cancel();
+    _releaseRadio();
     unawaited(_clipPlayer.dispose());
     super.dispose();
+  }
+
+  void _holdRadio() {
+    if (_radioHeld) return;
+    _radioHeld = true;
+    AudioPlayerService.handler.holdForExternalAudio();
+  }
+
+  void _releaseRadio() {
+    if (!_radioHeld) return;
+    _radioHeld = false;
+    AudioPlayerService.handler.releaseExternalAudio();
   }
 
   bool _isPlaying(TrendingSong song) =>
@@ -462,22 +478,26 @@ class _TrendingShowcaseState extends State<_TrendingShowcase> {
 
     if (_playingId == song.id && _clipPlayer.playing) {
       await _clipPlayer.pause();
+      _releaseRadio();
       if (mounted) setState(() => _playingId = null);
       return;
     }
 
     if (_playingId == song.id && !_clipPlayer.playing) {
+      _holdRadio();
       await _clipPlayer.play();
       if (mounted) setState(() => _playingId = song.id);
       return;
     }
 
     try {
+      _holdRadio();
       await _clipPlayer.setAudioSource(AudioSource.uri(Uri.parse(url)));
       await _clipPlayer.seek(Duration.zero);
       await _clipPlayer.play();
       if (mounted) setState(() => _playingId = song.id);
     } catch (_) {
+      _releaseRadio();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not play this clip.')),

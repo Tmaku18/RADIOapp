@@ -7,6 +7,7 @@ import 'package:just_audio/just_audio.dart';
 import '../../core/analytics/analytics_metrics.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/services/analytics_service.dart';
+import '../../core/services/audio_player_service.dart';
 import '../../core/services/radio_presence_service.dart';
 import '../../core/services/songs_service.dart';
 import '../../core/theme/dimension_tokens.dart';
@@ -43,6 +44,7 @@ class _DimensionHomeSectionsState extends State<DimensionHomeSections> {
   final AudioPlayer _clipPlayer = AudioPlayer();
   String? _playingId;
   bool _startingRadio = false;
+  bool _radioHeld = false;
 
   @override
   void initState() {
@@ -62,8 +64,24 @@ class _DimensionHomeSectionsState extends State<DimensionHomeSections> {
   @override
   void dispose() {
     _livePoll?.cancel();
+    if (_radioHeld) {
+      _radioHeld = false;
+      AudioPlayerService.handler.releaseExternalAudio();
+    }
     _clipPlayer.dispose();
     super.dispose();
+  }
+
+  void _holdRadio() {
+    if (_radioHeld) return;
+    _radioHeld = true;
+    AudioPlayerService.handler.holdForExternalAudio();
+  }
+
+  void _releaseRadio() {
+    if (!_radioHeld) return;
+    _radioHeld = false;
+    AudioPlayerService.handler.releaseExternalAudio();
   }
 
   int _stat(String key) {
@@ -76,6 +94,9 @@ class _DimensionHomeSectionsState extends State<DimensionHomeSections> {
     if (_startingRadio) return;
     setState(() => _startingRadio = true);
     try {
+      await _clipPlayer.stop();
+      _releaseRadio();
+      if (mounted) setState(() => _playingId = null);
       final ok = await RadioGuestPlaybackService.instance.startLiveRadio();
       if (!mounted) return;
       if (ok) {
@@ -94,12 +115,18 @@ class _DimensionHomeSectionsState extends State<DimensionHomeSections> {
     if (url == null || url.isEmpty) return;
     if (_playingId == id) {
       await _clipPlayer.stop();
+      _releaseRadio();
       setState(() => _playingId = null);
       return;
     }
-    await _clipPlayer.setUrl(url);
-    await _clipPlayer.play();
-    setState(() => _playingId = id);
+    _holdRadio();
+    try {
+      await _clipPlayer.setUrl(url);
+      await _clipPlayer.play();
+      setState(() => _playingId = id);
+    } catch (_) {
+      _releaseRadio();
+    }
   }
 
   @override

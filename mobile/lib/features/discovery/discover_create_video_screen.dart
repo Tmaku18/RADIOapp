@@ -67,18 +67,33 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
   int _sentBytes = 0;
   int _totalBytes = 0;
 
-  /// True when this screen muted live radio so clip preview/recording is solo.
-  bool _didSoftPauseRadio = false;
+  /// True when this screen is holding live radio silent.
+  bool _radioHeld = false;
+  StreamSubscription<PlayerState>? _clipSub;
 
   @override
   void initState() {
     super.initState();
+    _clipSub = _clipPlayer.playerStateStream.listen((state) {
+      if (state.processingState == ProcessingState.completed) {
+        _releaseRadioIfIdle();
+      }
+    });
     _bootstrap();
   }
 
   @override
   void dispose() {
-    unawaited(_softResumeRadioIfNeeded());
+    _clipSub?.cancel();
+    if (_radioHeld) {
+      _radioHeld = false;
+      unawaited(() async {
+        try {
+          await AudioPlayerService.restoreMusicSession();
+        } catch (_) {}
+        AudioPlayerService.handler.releaseExternalAudio();
+      }());
+    }
     unawaited(_clipPlayer.dispose());
     unawaited(_previewPlayer?.dispose() ?? Future<void>.value());
     _captionCtrl.dispose();
@@ -86,26 +101,23 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
     super.dispose();
   }
 
-  /// Mute live radio (keeps sync) while Discover clip audio is in use.
-  Future<void> _softPauseRadio() async {
-    try {
-      final handler = AudioPlayerService.handler;
-      if (!handler.userPaused) {
-        await handler.setUserPaused(true);
-        _didSoftPauseRadio = true;
-      }
-    } catch (_) {}
+  /// Hard-pause live radio so a clip or recorded take is the only sound.
+  Future<void> _holdRadio() async {
+    final handler = AudioPlayerService.handler;
+    if (_radioHeld) {
+      await handler.reassertExternalSilence();
+      return;
+    }
+    _radioHeld = true;
+    handler.holdForExternalAudio();
   }
 
-  Future<void> _softResumeRadioIfNeeded() async {
-    if (!_didSoftPauseRadio) return;
-    _didSoftPauseRadio = false;
-    try {
-      // Leave playAndRecord (camera) before unmuting so gain isn't stuck quiet
-      // then suddenly loud when another screen reconfigures the session.
-      await AudioPlayerService.restoreMusicSession();
-      await AudioPlayerService.handler.setUserPaused(false);
-    } catch (_) {}
+  /// Give the station back once the take is gone and the clip preview is stopped.
+  void _releaseRadioIfIdle() {
+    if (!_radioHeld) return;
+    if (_videoFile != null || _recording || _clipPlayer.playing) return;
+    _radioHeld = false;
+    AudioPlayerService.handler.releaseExternalAudio();
   }
 
   Future<void> _bootstrap() async {
@@ -180,6 +192,7 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
       _error = null;
       _captionCtrl.text = _defaultCaption(clip);
     });
+    _releaseRadioIfIdle();
     if (startRecording) {
       await _recordWithClip();
     }
@@ -189,11 +202,12 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
     final clip = _selected;
     if (clip == null || clip.clipUrl.isEmpty) return;
     try {
-      await _softPauseRadio();
+      await _holdRadio();
       await _clipPlayer.setUrl(clip.clipUrl);
       await _clipPlayer.seek(Duration.zero);
       await _clipPlayer.play();
     } catch (e) {
+      _releaseRadioIfIdle();
       if (!mounted) return;
       setState(() => _error = 'Could not play clip: $e');
     }
@@ -203,9 +217,13 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
     try {
       await _clipPlayer.stop();
     } catch (_) {}
+    _releaseRadioIfIdle();
   }
 
-  Future<void> _clearRecordedPreview({bool disposeOnly = false}) async {
+  Future<void> _clearRecordedPreview({
+    bool disposeOnly = false,
+    bool keepRadioHold = false,
+  }) async {
     final player = _previewPlayer;
     _previewPlayer = null;
     if (player != null) {
@@ -219,10 +237,12 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
         _withSong = null;
       });
     }
+    if (!keepRadioHold) _releaseRadioIfIdle();
   }
 
   Future<void> _initVideoPreview(File file) async {
-    await _clearRecordedPreview(disposeOnly: true);
+    await _holdRadio();
+    await _clearRecordedPreview(disposeOnly: true, keepRadioHold: true);
     final controller = VideoPlayerController.file(file);
     try {
       await controller.initialize();
@@ -232,7 +252,8 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
         return;
       }
       setState(() => _previewPlayer = controller);
-      unawaited(controller.play());
+      await controller.play();
+      await AudioPlayerService.handler.reassertExternalSilence();
     } catch (e) {
       try {
         await controller.dispose();
@@ -257,9 +278,9 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
     });
 
     try {
-      await _softPauseRadio();
+      await _holdRadio();
       await _stopClip();
-      await _clearRecordedPreview();
+      await _clearRecordedPreview(keepRadioHold: true);
       if (!mounted) return;
       final maxSec =
           clip.clipDurationSeconds.isFinite && clip.clipDurationSeconds > 0
@@ -285,6 +306,11 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
       setState(() => _error = 'Recording failed: $e');
     } finally {
       if (mounted) setState(() => _recording = false);
+      if (_videoFile != null) {
+        await AudioPlayerService.handler.reassertExternalSilence();
+      } else {
+        _releaseRadioIfIdle();
+      }
     }
   }
 
@@ -322,7 +348,8 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
   }
 
   Future<void> _reRecord() async {
-    await _clearRecordedPreview();
+    await _holdRadio();
+    await _clearRecordedPreview(keepRadioHold: true);
     await _recordWithClip();
   }
 
@@ -678,13 +705,13 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
                                               backgroundColor: Colors.black54,
                                             ),
                                             onPressed: () {
-                                              setState(() {
-                                                if (preview.value.isPlaying) {
-                                                  preview.pause();
-                                                } else {
-                                                  preview.play();
-                                                }
-                                              });
+                                              if (preview.value.isPlaying) {
+                                                preview.pause();
+                                              } else {
+                                                unawaited(_holdRadio());
+                                                preview.play();
+                                              }
+                                              setState(() {});
                                             },
                                             icon: Icon(
                                               preview.value.isPlaying

@@ -72,6 +72,12 @@ type PlaybackActions = {
   softPause: () => void;
   /** Radio: resume from soft pause */
   softResume: () => Promise<void>;
+  /**
+   * Mute live radio while some other sound is audible. Refcounted.
+   * Resumes only if this hold is what muted the radio and every hold is released.
+   */
+  holdForExternalMedia: () => void;
+  releaseExternalMedia: () => void;
   /** Radio: jump to live position */
   jumpToLive: (positionSeconds: number) => Promise<void>;
   /** Radio: true if paused > 30s */
@@ -185,6 +191,13 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   // True when the listener muted the radio via the pause button. The stream
   // keeps playing/advancing and stays synced to live; only output is silenced.
   const mutedByUserRef = useRef(false);
+  // Page media (clips, recorded takes, story video) that is currently audible.
+  // `new Audio()` is not in the document, so those callers use the hold API.
+  const externalPlayingRef = useRef<Set<HTMLMediaElement>>(new Set());
+  const externalHoldCountRef = useRef(0);
+  const mutedForExternalRef = useRef(false);
+  const holdForExternalMediaRef = useRef<() => void>(() => {});
+  const releaseExternalMediaRef = useRef<() => void>(() => {});
   const radioPlayerUiCountRef = useRef(0);
   const [radioPlayerUiActive, setRadioPlayerUiActive] = useState(false);
   const endedAdvanceTrackIdRef = useRef<string | null>(null);
@@ -432,35 +445,67 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     }
   }, [state.source, state.track?.radioId]);
 
-  // Pause radio when discover clips, sample previews, or other page audio starts.
+  // Mute live radio while any other in-page media is audible, then resume only
+  // if this hold was what muted it. Detached `new Audio()` players call the
+  // hold API themselves — their play events never reach the document.
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const onExternalMediaPlay = (event: Event) => {
-      const target = event.target;
-      if (!(target instanceof HTMLMediaElement)) return;
+    const shouldIgnore = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLMediaElement)) return true;
+      if (target.dataset.networxSilent === '1') return true;
       const pair = audioPairRef.current;
-      if (pair && (target === pair.a || target === pair.b)) return;
-      if (overlayAudioRef.current && target === overlayAudioRef.current) return;
-      if (sourceRef.current !== 'radio') return;
-
-      const main = getActiveAudio();
-      if (!main || main.paused) return;
-
-      resetHandoffState();
-      pair?.a.pause();
-      pair?.b.pause();
-      setState((s) => ({
-        ...s,
-        isPlaying: false,
-        pausedAt: Date.now(),
-        isLive: false,
-      }));
+      if (pair && (target === pair.a || target === pair.b)) return true;
+      if (overlayAudioRef.current && target === overlayAudioRef.current) return true;
+      return false;
     };
 
-    document.addEventListener('play', onExternalMediaPlay, true);
-    return () => document.removeEventListener('play', onExternalMediaPlay, true);
-  }, [resetHandoffState, getActiveAudio]);
+    const isAudible = (el: HTMLMediaElement) =>
+      !el.muted && el.volume > 0.001 && !el.paused && !el.ended;
+
+    const track = (el: HTMLMediaElement) => {
+      if (externalPlayingRef.current.has(el)) return;
+      externalPlayingRef.current.add(el);
+      holdForExternalMediaRef.current();
+    };
+
+    const untrack = (el: HTMLMediaElement) => {
+      if (!externalPlayingRef.current.has(el)) return;
+      externalPlayingRef.current.delete(el);
+      releaseExternalMediaRef.current();
+    };
+
+    const onPlay = (event: Event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLMediaElement) || shouldIgnore(target)) return;
+      if (!isAudible(target)) return;
+      track(target);
+    };
+
+    const onStop = (event: Event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLMediaElement) || shouldIgnore(target)) return;
+      untrack(target);
+    };
+
+    const onVolume = (event: Event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLMediaElement) || shouldIgnore(target)) return;
+      if (isAudible(target)) track(target);
+      else untrack(target);
+    };
+
+    document.addEventListener('play', onPlay, true);
+    document.addEventListener('pause', onStop, true);
+    document.addEventListener('ended', onStop, true);
+    document.addEventListener('volumechange', onVolume, true);
+    return () => {
+      document.removeEventListener('play', onPlay, true);
+      document.removeEventListener('pause', onStop, true);
+      document.removeEventListener('ended', onStop, true);
+      document.removeEventListener('volumechange', onVolume, true);
+    };
+  }, []);
 
   const setOnRadioTrackEnded = useCallback((cb: (() => void) | null) => {
     onRadioTrackEndedRef.current = cb;
@@ -1424,6 +1469,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   }, [getActiveAudio, playAudio, radioShouldBeAudible, radioStreamShouldRun]);
 
   const play = useCallback(async () => {
+    if (externalHoldCountRef.current > 0 && sourceRef.current === 'radio') return;
     const audio = getActiveAudio();
     if (!audio) return;
     notifyUserPlaybackGesture();
@@ -1570,6 +1616,8 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   }, [resetHandoffState, getActiveAudio, playAudio]);
 
   const softResume = useCallback(async () => {
+    // Another clip, video, or recording is still audible. Stay muted.
+    if (externalHoldCountRef.current > 0) return;
     mutedByUserRef.current = false;
     notifyUserPlaybackGesture();
     await unlockWebAudioContext(analyserCtxRef);
@@ -1591,6 +1639,28 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       }));
     }
   }, [getActiveAudio, notifyUserPlaybackGesture, playAudio, refreshMainVolume]);
+
+  const holdForExternalMedia = useCallback(() => {
+    externalHoldCountRef.current += 1;
+    if (mutedForExternalRef.current) return;
+    if (sourceRef.current !== 'radio') return;
+    if (mutedByUserRef.current) return;
+    const audio = getActiveAudio();
+    if (!audio || audio.paused || audio.muted) return;
+    mutedForExternalRef.current = true;
+    softPause();
+  }, [getActiveAudio, softPause]);
+
+  const releaseExternalMedia = useCallback(() => {
+    externalHoldCountRef.current = Math.max(0, externalHoldCountRef.current - 1);
+    if (externalHoldCountRef.current > 0) return;
+    if (!mutedForExternalRef.current) return;
+    mutedForExternalRef.current = false;
+    void softResume();
+  }, [softResume]);
+
+  holdForExternalMediaRef.current = holdForExternalMedia;
+  releaseExternalMediaRef.current = releaseExternalMedia;
 
   const togglePlay = useCallback(async () => {
     const s = stateRef.current;
@@ -1766,6 +1836,8 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       syncToPosition,
       softPause,
       softResume,
+      holdForExternalMedia,
+      releaseExternalMedia,
       jumpToLive,
       needsJumpToLive,
       stop,
@@ -1789,6 +1861,8 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       syncToPosition,
       softPause,
       softResume,
+      holdForExternalMedia,
+      releaseExternalMedia,
       jumpToLive,
       needsJumpToLive,
       stop,

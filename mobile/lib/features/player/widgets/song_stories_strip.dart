@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../../core/services/audio_player_service.dart';
 import '../../../core/services/song_stories_service.dart';
 import '../../../widgets/safety/report_block_sheet.dart';
 
@@ -199,6 +200,7 @@ class _SongStoryBrowserState extends State<_SongStoryBrowser> {
   @override
   void initState() {
     super.initState();
+    AudioPlayerService.handler.holdForExternalAudio();
     _index = widget.initialIndex;
     _load();
   }
@@ -241,6 +243,7 @@ class _SongStoryBrowserState extends State<_SongStoryBrowser> {
 
   @override
   void dispose() {
+    AudioPlayerService.handler.releaseExternalAudio();
     _player?.dispose();
     super.dispose();
   }

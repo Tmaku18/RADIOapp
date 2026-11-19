@@ -70,7 +70,6 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
   _CapturePhase _phase = _CapturePhase.preparing;
   String? _error;
   File? _clip;
-  bool _wasAudible = false;
   bool _held = false;
   bool _released = false;
   bool _posting = false;
@@ -150,7 +149,6 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
   Future<void> _holdRadio() async {
     final player = AudioPlayerService().player;
     final handler = AudioPlayerService.handler;
-    _wasAudible = player.playing && !handler.userPaused;
     final chosen = widget.startMs;
     if (chosen != null) {
       _startMs = chosen < 0 ? 0 : chosen;
@@ -160,10 +158,10 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
       if (_startMs < 0) _startMs = 0;
       _knownDurationMs = player.duration?.inMilliseconds ?? widget.durationMs;
     }
-    await handler.hardPauseMusicForCapture();
+    handler.holdForExternalAudio();
     _held = true;
     try {
-      await handler.setUserPaused(true);
+      await handler.hardPauseMusicForCapture();
     } catch (_) {}
   }
 
@@ -176,15 +174,7 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     try {
       await AudioPlayerService.restoreMusicSession();
     } catch (_) {}
-    try {
-      final handler = AudioPlayerService.handler;
-      if (_wasAudible) {
-        await handler.setUserPaused(false);
-      } else {
-        await handler.music.play();
-        if (handler.userPaused) await handler.music.setVolume(0);
-      }
-    } catch (_) {}
+    AudioPlayerService.handler.releaseExternalAudio();
   }
 
   Future<void> _configureSession() async {
@@ -421,12 +411,14 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
       final session = await AudioSession.instance;
       await session.configure(const AudioSessionConfiguration.music());
       await session.setActive(true);
+      await AudioPlayerService.handler.reassertExternalSilence();
     } catch (_) {}
     final controller = VideoPlayerController.file(file);
     await controller.initialize();
     await controller.setLooping(true);
     await controller.setVolume(1);
     await controller.play();
+    await AudioPlayerService.handler.reassertExternalSilence();
     final previous = _preview;
     _preview = controller;
     _clip = file;
@@ -451,6 +443,7 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     try {
       await _configureSession();
     } catch (_) {}
+    await AudioPlayerService.handler.reassertExternalSilence();
     if (!mounted) return;
     setState(() {
       _phase = _CapturePhase.ready;
@@ -676,6 +669,10 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
                                               } else {
                                                 preview.setVolume(1);
                                                 preview.play();
+                                                unawaited(
+                                                  AudioPlayerService.handler
+                                                      .reassertExternalSilence(),
+                                                );
                                               }
                                               setState(() {});
                                             },

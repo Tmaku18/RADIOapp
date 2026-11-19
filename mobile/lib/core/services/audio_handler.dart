@@ -31,6 +31,7 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
     _wireMusicToNotification();
     _wireMusicFailureDetection();
     _wireVoiceAutoRestore();
+    _wireExternalAudioHold();
     // If the WHEP mic connection dies for good (DJ vanished without mic_off),
     // restore the music instead of leaving it ducked with no voice.
     whepVoice.onPermanentFailure = () {
@@ -85,6 +86,13 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
   double _overlayDuckVolume = 0.25;
   bool _userPaused = false;
   bool _suppressVoiceOverlay = false;
+
+  /// Outside players (Discover video, a recorded take, a guest clip) that must
+  /// be the only audible sound. While this is above zero the radio is hard
+  /// paused, not merely muted, so a session change cannot bring it back.
+  int _externalAudioHolds = 0;
+  bool _resumeRadioAfterExternal = false;
+  bool _externalSilenceActive = false;
 
   /// True when the listener tapped pause — audio is paused and muted until resume.
   bool get userPaused => _userPaused;
@@ -274,11 +282,76 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
     await music.setVolume(_baseMusicVolume.clamp(0.0, 1.0));
   }
 
+  void _wireExternalAudioHold() {
+    music.playerStateStream.listen((state) {
+      if (_externalAudioHolds > 0 && state.playing && !_externalSilenceActive) {
+        unawaited(_forceExternalSilence());
+      }
+    });
+    music.volumeStream.listen((volume) {
+      if (_externalAudioHolds > 0 && volume > 0.001 && !_externalSilenceActive) {
+        unawaited(music.setVolume(0));
+      }
+    });
+  }
+
+  /// Silence live radio for another player. Pair every call with
+  /// [releaseExternalAudio]. If something starts the station again while held,
+  /// it is paused again.
+  void holdForExternalAudio() {
+    if (_externalAudioHolds == 0) {
+      _resumeRadioAfterExternal =
+          music.playing && !_userPaused && music.volume > 0.001;
+    }
+    _externalAudioHolds++;
+    unawaited(_forceExternalSilence());
+  }
+
+  /// Re-apply the hard pause after a camera session hands audio back to music.
+  Future<void> reassertExternalSilence() => _forceExternalSilence();
+
+  Future<void> _forceExternalSilence() async {
+    if (_externalAudioHolds <= 0 || _externalSilenceActive) return;
+    _externalSilenceActive = true;
+    try {
+      if (!_userPaused) {
+        await setUserPaused(true);
+      }
+      await music.setVolume(0);
+      try {
+        await music.pause();
+      } catch (_) {}
+      try {
+        await voice.pause();
+        await voice.setVolume(0);
+      } catch (_) {}
+      whepVoice.setMuted(true);
+    } finally {
+      _externalSilenceActive = false;
+    }
+  }
+
+  /// Drop one hold. Radio resumes only when the last hold is gone and it was
+  /// actually playing before the first hold.
+  void releaseExternalAudio() {
+    if (_externalAudioHolds <= 0) return;
+    _externalAudioHolds--;
+    if (_externalAudioHolds > 0) return;
+    final resume = _resumeRadioAfterExternal;
+    _resumeRadioAfterExternal = false;
+    if (!resume) return;
+    unawaited(setUserPaused(false));
+  }
+
   /// "Pause" the radio = stay live but mute. The music stream keeps playing and
   /// advancing on the live server timeline (so every device stays in sync); we
   /// only silence the output. Unmuting rejoins instantly with no catch-up. The
   /// DJ voice overlay is paused+muted since it shouldn't accumulate while muted.
   Future<void> setUserPaused(bool paused) async {
+    if (!paused && _externalAudioHolds > 0) {
+      await _forceExternalSilence();
+      return;
+    }
     if (paused && !_userPaused && !_overlayActive) {
       // Remember the level the listener was actually hearing so resume doesn't
       // jump to a stale/default 1.0 after temporary mutes (Discover record, etc.).

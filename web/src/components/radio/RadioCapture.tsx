@@ -56,7 +56,6 @@ export function RadioCaptureDialog({
   const recorder = useRef<{ stop: () => Promise<File>; cancel: () => void } | null>(null);
   const stopTimer = useRef<number | null>(null);
   const held = useRef(false);
-  const wasMuted = useRef(true);
   const finishing = useRef(false);
   const tick = useRef<number | null>(null);
   const clipUrl = useRef<string | null>(null);
@@ -93,8 +92,9 @@ export function RadioCaptureDialog({
       recorder.current?.cancel();
       stream.getTracks().forEach((item) => item.stop());
       if (clipUrl.current) URL.revokeObjectURL(clipUrl.current);
-      if (held.current && !wasMuted.current) {
-        void playbackRef.current?.actions.softResume();
+      if (held.current) {
+        held.current = false;
+        playbackRef.current?.actions.releaseExternalMedia();
       }
     };
   }, [stream]);
@@ -156,10 +156,9 @@ export function RadioCaptureDialog({
     const total =
       durationSeconds != null && durationSeconds > 0 ? durationSeconds : liveDuration;
     const length = Math.min(CLIP_SECONDS, Math.max(1, total - offset));
-    if (pb && !pb.state.isMuted && !held.current) {
-      wasMuted.current = false;
+    if (pb && !held.current) {
       held.current = true;
-      pb.actions.softPause();
+      pb.actions.holdForExternalMedia();
     }
     if (kind === 'photo') drawStop.current?.();
     const videoTrack = canvas.captureStream(30).getVideoTracks()[0];
@@ -201,6 +200,11 @@ export function RadioCaptureDialog({
   };
 
   const retake = () => {
+    reviewRef.current?.pause();
+    if (held.current) {
+      held.current = false;
+      playbackRef.current?.actions.releaseExternalMedia();
+    }
     if (clip) {
       URL.revokeObjectURL(clip.url);
       clipUrl.current = null;
