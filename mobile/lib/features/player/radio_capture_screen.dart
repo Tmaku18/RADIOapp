@@ -59,8 +59,12 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     androidApplyAudioAttributes: false,
   );
 
+  final GlobalKey<CameraStageState> _stageKey = GlobalKey<CameraStageState>();
   CameraController? _camera;
   VideoPlayerController? _preview;
+  bool _locked = false;
+  bool _stopOnRelease = false;
+  bool _flipping = false;
   Timer? _recordTimer;
   Timer? _holdTimer;
   Future<File>? _audioDownload;
@@ -255,14 +259,16 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     }
   }
 
-  Future<void> _openCamera() async {
+  Future<void> _openCamera([
+    CameraLensDirection facing = CameraLensDirection.front,
+  ]) async {
     final cameras = await availableCameras();
     if (cameras.isEmpty) {
       throw Exception('Allow camera access to record');
     }
     var chosen = cameras.first;
     for (final cam in cameras) {
-      if (cam.lensDirection == CameraLensDirection.front) {
+      if (cam.lensDirection == facing) {
         chosen = cam;
         break;
       }
@@ -289,6 +295,46 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     }
     if (!mounted) return;
     setState(() {});
+  }
+
+  Future<void> _flipCamera() async {
+    final current = _camera;
+    if (_flipping || current == null || _phase != _CapturePhase.ready) return;
+    final wasFront =
+        current.description.lensDirection == CameraLensDirection.front;
+    final facing = wasFront
+        ? CameraLensDirection.back
+        : CameraLensDirection.front;
+    setState(() {
+      _flipping = true;
+      _error = null;
+    });
+    try {
+      final cameras = await availableCameras();
+      if (!cameras.any((c) => c.lensDirection == facing)) return;
+      setState(() => _camera = null);
+      try {
+        await current.dispose();
+      } catch (_) {}
+      try {
+        await _openCamera(facing);
+      } catch (_) {
+        await _openCamera(current.description.lensDirection);
+      }
+      await _configureSession();
+      try {
+        await _camera?.prepareForVideoRecording();
+      } catch (_) {}
+      await _configureSession();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        if (_camera == null) _phase = _CapturePhase.failed;
+        _error = _friendly(error);
+      });
+    } finally {
+      if (mounted) setState(() => _flipping = false);
+    }
   }
 
   Future<void> _startCue() async {
@@ -320,7 +366,11 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
   }
 
   void _shutterDown() {
-    if (_phase != _CapturePhase.ready || _stopping) return;
+    if (_locked) {
+      _stopOnRelease = true;
+      return;
+    }
+    if (_phase != _CapturePhase.ready || _stopping || _flipping) return;
     final gen = ++_pressGen;
     _holdArmed = false;
     _holdTimer?.cancel();
@@ -328,12 +378,27 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
       if (!mounted || gen != _pressGen) return;
       _holdArmed = true;
       await _startVideo();
-      if (!mounted || gen == _pressGen) return;
+      if (!mounted || gen == _pressGen || _locked) return;
       if (_phase == _CapturePhase.recording) unawaited(_stopVideo());
     });
   }
 
+  void _lockRecording() {
+    if (_phase != _CapturePhase.recording || _locked) return;
+    _holdTimer?.cancel();
+    _pressGen++;
+    _holdArmed = false;
+    setState(() => _locked = true);
+  }
+
   void _shutterUp() {
+    if (_locked) {
+      if (_stopOnRelease) {
+        _stopOnRelease = false;
+        unawaited(_stopVideo());
+      }
+      return;
+    }
     _holdTimer?.cancel();
     final armed = _holdArmed;
     _pressGen++;
@@ -422,11 +487,14 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     if (_stopping) return;
     _stopping = true;
     _recordTimer?.cancel();
+    _locked = false;
+    _stopOnRelease = false;
     final cam = _camera;
     final started = _recordStartedAt;
     if (cam == null || !cam.value.isRecordingVideo) {
       _stopping = false;
       _recordStartedAt = null;
+      if (mounted) setState(() {});
       return;
     }
     if (mounted) {
@@ -874,7 +942,11 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
                         ),
                       )
                     : cam != null && cam.value.isInitialized
-                    ? CameraStage(controller: cam, mirror: mirror)
+                    ? CameraStage(
+                        key: _stageKey,
+                        controller: cam,
+                        mirror: mirror,
+                      )
                     : const Center(child: CircularProgressIndicator()),
                 SafeArea(child: _chrome()),
               ],
@@ -910,6 +982,20 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
             icon: const Icon(Icons.close, color: Colors.white),
           ),
         ),
+        if (_phase == _CapturePhase.ready && _camera != null && !_flipping)
+          Positioned(
+            top: 4,
+            right: 4,
+            child: IconButton(
+              onPressed: _flipCamera,
+              tooltip: 'Flip camera',
+              icon: const Icon(
+                Icons.flip_camera_ios_rounded,
+                color: Colors.white,
+                size: 28,
+              ),
+            ),
+          ),
         if (_phase == _CapturePhase.mixing)
           const Center(child: CircularProgressIndicator()),
         if (_error != null && !reviewing)
@@ -929,14 +1015,15 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
             right: 0,
             bottom: 28,
             child: Center(
-              child: Listener(
-                onPointerDown: (_) => _shutterDown(),
-                onPointerUp: (_) => _shutterUp(),
-                onPointerCancel: (_) => _shutterUp(),
-                child: CaptureShutter(
-                  progress: _recordProgress,
-                  recording: _phase == _CapturePhase.recording,
-                ),
+              child: HoldShutter(
+                progress: _recordProgress,
+                recording: _phase == _CapturePhase.recording,
+                locked: _locked,
+                onDown: _shutterDown,
+                onUp: _shutterUp,
+                onLock: _lockRecording,
+                onZoomStart: () => _stageKey.currentState?.beginDragZoom(),
+                onZoom: (dy) => _stageKey.currentState?.dragZoom(dy),
               ),
             ),
           ),

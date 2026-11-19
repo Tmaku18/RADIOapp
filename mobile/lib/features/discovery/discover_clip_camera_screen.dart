@@ -38,6 +38,9 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
   );
 
   CameraController? _camera;
+  final GlobalKey<CameraStageState> _stageKey = GlobalKey<CameraStageState>();
+  bool _locked = false;
+  bool _stopOnRelease = false;
 
   Timer? _recordTimer;
   Timer? _holdTimer;
@@ -197,6 +200,10 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
   }
 
   void _shutterDown() {
+    if (_locked) {
+      _stopOnRelease = true;
+      return;
+    }
     if (_initializing ||
         _recording ||
         _startingRecord ||
@@ -209,12 +216,26 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
     _holdTimer = Timer(const Duration(milliseconds: 450), () async {
       if (!mounted || gen != _pressGen) return;
       await _beginRecording();
-      if (!mounted || gen == _pressGen) return;
+      if (!mounted || gen == _pressGen || _locked) return;
       if (_recording) unawaited(_finishRecording());
     });
   }
 
+  void _lockRecording() {
+    if (!_recording || _locked || _finishing) return;
+    _holdTimer?.cancel();
+    _pressGen++;
+    setState(() => _locked = true);
+  }
+
   void _shutterUp() {
+    if (_locked) {
+      if (_stopOnRelease) {
+        _stopOnRelease = false;
+        unawaited(_finishRecording());
+      }
+      return;
+    }
     _holdTimer?.cancel();
     _pressGen++;
     if (_recording || _startingRecord) unawaited(_finishRecording());
@@ -315,7 +336,11 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
 
     _finishing = true;
     final started = _recordStartedAt;
-    setState(() => _finishing = true);
+    setState(() {
+      _finishing = true;
+      _locked = false;
+      _stopOnRelease = false;
+    });
     _recordTimer?.cancel();
     _recordProgress.value = 0;
 
@@ -385,7 +410,11 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
         fit: StackFit.expand,
         children: [
           if (ready)
-            CameraStage(controller: cam, mirror: _shouldFlipPreview)
+            CameraStage(
+              key: _stageKey,
+              controller: cam,
+              mirror: _shouldFlipPreview,
+            )
           else
             const Center(child: CircularProgressIndicator(color: Colors.white)),
           SafeArea(
@@ -417,14 +446,16 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
                     right: 0,
                     bottom: 28,
                     child: Center(
-                      child: Listener(
-                        onPointerDown: (_) => _shutterDown(),
-                        onPointerUp: (_) => _shutterUp(),
-                        onPointerCancel: (_) => _shutterUp(),
-                        child: CaptureShutter(
-                          progress: _recordProgress,
-                          recording: _recording,
-                        ),
+                      child: HoldShutter(
+                        progress: _recordProgress,
+                        recording: _recording,
+                        locked: _locked,
+                        onDown: _shutterDown,
+                        onUp: _shutterUp,
+                        onLock: _lockRecording,
+                        onZoomStart: () =>
+                            _stageKey.currentState?.beginDragZoom(),
+                        onZoom: (dy) => _stageKey.currentState?.dragZoom(dy),
                       ),
                     ),
                   ),

@@ -7,26 +7,29 @@ import 'package:flutter/material.dart';
 /// Full-screen camera, cropped to the phone instead of stretched.
 ///
 /// A 4:3 frame pulled edge to edge bows faces like a fishbowl. This covers
-/// the screen with the real picture, opens a step tighter than the widest
-/// lens, and lets a two-finger pinch zoom in the way Snapchat does.
+/// the screen with the 16:9 picture, opens at the widest zoom, and zooms with
+/// a two-finger pinch or a slide on the shutter the way Snapchat does.
 class CameraStage extends StatefulWidget {
-  const CameraStage({
-    super.key,
-    required this.controller,
-    this.mirror = false,
-  });
+  const CameraStage({super.key, required this.controller, this.mirror = false});
 
   final CameraController controller;
   final bool mirror;
 
   @override
-  State<CameraStage> createState() => _CameraStageState();
+  State<CameraStage> createState() => CameraStageState();
 }
 
-class _CameraStageState extends State<CameraStage> {
+class CameraStageState extends State<CameraStage> {
+  /// Finger travel that sweeps the shutter slide from widest to tightest.
+  static const double _dragTravel = 260;
+
+  /// Past this the picture is mostly noise, so the slide stops here.
+  static const double _dragZoomCap = 8;
+
   double _minZoom = 1;
   double _maxZoom = 1;
   double _zoom = 1;
+  double _dragStart = 1;
   double _pinchStart = 1;
   double _scaleBaseline = 1;
   bool _pinching = false;
@@ -55,18 +58,38 @@ class _CameraStageState extends State<CameraStage> {
       final minZoom = await camera.getMinZoomLevel();
       final maxZoom = await camera.getMaxZoomLevel();
       if (!mounted || generation != _generation) return;
-      // Widest setting is the bent one. Open inside it, and let a pinch
-      // travel from that wide end all the way in.
-      final opening = math.min(maxZoom, math.max(minZoom, minZoom + 0.45));
-      await camera.setZoomLevel(opening);
+      await camera.setZoomLevel(minZoom);
       if (!mounted || generation != _generation) return;
       setState(() {
         _minZoom = minZoom;
         _maxZoom = maxZoom;
-        _zoom = opening;
-        _pinchStart = opening;
+        _zoom = minZoom;
+        _dragStart = minZoom;
+        _pinchStart = minZoom;
       });
     } catch (_) {}
+  }
+
+  /// Call when a finger lands on the shutter, before [dragZoom].
+  void beginDragZoom() {
+    _dragStart = _zoom;
+  }
+
+  /// [dy] is the finger's vertical travel since [beginDragZoom]; up zooms in.
+  void dragZoom(double dy) {
+    const deadZone = 10.0;
+    if (dy.abs() < deadZone) return;
+    final travel = dy < 0 ? dy + deadZone : dy - deadZone;
+    final top = math.min(_maxZoom, _minZoom * _dragZoomCap);
+    if (top <= _minZoom) return;
+    final ratio = math.pow(top / _minZoom, -travel / _dragTravel).toDouble();
+    final double next = (_dragStart * ratio).clamp(
+      _minZoom,
+      math.max(top, _dragStart),
+    );
+    if ((next - _zoom).abs() < 0.01) return;
+    setState(() => _zoom = next);
+    _queueZoom(next);
   }
 
   void _queueZoom(double zoom) {
