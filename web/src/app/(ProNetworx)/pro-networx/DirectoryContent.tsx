@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { proNetworxApi, usersApi } from '@/lib/api';
 import { Switch } from '@/components/ui/switch';
@@ -100,6 +101,7 @@ export function ProNetworxDirectoryContent({
   smartRanking = false,
 }: Props) {
   const { profile, loading: authLoading } = useAuth();
+  const router = useRouter();
   const [items, setItems] = useState<DirectoryItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -334,7 +336,10 @@ export function ProNetworxDirectoryContent({
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {items.map((p, i) => (
               <Reveal key={p.userId} delay={(i % 6) * 0.05} y={24}>
-                <div className="tilt group rounded-2xl tracing-border glass overflow-hidden h-full flex flex-col">
+                <div
+                  onClick={() => router.push(`/pro-networx/u/${p.userId}`)}
+                  className="tilt group cursor-pointer rounded-2xl tracing-border glass overflow-hidden h-full flex flex-col"
+                >
                   <div className="p-4 space-y-3 flex-1 flex flex-col">
                     {p.mediaPreviewUrl && p.mediaPreviewType === 'image' ? (
                       <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-white/10 bg-black/40">
@@ -437,7 +442,11 @@ export function ProNetworxDirectoryContent({
                       </span>
                     </div>
 
-                    <div className="flex flex-wrap gap-2 pt-1 mt-auto">
+                    <div
+                      className="flex flex-wrap gap-2 pt-1 mt-auto"
+                      onClick={(event) => event.stopPropagation()}
+                      onKeyDown={(event) => event.stopPropagation()}
+                    >
                       <Link
                         href={`/pro-networx/u/${p.userId}`}
                         className={cn(dimBtnGhost, 'flex-1 min-w-[7rem]')}

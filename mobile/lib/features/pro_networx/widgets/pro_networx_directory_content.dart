@@ -497,6 +497,7 @@ class _DirectoryCard extends StatelessWidget {
 
     return GlassCard(
       padding: const EdgeInsets.all(16),
+      onTap: onProfile,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
