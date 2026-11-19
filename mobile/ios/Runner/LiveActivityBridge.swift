@@ -15,10 +15,23 @@ private func networxLockMuteDarwinCallback(
   }
 }
 
+private func networxLockReactDarwinCallback(
+  _ center: CFNotificationCenter?,
+  _ observer: UnsafeMutableRawPointer?,
+  _ name: CFNotificationName?,
+  _ object: UnsafeRawPointer?,
+  _ userInfo: CFDictionary?
+) {
+  DispatchQueue.main.async {
+    LiveActivityBridge.deliverLockReaction()
+  }
+}
+
 enum LiveActivityBridge {
   private static var channel: FlutterMethodChannel?
   private static var updateChain: Task<Void, Never>?
   private static var observingMute = false
+  private static var observingReact = false
 
   static func register(messenger: FlutterBinaryMessenger) {
     let methodChannel = FlutterMethodChannel(
@@ -27,6 +40,7 @@ enum LiveActivityBridge {
     )
     channel = methodChannel
     observeLockMute()
+    observeLockReaction()
     methodChannel.setMethodCallHandler { call, result in
       guard #available(iOS 16.2, *) else {
         result(false)
@@ -56,6 +70,13 @@ enum LiveActivityBridge {
     channel?.invokeMethod("toggleMute", arguments: nil)
   }
 
+  static func deliverLockReaction() {
+    let reaction = UserDefaults(suiteName: networxAppGroupId)?
+      .string(forKey: networxLockReactionKey) ?? ""
+    guard reaction == "fire" || reaction == "shit" else { return }
+    channel?.invokeMethod("react", arguments: reaction)
+  }
+
   private static func observeLockMute() {
     if observingMute { return }
     observingMute = true
@@ -64,6 +85,19 @@ enum LiveActivityBridge {
       nil,
       networxLockMuteDarwinCallback,
       networxLockMuteNotification as CFString,
+      nil,
+      .deliverImmediately
+    )
+  }
+
+  private static func observeLockReaction() {
+    if observingReact { return }
+    observingReact = true
+    CFNotificationCenterAddObserver(
+      CFNotificationCenterGetDarwinNotifyCenter(),
+      nil,
+      networxLockReactDarwinCallback,
+      networxLockReactNotification as CFString,
       nil,
       .deliverImmediately
     )

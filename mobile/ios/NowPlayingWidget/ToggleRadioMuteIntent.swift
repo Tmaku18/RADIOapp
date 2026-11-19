@@ -32,3 +32,42 @@ struct ToggleRadioMuteIntent: LiveActivityIntent {
     return .result()
   }
 }
+
+/// Lock-screen fire. Votes on the playing song without opening the app.
+@available(iOS 17.0, *)
+struct FireSongIntent: LiveActivityIntent {
+  static var title: LocalizedStringResource = "Fire"
+  static var openAppWhenRun: Bool = false
+
+  func perform() async throws -> some IntentResult {
+    postLockReaction("fire")
+    return .result()
+  }
+}
+
+/// Lock-screen pass. Votes on the playing song without opening the app.
+@available(iOS 17.0, *)
+struct ShitSongIntent: LiveActivityIntent {
+  static var title: LocalizedStringResource = "Pass"
+  static var openAppWhenRun: Bool = false
+
+  func perform() async throws -> some IntentResult {
+    postLockReaction("shit")
+    return .result()
+  }
+}
+
+@available(iOS 17.0, *)
+private func postLockReaction(_ reaction: String) {
+  let defaults = UserDefaults(suiteName: networxAppGroupId)
+  defaults?.set(reaction, forKey: networxLockReactionKey)
+  defaults?.synchronize()
+  let name = CFNotificationName(networxLockReactNotification as CFString)
+  CFNotificationCenterPostNotification(
+    CFNotificationCenterGetDarwinNotifyCenter(),
+    name,
+    nil,
+    nil,
+    true
+  )
+}

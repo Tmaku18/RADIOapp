@@ -131,13 +131,41 @@ private struct LockScreenMuteButton: View {
   }
 }
 
+@available(iOS 17.0, *)
+private struct LockScreenReactionButton: View {
+  let emoji: String
+  let fire: Bool
+
+  var body: some View {
+    Group {
+      if fire {
+        Button(intent: FireSongIntent()) { label }
+      } else {
+        Button(intent: ShitSongIntent()) { label }
+      }
+    }
+    .buttonStyle(.plain)
+  }
+
+  private var label: some View {
+    Text(emoji)
+      .font(.title2)
+      .frame(width: 64, height: 36)
+  }
+}
+
 private struct LockScreenNowPlaying: View {
   let state: NowPlayingAttributes.ContentState
 
   var body: some View {
-    HStack(alignment: .center, spacing: 14) {
-      LockScreenArtwork(token: state.artworkToken, side: 96)
-      VStack(alignment: .leading, spacing: 4) {
+    HStack(alignment: .top, spacing: 12) {
+      VStack(spacing: 4) {
+        LockScreenArtwork(token: state.artworkToken, side: 64)
+        if #available(iOS 17.0, *) {
+          LockScreenReactionButton(emoji: "💩", fire: false)
+        }
+      }
+      VStack(spacing: 2) {
         Text(state.station)
           .font(.caption)
           .foregroundStyle(networxCyan)
@@ -152,13 +180,22 @@ private struct LockScreenNowPlaying: View {
           .foregroundStyle(.white.opacity(0.72))
           .lineLimit(1)
       }
-      .frame(maxWidth: .infinity, alignment: .leading)
+      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
       if #available(iOS 17.0, *) {
         LockScreenMuteButton(isMuted: state.isMuted)
       }
     }
-    .padding(16)
-    .frame(maxWidth: .infinity, minHeight: 128, alignment: .leading)
+    .padding(.horizontal, 14)
+    .padding(.top, 12)
+    .padding(.bottom, 40)
+    .frame(maxWidth: .infinity, minHeight: 148, alignment: .top)
+    .overlay(alignment: .bottomTrailing) {
+      if #available(iOS 17.0, *) {
+        LockScreenReactionButton(emoji: "🔥", fire: true)
+          .padding(.bottom, 2)
+          .padding(.trailing, 14)
+      }
+    }
   }
 }
 

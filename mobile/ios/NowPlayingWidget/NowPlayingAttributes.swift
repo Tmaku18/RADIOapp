@@ -4,6 +4,8 @@ import Foundation
 let networxAppGroupId = "group.com.tmaktechnologies.networxradio"
 let networxLockArtworkName = "live-artwork.jpg"
 let networxLockMuteNotification = "com.tmaktechnologies.networxradio.lockMute"
+let networxLockReactNotification = "com.tmaktechnologies.networxradio.lockReact"
+let networxLockReactionKey = "lockReaction"
 
 @available(iOS 16.1, *)
 struct NowPlayingAttributes: ActivityAttributes {

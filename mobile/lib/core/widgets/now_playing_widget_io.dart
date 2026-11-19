@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:home_widget/home_widget.dart';
 
 import '../services/audio_player_service.dart';
+import '../services/radio_service.dart';
 
 const _appGroupId = 'group.com.tmaktechnologies.networxradio';
 const _liveActivity = MethodChannel('networx/live_activity');
@@ -19,10 +20,33 @@ class NowPlayingWidgetSync {
     if (_listening || !Platform.isIOS) return;
     _listening = true;
     _liveActivity.setMethodCallHandler((call) async {
-      if (call.method != 'toggleMute') return;
-      final handler = AudioPlayerService.handler;
-      await handler.setUserPaused(!handler.userPaused);
+      if (call.method == 'toggleMute') {
+        final handler = AudioPlayerService.handler;
+        await handler.setUserPaused(!handler.userPaused);
+        return;
+      }
+      if (call.method == 'react') {
+        await react(call.arguments as String?);
+      }
     });
+  }
+
+  /// Lock-screen 🔥 / 💩. The app stays in the background.
+  static Future<void> react(String? reaction) async {
+    if (reaction != 'fire' && reaction != 'shit') return;
+    final item = AudioPlayerService.handler.mediaItem.valueOrNull;
+    final songId = (item?.extras?['songId'] ?? item?.id)?.toString().trim() ?? '';
+    if (songId.isEmpty || songId.startsWith('station:')) return;
+    final playId = item?.extras?['playId']?.toString();
+    try {
+      await RadioService().submitReaction(
+        songId: songId,
+        playId: playId,
+        reaction: reaction!,
+      );
+    } catch (e) {
+      debugPrint('Lock screen reaction skipped: $e');
+    }
   }
 
   static Future<void> push(MediaItem? item) async {
