@@ -3,6 +3,7 @@ class DailyPlayCount {
   final int plays;
   final int listens;
   final int ears;
+  final int uniqueListeners;
   final int likes;
 
   DailyPlayCount({
@@ -10,6 +11,7 @@ class DailyPlayCount {
     required this.plays,
     required this.listens,
     required this.ears,
+    required this.uniqueListeners,
     required this.likes,
   });
 
@@ -21,6 +23,9 @@ class DailyPlayCount {
       plays: plays,
       listens: toInt(json['listens'] ?? 0),
       ears: toInt(json['ears'] ?? json['listens'] ?? 0),
+      uniqueListeners: toInt(
+        json['uniqueListeners'] ?? json['unique_listeners'] ?? 0,
+      ),
       likes: toInt(json['likes'] ?? 0),
     );
   }
@@ -81,6 +86,9 @@ class ArtistAnalytics {
   final int totalPlays;
   final int totalListenCount;
   final int earsReached;
+  final int uniqueListeners;
+  final int uniqueListenersThisWeek;
+  final int uniqueListenersThisMonth;
   final int listensThisWeek;
   final int listensThisMonth;
   final int likesThisWeek;
@@ -101,6 +109,9 @@ class ArtistAnalytics {
     required this.totalPlays,
     required this.totalListenCount,
     required this.earsReached,
+    required this.uniqueListeners,
+    required this.uniqueListenersThisWeek,
+    required this.uniqueListenersThisMonth,
     required this.listensThisWeek,
     required this.listensThisMonth,
     required this.likesThisWeek,
@@ -128,6 +139,15 @@ class ArtistAnalytics {
       totalListenCount:
           toInt(json['totalListenCount'] ?? json['total_listen_count']),
       earsReached: toInt(json['earsReached'] ?? json['ears_reached']),
+      uniqueListeners: toInt(
+        json['uniqueListeners'] ?? json['unique_listeners'],
+      ),
+      uniqueListenersThisWeek: toInt(
+        json['uniqueListenersThisWeek'] ?? json['unique_listeners_this_week'],
+      ),
+      uniqueListenersThisMonth: toInt(
+        json['uniqueListenersThisMonth'] ?? json['unique_listeners_this_month'],
+      ),
       listensThisWeek:
           toInt(json['listensThisWeek'] ?? json['listens_this_week']),
       listensThisMonth:

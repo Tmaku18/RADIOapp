@@ -2028,7 +2028,7 @@ export class SongsService {
       profile_play_count: number | null;
     }>;
 
-    // Rank by unique listeners per song (listens) plus likes — NOT raw play counts.
+    // Rank by ears reached (unique people) plus likes — not raw play counts.
     const allSongIds = allSongs.map((s) => s.id);
     const [earsBySong, listensBySong] = await Promise.all([
       this.getEarsReachedBySongId(allSongIds),
@@ -2036,8 +2036,7 @@ export class SongsService {
     ]);
 
     const score = (s: (typeof allSongs)[number]) =>
-      (listensBySong.get(s.id) ?? earsBySong.get(s.id) ?? 0) +
-      (s.like_count ?? 0) * 5;
+      (earsBySong.get(s.id) ?? 0) + (s.like_count ?? 0) * 5;
 
     const ranked = [...allSongs]
       .sort((a, b) => score(b) - score(a))
@@ -2106,8 +2105,8 @@ export class SongsService {
 
     const artistScore = (agg: {
       likeCount: number;
-      listens: number;
-    }) => agg.listens + agg.likeCount * 5;
+      earsReached: number;
+    }) => agg.earsReached + agg.likeCount * 5;
 
     const topArtistEntries = [...artistAgg.entries()]
       .sort((a, b) => artistScore(b[1]) - artistScore(a[1]))

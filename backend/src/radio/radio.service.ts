@@ -334,6 +334,14 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     return maybeError?.code === '42703' && message.includes('stream_token');
   }
 
+  private isMissingListenEventsTable(error: unknown): boolean {
+    const maybeError = error as { code?: string; message?: string } | null;
+    const message = (maybeError?.message ?? '').toLowerCase();
+    return (
+      maybeError?.code === '42P01' && message.includes('song_listen_events')
+    );
+  }
+
   private isMissingListenerPresenceTable(error: unknown): boolean {
     const maybeError = error as { code?: string; message?: string } | null;
     const message = (maybeError?.message ?? '').toLowerCase();
@@ -1505,6 +1513,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
 
     const supabase = getSupabaseClient();
     const nowIso = new Date().toISOString();
+    await this.recordGuestListenIfNew(streamToken, songId, nowIso);
     const { error } = await supabase.from('radio_listener_presence').upsert(
       {
         stream_token: streamToken,
@@ -1523,6 +1532,66 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
 
     // Refresh the cached count so this listener shows up on the next read.
     this.invalidateListenerCount(songId);
+  }
+
+  /**
+   * Count a guest listen when a visit starts, the song changes, or the visit
+   * goes quiet and comes back. Heartbeats for the song already playing do not
+   * count again, so a loop inside the same visit is one ear and one extra
+   * listen only after the song actually leaves and returns.
+   */
+  private async recordGuestListenIfNew(
+    streamToken: string,
+    songId: string,
+    nowIso: string,
+  ): Promise<void> {
+    const supabase = getSupabaseClient();
+    const cutoffIso = new Date(
+      Date.now() - ACTIVE_LISTENER_WINDOW_SECONDS * 1000,
+    ).toISOString();
+
+    const recentUser = await supabase
+      .from('prospector_sessions')
+      .select('id')
+      .eq('stream_token', streamToken)
+      .gte('last_heartbeat_at', cutoffIso)
+      .limit(1);
+    if (!recentUser.error && (recentUser.data?.length ?? 0) > 0) return;
+
+    const latest = await supabase
+      .from('radio_listener_presence')
+      .select('song_id, last_seen_at')
+      .eq('stream_token', streamToken)
+      .order('last_seen_at', { ascending: false })
+      .limit(1);
+    if (latest.error && !this.isMissingListenerPresenceTable(latest.error)) {
+      this.logger.warn(
+        `Failed to check guest listen state: ${latest.error.message}`,
+      );
+      return;
+    }
+
+    const row = (latest.data ?? [])[0] as
+      | { song_id?: string | null; last_seen_at?: string | null }
+      | undefined;
+    const lastSeenMs = row?.last_seen_at
+      ? new Date(row.last_seen_at).getTime()
+      : 0;
+    const sessionStillOpen =
+      lastSeenMs > 0 &&
+      Date.now() - lastSeenMs <= ACTIVE_LISTENER_WINDOW_SECONDS * 1000;
+    if (sessionStillOpen && row?.song_id === songId) return;
+
+    const { error } = await supabase.from('song_listen_events').insert({
+      song_id: songId,
+      stream_token: streamToken,
+      started_at: nowIso,
+    });
+    if (error && !this.isMissingListenEventsTable(error)) {
+      this.logger.warn(
+        `Failed to record a guest listen for song ${songId}: ${error.message}`,
+      );
+    }
   }
 
   /**
@@ -1832,22 +1901,26 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
    * Close to pure random with minor nudges:
    * - +0.1 weight for above-average credits (reward investment)
    * - +0.1 weight for not played in last hour (anti-repetition)
+   * - Ears reached, likes, dislikes, and average listening time
    * - Exclude same artist as last played when possible (artist spacing)
    */
-  private selectWeightedRandom(
+  private async selectWeightedRandom(
     songs: any[],
     currentSongId?: string,
     lastPlayedArtistId?: string | null,
-  ): any | null {
+  ): Promise<any | null> {
     if (!songs || songs.length === 0) return null;
 
+    const signals = await this.loadRecommendationSignals(
+      songs.map((song) => song.id).filter(Boolean),
+    );
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
     const avgCredits =
       songs.reduce((sum, s) => sum + (s.credits_remaining || 0), 0) /
       songs.length;
 
     const weightedSongs = songs.map((song) => {
-      let weight = 1.0; // Base weight
+      let weight = 1.0 + this.listenerQualityNudge(song, signals);
 
       // +0.1 for above-average credits
       if ((song.credits_remaining || 0) > avgCredits) weight += 0.1;
@@ -1877,6 +1950,105 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     }
 
     return songs[0];
+  }
+
+  /**
+   * Small nudge from unique people, likes, dislikes, and how long they stay.
+   * New songs with no audience stay at the base weight.
+   */
+  private listenerQualityNudge(
+    song: { id?: string; duration_seconds?: number | null },
+    signals: Map<
+      string,
+      {
+        ears: number;
+        fire: number;
+        shit: number;
+        avgListenSeconds: number;
+      }
+    >,
+  ): number {
+    const signal = song.id ? signals.get(song.id) : undefined;
+    if (!signal) return 0;
+    const votes = signal.fire + signal.shit;
+    const approval = votes === 0 ? 0 : (signal.fire - signal.shit) / votes;
+    const duration = Math.max(30, song.duration_seconds || DEFAULT_DURATION_SECONDS);
+    const listenNudge =
+      signal.avgListenSeconds > 0
+        ? (Math.max(0, Math.min(1, signal.avgListenSeconds / duration)) - 0.5) *
+          0.2
+        : 0;
+    const reach = Math.min(0.15, Math.log10(1 + signal.ears) * 0.05);
+    return approval * 0.15 + listenNudge + reach;
+  }
+
+  private recommendationSignalsCache: {
+    at: number;
+    bySong: Map<
+      string,
+      {
+        ears: number;
+        fire: number;
+        shit: number;
+        avgListenSeconds: number;
+      }
+    >;
+  } | null = null;
+
+  private async loadRecommendationSignals(songIds: string[]) {
+    const now = Date.now();
+    const cached = this.recommendationSignalsCache;
+    const fresh = cached != null && now - cached.at < 60_000;
+    const missing = fresh
+      ? songIds.filter((id) => !cached.bySong.has(id))
+      : songIds;
+    if (fresh && missing.length === 0 && cached) return cached.bySong;
+
+    const bySong = fresh && cached ? new Map(cached.bySong) : new Map();
+    if (missing.length === 0) {
+      this.recommendationSignalsCache = { at: now, bySong };
+      return bySong;
+    }
+
+    try {
+      const supabase = getSupabaseClient();
+      const { data, error } = await supabase.rpc(
+        'get_song_recommendation_signals',
+        { p_song_ids: missing },
+      );
+      if (error) {
+        this.logger.warn(
+          `Recommendation signals unavailable: ${error.message}`,
+        );
+        return bySong;
+      }
+      for (const row of (data ?? []) as Array<{
+        song_id: string;
+        ears: number | string | null;
+        fire_votes: number | string | null;
+        shit_votes: number | string | null;
+        avg_listen_seconds: number | string | null;
+      }>) {
+        if (!row.song_id) continue;
+        bySong.set(row.song_id, {
+          ears: Number(row.ears) || 0,
+          fire: Number(row.fire_votes) || 0,
+          shit: Number(row.shit_votes) || 0,
+          avgListenSeconds: Number(row.avg_listen_seconds) || 0,
+        });
+      }
+      for (const id of missing) {
+        if (!bySong.has(id)) {
+          bySong.set(id, { ears: 0, fire: 0, shit: 0, avgListenSeconds: 0 });
+        }
+      }
+      this.recommendationSignalsCache = { at: now, bySong };
+    } catch (error) {
+      this.logger.warn(
+        `Recommendation signals unavailable: ${(error as Error)?.message ?? error}`,
+      );
+    }
+    return bySong;
   }
 
   /**
@@ -2007,7 +2179,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     );
     if (webPlayableSongs.length === 0) return null;
 
-    const selectedSong = this.selectWeightedRandom(
+    const selectedSong = await this.selectWeightedRandom(
       webPlayableSongs,
       currentSongId,
       lastPlayedArtistId,
@@ -2049,7 +2221,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     );
     if (webPlayableSongs.length === 0) return null;
 
-    const selectedSong = this.selectWeightedRandom(
+    const selectedSong = await this.selectWeightedRandom(
       webPlayableSongs,
       currentSongId,
       lastPlayedArtistId,
@@ -2092,7 +2264,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     );
     if (webPlayableSongs.length === 0) return null;
 
-    const selectedSong = this.selectWeightedRandom(
+    const selectedSong = await this.selectWeightedRandom(
       webPlayableSongs,
       currentSongId,
       lastPlayedArtistId,

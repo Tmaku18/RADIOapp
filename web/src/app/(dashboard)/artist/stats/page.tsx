@@ -11,6 +11,7 @@ interface DailyPlayCount {
   plays: number;
   listens?: number;
   ears?: number;
+  uniqueListeners?: number;
   likes?: number;
 }
 
@@ -33,6 +34,9 @@ interface ArtistAnalytics {
   totalPlays: number;
   totalListenCount?: number;
   earsReached?: number;
+  uniqueListeners?: number;
+  uniqueListenersThisWeek?: number;
+  uniqueListenersThisMonth?: number;
   listensThisWeek?: number;
   listensThisMonth?: number;
   likesThisWeek?: number;
@@ -231,17 +235,17 @@ export default function StatsPage() {
     const day = new Date(`${d.date}T12:00:00`).getDay();
     return {
       day: DAY_NAMES[day],
-      ears: d.ears ?? 0,
+      listeners: d.uniqueListeners ?? 0,
       likes: d.likes ?? 0,
     };
   });
   const totalEars = analytics?.earsReached ?? 0;
-  const totalListens = analytics?.totalListenCount ?? 0;
-  const earsThisWeek = analytics?.earsReachedThisWeek ?? 0;
-  const earsThisMonth = analytics?.earsReachedThisMonth ?? 0;
+  const totalUniqueListeners = analytics?.uniqueListeners ?? 0;
+  const uniqueListenersThisWeek = analytics?.uniqueListenersThisWeek ?? 0;
+  const uniqueListenersThisMonth = analytics?.uniqueListenersThisMonth ?? 0;
   const likesThisWeek = analytics?.likesThisWeek ?? 0;
   const likesThisMonth = analytics?.likesThisMonth ?? 0;
-  const maxEars = Math.max(1, ...earsByDayForChart.map((d) => d.ears));
+  const maxListeners = Math.max(1, ...earsByDayForChart.map((d) => d.listeners));
   const maxLikes = Math.max(1, ...earsByDayForChart.map((d) => d.likes));
 
   if (loading) {
@@ -266,7 +270,7 @@ export default function StatsPage() {
       <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">Analytics</h1>
-          <p className="text-muted-foreground mt-1">Track ears reached, listens, plays, and audience growth.</p>
+          <p className="text-muted-foreground mt-1">Track ears reached, unique listeners, plays, and audience growth.</p>
         </div>
         {catalogSongs.length > 0 && (
           <label className="block sm:w-72">
@@ -319,15 +323,15 @@ export default function StatsPage() {
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground font-medium">Ears Reached</div>
             <div className="text-3xl font-bold text-foreground mt-1">{totalEars.toLocaleString()}</div>
-            <div className="text-sm text-primary mt-2">Unique listeners, all time</div>
+            <div className="text-sm text-primary mt-2">Each person once. Does not reset.</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground font-medium">Listens</div>
-            <div className="text-3xl font-bold text-foreground mt-1">{totalListens.toLocaleString()}</div>
-            <div className="text-sm text-primary mt-2">Once per song per person</div>
+            <div className="text-sm text-muted-foreground font-medium">Unique Listeners</div>
+            <div className="text-3xl font-bold text-foreground mt-1">{totalUniqueListeners.toLocaleString()}</div>
+            <div className="text-sm text-primary mt-2">Every time someone listens, all time</div>
           </CardContent>
         </Card>
 
@@ -341,9 +345,9 @@ export default function StatsPage() {
 
         <Card>
           <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground font-medium">Ears This Week</div>
-            <div className="text-3xl font-bold text-foreground mt-1">{earsThisWeek.toLocaleString()}</div>
-            <div className="text-sm text-primary mt-2">Unique listeners, last 7 days</div>
+            <div className="text-sm text-muted-foreground font-medium">Unique Listeners This Week</div>
+            <div className="text-3xl font-bold text-foreground mt-1">{uniqueListenersThisWeek.toLocaleString()}</div>
+            <div className="text-sm text-primary mt-2">Every listen in the last 7 days</div>
           </CardContent>
         </Card>
 
@@ -359,9 +363,9 @@ export default function StatsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground font-medium">Ears This Month</div>
-            <div className="text-3xl font-bold text-foreground mt-1">{earsThisMonth.toLocaleString()}</div>
-            <div className="text-sm text-primary mt-2">Unique listeners, last 30 days</div>
+            <div className="text-sm text-muted-foreground font-medium">Unique Listeners This Month</div>
+            <div className="text-3xl font-bold text-foreground mt-1">{uniqueListenersThisMonth.toLocaleString()}</div>
+            <div className="text-sm text-primary mt-2">Every listen in the last 30 days</div>
           </CardContent>
         </Card>
 
@@ -476,39 +480,39 @@ export default function StatsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardContent className="pt-6">
-            <h2 className="text-xl font-semibold text-foreground mb-2">Ears Reached This Week</h2>
+            <h2 className="text-xl font-semibold text-foreground mb-2">Unique Listeners This Week</h2>
             <p className="text-sm text-muted-foreground mb-6">
-              Unique listeners per day (each account once)
+              Every listen per day, including the same person again
             </p>
             {earsByDayForChart.length > 0 ? (
               <div className="flex items-end justify-between gap-3 h-52 artist-chart-plays">
                 {earsByDayForChart.map((day, i) => {
                   const barHeight =
-                    day.ears > 0
-                      ? Math.max(12, Math.round((day.ears / maxEars) * 100))
+                    day.listeners > 0
+                      ? Math.max(12, Math.round((day.listeners / maxListeners) * 100))
                       : 0;
                   return (
                     <div
-                      key={`ears-${day.day}-${i}`}
+                      key={`listeners-${day.day}-${i}`}
                       className="flex-1 flex flex-col items-center min-w-0"
                     >
                       <div className="w-full h-40 flex items-end justify-center">
                         <div
                           className="w-full max-w-10 rounded-t-lg bg-primary transition-all hover:bg-primary/80"
                           style={{ height: `${barHeight}%` }}
-                          title={`${day.ears.toLocaleString()} ears`}
+                          title={`${day.listeners.toLocaleString()} listens`}
                         />
                       </div>
                       <div className="text-sm text-muted-foreground mt-2">{day.day}</div>
                       <div className="text-sm font-semibold text-foreground tabular-nums">
-                        {day.ears.toLocaleString()}
+                        {day.listeners.toLocaleString()}
                       </div>
                     </div>
                   );
                 })}
               </div>
             ) : (
-              <p className="text-muted-foreground text-sm">No ears reached in the last 7 days.</p>
+              <p className="text-muted-foreground text-sm">No listens in the last 7 days.</p>
             )}
           </CardContent>
         </Card>

@@ -9,8 +9,10 @@ export interface DailyPlayCount {
   plays: number;
   /** Unique (song, listener) pairs that day. */
   listens: number;
-  /** Unique listeners that day (each account once). */
+  /** Unique people that day (each account once). Not the headline ears total. */
   ears: number;
+  /** Every time someone heard a song that day, including repeats. */
+  uniqueListeners: number;
   /** Song likes (ripples) that day. */
   likes: number;
 }
@@ -54,12 +56,17 @@ export interface ArtistAnalytics {
   totalPlays: number;
   /** Unique listens: distinct (song, listener) pairs all-time. */
   totalListenCount: number;
-  /** Unique listeners (each account/device once). */
+  /** Unique people who heard the music. Same person counts once, all time. */
   earsReached: number;
+  /** Every listen, including the same person hearing a song again. */
+  uniqueListeners: number;
+  uniqueListenersThisWeek: number;
+  uniqueListenersThisMonth: number;
   listensThisWeek: number;
   listensThisMonth: number;
   likesThisWeek: number;
   likesThisMonth: number;
+  /** Distinct people in the window. Does not reset the all-time ears total. */
   earsReachedThisWeek: number;
   earsReachedThisMonth: number;
   totalPaidPlays: number;
@@ -183,6 +190,44 @@ export class AnalyticsService {
     try {
       const { data, error } = await supabase.rpc('get_artist_listen_count', {
         p_artist_id: artistId,
+      });
+      if (error || data == null) return null;
+      const value = Number(data);
+      return Number.isFinite(value) ? Math.max(0, Math.round(value)) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async getEarsForSongsSince(
+    songIds: string[],
+    since: Date,
+  ): Promise<number | null> {
+    if (songIds.length === 0) return 0;
+    const supabase = getSupabaseClient();
+    try {
+      const { data, error } = await supabase.rpc(
+        'get_ears_reached_for_songs_since',
+        { p_song_ids: songIds, p_since: since.toISOString() },
+      );
+      if (error || data == null) return null;
+      const value = Number(data);
+      return Number.isFinite(value) ? Math.max(0, Math.round(value)) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async getUniqueListenerCount(
+    songIds: string[],
+    since?: Date,
+  ): Promise<number | null> {
+    if (songIds.length === 0) return 0;
+    const supabase = getSupabaseClient();
+    try {
+      const { data, error } = await supabase.rpc('get_unique_listener_count', {
+        p_song_ids: songIds,
+        p_since: since ? since.toISOString() : null,
       });
       if (error || data == null) return null;
       const value = Number(data);
@@ -591,6 +636,9 @@ export class AnalyticsService {
         totalPlays: 0,
         totalListenCount: 0,
         earsReached: 0,
+        uniqueListeners: 0,
+        uniqueListenersThisWeek: 0,
+        uniqueListenersThisMonth: 0,
         listensThisWeek: 0,
         listensThisMonth: 0,
         likesThisWeek: 0,
@@ -727,19 +775,26 @@ export class AnalyticsService {
       earsReachedThisMonth,
       listensThisWeek,
       listensThisMonth,
-    ] = scopedSongId
-      ? [
-          dailyPlays.slice(-7).reduce((sum, day) => sum + (day.ears ?? 0), 0),
-          dailyPlays.reduce((sum, day) => sum + (day.ears ?? 0), 0),
-          dailyPlays.slice(-7).reduce((sum, day) => sum + (day.listens ?? 0), 0),
-          dailyPlays.reduce((sum, day) => sum + (day.listens ?? 0), 0),
-        ]
-      : await Promise.all([
-          this.getArtistEarsReachedSince(artistId, weekStart),
-          this.getArtistEarsReachedSince(artistId, startDate),
-          this.getArtistListenCountSince(artistId, weekStart),
-          this.getArtistListenCountSince(artistId, startDate),
-        ]);
+      uniqueListeners,
+      uniqueListenersThisWeek,
+      uniqueListenersThisMonth,
+    ] = await Promise.all([
+      this.getEarsForSongsSince(songIds, weekStart),
+      this.getEarsForSongsSince(songIds, startDate),
+      scopedSongId
+        ? Promise.resolve(
+            dailyPlays.slice(-7).reduce((sum, day) => sum + (day.listens ?? 0), 0),
+          )
+        : this.getArtistListenCountSince(artistId, weekStart),
+      scopedSongId
+        ? Promise.resolve(
+            dailyPlays.reduce((sum, day) => sum + (day.listens ?? 0), 0),
+          )
+        : this.getArtistListenCountSince(artistId, startDate),
+      this.getUniqueListenerCount(songIds),
+      this.getUniqueListenerCount(songIds, weekStart),
+      this.getUniqueListenerCount(songIds, startDate),
+    ]);
 
     const likesThisWeek = dailyPlays
       .slice(-7)
@@ -805,6 +860,9 @@ export class AnalyticsService {
       totalPlays,
       totalListenCount,
       earsReached,
+      uniqueListeners: uniqueListeners ?? 0,
+      uniqueListenersThisWeek: uniqueListenersThisWeek ?? 0,
+      uniqueListenersThisMonth: uniqueListenersThisMonth ?? 0,
       listensThisWeek: listensThisWeek ?? 0,
       listensThisMonth: listensThisMonth ?? 0,
       likesThisWeek,
@@ -1026,6 +1084,7 @@ export class AnalyticsService {
         plays: 0,
         listens: 0,
         ears: 0,
+        uniqueListeners: 0,
         likes: 0,
       });
     }
@@ -1058,6 +1117,7 @@ export class AnalyticsService {
         plays: 0,
         listens: 0,
         ears: 0,
+        uniqueListeners: 0,
         likes: 0,
       });
     }
@@ -1145,6 +1205,30 @@ export class AnalyticsService {
       }
     } catch {
       // Keep prior fallbacks when daily ears RPC is unavailable.
+    }
+
+    try {
+      const { data: listenerRows, error: listenerError } = await supabase.rpc(
+        'get_daily_unique_listeners',
+        { p_song_ids: songIds, p_since: startDate.toISOString() },
+      );
+      if (listenerError) {
+        this.logger.warn(
+          `get_daily_unique_listeners RPC unavailable: ${listenerError.message}`,
+        );
+      } else {
+        for (const row of (listenerRows ?? []) as Array<{
+          day: string;
+          listeners_count: number | string | null;
+        }>) {
+          if (!row?.day) continue;
+          const entry = result.find((d) => d.date === row.day);
+          if (!entry) continue;
+          entry.uniqueListeners = Number(row.listeners_count) || 0;
+        }
+      }
+    } catch {
+      // Chart stays at zero when the unique-listener RPC is unavailable.
     }
 
     try {

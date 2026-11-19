@@ -7,8 +7,15 @@ export const ANALYTICS_METRICS = {
   },
   earsReached: {
     label: 'Ears Reached',
-    description: 'Unique listeners — each account or device counts once',
-    shortSub: 'unique accounts',
+    description:
+      'People who heard a song. The same account counts once and the total does not reset. A guest counts once per visit, even if the radio loops back to the song.',
+    shortSub: 'each person once',
+  },
+  uniqueListeners: {
+    label: 'Unique Listeners',
+    description:
+      'Every time someone hears a song, including the same person again. Shown all time, per day, this week, and this month.',
+    shortSub: 'every time they listen',
   },
   plays: {
     label: 'Plays',

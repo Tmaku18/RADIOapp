@@ -188,9 +188,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         subtitle: AnalyticsMetrics.earsReached.shortSub,
                       ),
                       _StatCard(
-                        label: AnalyticsMetrics.listens.label,
-                        value: _data!.totalListenCount.toString(),
-                        subtitle: AnalyticsMetrics.listens.shortSub,
+                        label: AnalyticsMetrics.uniqueListeners.label,
+                        value: _data!.uniqueListeners.toString(),
+                        subtitle: AnalyticsMetrics.uniqueListeners.shortSub,
                       ),
                       _StatCard(
                         label: AnalyticsMetrics.plays.label,
@@ -206,16 +206,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         value: _data!.totalLikes.toString(),
                       ),
                       _StatCard(
-                        label: '${AnalyticsMetrics.earsReached.label} This Week',
-                        value: _data!.earsReachedThisWeek.toString(),
+                        label: '${AnalyticsMetrics.uniqueListeners.label} This Week',
+                        value: _data!.uniqueListenersThisWeek.toString(),
                       ),
                       _StatCard(
                         label: 'Likes This Week',
                         value: _data!.likesThisWeek.toString(),
                       ),
                       _StatCard(
-                        label: '${AnalyticsMetrics.earsReached.label} This Month',
-                        value: _data!.earsReachedThisMonth.toString(),
+                        label: '${AnalyticsMetrics.uniqueListeners.label} This Month',
+                        value: _data!.uniqueListenersThisMonth.toString(),
                       ),
                       _StatCard(
                         label: 'Likes This Month',
@@ -287,11 +287,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   ],
                   if (_data!.dailyPlays.length >= 7) ...[
                     _WeeklyBarChartCard(
-                      title: '${AnalyticsMetrics.earsReached.label} This Week',
-                      subtitle: 'Unique listeners per day (each account once)',
+                      title: '${AnalyticsMetrics.uniqueListeners.label} This Week',
+                      subtitle: 'Every listen per day, including repeats',
                       days: _data!.dailyPlays
                           .sublist(_data!.dailyPlays.length - 7),
-                      valueForDay: (day) => day.ears,
+                      valueForDay: (day) => day.uniqueListeners,
                       barColor: scheme.primary,
                     ),
                     const SizedBox(height: 16),
