@@ -50,6 +50,8 @@ import { toPublicCopyrightMatch } from '../copyright/copyright-copy';
 @Controller('songs')
 export class SongsController {
   private readonly logger = new Logger(SongsController.name);
+  /** Set once `songs.deleted_at` is known to be missing so we stop retrying it. */
+  private songsLackDeletedAt = false;
 
   constructor(
     private readonly songsService: SongsService,
@@ -1106,20 +1108,22 @@ export class SongsController {
       throw new NotFoundException('User not found');
     }
 
-    let songsQuery = supabase
-      .from('songs')
-      .select('*')
-      .eq('artist_id', userData.id)
-      .is('deleted_at', null)
-      .order('created_at', { ascending: false });
-    let { data: songs, error } = await songsQuery;
-    if (error && this.isMissingColumnError(error, 'deleted_at')) {
-      songsQuery = supabase
+    const loadSongs = (withDeletedAt: boolean) => {
+      let query = supabase
         .from('songs')
         .select('*')
-        .eq('artist_id', userData.id)
-        .order('created_at', { ascending: false });
-      const fallback = await songsQuery;
+        .eq('artist_id', userData.id);
+      if (withDeletedAt) query = query.is('deleted_at', null);
+      return query.order('created_at', { ascending: false });
+    };
+    let { data: songs, error } = await loadSongs(!this.songsLackDeletedAt);
+    if (
+      error &&
+      !this.songsLackDeletedAt &&
+      this.isMissingColumnError(error, 'deleted_at')
+    ) {
+      this.songsLackDeletedAt = true;
+      const fallback = await loadSongs(false);
       songs = fallback.data;
       error = fallback.error;
     }
@@ -1129,9 +1133,6 @@ export class SongsController {
     }
 
     const songRows = songs || [];
-    const featuredBySongId = await this.getFeaturedArtistsBySongIds(
-      songRows.map((song) => song.id as string),
-    );
     const songIds = songRows.map((song) => song.id as string);
 
     // Real per-song stats aggregated from `plays` and `likes` so the numbers
@@ -1141,16 +1142,22 @@ export class SongsController {
     const listenCountBySongId = new Map<string, number>();
     const likeCountBySongId = new Map<string, number>();
     const playsCountBySongId = new Map<string, number>();
-    const earsReachedBySongId =
-      songIds.length > 0
-        ? await this.songsService.getEarsReachedBySongId(songIds)
-        : new Map<string, number>();
-    if (songIds.length > 0) {
-      const { data: statsRows, error: statsError } = await supabase.rpc(
-        'get_artist_song_stats',
-        // p_since explicitly null = lifetime stats (do not rely on SQL default).
-        { p_song_ids: songIds, p_since: null },
-      );
+    const [featuredBySongId, earsReachedBySongId, statsResult] =
+      await Promise.all([
+        this.getFeaturedArtistsBySongIds(songIds),
+        songIds.length > 0
+          ? this.songsService.getEarsReachedBySongId(songIds)
+          : Promise.resolve(new Map<string, number>()),
+        songIds.length > 0
+          ? supabase.rpc(
+              'get_artist_song_stats',
+              // p_since explicitly null = lifetime stats (do not rely on SQL default).
+              { p_song_ids: songIds, p_since: null },
+            )
+          : Promise.resolve(null),
+      ]);
+    if (statsResult) {
+      const { data: statsRows, error: statsError } = statsResult;
       if (statsError) {
         this.logger.warn(
           `get_artist_song_stats RPC unavailable: ${statsError.message}`,
