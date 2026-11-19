@@ -1328,8 +1328,8 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
                       icon: const Icon(Icons.live_tv),
                       label: const Text('Watch live'),
                     ),
-                  if (_isLiveNow && isLoggedIn) const SizedBox(width: 10),
-                  if (isLoggedIn)
+                  if (_isLiveNow && _isOwnerProfile) const SizedBox(width: 10),
+                  if (_isOwnerProfile)
                     OutlinedButton.icon(
                       onPressed: _liveActionLoading ? null : _startLive,
                       icon: const Icon(Icons.sensors),
