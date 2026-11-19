@@ -44,6 +44,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
   final GlobalKey<_LikedArtistsTabState> _likedArtistsKey =
       GlobalKey<_LikedArtistsTabState>();
   late final TabController _tabController;
+  late int _searchTab;
   Timer? _searchDebounce;
 
   bool _searchingArtists = false;
@@ -76,13 +77,20 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
       vsync: this,
       initialIndex: _normalizeTabIndex(widget.initialTabIndex),
     );
+    _searchTab = _tabController.index;
     _searchCtrl.addListener(_onSearchTextChanged);
     _tabController.addListener(_onTabChanged);
   }
 
   void _onTabChanged() {
+    final next = _tabController.index;
+    if (next != _searchTab) {
+      _searchTab = next;
+      if (_searchCtrl.text.isNotEmpty) _searchCtrl.clear();
+    }
+    if (mounted) setState(() {});
     if (_tabController.indexIsChanging) return;
-    if (_tabController.index == 1) {
+    if (next == 1) {
       unawaited(_likedArtistsKey.currentState?.reload() ?? Future<void>.value());
     }
   }
@@ -98,7 +106,9 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
   }
 
   void _onSearchTextChanged() {
+    if (mounted) setState(() {});
     _searchDebounce?.cancel();
+    if (_tabController.index != 1) return;
     final q = _searchCtrl.text.trim();
     if (q.length < 2) {
       setState(() {
@@ -218,28 +228,33 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
               icon: const Icon(Icons.video_call_outlined),
             ),
             IconButton(
-              onPressed: _hasArtistQuery
+              onPressed: _tabController.index == 1 && _hasArtistQuery
                   ? () => _searchArtists(_searchCtrl.text.trim())
                   : _onAppBarRefresh,
-              tooltip: _hasArtistQuery ? 'Search' : 'Refresh',
+              tooltip: _tabController.index == 1 && _hasArtistQuery
+                  ? 'Search'
+                  : 'Refresh',
               icon: const Icon(Icons.refresh),
             ),
           ],
         ),
         body: Column(
           children: [
+            if (_tabController.index == 1 || _tabController.index == 2)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
               child: TextField(
                 controller: _searchCtrl,
                 textInputAction: TextInputAction.search,
                 onSubmitted: (v) {
-                  if (v.trim().length >= 2) {
+                  if (_tabController.index == 1 && v.trim().length >= 2) {
                     unawaited(_searchArtists(v.trim()));
                   }
                 },
                 decoration: InputDecoration(
-                  hintText: 'Search all artists by name…',
+                  hintText: _tabController.index == 2
+                      ? 'Filter your favorites, likes, and dislikes…'
+                      : 'Search all artists by name…',
                   prefixIcon: const Icon(Icons.search),
                   suffixIcon: _searchCtrl.text.isEmpty
                       ? null
@@ -273,16 +288,30 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
               ),
             ),
             Expanded(
-              child: _hasArtistQuery
-                  ? _buildArtistSearchBody(surfaces)
-                  : TabBarView(
-                      controller: _tabController,
-                      children: [
-                        DiscoverAudioTab(key: _swipeKey),
-                        _LikedArtistsTab(key: _likedArtistsKey),
-                        _LibraryTab(key: _libraryKey),
-                      ],
+              child: Stack(
+                children: [
+                  TabBarView(
+                    controller: _tabController,
+                    children: [
+                      DiscoverAudioTab(key: _swipeKey),
+                      _LikedArtistsTab(key: _likedArtistsKey),
+                      _LibraryTab(
+                        key: _libraryKey,
+                        filter: _tabController.index == 2
+                            ? _searchCtrl.text.trim()
+                            : '',
+                      ),
+                    ],
+                  ),
+                  if (_tabController.index == 1 && _hasArtistQuery)
+                    Positioned.fill(
+                      child: ColoredBox(
+                        color: scheme.surface,
+                        child: _buildArtistSearchBody(surfaces),
+                      ),
                     ),
+                ],
+              ),
             ),
           ],
         ),
@@ -751,7 +780,10 @@ class _LikedArtistsTabState extends State<_LikedArtistsTab> {
 }
 
 class _LibraryTab extends StatefulWidget {
-  const _LibraryTab({super.key});
+  const _LibraryTab({super.key, this.filter = ''});
+
+  /// Matches song title or artist inside this user's own lists.
+  final String filter;
 
   @override
   State<_LibraryTab> createState() => _LibraryTabState();
@@ -1043,9 +1075,40 @@ class _LibraryTabState extends State<_LibraryTab> {
     }
   }
 
+  bool _matches(List<String?> fields) {
+    final query = widget.filter.trim().toLowerCase();
+    if (query.isEmpty) return true;
+    for (final field in fields) {
+      if ((field ?? '').toLowerCase().contains(query)) return true;
+    }
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final surfaces = context.networxSurfaces;
+    final query = widget.filter.trim();
+    final favorites = _favorites
+        .where((song) => _matches([song.title, song.artistName]))
+        .toList();
+    final liked = _liked
+        .where(
+          (song) => _matches([
+            song.title,
+            song.artistName,
+            song.artistDisplayName,
+          ]),
+        )
+        .toList();
+    final disliked = _disliked
+        .where(
+          (song) => _matches([
+            song.title,
+            song.artistName,
+            song.artistDisplayName,
+          ]),
+        )
+        .toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1083,31 +1146,52 @@ class _LibraryTabState extends State<_LibraryTab> {
         ),
         Expanded(
           child: switch (_section) {
-            'favorites' => _buildFavoritesSection(surfaces),
+            'favorites' => _buildFavoritesSection(
+              surfaces,
+              items: favorites,
+              emptyMessage: _favorites.isEmpty
+                  ? 'No favorites yet. Tap ⭐ next to 🔥 on the radio to star a song for alerts.'
+                  : 'No favorites match “$query”.',
+            ),
             'liked' => _buildHistorySection(
               surfaces,
-              items: _liked,
-              emptyMessage:
-                  'No liked songs yet. Swipe right (Like) on Discover to add them here.',
+              items: liked,
+              emptyMessage: _liked.isEmpty
+                  ? 'No liked songs yet. Swipe right (Like) on Discover to add them here.'
+                  : 'No liked songs match “$query”.',
             ),
             'disliked' => _buildHistorySection(
               surfaces,
-              items: _disliked,
-              emptyMessage:
-                  'No disliked songs yet. Swipe left (Dislike) on Discover to add them here.',
+              items: disliked,
+              emptyMessage: _disliked.isEmpty
+                  ? 'No disliked songs yet. Swipe left (Dislike) on Discover to add them here.'
+                  : 'No disliked songs match “$query”.',
             ),
-            _ => _buildMusicSection(surfaces),
+            _ => _buildMusicSection(
+              surfaces,
+              items: _purchases
+                  .where((song) => _matches([song.title, song.artistName]))
+                  .toList(),
+              emptyMessage: _purchases.isEmpty
+                  ? 'Nothing here yet. Buy a song from an artist — or upload your '
+                      'own — to play it in full and download it here.'
+                  : 'Nothing in My Music matches “$query”.',
+            ),
           },
         ),
       ],
     );
   }
 
-  Widget _buildFavoritesSection(NetworxSurfaces surfaces) {
+  Widget _buildFavoritesSection(
+    NetworxSurfaces surfaces, {
+    required List<LibrarySong> items,
+    required String emptyMessage,
+  }) {
     if (_favoritesLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (_favorites.isEmpty) {
+    if (items.isEmpty) {
       return RefreshIndicator(
         onRefresh: _loadFavorites,
         child: ListView(
@@ -1116,7 +1200,7 @@ class _LibraryTabState extends State<_LibraryTab> {
           children: [
             const SizedBox(height: 48),
             Text(
-              'No favorites yet. Tap ⭐ next to 🔥 on the radio to star a song for alerts.',
+              emptyMessage,
               textAlign: TextAlign.center,
               style: TextStyle(color: surfaces.textSecondary),
             ),
@@ -1128,9 +1212,9 @@ class _LibraryTabState extends State<_LibraryTab> {
       onRefresh: _loadFavorites,
       child: ListView.builder(
         padding: const EdgeInsets.all(12),
-        itemCount: _favorites.length,
+        itemCount: items.length,
         itemBuilder: (context, i) {
-          final fav = _favorites[i];
+          final fav = items[i];
           final artwork = (fav.artworkUrl ?? '').trim();
           final busy = _busyFavoriteId == fav.id;
           return Card(
@@ -1349,17 +1433,20 @@ class _LibraryTabState extends State<_LibraryTab> {
     );
   }
 
-  Widget _buildMusicSection(NetworxSurfaces surfaces) {
+  Widget _buildMusicSection(
+    NetworxSurfaces surfaces, {
+    required List<PurchasedSong> items,
+    required String emptyMessage,
+  }) {
     if (_purchasesLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (_purchases.isEmpty) {
+    if (items.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            'Nothing here yet. Buy a song from an artist — or upload your '
-            'own — to play it in full and download it here.',
+            emptyMessage,
             textAlign: TextAlign.center,
             style: TextStyle(color: surfaces.textSecondary),
           ),
@@ -1370,10 +1457,10 @@ class _LibraryTabState extends State<_LibraryTab> {
       onRefresh: _loadPurchases,
       child: ListView.separated(
         padding: const EdgeInsets.all(12),
-        itemCount: _purchases.length,
+        itemCount: items.length,
         separatorBuilder: (_, index) => const SizedBox(height: 8),
         itemBuilder: (context, i) {
-          final item = _purchases[i];
+          final item = items[i];
           final busy = _busyPurchaseId == item.id;
           final playing = _isAudiblyPlaying(item.id);
           return Card(
