@@ -16,6 +16,7 @@ Structured ADR-style record. Each entry: **Context → Decision → Rationale �
 | 10 | No audio ads on live radio | Product | 2025 | Accepted |
 | 11 | Monetization: credits + Pro-Networx sub | Monetization | 2025 | Accepted |
 | 12 | Android package `com.discovermeradio.networxradio` | Infra | 2026-03 | Accepted |
+| 13 | Discovery placement targets ~100 exposures | Monetization | 2026-11-19 | Accepted |
 
 ---
 
@@ -124,3 +125,12 @@ Structured ADR-style record. Each entry: **Context → Decision → Rationale �
 **Decision:** Package `com.discovermeradio.networxradio`.  
 **Rationale:** NetworX brand on store listing; separate from legacy IDs.  
 **Impact:** `mobile/android`, Firebase `google-services.json`, release pipeline.
+
+---
+
+## 13. Discovery placement exposure
+
+**Context:** Buy placements priced each $1.99 placement at a target of about 1,000 verified listener exposures.  
+**Decision:** One placement still costs $1.99 and still buys one placement. The exposure it adds to the song is 100, one tenth of the previous target. Welcome placements use the same 100.  
+**Rationale:** The delivery promise on the buy screen and in pricing was too high for the price.  
+**Impact:** `EXPOSURES_PER_PLACEMENT`, Buy placements on web and mobile, pricing page, FAQ, features, Play listing, and the finance briefing.

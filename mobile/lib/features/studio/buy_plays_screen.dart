@@ -36,7 +36,7 @@ class SongPlayPrice {
       title: json['title'] as String? ?? '',
       durationSeconds: (json['durationSeconds'] as num?)?.toInt() ?? 0,
       exposuresPerPlacement:
-          (json['exposuresPerPlacement'] as num?)?.toInt() ?? 1000,
+          (json['exposuresPerPlacement'] as num?)?.toInt() ?? 100,
       pricePerPlacementDollars:
           json['pricePerPlacementDollars'] as String? ??
           json['pricePerPlayDollars'] as String? ??
@@ -67,7 +67,7 @@ class PriceOption {
     final placements = (json['plays'] as num?)?.toInt() ?? 0;
     return PriceOption(
       plays: placements,
-      exposures: (json['exposures'] as num?)?.toInt() ?? placements * 1000,
+      exposures: (json['exposures'] as num?)?.toInt() ?? placements * 100,
       totalCents: (json['totalCents'] as num?)?.toInt() ?? 0,
       totalDollars: json['totalDollars'] as String? ?? '0.00',
     );

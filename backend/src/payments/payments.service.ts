@@ -39,11 +39,11 @@ import { assertStripeAllowedForDigitalGoods as assertStripeAllowed } from './sto
 /**
  * A Discovery Placement is the unit artists buy to promote a track. Per the
  * NETWORX model, one placement costs a flat $1.99 and targets a delivery of
- * ~1,000 verified listener exposures (plays). The purchase quantity selected by
+ * ~100 verified listener exposures (plays). The purchase quantity selected by
  * the artist is a number of placements; each placement grants
  * EXPOSURES_PER_PLACEMENT plays into the song's rotation budget.
  */
-export const EXPOSURES_PER_PLACEMENT = 1000;
+export const EXPOSURES_PER_PLACEMENT = 100;
 
 /** Flat $1.99 per discovery placement. Returns cents. */
 export function pricePerPlacementCents(): number {

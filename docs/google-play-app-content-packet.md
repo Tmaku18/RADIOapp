@@ -72,7 +72,7 @@ Confirm final answers with legal and product owners before submission.
 - Android in-app purchases use Google Play Billing. That includes discovery placements, credit packs, Pro Radio, and Pro-Networx. Song purchases on Android also use Play Billing.
 - Discovery placement purchases use Google Play Billing product packs mapped in
   `GOOGLE_PLAY_PRODUCT_CATALOG_JSON`. Each placement is a flat **$1.99** and
-  targets ~**1,000 verified listener exposures** (see `pricePerPlacementCents()`
+  targets ~**100 verified listener exposures** (see `pricePerPlacementCents()`
   in `backend/src/payments/payments.service.ts`).
 - Backend verification endpoint: `POST /api/payments/google-play/complete`.
 - Web/non-Android payment flows remain Stripe where allowed.

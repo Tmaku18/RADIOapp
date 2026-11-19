@@ -156,7 +156,7 @@ export class PaymentsController {
 
   /**
    * Get discovery-placement pricing for a song. Each placement is a flat $1.99
-   * targeting ~1,000 verified listener exposures; quantities 1/3/5/10/25/50/100.
+   * targeting ~100 verified listener exposures; quantities 1/3/5/10/25/50/100.
    */
   @Get('song-play-price')
   @UseGuards(FirebaseAuthGuard, RolesGuard)
@@ -202,7 +202,7 @@ export class PaymentsController {
 
   /**
    * Quick-buy CTA while listening to your own track: purchases a single $1.99
-   * discovery placement (~1,000 verified exposures) for the specified song.
+   * discovery placement (~100 verified exposures) for the specified song.
    * Apple/Google Pay are available via Stripe Checkout when supported.
    */
   @Post('quick-add-minutes')

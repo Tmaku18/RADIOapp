@@ -81,7 +81,7 @@ export default function PricingPage() {
             </div>
             <ul className="text-left max-w-sm mx-auto space-y-3 mb-8 text-white/70 text-sm">
               <li className="flex items-start gap-2">
-                <span className="text-cyan-400">✓</span> ~1,000 verified listener exposures
+                <span className="text-cyan-400">✓</span> ~100 verified listener exposures
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-cyan-400">✓</span> Tracked delivery and engagement

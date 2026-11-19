@@ -15,7 +15,7 @@ Use this document as the canonical Play Console copy. It is aligned with the cur
 | App name **RADIOapp** | Product is **Networx Radio** (`NETWORX Radio: The Butterfly Effect`) | **Updated** title and copy |
 | **Spotify login** | Not implemented — Google, Apple, and email auth only | **Removed** |
 | Main radio = artists “broadcasting live” | Always-on **synchronized democratic radio**; separate **artist livestreams** (DJ / performances) | **Clarified** |
-| Generic **credits** boosts | **Discovery placements** at **$1.99** (~1,000 verified exposures each) + credit allocation for rotation | **Clarified** |
+| Generic **credits** boosts | **Discovery placements** at **$1.99** (~100 verified exposures each) + credit allocation for rotation | **Clarified** |
 | No **ProNetworx** | Full Pro-Networx shell: profiles, feed, services, directory, messaging (subscription) | **Added** |
 | No **The Refinery** / **The Yield** | Both shipped on mobile | **Added** |
 | No direct **song sales** | 30-second preview + purchase full track | **Added** |
@@ -92,7 +92,7 @@ KEY FEATURES
 
 • The Wake (Artist Analytics) — Track plays, votes, Ripples, temperature, engagement, and campaign results in one dashboard.
 
-• Discovery Placements — Artists can purchase verified-exposure placements ($1.99 each, targeting ~1,000 listener exposures) to seed tracks into the discovery pipeline. Tracked delivery — not vanity numbers.
+• Discovery Placements — Artists can purchase verified-exposure placements ($1.99 each, targeting ~100 listener exposures) to seed tracks into the discovery pipeline. Tracked delivery — not vanity numbers.
 
 • Direct-to-Fan Song Sales — Free 30-second previews; fans purchase full tracks for complete playback and downloads.
 

@@ -132,7 +132,7 @@ Detailed entries for each term follow below.
 ## Artist Discovery Placement (paid promotion)
 
 - **Term**: **Artist Discovery Placement** (a.k.a. discovery placement)
-- **Meaning**: A paid promotion that seeds a track into the discovery pipeline with a *target* (not guaranteed) delivery of verified listener exposures. Replaces any "buy airtime" framing to avoid radio-royalty confusion.
+- **Meaning**: A paid promotion that seeds a track into the discovery pipeline with a *target* (not guaranteed) delivery of about 100 verified listener exposures per $1.99 placement. Replaces any "buy airtime" framing to avoid radio-royalty confusion.
 - **Where used**: Marketing (For Gems), FAQ, pricing, artist dashboard.
 
 ## Listens (discovery metric)

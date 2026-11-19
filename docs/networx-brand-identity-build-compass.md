@@ -262,7 +262,7 @@ Visual: premium achievement cards — dark glass background, clean metrics, **Ne
 | Pillar | Shipped | Notes |
 |--------|---------|-------|
 | **Live Discovery** | ✅ | Always-on synchronized radio, fire/pass voting, temperature (0–100), Ripples, Trial by Fire, competition leaderboards, live chat, artist livestreams (DJ + performances) |
-| **Direct Monetization** | ✅ | 30s preview → full track purchase (Stripe), discovery placements ($1.99 / ~1,000 exposures), credits allocation, Google Play Billing on Android |
+| **Direct Monetization** | ✅ | 30s preview → full track purchase (Stripe), discovery placements ($1.99 / ~100 exposures), credits allocation, Google Play Billing on Android |
 | **Creator Intelligence** | ✅ | The Wake analytics, ROI, Prospector heatmap, platform live stats (ears reached, live listeners) |
 | **Prospector Rewards** | ✅ | The Refinery (rank, survey, comment), The Yield (balance + redemption) |
 | **Pro-Networx Network** | ✅ | Profiles, feed, services marketplace, directory, search, messaging (subscription), jobs — web + mobile |

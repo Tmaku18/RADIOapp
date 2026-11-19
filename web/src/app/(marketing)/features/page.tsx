@@ -62,7 +62,7 @@ const GROUPS: FeatureGroup[] = [
       {
         title: 'Verified Listener Exposure',
         tag: 'Artist Discovery Placements',
-        body: 'Seed a track into the Networx discovery pipeline for $1.99, with a target delivery of roughly 1,000 verified listener exposures. Placements are built around real, tracked delivery and engagement - not vanity numbers.',
+        body: 'Seed a track into the Networx discovery pipeline for $1.99, with a target delivery of roughly 100 verified listener exposures. Placements are built around real, tracked delivery and engagement - not vanity numbers.',
       },
       {
         title: 'Sell Full Tracks Directly',

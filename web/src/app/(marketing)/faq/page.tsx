@@ -50,7 +50,7 @@ const faqs = [
       },
       {
         q: 'How do artist discovery placements work?',
-        a: 'Seed a track into the Networx discovery pipeline for $1.99, with a target delivery of roughly 1,000 verified listener exposures. Placements are built on real, tracked delivery and engagement - and you get full campaign analytics (votes, downvotes, and conversion) in The Wake. No bots, no fake streams.',
+        a: 'Seed a track into the Networx discovery pipeline for $1.99, with a target delivery of roughly 100 verified listener exposures. Placements are built on real, tracked delivery and engagement - and you get full campaign analytics (votes, downvotes, and conversion) in The Wake. No bots, no fake streams.',
       },
       {
         q: 'Can I sell my music on Networx?',

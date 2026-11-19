@@ -55,7 +55,7 @@ export default function CreditsPage() {
         <CardContent className="pt-6">
           <h2 className="text-lg font-semibold text-foreground mb-2">Buy live listener placements per song</h2>
           <p className="text-muted-foreground mb-4">
-            A live listener placement costs <strong className="text-foreground">$1.99</strong> and targets <strong className="text-foreground">~1,000 verified listener exposures</strong>.
+            A live listener placement costs <strong className="text-foreground">$1.99</strong> and targets <strong className="text-foreground">~100 verified listener exposures</strong>.
             There is no credit bank — you buy placements for each approved song.
           </p>
           <p className="text-muted-foreground mb-2">

@@ -183,7 +183,7 @@ export default function BuyPlaysPage() {
   if (!price) return null;
 
   const selectedOption = price.options.find((o) => o.plays === selectedPlays);
-  const exposuresPerPlacement = price.exposuresPerPlacement ?? 1000;
+  const exposuresPerPlacement = price.exposuresPerPlacement ?? 100;
   const placementPriceDollars =
     price.pricePerPlacementDollars ?? price.pricePerPlayDollars;
   const exposuresFor = (option: PriceOption) =>

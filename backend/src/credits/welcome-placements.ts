@@ -7,7 +7,7 @@ export const SIGNUP_WELCOME_PLACEMENTS = 10;
  * Must stay in sync with `EXPOSURES_PER_PLACEMENT` in payments.service.ts.
  * Each welcome placement converts to this many song.credits_remaining units.
  */
-export const WELCOME_EXPOSURES_PER_PLACEMENT = 1000;
+export const WELCOME_EXPOSURES_PER_PLACEMENT = 100;
 
 /**
  * Ensure a credits row exists and grant the one-time signup welcome placement

@@ -300,7 +300,7 @@ def build_pdf(out_path: Path) -> None:
         "Democratic always-on radio with synchronized playback",
         "Fire/pass voting, temperature, Ripples, competition leaderboards",
         "The Wake analytics, The Refinery, The Yield",
-        "Discovery placements ($1.99 / ~1,000 exposures)",
+        "Discovery placements ($1.99 / ~100 exposures)",
         "Direct-to-fan preview + purchase + library",
         "Pro-Networx profiles, feed, services, directory, messaging",
         "Artist livestreaming + live chat",
