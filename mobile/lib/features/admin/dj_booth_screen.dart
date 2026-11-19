@@ -9,6 +9,7 @@ import '../../core/models/admin_models.dart';
 import '../../core/models/track.dart';
 import '../../core/radio/radio_sync.dart';
 import '../../core/services/admin_service.dart';
+import 'admin_song_search.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/services/dj_booth_service.dart';
 import '../../core/services/station_events_service.dart';
@@ -390,9 +391,11 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
       if (!mounted) return;
       setState(() {
         _addCandidates = songs;
-        _selectedAddStackId = songs.isNotEmpty
-            ? (songs.first['id'] ?? songs.first['stackId'])?.toString()
-            : null;
+        final stillThere = songs.any(
+          (song) =>
+              (song['id'] ?? song['stackId'])?.toString() == _selectedAddStackId,
+        );
+        if (!stillThere) _selectedAddStackId = null;
       });
     } catch (_) {
       if (!mounted) return;
@@ -1180,31 +1183,31 @@ class _QueueSection extends StatelessWidget {
           ),
         if (candidates.isNotEmpty) ...[
           const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  value: selectedAddStackId,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Add free-rotation song',
-                    border: OutlineInputBorder(),
-                    isDense: true,
+          AdminSongSearch(
+            enabled: !busy,
+            selectedId: selectedAddStackId,
+            onSelect: (id) => onSelectAdd(id),
+            songs: [
+              for (final song in candidates)
+                if (((song['id'] ?? song['stackId'])?.toString() ?? '').isNotEmpty)
+                  AdminSongChoice(
+                    id: (song['id'] ?? song['stackId']).toString(),
+                    title: (song['title'] ?? 'Untitled').toString(),
+                    artist: (song['users'] is Map
+                            ? (song['users'] as Map)['display_name']
+                            : null)
+                        ?.toString() ??
+                        (song['artist_name'] ?? 'Unknown').toString(),
                   ),
-                  items: candidates.map((s) {
-                    final id = (s['id'] ?? s['stackId'])?.toString() ?? '';
-                    final title = (s['title'] ?? 'Untitled').toString();
-                    return DropdownMenuItem(value: id, child: Text(title));
-                  }).toList(),
-                  onChanged: busy ? null : onSelectAdd,
-                ),
-              ),
-              const SizedBox(width: 8),
-              FilledButton.tonal(
-                onPressed: busy || selectedAddStackId == null ? null : onAdd,
-                child: const Text('Next'),
-              ),
             ],
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton.tonal(
+              onPressed: busy || selectedAddStackId == null ? null : onAdd,
+              child: const Text('Next'),
+            ),
           ),
         ],
         if (dirty) ...[

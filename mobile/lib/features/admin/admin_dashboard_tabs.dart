@@ -274,11 +274,6 @@ extension AdminDashboardTabs on _AdminDashboardScreenState {
   Widget _buildQueueTab() {
     final nowTitle = _nowPlaying?['title'];
     final nowArtist = _nowPlaying?['artistName'];
-    final candidateItems = _queueAddCandidates
-        .map(_candidateStackId)
-        .where((id) => id.isNotEmpty)
-        .toSet()
-        .toList();
 
     return ListView(
       padding: const EdgeInsets.all(12),
@@ -370,28 +365,18 @@ extension AdminDashboardTabs on _AdminDashboardScreenState {
                   ),
                 ),
                 const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  key: ValueKey<String?>(_selectedAddStackId),
-                  initialValue: candidateItems.contains(_selectedAddStackId)
-                      ? _selectedAddStackId
-                      : null,
-                  decoration: const InputDecoration(
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  items: _queueAddCandidates
-                      .where((c) => _candidateStackId(c).isNotEmpty)
-                      .map((c) {
-                    final id = _candidateStackId(c);
-                    return DropdownMenuItem<String>(
-                      value: id,
-                      child: Text(
-                        '${_candidateTitle(c)} — ${_candidateArtist(c)}',
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: (v) => setState(() => _selectedAddStackId = v),
+                AdminSongSearch(
+                  songs: [
+                    for (final song in _queueAddCandidates)
+                      if (_candidateStackId(song).isNotEmpty)
+                        AdminSongChoice(
+                          id: _candidateStackId(song),
+                          title: _candidateTitle(song),
+                          artist: _candidateArtist(song),
+                        ),
+                  ],
+                  selectedId: _selectedAddStackId,
+                  onSelect: (id) => setState(() => _selectedAddStackId = id),
                 ),
                 const SizedBox(height: 10),
                 FilledButton(

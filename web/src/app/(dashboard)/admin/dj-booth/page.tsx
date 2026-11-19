@@ -175,7 +175,9 @@ export default function DjBoothPage() {
         artistName: song.users?.display_name || song.artist_name || 'Unknown Artist',
       }));
       setCandidates(songs);
-      setSelectedAddStackId((prev) => prev || songs[0]?.stackId || '');
+      setSelectedAddStackId((prev) =>
+        songs.some((song) => song.stackId === prev) ? prev : '',
+      );
     } catch {
       setCandidates([]);
     }

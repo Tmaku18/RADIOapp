@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { adminApi } from '@/lib/api';
 import { DEFAULT_STATION_ID } from '@/data/station-map';
+import { SongQueueSearch } from '@/components/admin/song-queue-search';
 import { useQueueDrag } from '@/components/admin/use-queue-drag';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -150,7 +151,9 @@ export default function AdminQueuePage() {
       }));
       setSongCandidates(songs);
       setFallbackCandidates([]);
-      setSelectedAddStackId((prev) => prev || songs[0]?.stackId || '');
+      setSelectedAddStackId((prev) =>
+        songs.some((song) => song.stackId === prev) ? prev : '',
+      );
     } catch {
       setSongCandidates([]);
       setFallbackCandidates([]);
@@ -414,17 +417,11 @@ export default function AdminQueuePage() {
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
               Add Eligible Song
             </label>
-            <select
-              value={selectedAddStackId}
-              onChange={(e) => setSelectedAddStackId(e.target.value)}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            >
-              {allCandidates.map((candidate) => (
-                <option key={candidate.stackId} value={candidate.stackId}>
-                  {candidate.title} - {candidate.artistName} [{candidate.source}]
-                </option>
-              ))}
-            </select>
+            <SongQueueSearch
+              songs={allCandidates}
+              selectedId={selectedAddStackId}
+              onSelect={setSelectedAddStackId}
+            />
           </div>
           <Button onClick={addSelected} disabled={!selectedAddStackId}>
             Add next

@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { djBoothApi } from '@/lib/api';
+import { SongQueueSearch } from '@/components/admin/song-queue-search';
 import { useQueueDrag } from '@/components/admin/use-queue-drag';
 
 type QueueEntry = {
@@ -110,18 +111,15 @@ export function QueuePanel({
         ))}
       </div>
 
-      <div className="flex flex-wrap gap-2 items-center">
-        <select
-          className="border rounded-md px-2 py-1.5 text-sm bg-background flex-1 min-w-[200px]"
-          value={selectedAddStackId}
-          onChange={(e) => onSelectAdd(e.target.value)}
-        >
-          {candidates.map((c) => (
-            <option key={c.stackId} value={c.stackId}>
-              {c.title} — {c.artistName}
-            </option>
-          ))}
-        </select>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+        <div className="min-w-[200px] flex-1">
+          <SongQueueSearch
+            songs={candidates}
+            selectedId={selectedAddStackId}
+            onSelect={onSelectAdd}
+            disabled={busy}
+          />
+        </div>
         <Button type="button" variant="outline" disabled={busy || !selectedAddStackId} onClick={onAdd}>
           Play next
         </Button>

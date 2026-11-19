@@ -6,6 +6,7 @@ import '../../core/analytics/analytics_metrics.dart';
 import '../../core/models/admin_models.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/services/admin_service.dart';
+import 'admin_song_search.dart';
 import '../../core/services/songs_service.dart';
 import '../../widgets/clip_window_sheet.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
@@ -218,9 +219,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       _fallbackGroups = fallback;
       _freeRotationSongs = freeRotation;
       _queueAddCandidates = queueCandidates;
-      _selectedAddStackId = queueCandidates.isEmpty
-          ? null
-          : _candidateStackId(queueCandidates.first);
+      _selectedAddStackId = null;
       _streamerApplications = streamers;
       _queue = queue;
       _queueDraft = List<AdminQueueItem>.from(queue);
@@ -247,8 +246,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         (c) => _candidateStackId(c) == _selectedAddStackId,
       );
       if (!selectedStillValid) {
-        _selectedAddStackId =
-            candidates.isEmpty ? null : _candidateStackId(candidates.first);
+        _selectedAddStackId = null;
       }
     });
   }
