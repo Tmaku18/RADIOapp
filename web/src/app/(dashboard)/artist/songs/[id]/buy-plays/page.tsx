@@ -67,6 +67,35 @@ function formatDuration(seconds: number): string {
 
 const PLACEMENT_OPTIONS = [1, 3, 5, 10, 25, 50, 100];
 
+/** Matches EXPOSURES_PER_PLACEMENT on the backend. */
+const EXPOSURES_PER_PLACEMENT = 100;
+
+/** Matches packPriceCents on the backend and the store SKUs. */
+function packPriceCents(placements: number): number {
+  switch (placements) {
+    case 1:
+      return 199;
+    case 3:
+      return 499;
+    case 5:
+      return 999;
+    case 10:
+      return 1799;
+    case 25:
+      return 3999;
+    case 50:
+      return 7599;
+    case 100:
+      return 15000;
+    default:
+      return placements * 199;
+  }
+}
+
+function dollars(cents: number): string {
+  return (cents / 100).toFixed(2);
+}
+
 export default function BuyPlaysPage() {
   const router = useRouter();
   const params = useParams();
@@ -203,14 +232,12 @@ export default function BuyPlaysPage() {
   if (!price) return null;
 
   const selectedOption = price.options.find((o) => o.plays === selectedPlays);
-  const exposuresPerPlacement = price.exposuresPerPlacement ?? 100;
-  const placementPriceDollars =
-    price.pricePerPlacementDollars ?? price.pricePerPlayDollars;
-  const bonusFor = (option: PriceOption) =>
-    option.bonusPlacements ?? bonusPlacementsFor(option.plays);
+  const exposuresPerPlacement = EXPOSURES_PER_PLACEMENT;
+  const placementPriceDollars = dollars(packPriceCents(1));
+  const bonusFor = (option: PriceOption) => bonusPlacementsFor(option.plays);
   const exposuresFor = (option: PriceOption) =>
-    option.exposures ??
     (option.plays + bonusFor(option)) * exposuresPerPlacement;
+  const totalFor = (option: PriceOption) => dollars(packPriceCents(option.plays));
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -331,7 +358,7 @@ export default function BuyPlaysPage() {
                       <div className="text-xs font-medium text-primary">+ {bonusFor(option)} free</div>
                     )}
                     <div className="text-xs text-muted-foreground">~{exposuresFor(option).toLocaleString()} exposures</div>
-                    <div className="text-sm text-muted-foreground">${option.totalDollars}</div>
+                    <div className="text-sm text-muted-foreground">${totalFor(option)}</div>
                   </button>
                 );
               })}
@@ -348,7 +375,7 @@ export default function BuyPlaysPage() {
             <div>
               {selectedOption && (
                 <p className="text-sm text-muted-foreground">
-                  Total: <span className="font-semibold text-foreground">${selectedOption.totalDollars}</span> for {selectedPlays} {selectedPlays === 1 ? 'placement' : 'placements'}
+                  Total: <span className="font-semibold text-foreground">${totalFor(selectedOption)}</span> for {selectedPlays} {selectedPlays === 1 ? 'placement' : 'placements'}
                   {bonusFor(selectedOption) > 0 ? ` + ${bonusFor(selectedOption)} free` : ''} · ~{exposuresFor(selectedOption).toLocaleString()} exposures
                 </p>
               )}

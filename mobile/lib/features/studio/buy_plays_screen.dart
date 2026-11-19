@@ -35,16 +35,37 @@ class SongPlayPrice {
       songId: json['songId'] as String? ?? '',
       title: json['title'] as String? ?? '',
       durationSeconds: (json['durationSeconds'] as num?)?.toInt() ?? 0,
-      exposuresPerPlacement:
-          (json['exposuresPerPlacement'] as num?)?.toInt() ?? 100,
-      pricePerPlacementDollars:
-          json['pricePerPlacementDollars'] as String? ??
-          json['pricePerPlayDollars'] as String? ??
-          '0.00',
+      exposuresPerPlacement: kExposuresPerPlacement,
+      pricePerPlacementDollars: (packPriceCents(1) / 100).toStringAsFixed(2),
       options: optionsList
           .map((e) => PriceOption.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
+  }
+}
+
+/// Matches EXPOSURES_PER_PLACEMENT on the backend.
+const int kExposuresPerPlacement = 100;
+
+/// Matches packPriceCents on the backend and the store SKUs.
+int packPriceCents(int placements) {
+  switch (placements) {
+    case 1:
+      return 199;
+    case 3:
+      return 499;
+    case 5:
+      return 999;
+    case 10:
+      return 1799;
+    case 25:
+      return 3999;
+    case 50:
+      return 7599;
+    case 100:
+      return 15000;
+    default:
+      return placements * 199;
   }
 }
 
@@ -86,16 +107,14 @@ class PriceOption {
 
   factory PriceOption.fromJson(Map<String, dynamic> json) {
     final placements = (json['plays'] as num?)?.toInt() ?? 0;
-    final bonus =
-        (json['bonusPlacements'] as num?)?.toInt() ??
-        bonusPlacementsFor(placements);
+    final bonus = bonusPlacementsFor(placements);
+    final cents = packPriceCents(placements);
     return PriceOption(
       plays: placements,
       bonusPlacements: bonus,
-      exposures:
-          (json['exposures'] as num?)?.toInt() ?? (placements + bonus) * 100,
-      totalCents: (json['totalCents'] as num?)?.toInt() ?? 0,
-      totalDollars: json['totalDollars'] as String? ?? '0.00',
+      exposures: (placements + bonus) * kExposuresPerPlacement,
+      totalCents: cents,
+      totalDollars: (cents / 100).toStringAsFixed(2),
     );
   }
 }
