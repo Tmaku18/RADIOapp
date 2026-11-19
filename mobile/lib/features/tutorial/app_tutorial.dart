@@ -13,6 +13,7 @@ enum TutorialNavTarget {
   feed,
   discover,
   voteOrPro,
+  analytics,
   upload,
   studio,
   proNetworx,
@@ -59,16 +60,29 @@ class AppTutorial {
     TutorialStep(
       title: 'Radio',
       body:
-          'Listen to live stations with everyone else in sync. Switch stations '
-          'from Radio and keep the mini player going while you browse.',
+          'Listen to live stations with everyone else in sync. The station '
+          'picker is at the top, and you can swipe the artwork to change '
+          'station. The mini player stays with you while you browse.',
       nav: TutorialNavTarget.radio,
     ),
     TutorialStep(
-      title: 'Fire vs star',
+      title: 'React, save, share',
       body:
-          'On the radio bar: 🔥 likes a song (Library → Liked). '
-          '⭐ favorites it for play alerts (Library → Favorites). '
-          'Only stars trigger on-air / up-next notifications.',
+          'Beside the song title: 🔥 likes it and 💩 passes on it. Those '
+          'reactions, plus how long people listen, help choose what plays next. '
+          'Playlist and share are on that same row.\n\n'
+          'The star under the player saves it to Favorites and turns on play '
+          'alerts. Only the star sends on-air and up-next notifications.',
+      nav: TutorialNavTarget.radio,
+    ),
+    TutorialStep(
+      title: 'Record a clip',
+      body:
+          'The video button sits with Show song stories. Hold the circle to '
+          'record and let go to save. A short tap on the radio camera takes a '
+          'photo. The song starts after your microphone is on.\n\n'
+          'The radio stays quiet while you watch that clip, or any other video, '
+          'until you delete the take or the video stops.',
       nav: TutorialNavTarget.radio,
     ),
     TutorialStep(
@@ -84,15 +98,16 @@ class AppTutorial {
     TutorialStep(
       title: 'Feed',
       body:
-          'See posts and short videos from the community. You can create clips '
-          'from Discover and share them here.',
+          'See posts and short videos from the community. Playing a video '
+          'mutes the radio until it stops. Delete your own post from the '
+          'title bar.',
       nav: TutorialNavTarget.feed,
     ),
     TutorialStep(
       title: 'Discover',
       body:
-          'Swipe short clips. Library holds Favorites, Liked (swipe history), '
-          'Disliked, and My Music — no separate Saved tab.',
+          'Swipe short clips. Clip audio mutes the radio while it plays. '
+          'Library holds Favorites, Liked, Disliked, and My Music.',
       nav: TutorialNavTarget.discover,
     ),
     TutorialStep(
@@ -114,7 +129,8 @@ class AppTutorial {
     TutorialStep(
       title: 'Pro-Networx',
       body:
-          'Browse creators, services, jobs, and messages. Offering your own '
+          'Browse creators, services, jobs, and messages. Tap a person’s card '
+          'to open their profile. Offering your own '
           'services needs a creator account — upgrade when you’re ready, then '
           'finish your Pro profile.\n\n'
           'Pro-Networx alone is \$4.99 first month, then \$9.99/mo. '
@@ -151,15 +167,27 @@ class AppTutorial {
     TutorialStep(
       title: 'Radio',
       body:
-          'Listen to live stations. When your tracks are in rotation, fans who '
-          'starred them can get play alerts.',
+          'Listen to live stations. The station picker is at the top, and a '
+          'swipe on the artwork changes station. Fans who star a song get play '
+          'alerts when it is about to air.',
       nav: TutorialNavTarget.radio,
     ),
     TutorialStep(
-      title: 'Fire vs star',
+      title: 'React, save, share',
       body:
-          '🔥 = likes (Liked). ⭐ = Favorites + radio alerts. Use the star so '
-          'listeners get notified when a track is about to play.',
+          'Beside the title, 🔥 likes a song and 💩 passes on it. Listening '
+          'time and how many people hear it also shape what plays next. '
+          'Playlist and share are on that row. The star under the player is '
+          'Favorites plus radio alerts.',
+      nav: TutorialNavTarget.radio,
+    ),
+    TutorialStep(
+      title: 'Record a clip',
+      body:
+          'The video button sits with Show song stories. Hold the circle to '
+          'record and let go to save. A short tap takes a photo. The song '
+          'starts after the microphone is on, and the radio stays quiet while '
+          'that clip is playing.',
       nav: TutorialNavTarget.radio,
     ),
     TutorialStep(
@@ -174,8 +202,9 @@ class AppTutorial {
     TutorialStep(
       title: 'Feed',
       body:
-          'Post photos and short videos. You can delete your own posts from '
-          'Feed or Profile → Your posts.',
+          'Post photos and short videos. Playing one mutes the radio until it '
+          'stops. Delete your own post from the title bar, or from Profile → '
+          'Your posts.',
       nav: TutorialNavTarget.feed,
     ),
     TutorialStep(
@@ -230,6 +259,16 @@ class AppTutorial {
       nav: TutorialNavTarget.studio,
     ),
     TutorialStep(
+      title: 'Analytics',
+      body:
+          'Ears reached is how many people heard a song. The same account '
+          'counts once, and that number does not reset. A guest counts once '
+          'for that visit, even if the station loops back to the song.\n\n'
+          'Unique listeners count every time someone hears it: all time, each '
+          'day, this week, and this month.',
+      nav: TutorialNavTarget.analytics,
+    ),
+    TutorialStep(
       title: '10 free Discovery plays',
       body:
           'Signing up as an artist or producer comes with 10 free Discovery '
@@ -252,7 +291,8 @@ class AppTutorial {
     TutorialStep(
       title: 'Pro-Networx setup',
       body:
-          'Open Pro-Networx and finish your profile — headline, skills, and '
+          'Open Pro-Networx and tap someone’s card to open their profile. Finish '
+          'yours — headline, skills, and '
           'availability — so you show in Explore and can offer services.\n\n'
           'Subscriptions: Pro-Networx \$9.99/mo (\$4.99 intro), or Pro Bundle '
           '\$12.99/mo for Pro-Radio + Pro-Networx (save vs \$14.98 for both).',
@@ -389,6 +429,9 @@ class _TutorialOverlayState extends State<_TutorialOverlay> {
       case TutorialNavTarget.studio:
         await _popExtraRoutes();
         await widget.openRoute(AppRoutes.studio);
+      case TutorialNavTarget.analytics:
+        await _popExtraRoutes();
+        await widget.openRoute(AppRoutes.analytics);
       case TutorialNavTarget.proNetworx:
         await _popExtraRoutes();
         final proTab = widget.proNetworxTabIndex;
