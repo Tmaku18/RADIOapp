@@ -293,14 +293,20 @@ export function FeedPostCard({ post, onChange, onHidden, variant = 'feed' }: Fee
             </span>
           </>
         ) : (
-          <Image
-            src={post.imageUrl}
-            alt={post.caption || 'Post'}
-            fill
-            className="object-contain"
-            sizes="(max-width: 768px) 100vw, 700px"
-            unoptimized={shouldUnoptimize(post.imageUrl)}
-          />
+          <Link
+            href={`/pro-networx/u/${post.authorUserId}`}
+            aria-label={`Open ${post.authorDisplayName || 'profile'}`}
+            className="absolute inset-0"
+          >
+            <Image
+              src={post.imageUrl}
+              alt={post.caption || 'Post'}
+              fill
+              className="object-contain"
+              sizes="(max-width: 768px) 100vw, 700px"
+              unoptimized={shouldUnoptimize(post.imageUrl)}
+            />
+          </Link>
         )}
         {post.mediaType === 'audio' && post.audioUrl && (
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-3">

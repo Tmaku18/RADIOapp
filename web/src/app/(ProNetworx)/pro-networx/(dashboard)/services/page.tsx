@@ -157,11 +157,14 @@ export default function ProNetworxServicesPage() {
 
 function ServiceCard({ listing }: { listing: ProServiceListing }) {
   return (
-    <Card className="p-4 flex flex-col gap-3 h-full">
+    <Card className="relative h-full cursor-pointer gap-0 p-0 py-0">
       <Link
         href={`/pro-networx/u/${listing.ownerUserId}`}
-        className="flex items-center gap-3"
-      >
+        aria-label={`Open ${listing.ownerDisplayName || 'profile'}`}
+        className="absolute inset-0 z-[1]"
+      />
+      <div className="relative z-[2] flex flex-col gap-3 h-full p-4 pointer-events-none">
+      <div className="flex items-center gap-3">
         {listing.ownerAvatarUrl ? (
           <Image
             src={listing.ownerAvatarUrl}
@@ -184,8 +187,8 @@ function ServiceCard({ listing }: { listing: ProServiceListing }) {
             <p className="text-xs text-muted-foreground truncate">{listing.ownerHeadline}</p>
           )}
         </div>
-      </Link>
-      <div>
+      </div>
+      <div className="relative z-[2] pointer-events-none">
         <h3 className="font-semibold text-foreground line-clamp-1">{listing.title}</h3>
         {listing.description && (
           <p className="text-sm text-muted-foreground mt-1 line-clamp-3 whitespace-pre-wrap">
@@ -197,9 +200,10 @@ function ServiceCard({ listing }: { listing: ProServiceListing }) {
         <span className="text-base font-semibold text-foreground">
           {formatPrice(listing.priceCents, listing.currency, listing.rateType)}
         </span>
-        <Button size="sm" variant="outline" asChild>
+        <Button size="sm" variant="outline" asChild className="pointer-events-auto">
           <Link href={`/pro-networx/services/${listing.id}`}>View</Link>
         </Button>
+      </div>
       </div>
     </Card>
   );

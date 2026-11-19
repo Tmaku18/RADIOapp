@@ -765,20 +765,25 @@ export default function ArtistServicesPage() {
             ) : (
               <div className="grid gap-4 sm:grid-cols-2">
                 {sortedItems.map((p) => (
-                  <Card key={p.userId} className="overflow-hidden">
-                    <CardContent className="p-4 flex gap-4">
-                      <Link href={`/artist/${p.userId}`} className="shrink-0">
+                  <Card key={p.userId} className="relative gap-0 cursor-pointer overflow-hidden p-0 py-0">
+                    <Link
+                      href={`/pro-networx/u/${p.userId}`}
+                      aria-label={`Open ${p.displayName || 'profile'}`}
+                      className="absolute inset-0 z-[1]"
+                    />
+                    <CardContent className="relative z-[2] p-4 flex gap-4 pointer-events-none">
+                      <div className="shrink-0">
                         {p.avatarUrl ? (
                           <Image src={p.avatarUrl} alt={p.displayName ?? 'Avatar'} width={64} height={64} className="rounded-full object-cover" />
                         ) : (
                           <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center text-2xl">🛠️</div>
                         )}
-                      </Link>
+                      </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <Link href={`/artist/${p.userId}`} className="font-medium text-foreground hover:underline truncate">
+                          <span className="font-medium text-foreground truncate">
                             {p.displayName || 'Unnamed'}
-                          </Link>
+                          </span>
                           {p.mentorOptIn && (
                             <span className="inline-flex items-center rounded-full bg-primary/20 text-primary px-1.5 py-0.5 text-xs font-medium ring-1 ring-primary/40" title="Mentor">
                               Mentor
@@ -798,9 +803,9 @@ export default function ArtistServicesPage() {
                             ))}
                           </div>
                         )}
-                        <div className="flex gap-2 mt-3">
+                        <div className="relative z-[3] flex gap-2 mt-3 pointer-events-auto">
                           <Button variant="outline" size="sm" asChild>
-                            <Link href={`/artist/${p.userId}`}>View profile</Link>
+                            <Link href={`/pro-networx/u/${p.userId}`}>View profile</Link>
                           </Button>
                           <Button size="sm" asChild>
                             <Link href={`/messages?with=${p.userId}`}>Message</Link>

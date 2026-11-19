@@ -202,7 +202,15 @@ export default function ProNetworxBeatsPage() {
       ) : (
         <div className="space-y-3">
           {items.map((beat) => (
-            <Card key={beat.id} className="p-4 flex flex-col sm:flex-row gap-4">
+            <Card key={beat.id} className="relative cursor-pointer gap-0 p-0 py-0">
+              {beat.artistId ? (
+                <Link
+                  href={`/pro-networx/u/${beat.artistId}`}
+                  aria-label={`Open ${beat.artistName || 'profile'}`}
+                  className="absolute inset-0 z-[1]"
+                />
+              ) : null}
+              <div className="relative z-[2] p-4 flex flex-col sm:flex-row gap-4 pointer-events-none">
               {beat.artworkUrl ? (
                 <Image
                   src={beat.artworkUrl}
@@ -220,12 +228,9 @@ export default function ProNetworxBeatsPage() {
                   Beat for sale · Full preview
                 </p>
                 <h2 className="font-semibold text-foreground truncate">{beat.title}</h2>
-                <Link
-                  href={`/pro-networx/u/${beat.artistId}`}
-                  className="text-sm text-muted-foreground hover:underline"
-                >
+                <p className="text-sm text-muted-foreground">
                   {beat.artistName}
-                </Link>
+                </p>
                 <p className="text-xs text-muted-foreground">
                   {formatPrice(beat.priceCents)}
                   {formatDuration(beat.durationSeconds)
@@ -234,7 +239,7 @@ export default function ProNetworxBeatsPage() {
                   {beat.listenCount > 0 ? ` · ${beat.listenCount} listens` : ''}
                 </p>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="relative z-[3] flex items-center gap-2 shrink-0 pointer-events-auto">
                 <Button
                   type="button"
                   variant="outline"
@@ -259,6 +264,7 @@ export default function ProNetworxBeatsPage() {
                 >
                   {buyingId === beat.id ? 'Starting…' : `Buy ${formatPrice(beat.priceCents)}`}
                 </Button>
+              </div>
               </div>
             </Card>
           ))}

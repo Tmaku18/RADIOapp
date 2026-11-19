@@ -213,7 +213,11 @@ export default function ProNetworxFeedPage() {
                     )}
                   </div>
                 </Link>
-                <div className="relative flex-1 min-h-0 w-full bg-muted">
+                <Link
+                  href={`/pro-networx/u/${post.authorUserId}`}
+                  aria-label={`Open ${post.authorDisplayName || 'profile'}`}
+                  className="relative flex-1 min-h-0 w-full bg-muted block"
+                >
                   <Image
                     src={post.imageUrl}
                     alt={post.caption || 'Post'}
@@ -222,7 +226,7 @@ export default function ProNetworxFeedPage() {
                     sizes="100vw"
                     unoptimized={shouldUnoptimizeImage(post.imageUrl)}
                   />
-                </div>
+                </Link>
                 <div className="p-4 shrink-0 space-y-1">
                   {post.caption && (
                     <p className="text-sm text-foreground whitespace-pre-wrap line-clamp-3">{post.caption}</p>

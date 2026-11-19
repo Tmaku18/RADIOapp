@@ -814,9 +814,14 @@ function PeopleTabContent({
                 </p>
                 <div className="grid gap-4 sm:grid-cols-2">
                   {items.map((profile) => (
-                    <Card key={profile.userId} className="overflow-hidden border-border/80 transition-colors hover:border-primary/30 hover:bg-elevated/50">
-                      <CardContent className="p-4 flex gap-4">
-                        <Link href={getProfileHref(profile)} className="shrink-0">
+                    <Card key={profile.userId} className="relative gap-0 overflow-hidden border-border/80 p-0 py-0 transition-colors hover:border-primary/30 hover:bg-elevated/50 cursor-pointer">
+                      <Link
+                        href={getProfileHref(profile)}
+                        aria-label={`Open ${profile.displayName || 'profile'}`}
+                        className="absolute inset-0 z-[1]"
+                      />
+                      <CardContent className="relative z-[2] p-4 flex gap-4 pointer-events-none">
+                        <div className="shrink-0">
                     {profile.avatarUrl ? (
                       <Image
                         src={profile.avatarUrl}
@@ -830,15 +835,12 @@ function PeopleTabContent({
                         {profile.role === 'artist' ? '🎤' : '🛠️'}
                       </div>
                     )}
-                  </Link>
+                  </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Link
-                        href={getProfileHref(profile)}
-                        className="font-medium text-foreground hover:underline truncate"
-                      >
+                      <span className="font-medium text-foreground truncate">
                         {profile.displayName || 'Unnamed'}
-                      </Link>
+                      </span>
                       {profile.mentorOptIn && (
                         <span className="inline-flex items-center rounded-full bg-primary/20 text-primary px-1.5 py-0.5 text-xs font-medium ring-1 ring-primary/40" title="Mentor">
                           Mentor
@@ -868,7 +870,7 @@ function PeopleTabContent({
                         ))}
                       </div>
                     )}
-                    <div className="flex gap-2 mt-3">
+                    <div className="relative z-[3] flex gap-2 mt-3 pointer-events-auto">
                       <Button variant="outline" size="sm" asChild>
                         <Link href={getProfileHref(profile)}>View profile</Link>
                       </Button>

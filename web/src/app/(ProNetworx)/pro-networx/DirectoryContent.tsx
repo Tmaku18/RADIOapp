@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { proNetworxApi, usersApi } from '@/lib/api';
 import { Switch } from '@/components/ui/switch';
@@ -101,7 +100,6 @@ export function ProNetworxDirectoryContent({
   smartRanking = false,
 }: Props) {
   const { profile, loading: authLoading } = useAuth();
-  const router = useRouter();
   const [items, setItems] = useState<DirectoryItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -336,11 +334,14 @@ export function ProNetworxDirectoryContent({
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {items.map((p, i) => (
               <Reveal key={p.userId} delay={(i % 6) * 0.05} y={24}>
-                <div
-                  onClick={() => router.push(`/pro-networx/u/${p.userId}`)}
-                  className="tilt group cursor-pointer rounded-2xl tracing-border glass overflow-hidden h-full flex flex-col"
-                >
-                  <div className="p-4 space-y-3 flex-1 flex flex-col">
+                <div className="tilt group relative cursor-pointer rounded-2xl tracing-border glass overflow-hidden h-full flex flex-col">
+                  <Link
+                    href={`/pro-networx/u/${p.userId}`}
+                    aria-label={`Open ${p.displayName || 'profile'}`}
+                    data-testid="pro-directory-card"
+                    className="absolute inset-0 z-[1]"
+                  />
+                  <div className="relative z-[2] p-4 space-y-3 flex-1 flex flex-col pointer-events-none">
                     {p.mediaPreviewUrl && p.mediaPreviewType === 'image' ? (
                       <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-white/10 bg-black/40">
                         <Image
@@ -399,12 +400,9 @@ export function ProNetworxDirectoryContent({
                       )}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <Link
-                            href={`/pro-networx/u/${p.userId}`}
-                            className="font-semibold text-white truncate hover:text-cyan-300 transition-colors"
-                          >
+                          <span className="font-semibold text-white truncate">
                             {p.displayName || 'Unnamed'}
-                          </Link>
+                          </span>
                           {p.availableForWork && (
                             <span className="rounded-full bg-cyan-400/15 border border-cyan-400/30 px-2 py-0.5 font-dim-mono text-[9px] text-cyan-300 uppercase tracking-wider">
                               Available
@@ -442,11 +440,7 @@ export function ProNetworxDirectoryContent({
                       </span>
                     </div>
 
-                    <div
-                      className="flex flex-wrap gap-2 pt-1 mt-auto"
-                      onClick={(event) => event.stopPropagation()}
-                      onKeyDown={(event) => event.stopPropagation()}
-                    >
+                    <div className="relative z-[3] flex flex-wrap gap-2 pt-1 mt-auto pointer-events-auto">
                       <Link
                         href={`/pro-networx/u/${p.userId}`}
                         className={cn(dimBtnGhost, 'flex-1 min-w-[7rem]')}
