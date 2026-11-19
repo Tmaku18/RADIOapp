@@ -305,7 +305,7 @@ class AppTutorial {
       title: '10 free Discovery plays',
       body:
           'Signing up as an artist or producer comes with 10 free Discovery '
-          'placements (a \$19.90 value — each targets ~100 verified listener '
+          'placements (a \$17.99 value — each targets ~100 verified listener '
           'exposures).\n\n'
           'They stay in your account until you spend them. '
           'Open My Songs → a song → Buy placements and use the '

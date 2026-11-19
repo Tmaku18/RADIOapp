@@ -134,7 +134,7 @@ class _CreditsScreenState extends State<CreditsScreen> {
                         Padding(
                           padding: const EdgeInsets.all(16),
                           child: Text(
-                            'Buy placements for an approved song from Studio. Each placement is \$1.99 and funds radio airtime for that track.',
+                            'Buy placements for an approved song from Studio. One is \$1.99. Packs are \$4.99, \$9.99, \$17.99, \$39.99, \$75.99, and \$150.',
                             style: TextStyle(
                               color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                               fontSize: 14,

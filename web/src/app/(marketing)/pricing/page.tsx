@@ -84,7 +84,7 @@ export default function PricingPage() {
                 <span className="text-cyan-400">✓</span> ~100 verified listener exposures
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-cyan-400">✓</span> Pack bonuses: 3 gets 1 free, 5 gets 2, 10 gets 4, 25 gets 10, 50 gets 20, 100 gets 40
+                <span className="text-cyan-400">✓</span> Packs: 3 for $4.99, 5 for $9.99, 10 for $17.99, 25 for $39.99, 50 for $75.99, 100 for $150. Bonuses: 3 gets 1 free, 5 gets 2, 10 gets 4, 25 gets 10, 50 gets 20, 100 gets 40
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-cyan-400">✓</span> Tracked delivery and engagement

@@ -92,7 +92,7 @@ KEY FEATURES
 
 • The Wake (Artist Analytics) — Track plays, votes, Ripples, temperature, engagement, and campaign results in one dashboard.
 
-• Discovery Placements — Artists can purchase verified-exposure placements ($1.99 each, targeting ~100 listener exposures) to seed tracks into the discovery pipeline. Tracked delivery — not vanity numbers.
+• Discovery Placements — Artists can purchase verified-exposure placements (one for $1.99, or packs of 3 for $4.99, 5 for $9.99, 10 for $17.99, 25 for $39.99, 50 for $75.99, and 100 for $150, each targeting ~100 listener exposures) to seed tracks into the discovery pipeline. Tracked delivery — not vanity numbers.
 
 • Direct-to-Fan Song Sales — Free 30-second previews; fans purchase full tracks for complete playback and downloads.
 

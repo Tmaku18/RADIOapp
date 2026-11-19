@@ -17,7 +17,7 @@ class PaymentScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'There is no credit bank. Buy placements for an approved song from Studio — each placement is \$1.99 and funds radio airtime for that track.',
+              'There is no credit bank. Buy placements for an approved song from Studio — one is \$1.99, and packs are \$4.99, \$9.99, \$17.99, \$39.99, \$75.99, and \$150.',
               style: TextStyle(
                 color: Theme.of(context)
                     .colorScheme

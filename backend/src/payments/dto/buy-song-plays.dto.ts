@@ -7,8 +7,9 @@ export class BuySongPlaysDto {
   songId: string;
 
   /**
-   * Number of discovery placements to purchase. Each placement is a flat $1.99
-   * and grants ~100 verified listener exposures (plays) to the song. The
+   * Number of discovery placements to purchase. One is $1.99. Packs are $4.99
+   * for 3, $9.99 for 5, $17.99 for 10, $39.99 for 25, $75.99 for 50, and $150
+   * for 100. Each placement grants ~100 verified listener exposures. The
    * field keeps the `plays` name for client/IAP wire compatibility.
    */
   @IsInt()

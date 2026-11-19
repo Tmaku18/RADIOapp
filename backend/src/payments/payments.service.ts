@@ -68,9 +68,31 @@ export function bonusPlacementsFor(paid: number): number {
   }
 }
 
-/** Flat $1.99 per discovery placement. Returns cents. */
+/** One placement is $1.99. Packs of 3 or more have their own price. */
 export function pricePerPlacementCents(): number {
   return 199;
+}
+
+/** Pack price in cents. One placement stays $1.99; larger packs are discounted. */
+export function packPriceCents(placements: number): number {
+  switch (placements) {
+    case 1:
+      return 199;
+    case 3:
+      return 499;
+    case 5:
+      return 999;
+    case 10:
+      return 1799;
+    case 25:
+      return 3999;
+    case 50:
+      return 7599;
+    case 100:
+      return 15000;
+    default:
+      return placements * pricePerPlacementCents();
+  }
 }
 
 /**
@@ -1860,10 +1882,9 @@ export class PaymentsService {
       2,
     );
 
-    // Each selectable quantity is a number of discovery placements. A placement
-    // is a flat $1.99 and targets ~EXPOSURES_PER_PLACEMENT verified exposures.
+    // One placement is $1.99. Packs of 3 or more use packPriceCents.
     const options = ALLOWED_PLAYS_LIST.map((placements) => {
-      const totalCents = placements * pricePerPlacementCentsVal;
+      const totalCents = packPriceCents(placements);
       const bonusPlacements = bonusPlacementsFor(placements);
       const granted = placements + bonusPlacements;
       return {
@@ -1927,7 +1948,7 @@ export class PaymentsService {
     const session = await this.stripeService.createCheckoutSessionSongPlays(
       option.totalCents,
       `${dto.plays} live listener placement${dto.plays === 1 ? '' : 's'}${bonusPlacementsFor(dto.plays) > 0 ? ` + ${bonusPlacementsFor(dto.plays)} free` : ''} – ${price.title}`,
-      `$${price.pricePerPlacementDollars}/placement · ~${option.exposures.toLocaleString()} verified exposures ($${option.totalDollars} total)`,
+      `$${option.totalDollars} · ~${option.exposures.toLocaleString()} verified exposures`,
       {
         userId,
         transactionId: transaction.id,

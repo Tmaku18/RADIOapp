@@ -155,8 +155,9 @@ export class PaymentsController {
   }
 
   /**
-   * Get discovery-placement pricing for a song. Each placement is a flat $1.99
-   * targeting ~100 verified listener exposures; quantities 1/3/5/10/25/50/100.
+   * Get discovery-placement pricing for a song. One placement is $1.99.
+   * Packs are $4.99, $9.99, $17.99, $39.99, $75.99, and $150 for
+   * 3, 5, 10, 25, 50, and 100. Each placement targets ~100 exposures.
    */
   @Get('song-play-price')
   @UseGuards(FirebaseAuthGuard, RolesGuard)

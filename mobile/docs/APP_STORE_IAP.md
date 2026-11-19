@@ -29,7 +29,14 @@ web-only and is rejected on mobile.
 - `nwx_credits_10` / `25` / `50` / `100`
 
 ### Discovery placements (consumable)
-- `nwx_song_plays_1` / `3` / `5` / `10` / `25` / `50` / `100`
+- `nwx_song_plays_1` — $1.99
+- `nwx_song_plays_3` — $4.99
+- `nwx_song_plays_5` — $9.99
+- `nwx_song_plays_10` — $17.99
+- `nwx_song_plays_25` — $39.99
+- `nwx_song_plays_50` — $75.99
+- `nwx_song_plays_100` — $150.00
+- The server checks the store price against these amounts. Change the price on each SKU in App Store Connect and Google Play Console to match.
 
 ### Pro-Networx (subscription)
 - Product ID: `nwx_pro_networx_monthly`

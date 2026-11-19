@@ -522,14 +522,14 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
                           ],
                           const SizedBox(height: 16),
                           Text(
-                            'Price per placement',
+                            'One placement',
                             style: TextStyle(
                               color: surfaces.textSecondary,
                               fontSize: 12,
                             ),
                           ),
                           Text(
-                            '\$${_price!.pricePerPlacementDollars} / placement',
+                            '\$${_price!.pricePerPlacementDollars}',
                             style: Theme.of(context)
                                 .textTheme
                                 .headlineSmall
@@ -540,7 +540,7 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Each placement targets ~${_withCommas(_price!.exposuresPerPlacement)} verified listener exposures. Packs of 3, 5, 10, 25, 50, and 100 include free placements.',
+                            'Each placement targets ~${_withCommas(_price!.exposuresPerPlacement)} verified listener exposures. Packs: 3 for \$4.99, 5 for \$9.99, 10 for \$17.99, 25 for \$39.99, 50 for \$75.99, 100 for \$150. Those packs also include free placements.',
                             style: TextStyle(
                               color: surfaces.textMuted,
                               fontSize: 12,

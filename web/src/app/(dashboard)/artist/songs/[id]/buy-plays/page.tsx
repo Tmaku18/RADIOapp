@@ -303,9 +303,9 @@ export default function BuyPlaysPage() {
 
       <Card>
         <CardContent className="pt-6">
-          <p className="text-sm text-muted-foreground mb-1">Price per placement</p>
-          <p className="text-2xl font-semibold text-foreground">${placementPriceDollars} <span className="text-base font-normal text-muted-foreground">/ placement</span></p>
-          <p className="text-xs text-muted-foreground mt-1">Flat $1.99 per placement · targets ~{exposuresPerPlacement.toLocaleString()} verified listener exposures. Packs of 3, 5, 10, 25, 50, and 100 include free placements.</p>
+          <p className="text-sm text-muted-foreground mb-1">One placement</p>
+          <p className="text-2xl font-semibold text-foreground">${placementPriceDollars}</p>
+          <p className="text-xs text-muted-foreground mt-1">Each placement targets ~{exposuresPerPlacement.toLocaleString()} verified listener exposures. Packs: 3 for $4.99, 5 for $9.99, 10 for $17.99, 25 for $39.99, 50 for $75.99, 100 for $150. Those packs also include free placements.</p>
 
           <div className="mt-6">
             <p className="text-sm font-medium text-foreground mb-3">Choose number of placements</p>
