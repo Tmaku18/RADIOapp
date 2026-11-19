@@ -1152,6 +1152,15 @@ export class UsersService {
       }));
     }
     const songIds = songRows.map((song) => song.id as string);
+
+    // Everything below depends only on the song list, so it runs at once.
+    const followerTask = this.loadArtistFollowerCount(resolvedUserId);
+    const monthlyTask = this.loadArtistMonthlyListeners(songIds);
+    // Awaited further down; keep an early failure elsewhere from leaving these
+    // as unhandled rejections.
+    followerTask.catch(() => undefined);
+    monthlyTask.catch(() => undefined);
+
     const featuredBySongId = new Map<
       string,
       Array<{
@@ -1160,174 +1169,198 @@ export class UsersService {
         avatarUrl: string | null;
       }>
     >();
-    if (songIds.length > 0) {
-      const { data: featuredRows, error: featuredRowsError } = await supabase
-        .from('song_featured_artists')
-        .select('song_id, featured_user_id')
-        .in('song_id', songIds);
-      if (
-        featuredRowsError &&
-        !this.isMissingSongFeaturedArtistsTable(featuredRowsError)
-      ) {
-        throw new BadRequestException(
-          `Failed to load featured artists: ${featuredRowsError.message}`,
-        );
-      }
-      if (
-        !featuredRowsError &&
-        Array.isArray(featuredRows) &&
-        featuredRows.length > 0
-      ) {
-        const featuredUserIds = [
-          ...new Set(
-            featuredRows.map((row: any) => row.featured_user_id as string),
-          ),
-        ];
-        const { data: featuredUsers, error: featuredUsersError } =
-          await supabase
-            .from('users')
-            .select('id, display_name, avatar_url')
-            .in('id', featuredUserIds);
-        if (featuredUsersError) {
+    const featuredTask = (async () => {
+      if (songIds.length > 0) {
+        const { data: featuredRows, error: featuredRowsError } = await supabase
+          .from('song_featured_artists')
+          .select('song_id, featured_user_id')
+          .in('song_id', songIds);
+        if (
+          featuredRowsError &&
+          !this.isMissingSongFeaturedArtistsTable(featuredRowsError)
+        ) {
           throw new BadRequestException(
-            `Failed to load featured artist profiles: ${featuredUsersError.message}`,
+            `Failed to load featured artists: ${featuredRowsError.message}`,
           );
         }
-        const featuredUserById = new Map(
-          (featuredUsers || []).map((u: any) => [
-            u.id as string,
-            {
-              id: u.id as string,
-              displayName: (u.display_name as string | null) ?? null,
-              avatarUrl: (u.avatar_url as string | null) ?? null,
-            },
-          ]),
-        );
-        for (const row of featuredRows as any[]) {
-          const user = featuredUserById.get(row.featured_user_id);
-          if (!user) continue;
-          const list = featuredBySongId.get(row.song_id) ?? [];
-          list.push(user);
-          featuredBySongId.set(row.song_id, list);
+        if (
+          !featuredRowsError &&
+          Array.isArray(featuredRows) &&
+          featuredRows.length > 0
+        ) {
+          const featuredUserIds = [
+            ...new Set(
+              featuredRows.map((row: any) => row.featured_user_id as string),
+            ),
+          ];
+          const { data: featuredUsers, error: featuredUsersError } =
+            await supabase
+              .from('users')
+              .select('id, display_name, avatar_url')
+              .in('id', featuredUserIds);
+          if (featuredUsersError) {
+            throw new BadRequestException(
+              `Failed to load featured artist profiles: ${featuredUsersError.message}`,
+            );
+          }
+          const featuredUserById = new Map(
+            (featuredUsers || []).map((u: any) => [
+              u.id as string,
+              {
+                id: u.id as string,
+                displayName: (u.display_name as string | null) ?? null,
+                avatarUrl: (u.avatar_url as string | null) ?? null,
+              },
+            ]),
+          );
+          for (const row of featuredRows as any[]) {
+            const user = featuredUserById.get(row.featured_user_id);
+            if (!user) continue;
+            const list = featuredBySongId.get(row.song_id) ?? [];
+            list.push(user);
+            featuredBySongId.set(row.song_id, list);
+          }
         }
       }
-    }
+    })();
 
     // Real per-song stats sourced from `plays` and `likes` so the values
     // displayed on the public artist profile reflect actual activity.
     const realPlaysBySongId = new Map<string, number>();
     const realListenersBySongId = new Map<string, number>();
     const realLikesBySongId = new Map<string, number>();
-    if (songIds.length > 0) {
-      const { data: statsRows, error: statsError } = await supabase.rpc(
-        'get_artist_song_stats',
-        // p_since explicitly null = lifetime stats (do not rely on SQL default).
-        { p_song_ids: songIds, p_since: null },
-      );
-      if (statsError) {
-        this.logger.warn(
-          `get_artist_song_stats RPC unavailable on artist profile: ${statsError.message}`,
+    const statsTask = (async () => {
+      if (songIds.length > 0) {
+        const { data: statsRows, error: statsError } = await supabase.rpc(
+          'get_artist_song_stats',
+          // p_since explicitly null = lifetime stats (do not rely on SQL default).
+          { p_song_ids: songIds, p_since: null },
         );
-      } else {
-        for (const row of (statsRows ?? []) as Array<{
-          song_id: string;
-          plays_count: number | string | null;
-          listener_count_sum: number | string | null;
-          like_count: number | string | null;
-        }>) {
-          if (!row.song_id) continue;
-          realPlaysBySongId.set(row.song_id, Number(row.plays_count) || 0);
-          realListenersBySongId.set(
-            row.song_id,
-            Number(row.listener_count_sum) || 0,
+        if (statsError) {
+          this.logger.warn(
+            `get_artist_song_stats RPC unavailable on artist profile: ${statsError.message}`,
           );
-          realLikesBySongId.set(row.song_id, Number(row.like_count) || 0);
+        } else {
+          for (const row of (statsRows ?? []) as Array<{
+            song_id: string;
+            plays_count: number | string | null;
+            listener_count_sum: number | string | null;
+            like_count: number | string | null;
+          }>) {
+            if (!row.song_id) continue;
+            realPlaysBySongId.set(row.song_id, Number(row.plays_count) || 0);
+            realListenersBySongId.set(
+              row.song_id,
+              Number(row.listener_count_sum) || 0,
+            );
+            realLikesBySongId.set(row.song_id, Number(row.like_count) || 0);
+          }
         }
       }
-    }
+    })();
 
     const earsBySongId = new Map<string, number>();
     const listensBySongId = new Map<string, number>();
-    if (songIds.length > 0) {
-      try {
-        const [{ data: earsRows }, { data: listenRows }] = await Promise.all([
-          supabase.rpc('get_song_ears_reached', { p_song_ids: songIds }),
-          supabase.rpc('get_song_listen_count', { p_song_ids: songIds }),
-        ]);
-        for (const row of (earsRows ?? []) as Array<{
-          song_id: string;
-          ears: number | string | null;
-        }>) {
-          const value = Number(row.ears);
-          if (row.song_id && Number.isFinite(value)) {
-            earsBySongId.set(row.song_id, Math.max(0, Math.round(value)));
+    const earsTask = (async () => {
+      if (songIds.length > 0) {
+        try {
+          const [{ data: earsRows }, { data: listenRows }] = await Promise.all([
+            supabase.rpc('get_song_ears_reached', { p_song_ids: songIds }),
+            supabase.rpc('get_song_listen_count', { p_song_ids: songIds }),
+          ]);
+          for (const row of (earsRows ?? []) as Array<{
+            song_id: string;
+            ears: number | string | null;
+          }>) {
+            const value = Number(row.ears);
+            if (row.song_id && Number.isFinite(value)) {
+              earsBySongId.set(row.song_id, Math.max(0, Math.round(value)));
+            }
           }
+          for (const row of (listenRows ?? []) as Array<{
+            song_id: string;
+            listens: number | string | null;
+          }>) {
+            const value = Number(row.listens);
+            if (row.song_id && Number.isFinite(value)) {
+              listensBySongId.set(row.song_id, Math.max(0, Math.round(value)));
+            }
+          }
+        } catch {
+          // RPC may not exist in this environment.
         }
-        for (const row of (listenRows ?? []) as Array<{
-          song_id: string;
-          listens: number | string | null;
-        }>) {
-          const value = Number(row.listens);
-          if (row.song_id && Number.isFinite(value)) {
-            listensBySongId.set(row.song_id, Math.max(0, Math.round(value)));
+      }
+    })();
+
+    let artistEarsReached: number | null = null;
+    let artistListenCount: number | null = null;
+    const artistEarsTask = (async () => {
+      try {
+        const { data, error } = await supabase.rpc('get_artist_ears_reached', {
+          p_artist_id: resolvedUserId,
+        });
+        if (!error && data != null) {
+          const value = Number(data);
+          if (Number.isFinite(value)) {
+            artistEarsReached = Math.max(0, Math.round(value));
           }
         }
       } catch {
         // RPC may not exist in this environment.
       }
-    }
-
-    let artistEarsReached: number | null = null;
-    let artistListenCount: number | null = null;
-    try {
-      const { data, error } = await supabase.rpc('get_artist_ears_reached', {
-        p_artist_id: resolvedUserId,
-      });
-      if (!error && data != null) {
-        const value = Number(data);
-        if (Number.isFinite(value)) {
-          artistEarsReached = Math.max(0, Math.round(value));
+    })();
+    const artistListensTask = (async () => {
+      try {
+        const { data, error } = await supabase.rpc('get_artist_listen_count', {
+          p_artist_id: resolvedUserId,
+        });
+        if (!error && data != null) {
+          const value = Number(data);
+          if (Number.isFinite(value)) {
+            artistListenCount = Math.max(0, Math.round(value));
+          }
         }
+      } catch {
+        // RPC may not exist in this environment.
       }
-    } catch {
-      // RPC may not exist in this environment.
-    }
-    try {
-      const { data, error } = await supabase.rpc('get_artist_listen_count', {
-        p_artist_id: resolvedUserId,
-      });
-      if (!error && data != null) {
-        const value = Number(data);
-        if (Number.isFinite(value)) {
-          artistListenCount = Math.max(0, Math.round(value));
-        }
-      }
-    } catch {
-      // RPC may not exist in this environment.
-    }
+    })();
 
     // Which of these songs has the viewer already purchased? Owners/admins see
     // all of their own tracks as owned; everyone else only the ones they bought.
     const purchasedSongIds = new Set<string>();
-    if (viewerUserId && !requestingOwnProfile && songRows.length > 0) {
-      const { data: purchaseRows } = await supabase
-        .from('song_purchases')
-        .select('song_id')
-        .eq('user_id', viewerUserId)
-        .eq('status', 'completed')
-        .in(
-          'song_id',
-          songRows.map((s) => s.id),
-        );
-      for (const row of (purchaseRows ?? []) as Array<{ song_id: string }>) {
-        if (row.song_id) purchasedSongIds.add(row.song_id);
+    const purchasesTask = (async () => {
+      if (viewerUserId && !requestingOwnProfile && songRows.length > 0) {
+        const { data: purchaseRows } = await supabase
+          .from('song_purchases')
+          .select('song_id')
+          .eq('user_id', viewerUserId)
+          .eq('status', 'completed')
+          .in(
+            'song_id',
+            songRows.map((s) => s.id),
+          );
+        for (const row of (purchaseRows ?? []) as Array<{ song_id: string }>) {
+          if (row.song_id) purchasedSongIds.add(row.song_id);
+        }
       }
-    }
+    })();
 
-    const viewerHasProRadio =
-      !!viewerUserId &&
-      !requestingOwnProfile &&
-      (await this.proRadioSub.getAccess(viewerUserId)).hasAccess;
+    const proRadioTask =
+      viewerUserId && !requestingOwnProfile
+        ? this.proRadioSub
+            .getAccess(viewerUserId)
+            .then((access) => access.hasAccess)
+        : Promise.resolve(false);
+
+    const [, , , , , , viewerHasProRadio] = await Promise.all([
+      featuredTask,
+      statsTask,
+      earsTask,
+      artistEarsTask,
+      artistListensTask,
+      purchasesTask,
+      proRadioTask,
+    ]);
 
     const mappedSongs = await Promise.all(
       songRows.map(async (song) => {
@@ -1342,18 +1375,17 @@ export class UsersService {
           realListenersBySongId.get(song.id) ??
           0;
         const popularityScore = listenCount + likeCount * 3 + playCount;
-        const owned =
-          requestingOwnProfile || purchasedSongIds.has(song.id);
+        const owned = requestingOwnProfile || purchasedSongIds.has(song.id);
         const proRadioEligible =
           (song.product_kind ?? 'song') !== 'beat' &&
           song.opt_in_pro_radio === true;
-        const streamEntitled =
-          owned || (viewerHasProRadio && proRadioEligible);
+        const streamEntitled = owned || (viewerHasProRadio && proRadioEligible);
         // The full track lives in a private bucket. Preview = signed 30s sample
         // for everyone; the full file is signed for owners/buyers/Pro-Radio.
-        const sampleUrl = (await signSongAudioUrl(song.sample_url ?? null)) ?? null;
+        const sampleUrl =
+          (await signSongAudioUrl(song.sample_url ?? null)) ?? null;
         const fullUrl = streamEntitled
-          ? (await signSongAudioUrl(song.audio_url ?? null)) ?? null
+          ? ((await signSongAudioUrl(song.audio_url ?? null)) ?? null)
           : null;
         return {
           id: song.id,
@@ -1379,7 +1411,8 @@ export class UsersService {
           createdAt: song.created_at,
           updatedAt: song.updated_at ?? song.created_at,
           featuredArtists: featuredBySongId.get(song.id) ?? [],
-          productKind: (song.product_kind ?? 'song') === 'beat' ? 'beat' : 'song',
+          productKind:
+            (song.product_kind ?? 'song') === 'beat' ? 'beat' : 'song',
           albumId: song.album_id ?? null,
           trackNumber: song.track_number ?? null,
         };
@@ -1438,63 +1471,17 @@ export class UsersService {
       });
     }
 
-    const { count: followerCount, error: followerCountError } = await supabase
-      .from('user_follows')
-      .select('follower_user_id', { count: 'exact', head: true })
-      .eq('followed_user_id', resolvedUserId);
-    if (
-      followerCountError &&
-      !this.isMissingUserFollowsTable(followerCountError)
-    ) {
-      throw new BadRequestException(
-        `Failed to load follower count: ${followerCountError.message}`,
-      );
-    }
-    const { count: legacyFollowerCount } = await supabase
-      .from('artist_follows')
-      .select('user_id', { count: 'exact', head: true })
-      .eq('artist_id', resolvedUserId);
-    const mergedFollowerCount = Math.max(
-      followerCount ?? 0,
-      legacyFollowerCount ?? 0,
-    );
-
-    // Monthly listeners proxy: SUM of listener_count snapshots from radio plays
-    // in the last 30 days. We don't track per-user radio listens individually,
-    // so this reports total person-listen impressions over the window.
-    let monthlyListenerCount = 0;
-    if (songIds.length > 0) {
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const { data: monthlyRows, error: monthlyError } = await supabase.rpc(
-        'get_artist_song_stats',
-        {
-          p_song_ids: songIds,
-          p_since: thirtyDaysAgo.toISOString(),
-        },
-      );
-      if (monthlyError) {
-        this.logger.warn(
-          `Monthly listener RPC failed: ${monthlyError.message}`,
-        );
-      } else {
-        for (const row of (monthlyRows ?? []) as Array<{
-          listener_count_sum: number | string | null;
-        }>) {
-          monthlyListenerCount += Number(row.listener_count_sum) || 0;
-        }
-      }
-    }
+    const [mergedFollowerCount, monthlyListenerCount] = await Promise.all([
+      followerTask,
+      monthlyTask,
+    ]);
 
     const totalPlays = mappedSongs.reduce((sum, s) => sum + s.playCount, 0);
     const summedSongListens = mappedSongs.reduce(
       (sum, s) => sum + s.listenCount,
       0,
     );
-    const totalListens = Math.max(
-      artistListenCount ?? 0,
-      summedSongListens,
-    );
+    const totalListens = Math.max(artistListenCount ?? 0, summedSongListens);
     const earsReached = artistEarsReached ?? 0;
 
     const userRow = user;
@@ -1533,6 +1520,56 @@ export class UsersService {
       librarySongs: mappedSongs,
       albums,
     };
+  }
+
+  private async loadArtistFollowerCount(artistId: string): Promise<number> {
+    const supabase = getSupabaseClient();
+    const [current, legacy] = await Promise.all([
+      supabase
+        .from('user_follows')
+        .select('follower_user_id', { count: 'exact', head: true })
+        .eq('followed_user_id', artistId),
+      supabase
+        .from('artist_follows')
+        .select('user_id', { count: 'exact', head: true })
+        .eq('artist_id', artistId),
+    ]);
+    if (current.error && !this.isMissingUserFollowsTable(current.error)) {
+      throw new BadRequestException(
+        `Failed to load follower count: ${current.error.message}`,
+      );
+    }
+    return Math.max(current.count ?? 0, legacy.count ?? 0);
+  }
+
+  /**
+   * Monthly listeners proxy: SUM of listener_count snapshots from radio plays
+   * in the last 30 days. We don't track per-user radio listens individually,
+   * so this reports total person-listen impressions over the window.
+   */
+  private async loadArtistMonthlyListeners(songIds: string[]): Promise<number> {
+    if (songIds.length === 0) return 0;
+    const supabase = getSupabaseClient();
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const { data: monthlyRows, error: monthlyError } = await supabase.rpc(
+      'get_artist_song_stats',
+      {
+        p_song_ids: songIds,
+        p_since: thirtyDaysAgo.toISOString(),
+      },
+    );
+    if (monthlyError) {
+      this.logger.warn(`Monthly listener RPC failed: ${monthlyError.message}`);
+      return 0;
+    }
+    let total = 0;
+    for (const row of (monthlyRows ?? []) as Array<{
+      listener_count_sum: number | string | null;
+    }>) {
+      total += Number(row.listener_count_sum) || 0;
+    }
+    return total;
   }
 
   async followUser(

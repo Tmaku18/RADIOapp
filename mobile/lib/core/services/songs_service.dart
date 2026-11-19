@@ -496,6 +496,24 @@ class SongsService {
     return false;
   }
 
+  /// Liked and starred ids among [songIds], in one request.
+  /// Returns null when the backend doesn't have the batch endpoint yet.
+  Future<({Set<String> liked, Set<String> favorited})?> getSavedStatus(
+    List<String> songIds,
+  ) async {
+    if (songIds.isEmpty) return (liked: <String>{}, favorited: <String>{});
+    try {
+      final ids = Uri.encodeQueryComponent(songIds.join(','));
+      final res = await _api.get('songs/saved-status?ids=$ids');
+      if (res is! Map) return null;
+      Set<String> read(Object? v) =>
+          v is List ? v.map((e) => e.toString()).toSet() : <String>{};
+      return (liked: read(res['liked']), favorited: read(res['favorited']));
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<bool> like(String songId) async {
     final res = await _api.post('songs/$songId/like', {});
     if (res is Map<String, dynamic>) return res['liked'] == true;

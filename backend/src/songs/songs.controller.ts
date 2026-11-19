@@ -1259,6 +1259,20 @@ export class SongsController {
     return this.songsService.getLibrarySongs(id);
   }
 
+  /** Which of these songs the viewer liked or starred. `ids` is comma separated. */
+  @Get('saved-status')
+  async getSavedStatus(
+    @CurrentUser() user: FirebaseUser,
+    @Query('ids') ids?: string,
+  ) {
+    const { id } = await this.resolveUserIdAndRole(user.uid);
+    const songIds = (ids ?? '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean);
+    return this.songsService.getSavedStatus(id, songIds);
+  }
+
   /** ⭐ Starred songs for radio alerts (separate from 🔥 likes / library). */
   @Get('favorites')
   @UseGuards(RolesGuard)

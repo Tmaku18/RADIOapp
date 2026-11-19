@@ -284,42 +284,57 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
     try {
       final api = ApiService();
       final auth = Provider.of<AuthService>(context, listen: false);
-      final me = await auth.getUserProfile();
+      final meFuture = auth.getUserProfile();
+      final artistFuture = api.get('users/${widget.artistId}');
+      final bundleFuture = _loadArtistProfileBundle();
+      // Only one of these is used; keep the other from surfacing as unhandled.
+      unawaited(artistFuture.then<void>((_) {}, onError: (_) {}));
+      unawaited(bundleFuture.then<void>((_) {}, onError: (_) {}));
+      unawaited(_loadCover());
+
+      final me = await meFuture;
       final isOwner = me != null && me.id == widget.artistId;
-      final artistRaw = await api.get('users/${widget.artistId}');
-      final artist = (artistRaw is Map<String, dynamic>)
-          ? app_user.User.fromJson(artistRaw)
-          : null;
       late final List<Song> tracks;
       late final List<_AlbumGroup> albumGroups;
       if (isOwner) {
-        tracks = await _songs.getMine();
-        final albums = await _albumsApi.listMine();
-        albumGroups = _groupTracksIntoAlbums(tracks, albums);
+        final mine = await Future.wait<Object>([
+          _songs.getMine(),
+          _albumsApi.listMine(),
+        ]);
+        tracks = mine[0] as List<Song>;
+        albumGroups = _groupTracksIntoAlbums(
+          tracks,
+          mine[1] as List<ArtistAlbum>,
+        );
       } else {
-        final bundle = await _loadArtistProfileBundle();
+        final bundle = await bundleFuture;
         tracks = bundle.tracks;
         albumGroups = bundle.albums;
       }
+      final artistRaw = await artistFuture;
+      final artist = (artistRaw is Map<String, dynamic>)
+          ? app_user.User.fromJson(artistRaw)
+          : null;
       if (!mounted) return;
       setState(() {
         _isOwnerProfile = isOwner;
         _artist = artist;
         _tracks = tracks;
         _albumGroups = albumGroups;
-      });
-      unawaited(_loadCover());
-      if (!isOwner && me != null) {
-        await _loadPurchases();
-        await _loadFollowFavoriteState();
-      } else if (mounted) {
-        setState(() {
+        _loading = false;
+        if (isOwner || me == null) {
           _following = false;
           _favorited = false;
-        });
-      }
-      await _loadLikes();
-      await _loadLiveStatus();
+        }
+      });
+
+      // The page is visible now; fill in the viewer-specific bits together.
+      unawaited(Future.wait<void>([
+        if (!isOwner && me != null) _loadPurchases(),
+        if (!isOwner && me != null) _loadFollowFavoriteState(),
+        if (me != null) _loadLikes(),
+        _loadLiveStatus(),
+      ]));
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = e.toString());
@@ -500,25 +515,43 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
   }
 
   Future<void> _loadLikes() async {
-    final auth = Provider.of<AuthService>(context, listen: false);
-    final me = await auth.getUserProfile();
+    final ids = _tracks.map((s) => s.id).toList();
+    if (ids.isEmpty) return;
+    final saved = await _songs.getSavedStatus(ids);
     if (!mounted) return;
-    if (me == null) return;
-    // Fetch like / favorite status best-effort (one-by-one, can be optimized later).
-    for (final s in _tracks) {
-      try {
-        final results = await Future.wait([
-          _songs.getLikeStatus(s.id),
-          _songs.getFavoriteStatus(s.id),
-        ]);
-        if (!mounted) return;
-        setState(() {
-          _likedBySongId[s.id] = results[0];
-          _favoritedBySongId[s.id] = results[1];
-        });
-      } catch (_) {
-        // ignore
-      }
+    if (saved != null) {
+      setState(() {
+        for (final id in ids) {
+          _likedBySongId[id] = saved.liked.contains(id);
+          _favoritedBySongId[id] = saved.favorited.contains(id);
+        }
+      });
+      return;
+    }
+    // Older backend: per-song checks, a few at a time.
+    const batch = 6;
+    for (var i = 0; i < ids.length; i += batch) {
+      final chunk = ids.skip(i).take(batch).toList();
+      final results = await Future.wait(
+        chunk.map((id) async {
+          try {
+            final r = await Future.wait([
+              _songs.getLikeStatus(id),
+              _songs.getFavoriteStatus(id),
+            ]);
+            return (id: id, liked: r[0], favorited: r[1]);
+          } catch (_) {
+            return null;
+          }
+        }),
+      );
+      if (!mounted) return;
+      setState(() {
+        for (final r in results.nonNulls) {
+          _likedBySongId[r.id] = r.liked;
+          _favoritedBySongId[r.id] = r.favorited;
+        }
+      });
     }
   }
 

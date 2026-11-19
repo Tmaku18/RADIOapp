@@ -3516,6 +3516,30 @@ export class SongsService {
     return { favorited: !!data };
   }
 
+  /** Like and favorite status for many songs in one round trip. */
+  async getSavedStatus(userId: string, songIds: string[]) {
+    const ids = [...new Set(songIds.filter(Boolean))].slice(0, 300);
+    if (ids.length === 0) return { liked: [], favorited: [] };
+    const supabase = getSupabaseClient();
+    const [likes, favorites] = await Promise.all([
+      supabase
+        .from('likes')
+        .select('song_id')
+        .eq('user_id', userId)
+        .in('song_id', ids),
+      supabase
+        .from('song_favorites')
+        .select('song_id')
+        .eq('user_id', userId)
+        .in('song_id', ids),
+    ]);
+    const pick = (rows: unknown) =>
+      ((rows ?? []) as Array<{ song_id: string | null }>)
+        .map((row) => row.song_id)
+        .filter((id): id is string => !!id);
+    return { liked: pick(likes.data), favorited: pick(favorites.data) };
+  }
+
   /** 🔥 liked songs (library). */
   async getLibrarySongs(userId: string) {
     return this.getUserSavedSongs(userId, 'likes');
