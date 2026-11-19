@@ -62,7 +62,7 @@ export function FrequencyVisualizer({
           className={cn(
             'flex-1 min-w-[3px] rounded-sm transition-[height] duration-75 ease-out',
             playing
-              ? 'bg-gradient-to-t from-cyan-400 via-cyan-300 to-pink-500'
+              ? 'bg-gradient-to-t from-cyan-400/75 via-cyan-300/75 to-pink-500/75'
               : 'bg-gradient-to-t from-cyan-400/40 via-cyan-300/30 to-pink-500/40',
             barClassName,
           )}

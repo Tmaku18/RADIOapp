@@ -162,8 +162,8 @@ class _FrequencyVisualizerState extends State<FrequencyVisualizer>
                         begin: Alignment.bottomCenter,
                         end: Alignment.topCenter,
                         colors: [
-                          DimensionTokens.neonCyan,
-                          DimensionTokens.neonPink,
+                          DimensionTokens.neonCyan.withValues(alpha: 0.75),
+                          DimensionTokens.neonPink.withValues(alpha: 0.75),
                         ],
                       ),
                     ),
