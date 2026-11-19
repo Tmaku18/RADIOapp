@@ -45,7 +45,6 @@ class DiscoverCreateVideoScreen extends StatefulWidget {
 
 class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
   static const int _maxDurationSec = 15;
-  static const int _cameraCountdownSec = 5;
   static const int _maxFileSizeBytes = 200 * 1024 * 1024;
 
   final ProNetworxService _proNetworx = ProNetworxService();
@@ -273,7 +272,6 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
           builder: (_) => DiscoverClipCameraScreen(
             clipUrl: clip.clipUrl,
             songTitle: clip.title,
-            countdownSeconds: _cameraCountdownSec,
             maxRecordSeconds: maxSec,
           ),
         ),
@@ -791,8 +789,7 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
               Text(
                 hasVideo
                     ? 'Watch your take above, then publish — or delete / re-record.'
-                    : '$_cameraCountdownSec-second selfie countdown · max '
-                          '$_maxDurationSec s · double-tap a song to jump straight in.',
+                    : 'Hold the circle to record · max $_maxDurationSec s.',
                 style: TextStyle(color: surfaces.textSecondary, fontSize: 12),
               ),
               const SizedBox(height: 10),

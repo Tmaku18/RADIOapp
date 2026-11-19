@@ -8,22 +8,20 @@ import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../../core/services/audio_player_service.dart';
-import '../../core/theme/dimension_tokens.dart';
+import '../../widgets/capture_shutter.dart';
 
-/// Full-screen camera: silent countdown on preview, then starts recording +
-/// Discover clip audio only after the countdown fully ends.
+/// Full-screen selfie camera. Hold the circle to record. The clip starts after
+/// the microphone is already rolling.
 class DiscoverClipCameraScreen extends StatefulWidget {
   const DiscoverClipCameraScreen({
     super.key,
     required this.clipUrl,
     required this.songTitle,
-    this.countdownSeconds = 5,
     this.maxRecordSeconds = 15,
   });
 
   final String clipUrl;
   final String songTitle;
-  final int countdownSeconds;
   final int maxRecordSeconds;
 
   @override
@@ -32,34 +30,36 @@ class DiscoverClipCameraScreen extends StatefulWidget {
 }
 
 class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
-  final AudioPlayer _clipPlayer = AudioPlayer();
+  final AudioPlayer _clipPlayer = AudioPlayer(
+    handleInterruptions: false,
+    handleAudioSessionActivation: false,
+  );
 
   CameraController? _camera;
 
-  Timer? _countdownTimer;
-  Timer? _countdownEndTimer;
   Timer? _recordTimer;
+  Timer? _holdTimer;
+  DateTime? _recordStartedAt;
+  int _pressGen = 0;
+  final ValueNotifier<double> _recordProgress = ValueNotifier<double>(0);
 
-  late int _remaining;
   bool _initializing = true;
   bool _recording = false;
   bool _startingRecord = false;
   bool _finishing = false;
-  int _recordedSeconds = 0;
   String? _error;
 
   @override
   void initState() {
     super.initState();
-    _remaining = widget.countdownSeconds.clamp(1, 30);
     unawaited(_setup());
   }
 
   @override
   void dispose() {
-    _countdownTimer?.cancel();
-    _countdownEndTimer?.cancel();
+    _holdTimer?.cancel();
     _recordTimer?.cancel();
+    _recordProgress.dispose();
     unawaited(_clipPlayer.dispose());
     final cam = _camera;
     _camera = null;
@@ -95,8 +95,8 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
           avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
           avAudioSessionCategoryOptions:
               AVAudioSessionCategoryOptions.defaultToSpeaker |
-                  AVAudioSessionCategoryOptions.allowBluetooth |
-                  AVAudioSessionCategoryOptions.mixWithOthers,
+              AVAudioSessionCategoryOptions.allowBluetooth |
+              AVAudioSessionCategoryOptions.mixWithOthers,
           avAudioSessionMode: AVAudioSessionMode.videoRecording,
           avAudioSessionRouteSharingPolicy:
               AVAudioSessionRouteSharingPolicy.defaultPolicy,
@@ -140,17 +140,9 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
         });
         return;
       }
-      // Preload clip silently so playback can start exactly when recording does.
-      try {
-        await _clipPlayer.setUrl(widget.clipUrl);
-        await _clipPlayer.seek(Duration.zero);
-        await _clipPlayer.pause();
-      } catch (_) {
-        // Non-fatal: _beginRecording will retry setUrl.
-      }
       if (!mounted) return;
       setState(() => _initializing = false);
-      _startCountdown();
+      unawaited(_preloadClip());
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -186,31 +178,38 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
   /// Android needs a Flutter-side horizontal flip for Snapchat-style selfie
   /// preview. iOS `camera_avfoundation` already sets `isVideoMirrored` on the
   /// front-camera connection — flipping again would reverse it.
-  bool get _shouldFlipPreview =>
-      _isFrontCamera && !kIsWeb && !Platform.isIOS;
+  bool get _shouldFlipPreview => _isFrontCamera && !kIsWeb && !Platform.isIOS;
 
-  void _startCountdown() {
-    _countdownTimer?.cancel();
-    _countdownEndTimer?.cancel();
-    final total = _remaining;
-    // Tick UI every second; fire recording with a single end timer so a missed
-    // periodic tick can't leave us stuck on "1".
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-      if (_remaining <= 1) {
-        timer.cancel();
-        return;
-      }
-      setState(() => _remaining = _remaining - 1);
+  Future<void> _preloadClip() async {
+    try {
+      await _clipPlayer.setUrl(widget.clipUrl);
+      await _clipPlayer.seek(Duration.zero);
+      await _clipPlayer.pause();
+    } catch (_) {}
+  }
+
+  void _shutterDown() {
+    if (_initializing ||
+        _recording ||
+        _startingRecord ||
+        _finishing ||
+        _camera == null) {
+      return;
+    }
+    final gen = ++_pressGen;
+    _holdTimer?.cancel();
+    _holdTimer = Timer(const Duration(milliseconds: 450), () async {
+      if (!mounted || gen != _pressGen) return;
+      await _beginRecording();
+      if (!mounted || gen == _pressGen) return;
+      if (_recording) unawaited(_finishRecording());
     });
-    _countdownEndTimer = Timer(Duration(seconds: total), () {
-      if (!mounted || _recording || _startingRecord || _finishing) return;
-      _countdownTimer?.cancel();
-      unawaited(_beginRecording());
-    });
+  }
+
+  void _shutterUp() {
+    _holdTimer?.cancel();
+    _pressGen++;
+    if (_recording || _startingRecord) unawaited(_finishRecording());
   }
 
   Future<void> _beginRecording() async {
@@ -234,7 +233,6 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
 
     setState(() {
       _startingRecord = true;
-      _remaining = 0;
       _error = null;
     });
 
@@ -251,24 +249,25 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
       await cam.startVideoRecording();
       if (!mounted) return;
 
+      _recordStartedAt = DateTime.now();
+      _recordProgress.value = 0;
       setState(() {
         _recording = true;
         _startingRecord = false;
-        _recordedSeconds = 0;
       });
 
       // Clip audio after the camera is rolling — never block recording on it.
       unawaited(_startClipAudio());
 
       _recordTimer?.cancel();
-      _recordTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-        if (!mounted) {
-          timer.cancel();
-          return;
-        }
-        final next = _recordedSeconds + 1;
-        setState(() => _recordedSeconds = next);
-        if (next >= widget.maxRecordSeconds) {
+      _recordTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
+        final started = _recordStartedAt;
+        if (started == null) return;
+        final elapsed = DateTime.now().difference(started);
+        final cap = Duration(seconds: widget.maxRecordSeconds);
+        _recordProgress.value = (elapsed.inMilliseconds / cap.inMilliseconds)
+            .clamp(0, 1);
+        if (elapsed >= cap) {
           timer.cancel();
           unawaited(_finishRecording());
         }
@@ -295,6 +294,7 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
             .timeout(const Duration(seconds: 8));
       }
       await _clipPlayer.seek(Duration.zero);
+      await _clipPlayer.setVolume(0.9);
       await _clipPlayer.play();
     } catch (e) {
       debugPrint('DiscoverClipCamera: clip audio failed - $e');
@@ -305,8 +305,11 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
     final cam = _camera;
     if (cam == null || !_recording || _finishing) return;
 
+    _finishing = true;
+    final started = _recordStartedAt;
     setState(() => _finishing = true);
     _recordTimer?.cancel();
+    _recordProgress.value = 0;
 
     try {
       await _clipPlayer.stop();
@@ -314,6 +317,18 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
 
     try {
       final file = await cam.stopVideoRecording();
+      final elapsed = started == null
+          ? Duration.zero
+          : DateTime.now().difference(started);
+      _recordStartedAt = null;
+      if (elapsed < const Duration(milliseconds: 500)) {
+        if (!mounted) return;
+        setState(() {
+          _finishing = false;
+          _recording = false;
+        });
+        return;
+      }
       // iOS front-camera capture already mirrors via isVideoMirrored, so the
       // file matches the Snapchat-style preview without a post-record flip.
       final path = file.path;
@@ -333,8 +348,7 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
   }
 
   Future<void> _cancel() async {
-    _countdownTimer?.cancel();
-    _countdownEndTimer?.cancel();
+    _holdTimer?.cancel();
     _recordTimer?.cancel();
     try {
       await _clipPlayer.stop();
@@ -373,7 +387,12 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
                   child: Transform(
                     alignment: Alignment.center,
                     transform: Matrix4.identity()
-                      ..scaleByDouble(_shouldFlipPreview ? -1.0 : 1.0, 1.0, 1.0, 1.0),
+                      ..scaleByDouble(
+                        _shouldFlipPreview ? -1.0 : 1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                      ),
                     child: CameraPreview(cam),
                   ),
                 ),
@@ -385,180 +404,39 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
             child: Stack(
               children: [
                 Positioned(
-                  top: 8,
-                  left: 8,
-                  child: TextButton(
+                  top: 4,
+                  left: 4,
+                  child: IconButton(
                     onPressed: _finishing ? null : _cancel,
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(color: Colors.white70),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: 14,
-                  right: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black54,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const Text(
-                      'Selfie',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+                    tooltip: 'Close',
+                    icon: const Icon(Icons.close, color: Colors.white),
                   ),
                 ),
                 if (_error != null)
                   Positioned(
                     left: 24,
                     right: 24,
-                    bottom: 120,
+                    bottom: 128,
                     child: Text(
                       _error!,
                       textAlign: TextAlign.center,
                       style: const TextStyle(color: Colors.redAccent),
                     ),
                   ),
-                if (!_recording && !_startingRecord && _error == null)
-                  Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'GET READY',
-                          style: TextStyle(
-                            color: DimensionTokens.neonCyan,
-                            fontSize: 12,
-                            letterSpacing: 3,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 220),
-                          transitionBuilder: (child, anim) {
-                            return ScaleTransition(
-                              scale: anim,
-                              child: FadeTransition(
-                                opacity: anim,
-                                child: child,
-                              ),
-                            );
-                          },
-                          child: Text(
-                            '$_remaining',
-                            key: ValueKey(_remaining),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 96,
-                              fontWeight: FontWeight.w800,
-                              height: 1,
-                              shadows: [
-                                Shadow(
-                                  blurRadius: 12,
-                                  color: Colors.black54,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _remaining <= 1
-                              ? 'Get ready…'
-                              : 'Music starts when recording begins',
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 16,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 32),
-                          child: Text(
-                            widget.songTitle,
-                            textAlign: TextAlign.center,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white54,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                if (_recording || _startingRecord)
-                  Positioned(
-                    top: 56,
-                    left: 0,
-                    right: 0,
-                    child: Column(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.black54,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 10,
-                                height: 10,
-                                decoration: const BoxDecoration(
-                                  color: Colors.redAccent,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                _finishing
-                                    ? 'Saving…'
-                                    : 'REC  $_recordedSeconds / ${widget.maxRecordSeconds}s',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                if (_recording && !_finishing)
+                if (ready && !_finishing)
                   Positioned(
                     left: 0,
                     right: 0,
-                    bottom: 36,
+                    bottom: 28,
                     child: Center(
-                      child: FilledButton.icon(
-                        onPressed: _finishRecording,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.redAccent,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 28,
-                            vertical: 14,
-                          ),
+                      child: Listener(
+                        onPointerDown: (_) => _shutterDown(),
+                        onPointerUp: (_) => _shutterUp(),
+                        onPointerCancel: (_) => _shutterUp(),
+                        child: CaptureShutter(
+                          progress: _recordProgress,
+                          recording: _recording,
                         ),
-                        icon: const Icon(Icons.stop),
-                        label: const Text('Stop'),
                       ),
                     ),
                   ),

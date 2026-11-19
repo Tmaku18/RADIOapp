@@ -13,8 +13,7 @@ import '../../core/services/pro_networx_service.dart';
 import '../../core/services/radio_share.dart';
 import '../../core/services/social_share.dart';
 import '../../core/services/song_stories_service.dart';
-import '../../core/theme/dimension_tokens.dart';
-import '../../core/theme/networx_extensions.dart';
+import '../../widgets/capture_shutter.dart';
 import 'widgets/artist_credit_sticker.dart';
 import 'widgets/social_share_bar.dart';
 
@@ -61,7 +60,12 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
   CameraController? _camera;
   VideoPlayerController? _preview;
   Timer? _recordTimer;
+  Timer? _holdTimer;
   Future<File>? _audioDownload;
+  DateTime? _recordStartedAt;
+  int _pressGen = 0;
+  bool _holdArmed = false;
+  final ValueNotifier<double> _recordProgress = ValueNotifier<double>(0);
 
   _CapturePhase _phase = _CapturePhase.preparing;
   String? _error;
@@ -83,7 +87,6 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
   int _startMs = 0;
   int? _knownDurationMs;
   int _recordStartMs = 0;
-  int _recordedSeconds = 0;
 
   @override
   void initState() {
@@ -94,6 +97,8 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
   @override
   void dispose() {
     _recordTimer?.cancel();
+    _holdTimer?.cancel();
+    _recordProgress.dispose();
     final cam = _camera;
     _camera = null;
     if (cam != null) {
@@ -131,7 +136,6 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
       await _configureSession();
       await _openCamera();
       _audioDownload = SocialShare.downloadToTemp(widget.audioUrl);
-      await _startCue();
       if (!mounted) return;
       setState(() => _phase = _CapturePhase.ready);
     } catch (error) {
@@ -233,8 +237,10 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
 
   Future<void> _startCue() async {
     try {
-      await _cue.setUrl(widget.audioUrl);
-      if (_startMs > 0) await _cue.seek(Duration(milliseconds: _startMs));
+      if (_cue.audioSource == null) {
+        await _cue.setUrl(widget.audioUrl);
+      }
+      await _cue.seek(Duration(milliseconds: _recordStartMs));
       await _cue.setVolume(0.9);
       await _cue.play();
     } catch (_) {}
@@ -257,6 +263,32 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     return pending;
   }
 
+  void _shutterDown() {
+    if (_phase != _CapturePhase.ready || _stopping) return;
+    final gen = ++_pressGen;
+    _holdArmed = false;
+    _holdTimer?.cancel();
+    _holdTimer = Timer(const Duration(milliseconds: 450), () async {
+      if (!mounted || gen != _pressGen) return;
+      _holdArmed = true;
+      await _startVideo();
+      if (!mounted || gen == _pressGen) return;
+      if (_phase == _CapturePhase.recording) unawaited(_stopVideo());
+    });
+  }
+
+  void _shutterUp() {
+    _holdTimer?.cancel();
+    final armed = _holdArmed;
+    _pressGen++;
+    _holdArmed = false;
+    if (armed || _phase == _CapturePhase.recording) {
+      unawaited(_stopVideo());
+      return;
+    }
+    if (_phase == _CapturePhase.ready) unawaited(_takePhoto());
+  }
+
   Future<void> _takePhoto() async {
     final cam = _camera;
     if (cam == null ||
@@ -266,17 +298,23 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     }
     setState(() => _phase = _CapturePhase.mixing);
     try {
-      final at = _cue.position.inMilliseconds;
-      final start = at > 0 ? at : _startMs;
       final shot = await cam.takePicture();
-      final song = await _songFile();
-      final out = await SocialShare.imageWithAudio(
-        imagePath: shot.path,
-        audioPath: song.path,
-        startMs: start,
-        durationMs: _lengthFrom(start),
-      );
-      await _showClip(File(out));
+      try {
+        final song = await _songFile();
+        final out = await SocialShare.imageWithAudio(
+          imagePath: shot.path,
+          audioPath: song.path,
+          startMs: _startMs,
+          durationMs: _lengthFrom(_startMs),
+        );
+        await _showClip(File(out));
+      } catch (error) {
+        if (!mounted) return;
+        setState(() {
+          _phase = _CapturePhase.ready;
+          _error = _friendly(error);
+        });
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -294,26 +332,30 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
       return;
     }
     try {
-      final at = _cue.position.inMilliseconds;
-      _recordStartMs = at > 0 ? at : _startMs;
-      await _cue.setVolume(0.35);
+      _recordStartMs = _startMs;
+      try {
+        await cam.prepareForVideoRecording();
+      } catch (_) {}
       await cam.startVideoRecording();
-      _recordedSeconds = 0;
+      _recordStartedAt = DateTime.now();
+      _recordProgress.value = 0;
       _recordTimer?.cancel();
-      _recordTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-        if (!mounted) return;
-        setState(() => _recordedSeconds += 1);
-        if (_recordedSeconds >= SocialShare.clipMs ~/ 1000) {
+      _recordTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
+        final started = _recordStartedAt;
+        if (started == null) return;
+        final elapsed = DateTime.now().difference(started);
+        final cap = Duration(milliseconds: SocialShare.clipMs);
+        _recordProgress.value = (elapsed.inMilliseconds / cap.inMilliseconds)
+            .clamp(0, 1);
+        if (elapsed >= cap) {
           timer.cancel();
           unawaited(_stopVideo());
         }
       });
       if (!mounted) return;
       setState(() => _phase = _CapturePhase.recording);
+      unawaited(_startCue());
     } catch (error) {
-      try {
-        await _cue.setVolume(0.9);
-      } catch (_) {}
       if (!mounted) return;
       setState(() => _error = _friendly(error));
     }
@@ -324,21 +366,42 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     _stopping = true;
     _recordTimer?.cancel();
     final cam = _camera;
+    final started = _recordStartedAt;
     if (cam == null || !cam.value.isRecordingVideo) {
       _stopping = false;
+      _recordStartedAt = null;
       return;
     }
-    if (mounted) setState(() => _phase = _CapturePhase.mixing);
+    if (mounted) {
+      setState(() => _phase = _CapturePhase.mixing);
+      _recordProgress.value = 0;
+    }
+    try {
+      await _cue.pause();
+    } catch (_) {}
     try {
       final recorded = await cam.stopVideoRecording();
-      final song = await _songFile();
-      final out = await SocialShare.attachAudio(
-        videoPath: recorded.path,
-        audioPath: song.path,
-        startMs: _recordStartMs,
-        durationMs: _lengthFrom(_recordStartMs),
-      );
-      await _showClip(File(out));
+      final elapsed = started == null
+          ? Duration.zero
+          : DateTime.now().difference(started);
+      _recordStartedAt = null;
+      if (elapsed < const Duration(milliseconds: 500)) {
+        if (!mounted) return;
+        setState(() => _phase = _CapturePhase.ready);
+        return;
+      }
+      try {
+        final song = await _songFile();
+        final out = await SocialShare.attachAudio(
+          videoPath: recorded.path,
+          audioPath: song.path,
+          startMs: _recordStartMs,
+          durationMs: _lengthFrom(_recordStartMs),
+        );
+        await _showClip(File(out));
+      } catch (error) {
+        await _showClip(File(recorded.path), warning: _friendly(error));
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -350,7 +413,7 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     }
   }
 
-  Future<void> _showClip(File file) async {
+  Future<void> _showClip(File file, {String? warning}) async {
     try {
       await _cue.pause();
     } catch (_) {}
@@ -371,7 +434,7 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     if (!mounted) return;
     setState(() {
       _phase = _CapturePhase.review;
-      _error = null;
+      _error = warning;
     });
   }
 
@@ -383,10 +446,10 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     _burnKey = null;
     await previous?.dispose();
     try {
+      await _cue.pause();
+    } catch (_) {}
+    try {
       await _configureSession();
-      await _cue.setVolume(0.9);
-      await _cue.seek(Duration(milliseconds: _startMs));
-      await _cue.play();
     } catch (_) {}
     if (!mounted) return;
     setState(() {
@@ -537,7 +600,6 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final surfaces = context.networxSurfaces;
     final cam = _camera;
     final preview = _preview;
     final mirror =
@@ -545,159 +607,115 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
         cam?.description.lensDirection == CameraLensDirection.front;
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        title: const Text('Record with this song'),
-      ),
-      body: SafeArea(
-        child: _phase == _CapturePhase.failed
-            ? _message(_error ?? 'Could not open the camera.')
-            : Column(
-                children: [
-                  Expanded(
-                    child:
-                        _phase == _CapturePhase.review &&
-                            preview != null &&
-                            preview.value.isInitialized
-                        ? Center(
-                            child: AspectRatio(
-                              aspectRatio: preview.value.aspectRatio == 0
-                                  ? 9 / 16
-                                  : preview.value.aspectRatio,
-                              child: LayoutBuilder(
-                                builder: (context, constraints) {
-                                  return Stack(
-                                    fit: StackFit.expand,
-                                    children: [
-                                      GestureDetector(
-                                        onPanUpdate: (details) {
-                                          final width = constraints.maxWidth;
-                                          final height = constraints.maxHeight;
-                                          if (width <= 0 || height <= 0) return;
-                                          if (_creditStyle == null) return;
-                                          setState(() {
-                                            _creditX =
-                                                (_creditX +
-                                                        details.delta.dx /
-                                                            width)
-                                                    .clamp(0.12, 0.88);
-                                            _creditY =
-                                                (_creditY +
-                                                        details.delta.dy /
-                                                            height)
-                                                    .clamp(0.12, 0.88);
-                                          });
-                                        },
-                                        child: Stack(
-                                          fit: StackFit.expand,
-                                          children: [
-                                            VideoPlayer(preview),
-                                            if (_creditStyle != null)
-                                              IgnorePointer(
-                                                child: CustomPaint(
-                                                  painter: ArtistCreditPainter(
-                                                    title: widget.title,
-                                                    artist: widget.artistName,
-                                                    style: _creditStyle!,
-                                                    dx: _creditX,
-                                                    dy: _creditY,
-                                                    scale: _creditScale,
-                                                  ),
-                                                ),
-                                              ),
-                                            Positioned(
-                                              left: 12,
-                                              bottom: 12,
-                                              child: IconButton.filled(
-                                                style: IconButton.styleFrom(
-                                                  backgroundColor:
-                                                      Colors.black54,
-                                                  foregroundColor: Colors.white,
-                                                ),
-                                                tooltip: preview.value.isPlaying
-                                                    ? 'Pause'
-                                                    : 'Play',
-                                                onPressed: () {
-                                                  if (preview.value.isPlaying) {
-                                                    preview.pause();
-                                                  } else {
-                                                    preview.setVolume(1);
-                                                    preview.play();
-                                                  }
-                                                  setState(() {});
-                                                },
-                                                icon: Icon(
-                                                  preview.value.isPlaying
-                                                      ? Icons.pause_rounded
-                                                      : Icons
-                                                            .play_arrow_rounded,
-                                                ),
+      body: _phase == _CapturePhase.failed
+          ? SafeArea(child: _message(_error ?? 'Could not open the camera.'))
+          : Stack(
+              fit: StackFit.expand,
+              children: [
+                _phase == _CapturePhase.review &&
+                        preview != null &&
+                        preview.value.isInitialized
+                    ? Center(
+                        child: AspectRatio(
+                          aspectRatio: preview.value.aspectRatio == 0
+                              ? 9 / 16
+                              : preview.value.aspectRatio,
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              return Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  GestureDetector(
+                                    onPanUpdate: (details) {
+                                      final width = constraints.maxWidth;
+                                      final height = constraints.maxHeight;
+                                      if (width <= 0 || height <= 0) return;
+                                      if (_creditStyle == null) return;
+                                      setState(() {
+                                        _creditX =
+                                            (_creditX +
+                                                    details.delta.dx / width)
+                                                .clamp(0.12, 0.88);
+                                        _creditY =
+                                            (_creditY +
+                                                    details.delta.dy / height)
+                                                .clamp(0.12, 0.88);
+                                      });
+                                    },
+                                    child: Stack(
+                                      fit: StackFit.expand,
+                                      children: [
+                                        VideoPlayer(preview),
+                                        if (_creditStyle != null)
+                                          IgnorePointer(
+                                            child: CustomPaint(
+                                              painter: ArtistCreditPainter(
+                                                title: widget.title,
+                                                artist: widget.artistName,
+                                                style: _creditStyle!,
+                                                dx: _creditX,
+                                                dy: _creditY,
+                                                scale: _creditScale,
                                               ),
                                             ),
-                                          ],
+                                          ),
+                                            Positioned(
+                                              right: 12,
+                                              top: 12,
+                                          child: IconButton.filled(
+                                            style: IconButton.styleFrom(
+                                              backgroundColor: Colors.black54,
+                                              foregroundColor: Colors.white,
+                                            ),
+                                            tooltip: preview.value.isPlaying
+                                                ? 'Pause'
+                                                : 'Play',
+                                            onPressed: () {
+                                              if (preview.value.isPlaying) {
+                                                preview.pause();
+                                              } else {
+                                                preview.setVolume(1);
+                                                preview.play();
+                                              }
+                                              setState(() {});
+                                            },
+                                            icon: Icon(
+                                              preview.value.isPlaying
+                                                  ? Icons.pause_rounded
+                                                  : Icons.play_arrow_rounded,
+                                            ),
+                                          ),
                                         ),
-                                      ),
-                                    ],
-                                  );
-                                },
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        ),
+                      )
+                    : cam != null && cam.value.isInitialized
+                    ? Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          ClipRect(
+                            child: Transform(
+                              alignment: Alignment.center,
+                              transform: Matrix4.diagonal3Values(
+                                mirror ? -1 : 1,
+                                1,
+                                1,
                               ),
+                              child: CameraPreview(cam),
                             ),
-                          )
-                        : cam != null && cam.value.isInitialized
-                        ? Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              ClipRect(
-                                child: Transform(
-                                  alignment: Alignment.center,
-                                  transform: Matrix4.diagonal3Values(
-                                    mirror ? -1 : 1,
-                                    1,
-                                    1,
-                                  ),
-                                  child: CameraPreview(cam),
-                                ),
-                              ),
-                              if (_phase == _CapturePhase.recording)
-                                Positioned(
-                                  left: 16,
-                                  right: 16,
-                                  bottom: 24,
-                                  child: FilledButton.icon(
-                                    onPressed: _stopping ? null : _stopVideo,
-                                    style: FilledButton.styleFrom(
-                                      backgroundColor: Colors.redAccent,
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 24,
-                                        vertical: 16,
-                                      ),
-                                    ),
-                                    icon: const Icon(Icons.stop_rounded),
-                                    label: Text(
-                                      'Stop recording  $_recordedSeconds / ${SocialShare.clipMs ~/ 1000}s',
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          )
-                        : const Center(child: CircularProgressIndicator()),
-                  ),
-                  Container(
-                    width: double.infinity,
-                    constraints: BoxConstraints(
-                      maxHeight: MediaQuery.sizeOf(context).height * 0.46,
-                    ),
-                    color: surfaces.elevated.withValues(alpha: 0.96),
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                      child: _panel(),
-                    ),
-                  ),
-                ],
-              ),
-      ),
+                          ),
+                        ],
+                      )
+                    : const Center(child: CircularProgressIndicator()),
+                SafeArea(child: _chrome()),
+              ],
+            ),
     );
   }
 
@@ -710,103 +728,112 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     );
   }
 
-  Widget _panel() {
-    final title = widget.title.trim().isEmpty
-        ? 'This song'
-        : widget.title.trim();
-    final artist = widget.artistName.trim();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
+  Widget _chrome() {
+    final reviewing = _phase == _CapturePhase.review;
+    final capturing =
+        _phase == _CapturePhase.ready || _phase == _CapturePhase.recording;
+    return Stack(
       children: [
-        Text(
-          artist.isEmpty ? title : '$title — $artist',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          _phase == _CapturePhase.recording
-              ? 'Recording. Tap the red Stop button when you are done.'
-              : _phase == _CapturePhase.review
-              ? 'This is your clip. Press play to watch it and hear your voice with the song.'
-              : 'Your microphone and the song are saved into the clip.',
-          style: TextStyle(
-            color: context.networxSurfaces.textSecondary,
-            fontSize: 12,
+        Positioned(
+          top: 4,
+          left: 4,
+          child: IconButton(
+            onPressed: () => Navigator.of(context).maybePop(),
+            tooltip: 'Close',
+            icon: const Icon(Icons.close, color: Colors.white),
           ),
         ),
-        if (_error != null) ...[
-          const SizedBox(height: 8),
-          Text(
-            _error!,
-            style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+        if (_phase == _CapturePhase.mixing)
+          const Center(child: CircularProgressIndicator()),
+        if (_error != null && !reviewing)
+          Positioned(
+            left: 24,
+            right: 24,
+            bottom: 128,
+            child: Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+            ),
           ),
-        ],
-        const SizedBox(height: 12),
-        if (_phase == _CapturePhase.preparing || _phase == _CapturePhase.mixing)
-          const Center(child: CircularProgressIndicator())
-        else if (_phase == _CapturePhase.review) ...[
-          ArtistCreditTray(
-            style: _creditStyle,
-            scale: _creditScale,
-            onStyle: _applyingCredit
-                ? (_) {}
-                : (value) => setState(() => _creditStyle = value),
-            onScale: _applyingCredit
-                ? (_) {}
-                : (value) => setState(() => _creditScale = value),
-          ),
-          const SizedBox(height: 10),
-          if (_applyingCredit)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 8),
-              child: Text(
-                'Adding the artist credit…',
-                style: TextStyle(fontSize: 12),
+        if (capturing)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 28,
+            child: Center(
+              child: Listener(
+                onPointerDown: (_) => _shutterDown(),
+                onPointerUp: (_) => _shutterUp(),
+                onPointerCancel: (_) => _shutterUp(),
+                child: CaptureShutter(
+                  progress: _recordProgress,
+                  recording: _phase == _CapturePhase.recording,
+                ),
               ),
             ),
-          _reviewActions(),
-        ] else
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _phase == _CapturePhase.ready ? _takePhoto : null,
-                  icon: const Icon(Icons.photo_camera_outlined),
-                  label: const Text('Photo'),
-                ),
+          ),
+        if (reviewing)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height * 0.42,
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: _phase == _CapturePhase.recording
-                      ? _stopVideo
-                      : _phase == _CapturePhase.ready
-                      ? _startVideo
-                      : null,
-                  icon: Icon(
-                    _phase == _CapturePhase.recording
-                        ? Icons.stop
-                        : Icons.fiber_manual_record,
-                  ),
-                  label: Text(
-                    _phase == _CapturePhase.recording
-                        ? 'Stop recording'
-                        : 'Video',
-                  ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: _phase == _CapturePhase.recording
-                        ? Colors.redAccent
-                        : DimensionTokens.neonCyan,
-                    foregroundColor: _phase == _CapturePhase.recording
-                        ? Colors.white
-                        : Colors.black,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.9),
+                    ],
                   ),
                 ),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 28, 16, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (_error != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            _error!,
+                            style: const TextStyle(
+                              color: Colors.redAccent,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ArtistCreditTray(
+                        style: _creditStyle,
+                        scale: _creditScale,
+                        onStyle: _applyingCredit
+                            ? (_) {}
+                            : (value) => setState(() => _creditStyle = value),
+                        onScale: _applyingCredit
+                            ? (_) {}
+                            : (value) => setState(() => _creditScale = value),
+                      ),
+                      const SizedBox(height: 10),
+                      if (_applyingCredit)
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            'Adding the artist credit…',
+                            style: TextStyle(fontSize: 12, color: Colors.white),
+                          ),
+                        ),
+                      _reviewActions(),
+                    ],
+                  ),
+                ),
               ),
-            ],
+            ),
           ),
       ],
     );

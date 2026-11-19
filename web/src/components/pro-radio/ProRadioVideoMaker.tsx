@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input';
 import { proRadioPlaylistsApi, type ProRadioPlaylistTrack } from '@/lib/api';
 import type { PlaybackTrack } from '@/components/playback';
 import { RadioCaptureDialog } from '@/components/radio/RadioCapture';
-import { loadAudioBuffer } from '@/lib/social-share';
 
 function clock(seconds: number): string {
   const safe = Math.max(0, Math.floor(seconds));
@@ -42,7 +41,6 @@ export function ProRadioVideoMaker({
   const [session, setSession] = useState<{
     track: PlaybackTrack;
     stream: MediaStream;
-    buffer: AudioBuffer;
     offsetSeconds: number;
   } | null>(null);
   const previewRef = useRef<HTMLAudioElement | null>(null);
@@ -118,9 +116,8 @@ export function ProRadioVideoMaker({
     try {
       stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user' },
-        audio: false,
+        audio: { echoCancellation: true, noiseSuppression: true },
       });
-      const buffer = await loadAudioBuffer(url);
       const track: PlaybackTrack = {
         id: song.songId,
         title: song.title,
@@ -133,7 +130,6 @@ export function ProRadioVideoMaker({
       setSession({
         track,
         stream,
-        buffer,
         offsetSeconds: start,
       });
     } catch (error) {
@@ -227,7 +223,6 @@ export function ProRadioVideoMaker({
           <RadioCaptureDialog
             track={session.track}
             stream={session.stream}
-            buffer={session.buffer}
             offsetSeconds={session.offsetSeconds}
             durationSeconds={session.track.durationSeconds}
             onClose={() => setSession(null)}

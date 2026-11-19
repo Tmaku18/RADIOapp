@@ -130,6 +130,102 @@ export async function startMixedRecording(input: {
   return { stop, cancel };
 }
 
+/**
+ * Records the camera with the song playing from [offsetSeconds].
+ * The song is an audio element, so the shutter does not wait for a full decode.
+ * The microphone is mixed into the file and is not played back.
+ */
+export async function startLiveSongRecording(input: {
+  videoTrack: MediaStreamTrack;
+  audioUrl: string;
+  offsetSeconds: number;
+  micStream?: MediaStream | null;
+}): Promise<{ stop: () => Promise<File>; cancel: () => void }> {
+  if (input.audioUrl.toLowerCase().includes('.m3u8')) {
+    throw new Error('This live stream cannot be saved into a clip.');
+  }
+  const audio = new Audio();
+  audio.crossOrigin = 'anonymous';
+  audio.preload = 'auto';
+  audio.src = input.audioUrl;
+  const ctx = new AudioContext();
+  await ctx.resume();
+  const dest = ctx.createMediaStreamDestination();
+  const song = ctx.createMediaElementSource(audio);
+  const micTracks =
+    input.micStream?.getAudioTracks().filter((track) => track.readyState === 'live') ?? [];
+  const songGain = ctx.createGain();
+  songGain.gain.value = micTracks.length > 0 ? 0.55 : 1;
+  song.connect(songGain);
+  songGain.connect(dest);
+  songGain.connect(ctx.destination);
+  if (micTracks.length > 0) {
+    ctx.createMediaStreamSource(new MediaStream(micTracks)).connect(dest);
+  }
+  if (audio.readyState < 1) {
+    await new Promise<void>((resolve, reject) => {
+      const ready = () => {
+        audio.removeEventListener('loadedmetadata', ready);
+        audio.removeEventListener('error', failed);
+        resolve();
+      };
+      const failed = () => {
+        audio.removeEventListener('loadedmetadata', ready);
+        audio.removeEventListener('error', failed);
+        reject(new Error('Could not play the song.'));
+      };
+      audio.addEventListener('loadedmetadata', ready);
+      audio.addEventListener('error', failed);
+    });
+  }
+  let offset = Math.max(0, input.offsetSeconds);
+  if (Number.isFinite(audio.duration) && offset > audio.duration - 0.25) {
+    offset = Math.max(0, audio.duration - 1);
+  }
+  try {
+    audio.currentTime = offset;
+  } catch {
+    // Some browsers seek only after playback starts.
+  }
+  await audio.play();
+
+  const mime = pickRecorderMime();
+  const stream = new MediaStream([
+    input.videoTrack,
+    ...dest.stream.getAudioTracks(),
+  ]);
+  const recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+  const chunks: Blob[] = [];
+  recorder.ondataavailable = (event) => {
+    if (event.data.size > 0) chunks.push(event.data);
+  };
+  const done = new Promise<Blob>((resolve, reject) => {
+    recorder.onstop = () =>
+      resolve(new Blob(chunks, { type: recorder.mimeType || mime || 'video/webm' }));
+    recorder.onerror = () => reject(new Error('Recording failed.'));
+  });
+  recorder.start(250);
+
+  let stopped = false;
+  const halt = () => {
+    if (stopped) return;
+    stopped = true;
+    audio.pause();
+    if (recorder.state !== 'inactive') recorder.stop();
+  };
+  const stop = async () => {
+    halt();
+    const blob = await done;
+    await ctx.close().catch(() => undefined);
+    return blobToFile(blob);
+  };
+  const cancel = () => {
+    halt();
+    void ctx.close().catch(() => undefined);
+  };
+  return { stop, cancel };
+}
+
 function coverRect(
   sourceWidth: number,
   sourceHeight: number,

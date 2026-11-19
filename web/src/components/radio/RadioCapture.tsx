@@ -7,12 +7,9 @@ import { usePlaybackOptional } from '@/components/playback/PlaybackProvider';
 import type { PlaybackTrack } from '@/components/playback';
 import { discoveryApi, songStoriesApi, type StoryVisibility } from '@/lib/api';
 import { artistShareText, stationShareText } from '@/lib/radio-share';
-import {
-  loadAudioBuffer,
-  startMirrorLoop,
-  startMixedRecording,
-} from '@/lib/social-share';
+import { startLiveSongRecording, startMirrorLoop } from '@/lib/social-share';
 import { ArtistCreditOverlay, ArtistCreditTray } from '@/components/radio/ArtistCreditOverlay';
+import { CaptureShutter } from '@/components/radio/CaptureShutter';
 import { SocialShareButtons } from '@/components/radio/SocialShareButtons';
 import { burnArtistCredit, type ArtistCreditStyle } from '@/lib/artist-credit';
 
@@ -37,14 +34,12 @@ function captionFor(track: PlaybackTrack): string {
 export function RadioCaptureDialog({
   track,
   stream,
-  buffer,
   onClose,
   offsetSeconds,
   durationSeconds,
 }: {
   track: PlaybackTrack;
   stream: MediaStream;
-  buffer: AudioBuffer;
   onClose: () => void;
   /** Start point in the full song. Omit to use whatever the player is on. */
   offsetSeconds?: number;
@@ -67,7 +62,6 @@ export function RadioCaptureDialog({
   const clipUrl = useRef<string | null>(null);
 
   const [phase, setPhase] = useState<'ready' | 'recording' | 'saving' | 'review'>('ready');
-  const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [clip, setClip] = useState<{ file: File; url: string } | null>(null);
   const [posting, setPosting] = useState(false);
@@ -79,6 +73,9 @@ export function RadioCaptureDialog({
   const [creditY, setCreditY] = useState(0.58);
   const [creditScale, setCreditScale] = useState(1);
   const [reviewPlaying, setReviewPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const pressGen = useRef(0);
+  const recordingFlag = useRef(false);
   const [aspect, setAspect] = useState<number | null>(null);
   const burned = useRef<{ key: string; file: File } | null>(null);
 
@@ -122,9 +119,16 @@ export function RadioCaptureDialog({
       tick.current = null;
     }
     drawStop.current?.();
+    recordingFlag.current = false;
+    setProgress(0);
     setPhase('saving');
     try {
       const file = await handle.stop();
+      if (file.size < 1000) {
+        setPhase('ready');
+        restartPreview();
+        return;
+      }
       const url = URL.createObjectURL(file);
       clipUrl.current = url;
       setClip({ file, url });
@@ -139,7 +143,7 @@ export function RadioCaptureDialog({
     }
   };
 
-  const begin = async (kind: 'photo' | 'video') => {
+  const begin = async (kind: 'photo' | 'video', gen?: number) => {
     const canvas = canvasRef.current;
     if (!canvas || phase !== 'ready') return;
     if (typeof canvas.captureStream !== 'function') {
@@ -165,27 +169,32 @@ export function RadioCaptureDialog({
       return;
     }
     setError(null);
-    setSeconds(0);
+    setProgress(0);
     let handle: { stop: () => Promise<File>; cancel: () => void };
     try {
-      handle = await startMixedRecording({
+      handle = await startLiveSongRecording({
         videoTrack,
-        audioBuffer: buffer,
+        audioUrl: track.audioUrl,
         offsetSeconds: offset,
-        durationSeconds: length,
         micStream: stream,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not start the recording.');
-      restartPreview();
+      if (kind === 'photo') restartPreview();
+      return;
+    }
+    if (kind === 'video' && gen != null && gen !== pressGen.current) {
+      handle.cancel();
       return;
     }
     recorder.current = handle;
+    recordingFlag.current = kind === 'video';
     setPhase(kind === 'photo' ? 'saving' : 'recording');
     const started = Date.now();
     tick.current = window.setInterval(() => {
-      setSeconds(Math.min(CLIP_SECONDS, Math.round((Date.now() - started) / 1000)));
-    }, 250);
+      const elapsed = (Date.now() - started) / 1000;
+      setProgress(Math.min(1, elapsed / length));
+    }, 50);
     stopTimer.current = window.setTimeout(() => {
       void finish(handle);
     }, length * 1000);
@@ -200,7 +209,7 @@ export function RadioCaptureDialog({
     burned.current = null;
     setAspect(null);
     setPhase('ready');
-    setSeconds(0);
+    setProgress(0);
     restartPreview();
   };
 
@@ -267,19 +276,11 @@ export function RadioCaptureDialog({
     }
   };
 
-  const label = track.artistName.trim()
-    ? `${track.title} — ${track.artistName}`
-    : track.title;
+  const capturing = phase === 'ready' || phase === 'recording';
 
   return (
-    <div className="fixed inset-0 z-[80] flex flex-col bg-black text-white">
-      <div className="flex items-center justify-between px-4 py-3">
-        <p className="text-sm font-semibold">Record with this song</p>
-        <button type="button" onClick={onClose} className="text-sm text-white/80">
-          Close
-        </button>
-      </div>
-      <div className="relative min-h-0 flex-1 bg-black">
+    <div className="fixed inset-0 z-[80] bg-black text-white">
+      <div className="relative h-full w-full">
         <video ref={videoRef} autoPlay muted playsInline className="hidden" />
         {phase === 'review' && clip ? (
           <div className="flex h-full w-full items-center justify-center">
@@ -328,32 +329,42 @@ export function RadioCaptureDialog({
         ) : (
           <canvas ref={canvasRef} className="h-full w-full object-cover" />
         )}
-        {phase === 'recording' ? (
-          <button
-            type="button"
-            onClick={() => {
-              if (recorder.current) void finish(recorder.current);
-            }}
-            className="absolute bottom-6 left-1/2 z-10 -translate-x-1/2 rounded-full bg-red-500 px-8 py-4 text-base font-semibold text-white shadow-lg"
-          >
-            Stop recording {seconds}s / {CLIP_SECONDS}s
-          </button>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="absolute left-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-2xl text-white"
+        >
+          ×
+        </button>
+        {error && phase !== 'review' ? (
+          <p className="absolute inset-x-6 bottom-32 z-20 text-center text-sm text-red-300">{error}</p>
         ) : null}
-      </div>
-      <div className="space-y-3 bg-zinc-950 px-4 py-4">
-        <p className="truncate text-sm font-semibold">{label}</p>
-        <p className="text-xs text-white/60">
-          {phase === 'recording'
-            ? 'Recording. Tap the red Stop button when you are done.'
-            : phase === 'review'
-              ? 'This is your clip. Press play to watch it and hear your voice with the song.'
-              : 'Your microphone and the song are saved into the clip.'}
-        </p>
-        {error ? <p className="text-xs text-red-300">{error}</p> : null}
         {phase === 'saving' ? (
-          <p className="text-sm">Adding the song…</p>
-        ) : phase === 'review' && clip ? (
-          <div className="space-y-3">
+          <p className="absolute inset-x-0 top-1/2 z-20 text-center text-sm">Adding the song…</p>
+        ) : null}
+        {capturing ? (
+          <div className="absolute inset-x-0 bottom-8 z-20 flex justify-center">
+            <CaptureShutter
+              progress={progress}
+              recording={phase === 'recording'}
+              disabled={phase !== 'ready' && phase !== 'recording'}
+              onHoldStart={() => {
+                const gen = ++pressGen.current;
+                void begin('video', gen);
+              }}
+              onHoldEnd={() => {
+                pressGen.current += 1;
+                if (recordingFlag.current && recorder.current) void finish(recorder.current);
+              }}
+              onTap={() => void begin('photo')}
+            />
+          </div>
+        ) : null}
+        {phase === 'review' && clip ? (
+          <div className="absolute inset-x-0 bottom-0 z-20 max-h-[42%] overflow-y-auto bg-gradient-to-t from-black via-black/80 to-transparent px-4 pb-4 pt-8">
+            {error ? <p className="mb-2 text-xs text-red-300">{error}</p> : null}
+            <div className="space-y-3">
             <button
               type="button"
               onClick={() => {
@@ -450,37 +461,9 @@ export function RadioCaptureDialog({
                 }
               }}
             />
+            </div>
           </div>
-        ) : (
-          <div className="flex gap-2">
-            <button
-              type="button"
-              disabled={phase !== 'ready'}
-              onClick={() => void begin('photo')}
-              className="flex-1 rounded-full border border-white/20 py-2 text-sm disabled:opacity-40"
-            >
-              Photo
-            </button>
-            <button
-              type="button"
-              disabled={phase === 'saving'}
-              onClick={() => {
-                if (phase === 'recording' && recorder.current) {
-                  void finish(recorder.current);
-                  return;
-                }
-                void begin('video');
-              }}
-              className={`flex-1 rounded-full py-2 text-sm font-semibold disabled:opacity-40 ${
-                phase === 'recording'
-                  ? 'bg-red-500 text-white'
-                  : 'bg-cyan-400 text-black'
-              }`}
-            >
-              {phase === 'recording' ? 'Stop recording' : 'Video'}
-            </button>
-          </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
@@ -492,7 +475,6 @@ export function RadioCaptureButton({ compact = false }: { compact?: boolean }) {
   const [session, setSession] = useState<{
     track: PlaybackTrack;
     stream: MediaStream;
-    buffer: AudioBuffer;
   } | null>(null);
 
   const track = playback?.state.track;
@@ -512,8 +494,7 @@ export function RadioCaptureButton({ compact = false }: { compact?: boolean }) {
         video: { facingMode: 'user' },
         audio: { echoCancellation: true, noiseSuppression: true },
       });
-      const buffer = await loadAudioBuffer(current.audioUrl);
-      setSession({ track: current, stream, buffer });
+      setSession({ track: current, stream });
     } catch (error) {
       stream?.getTracks().forEach((item) => item.stop());
       toast.error(
@@ -549,7 +530,6 @@ export function RadioCaptureButton({ compact = false }: { compact?: boolean }) {
         <RadioCaptureDialog
           track={session.track}
           stream={session.stream}
-          buffer={session.buffer}
           onClose={() => setSession(null)}
         />
       ) : null}
