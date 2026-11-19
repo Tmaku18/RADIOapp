@@ -1572,8 +1572,6 @@ class _PlayerScreenState extends State<PlayerScreen>
                     child: _PlayerBody(
                       track: _currentTrack!,
                       radioId: _radioId,
-                      stationLabel: _activeStation.genre,
-                      onChangeStation: _openStationPicker,
                       onCycleStation: _cycleStation,
                       risingStarText: _risingStarText,
                       ad: _ad,

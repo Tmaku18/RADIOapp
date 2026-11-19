@@ -476,8 +476,6 @@ class _VenueAdCard extends StatelessWidget {
 class _PlayerBody extends StatelessWidget {
   final Track track;
   final String radioId;
-  final String stationLabel;
-  final VoidCallback onChangeStation;
   final Future<void> Function(int direction) onCycleStation;
   final String? risingStarText;
   final VenueAd? ad;
@@ -506,8 +504,6 @@ class _PlayerBody extends StatelessWidget {
   const _PlayerBody({
     required this.track,
     required this.radioId,
-    required this.stationLabel,
-    required this.onChangeStation,
     required this.onCycleStation,
     required this.risingStarText,
     required this.ad,
@@ -716,24 +712,6 @@ class _PlayerBody extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Station: $stationLabel',
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: surfaces.textSecondary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: onChangeStation,
-                    child: const Text('Stations'),
-                  ),
-                ],
-              ),
-              SizedBox(height: sectionGap),
               if (risingStarText != null) ...[
                 Container(
                   width: double.infinity,
@@ -831,8 +809,6 @@ class _PlayerBody extends StatelessWidget {
                   ),
                 ],
               ),
-              SizedBox(height: titleGap),
-              SongStoriesStrip(songId: track.id),
               SizedBox(height: titleGap),
               GestureDetector(
                 onTap: () {
@@ -952,6 +928,8 @@ class _PlayerBody extends StatelessWidget {
                   );
                 },
               ),
+              SizedBox(height: afterProgressGap),
+              SongStoriesStrip(songId: track.id),
               SizedBox(height: afterProgressGap),
               // Transport comes first now, and it is one big centered play
               // control flanked by the two most-used actions. It used to be
