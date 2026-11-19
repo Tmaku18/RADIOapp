@@ -3,9 +3,9 @@
 // @ts-nocheck
 'use client';
 
-import { useRef, useMemo, useEffect, type MutableRefObject } from 'react';
+import { Suspense, useRef, useMemo, useEffect, type MutableRefObject } from 'react';
 import { Canvas, useFrame } from "@react-three/fiber";
-import { Points, PointMaterial } from "@react-three/drei";
+import { Points, PointMaterial, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 
 const CYAN = "#00F0FF";
@@ -35,145 +35,74 @@ function applyOpacity(group, alpha) {
   });
 }
 
+function radialTexture() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext("2d");
+  const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, "rgba(255,255,255,1)");
+  g.addColorStop(0.4, "rgba(255,255,255,0.45)");
+  g.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 128, 128);
+  const tex = new THREE.CanvasTexture(canvas);
+  return tex;
+}
+
+function place(mesh, x, y, z, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) {
+  mesh.position.set(x, y, z);
+  mesh.rotation.set(rx, ry, rz);
+  mesh.scale.set(sx, sy, sz);
+  return mesh;
+}
+
 // =====================================================================
-// STAGE 1 ??? HIDDEN GEM: miner figure swings pickaxe, gem glows underneath
+// STAGE 1 — HIDDEN GEM: a prospector breaks the stone and finds the gem
 // =====================================================================
 function Stage1Gem({ activeRef, progressRef }) {
   const root = useRef();
-  const armRef = useRef();      // pivots the arm + pickaxe together
-  const torsoRef = useRef();    // slight bob to match strike
-  const headRef = useRef();
+  const armRef = useRef();
+  const forearmRef = useRef();
+  const torsoRef = useRef();
   const pickaxe = useRef();
   const gem = useRef();
+  const gemCore = useRef();
+  const gemSpin = useRef();
   const sparksRef = useRef();
+  const dustRef = useRef();
+  const gemLight = useRef();
   const sparkVelocities = useRef([]);
   const lastStrike = useRef(-99);
 
-  // Build pickaxe geometry once ??? pivot at the bottom of the handle (so it rotates from the hand)
-  const pickaxeNode = useMemo(() => {
-    const g = new THREE.Group();
-    // Handle ??? pivot at y=0 (hand grip), extends up to y=1.0
-    const handle = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.055, 0.045, 1.1, 16),
-      new THREE.MeshStandardMaterial({
-        color: "#8B5A2B",
-        emissive: "#3a1f0a",
-        emissiveIntensity: 0.3,
-        roughness: 0.85,
-        metalness: 0.1,
-      })
-    );
-    handle.position.y = 0.55;
-    g.add(handle);
-    // Head capsule across the top of the handle
-    const headMat = new THREE.MeshStandardMaterial({
-      color: "#cdd6dc",
-      emissive: "#202830",
-      emissiveIntensity: 0.45,
-      roughness: 0.2,
-      metalness: 0.95,
+  const rig = useMemo(() => {
+    const wood = new THREE.MeshStandardMaterial({ color: "#4a3422", roughness: 0.72, metalness: 0.04 });
+    const dark = new THREE.MeshStandardMaterial({ color: "#07080c", roughness: 0.86, metalness: 0.35 });
+    const steel = new THREE.MeshStandardMaterial({
+      color: "#c5ced4",
+      roughness: 0.22,
+      metalness: 0.92,
+      emissive: "#102026",
+      emissiveIntensity: 0.15,
     });
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.16, 0.22), headMat);
-    head.position.set(0, 1.1, 0);
-    head.rotation.z = Math.PI / 2;
-    g.add(head);
-    // Pointy tip (the striking end)
-    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.34, 8), headMat);
-    tip.position.set(0.55, 1.1, 0);
-    tip.rotation.z = -Math.PI / 2;
-    g.add(tip);
-    return g;
+    const pick = new THREE.Group();
+    const add = (geo, mat, x, y, z, rx = 0, ry = 0, rz = 0) => {
+      pick.add(place(new THREE.Mesh(geo, mat), x, y, z, rx, ry, rz));
+    };
+    add(new THREE.CylinderGeometry(0.022, 0.028, 0.5, 16), wood, 0, 0.25, 0);
+    const wrap = new THREE.TorusGeometry(0.03, 0.006, 6, 14);
+    add(wrap, dark, 0, 0.08, 0, Math.PI / 2);
+    add(wrap, dark, 0, 0.12, 0, Math.PI / 2);
+    add(new THREE.CylinderGeometry(0.04, 0.04, 0.05, 12), steel, 0, 0.5, 0);
+    add(new THREE.ConeGeometry(0.055, 0.22, 12), steel, 0.12, 0.5, 0, 0, 0, -Math.PI / 2);
+    add(new THREE.ConeGeometry(0.04, 0.12, 12), steel, -0.07, 0.5, 0, 0, 0, Math.PI / 2);
+    return { pick };
   }, []);
 
-  // Build the miner ??? stylized cyan-glow silhouette so it fits the cyber aesthetic
-  const minerNode = useMemo(() => {
-    const g = new THREE.Group();
-    const bodyMat = new THREE.MeshStandardMaterial({
-      color: "#0a0a0f",
-      emissive: CYAN,
-      emissiveIntensity: 0.45,
-      roughness: 0.35,
-      metalness: 0.55,
-      toneMapped: false,
-    });
-    const trimMat = new THREE.MeshStandardMaterial({
-      color: "#A6FBFF",
-      emissive: CYAN,
-      emissiveIntensity: 1.2,
-      roughness: 0.2,
-      metalness: 0.7,
-      toneMapped: false,
-    });
-
-    // Torso (slightly hunched capsule)
-    const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.18, 0.42, 6, 14), bodyMat);
-    torso.position.y = 0.15;
-    g.add(torso);
-
-    // Hip belt (cyan trim)
-    const belt = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.025, 8, 24), trimMat);
-    belt.position.y = -0.1;
-    belt.rotation.x = Math.PI / 2;
-    g.add(belt);
-
-    // Legs
-    const legGeom = new THREE.CapsuleGeometry(0.07, 0.42, 4, 10);
-    const legL = new THREE.Mesh(legGeom, bodyMat);
-    legL.position.set(-0.1, -0.42, 0.02);
-    legL.rotation.z = 0.05;
-    g.add(legL);
-    const legR = new THREE.Mesh(legGeom, bodyMat);
-    legR.position.set(0.1, -0.42, -0.05);
-    legR.rotation.z = -0.05;
-    g.add(legR);
-
-    // Left (free) arm ??? slight outward bend
-    const armGeom = new THREE.CapsuleGeometry(0.06, 0.38, 4, 10);
-    const armL = new THREE.Mesh(armGeom, bodyMat);
-    armL.position.set(-0.22, 0.18, 0.05);
-    armL.rotation.z = 0.45;
-    g.add(armL);
-
-    // Helmet (head + miner lamp ring)
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.16, 18, 18), bodyMat);
-    head.position.y = 0.5;
-    g.add(head);
-    const helmRim = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.022, 8, 24), trimMat);
-    helmRim.position.y = 0.48;
-    helmRim.rotation.x = Math.PI / 2;
-    g.add(helmRim);
-    // Lamp glow on the helmet front
-    const lamp = new THREE.Mesh(
-      new THREE.SphereGeometry(0.045, 12, 12),
-      new THREE.MeshStandardMaterial({
-        color: "#FFFFFF",
-        emissive: YELLOW,
-        emissiveIntensity: 2.4,
-        toneMapped: false,
-      })
-    );
-    lamp.position.set(0, 0.54, 0.14);
-    g.add(lamp);
-
-    return g;
-  }, []);
-
-  // Build rock chunks
-  const rocks = useMemo(() => {
-    const arr = [];
-    for (let i = 0; i < 9; i++) {
-      const angle = (i / 9) * Math.PI * 2;
-      const r = 0.6 + Math.random() * 0.3;
-      arr.push({
-        x: Math.cos(angle) * r,
-        y: -0.7 + Math.random() * 0.2,
-        z: Math.sin(angle) * r * 0.3,
-        scale: 0.22 + Math.random() * 0.22,
-        rot: Math.random() * Math.PI,
-      });
-    }
-    return arr;
-  }, []);
+  const glowMap = useMemo(() => radialTexture(), []);
+  const prospectorMap = useTexture("/lore/prospector.png");
+  prospectorMap.colorSpace = THREE.SRGBColorSpace;
+  prospectorMap.anisotropy = 8;
 
   // Spark particles
   useEffect(() => {
@@ -203,36 +132,39 @@ function Stage1Gem({ activeRef, progressRef }) {
     root.current.scale.setScalar(THREE.MathUtils.lerp(0.6, 1, a));
     applyOpacity(root.current, a);
 
-    // Pickaxe + arm swing cycle (anticipation ??? strike ??? recovery)
-    const cycle = 1.4;
+    // Overhead wind-up, then a weighted strike that lands on the stone.
+    const cycle = 1.85;
     const time = state.clock.elapsedTime;
     const t = (time % cycle) / cycle;
-    // arm rotation: wind back overhead, then strike forward+down toward gem
-    // 0..0.55 -> wind up from rest (-0.3) to peak (-2.1 rad, overhead-back)
-    // 0.55..0.72 -> strike from -2.1 down to 0.6 rad (forward-down into gem)
-    // 0.72..1   -> ease back to rest (-0.3)
-    let armAngle;
-    if (t < 0.55) {
-      armAngle = THREE.MathUtils.lerp(-0.3, -2.1, smoothstep(0, 0.55, t));
-    } else if (t < 0.72) {
-      armAngle = THREE.MathUtils.lerp(-2.1, 0.6, smoothstep(0.55, 0.72, t));
+    let shoulder;
+    let elbow;
+    if (t < 0.62) {
+      shoulder = THREE.MathUtils.lerp(-0.35, -1.15, smoothstep(0, 0.62, t));
+      elbow = THREE.MathUtils.lerp(0, -0.35, smoothstep(0, 0.55, t));
+    } else if (t < 0.74) {
+      shoulder = THREE.MathUtils.lerp(-1.15, -0.2, smoothstep(0.62, 0.74, t));
+      elbow = THREE.MathUtils.lerp(-0.35, 0.15, smoothstep(0.62, 0.71, t));
     } else {
-      armAngle = THREE.MathUtils.lerp(0.6, -0.3, smoothstep(0.72, 1, t));
+      shoulder = THREE.MathUtils.lerp(-0.2, -0.35, smoothstep(0.74, 1, t));
+      elbow = THREE.MathUtils.lerp(0.15, 0, smoothstep(0.74, 0.92, t));
     }
-    if (armRef.current) armRef.current.rotation.z = armAngle;
+    if (armRef.current) armRef.current.rotation.z = shoulder;
+    if (forearmRef.current) forearmRef.current.rotation.z = elbow;
+    if (pickaxe.current) {
+      const snap = t > 0.66 && t < 0.84
+        ? smoothstep(0.66, 0.73, t) * (1 - smoothstep(0.76, 0.9, t))
+        : 0;
+      pickaxe.current.rotation.z = -Math.PI / 2 + snap * 0.45;
+    }
 
-    // Torso bob ??? small forward lean on strike
+    const lean = t > 0.62 && t < 0.88
+      ? smoothstep(0.62, 0.72, t) * (1 - smoothstep(0.76, 0.9, t))
+      : 0;
     if (torsoRef.current) {
-      const lean = t > 0.55 && t < 0.78 ? smoothstep(0.55, 0.72, t) * (1 - smoothstep(0.72, 0.85, t)) : 0;
-      torsoRef.current.rotation.z = lean * 0.18;
-      torsoRef.current.position.y = -lean * 0.04;
+      torsoRef.current.rotation.z = -lean * 0.06;
+      torsoRef.current.position.y = Math.sin(time * 1.6) * 0.008 - lean * 0.02;
     }
-    if (headRef.current) {
-      headRef.current.rotation.x = -0.15 - (t > 0.55 && t < 0.85 ? 0.1 : 0);
-    }
-
-    // Strike detection ??? emit sparks at the moment the pickaxe hits the gem
-    const isStrikeFrame = t > 0.7 && t < 0.74;
+    const isStrikeFrame = t > 0.71 && t < 0.745;
     if (isStrikeFrame && time - lastStrike.current > 0.6) {
       lastStrike.current = time;
       sparkVelocities.current.forEach((s, i) => {
@@ -261,89 +193,141 @@ function Stage1Gem({ activeRef, progressRef }) {
       sparksRef.current.material.opacity = (liveCount / 40) * a;
     }
 
-    // Gem glow rises with each strike
-    if (gem.current) {
-      const sinceStrike = time - lastStrike.current;
-      const flash = Math.max(0, 1 - sinceStrike / 0.5);
-      const baseGlow = 0.6 + local * 0.6;
-      gem.current.material.emissiveIntensity = baseGlow + flash * 2;
-      gem.current.position.y = -0.55 + Math.sin(time * 1.6) * 0.02;
-      gem.current.rotation.y = time * 0.5;
+    const sinceStrike = time - lastStrike.current;
+    const flash = Math.max(0, 1 - sinceStrike / 0.45);
+    if (gemLight.current) {
+      gemLight.current.intensity = (1.5 + local * 1.1 + flash * 4.5) * a;
+    }
+    if (gemSpin.current) {
+      gemSpin.current.rotation.y = time * 0.35;
+      gemSpin.current.position.y = -0.56 + Math.sin(time * 1.4) * 0.012;
+      const punch = Math.max(0, 1 - sinceStrike / 0.16);
+      gemSpin.current.scale.setScalar(1 + punch * 0.1);
+    }
+    if (gem.current) gem.current.material.emissiveIntensity = 0.4 + local * 0.4 + flash * 1.5;
+    if (gemCore.current) gemCore.current.material.emissiveIntensity = 1.5 + flash * 2.4;
+    if (dustRef.current) {
+      const u = sinceStrike / 0.55;
+      if (sinceStrike > 0 && u < 1) {
+        dustRef.current.scale.set(0.45 + u * 1.5, 0.45 + u * 1.5, 1);
+        dustRef.current.material.transparent = true;
+        dustRef.current.material.depthWrite = false;
+        dustRef.current.material.opacity = (1 - u) * (1 - u) * 0.7 * a;
+      } else {
+        dustRef.current.material.opacity = 0;
+      }
     }
   });
 
   return (
     <group ref={root}>
-      {/* Ground plate */}
-      <mesh position={[0, -0.95, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[1.6, 48]} />
-        <meshStandardMaterial color="#161616" roughness={1} metalness={0.1} />
+      <mesh position={[0, -0.96, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[1.7, 64]} />
+        <meshStandardMaterial color="#0c0d11" roughness={1} metalness={0.05} />
+      </mesh>
+      <mesh position={[0, -0.94, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.85, 48]} />
+        <meshBasicMaterial
+          map={glowMap}
+          color="#2a2416"
+          transparent
+          opacity={0.9}
+          depthWrite={false}
+        />
       </mesh>
 
-      {/* Rock chunks around the gem */}
-      {rocks.map((r, i) => (
+      {[
+        [-0.55, -0.78, 0.2, 0.42, 0.26, 0.34, 0.35, 0.2, 0.1],
+        [0.52, -0.8, 0.16, 0.48, 0.3, 0.36, 0.2, -0.4, 0.25],
+        [0.08, -0.86, 0.38, 0.3, 0.18, 0.26, 0.5, 0.3, 0.05],
+        [-0.16, -0.88, -0.26, 0.38, 0.22, 0.32, 0.25, 1.1, 0.15],
+        [0.82, -0.9, -0.08, 0.24, 0.16, 0.2, 0.4, 0.2, 0.3],
+        [-0.88, -0.9, -0.02, 0.2, 0.13, 0.16, 0.15, 0.7, 0.2],
+      ].map((r, i) => (
         <mesh
           key={i}
-          position={[r.x, r.y, r.z]}
-          rotation={[r.rot, r.rot * 0.7, r.rot * 0.4]}
-          scale={r.scale}
+          position={[r[0], r[1], r[2]]}
+          scale={[r[3], r[4], r[5]]}
+          rotation={[r[6], r[7], r[8]]}
         >
-          <dodecahedronGeometry args={[1, 0]} />
+          <icosahedronGeometry args={[1, 0]} />
           <meshStandardMaterial
-            color="#2d2d35"
-            roughness={0.9}
-            metalness={0.15}
+            color={i % 2 === 0 ? "#23262e" : "#2c2824"}
+            roughness={0.92}
+            metalness={0.08}
             flatShading
           />
         </mesh>
       ))}
+      {[
+        [0.18, -0.64, 0.12],
+        [-0.28, -0.66, 0.08],
+        [0.4, -0.66, 0.02],
+      ].map((f, i) => (
+        <mesh key={`fleck-${i}`} position={f} scale={0.045}>
+          <octahedronGeometry args={[1, 0]} />
+          <meshStandardMaterial
+            color={YELLOW}
+            emissive={YELLOW}
+            emissiveIntensity={0.6}
+            metalness={0.7}
+            roughness={0.2}
+          />
+        </mesh>
+      ))}
 
-      {/* The gem ??? small octahedron peeking out of the ground */}
-      <mesh ref={gem} position={[0, -0.55, 0]}>
-        <octahedronGeometry args={[0.34, 0]} />
-        <meshStandardMaterial
-          color={YELLOW}
-          emissive={YELLOW}
-          emissiveIntensity={0.8}
-          roughness={0.15}
-          metalness={0.6}
-          toneMapped={false}
-        />
-      </mesh>
-
-      {/* Glow ring under the gem */}
-      <mesh position={[0, -0.7, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.32, 0.55, 48]} />
+      <group ref={gemSpin} position={[0, -0.56, 0]}>
+        <mesh ref={gem}>
+          <octahedronGeometry args={[0.22, 1]} />
+          <meshStandardMaterial
+            color="#ffe7a0"
+            emissive={YELLOW}
+            emissiveIntensity={0.55}
+            roughness={0.12}
+            metalness={0.78}
+          />
+        </mesh>
+        <mesh ref={gemCore} scale={0.52}>
+          <octahedronGeometry args={[0.22, 0]} />
+          <meshStandardMaterial
+            color="#fff8dc"
+            emissive="#fff1b0"
+            emissiveIntensity={1.6}
+            roughness={0.05}
+            toneMapped={false}
+          />
+        </mesh>
+      </group>
+      <pointLight ref={gemLight} position={[0, -0.35, 0.35]} color={YELLOW} intensity={2} distance={2.8} decay={2} />
+      <mesh ref={dustRef} position={[0, -0.7, 0.05]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[1.1, 1.1]} />
         <meshBasicMaterial
+          map={glowMap}
           color={YELLOW}
           transparent
-          opacity={0.35}
-          side={THREE.DoubleSide}
+          opacity={0}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
           toneMapped={false}
         />
       </mesh>
 
-      {/* Miner figure ??? stands to the left, swings the pickaxe at the gem */}
-      <group position={[-1.0, -0.3, 0]}>
+      <group position={[-0.72, -0.9, 0.15]}>
         <group ref={torsoRef}>
-          <primitive object={minerNode} />
-          {/* Arm pivot at the right shoulder, holding the pickaxe */}
-          <group ref={armRef} position={[0.18, 0.32, 0.05]}>
-            {/* Right arm (capsule) extending from shoulder downward; pickaxe attached at the hand */}
-            <mesh position={[0.18, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-              <capsuleGeometry args={[0.06, 0.38, 4, 10]} />
-              <meshStandardMaterial
-                color="#0a0a0f"
-                emissive={CYAN}
-                emissiveIntensity={0.45}
-                roughness={0.35}
-                metalness={0.55}
-                toneMapped={false}
-              />
-            </mesh>
-            {/* Pickaxe ??? pivots from the hand (end of arm) */}
-            <group ref={pickaxe} position={[0.4, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
-              <primitive object={pickaxeNode} />
+          <mesh position={[0, 0.78, 0]}>
+            <planeGeometry args={[1.22, 1.62]} />
+            <meshBasicMaterial
+              map={prospectorMap}
+              transparent
+              alphaTest={0.04}
+              toneMapped={false}
+            />
+          </mesh>
+          <group ref={armRef} position={[0.18, 0.72, 0.16]}>
+            <group ref={forearmRef}>
+              <group ref={pickaxe} position={[0.06, 0, 0.04]} scale={0.72}>
+                <primitive object={rig.pick} />
+              </group>
             </group>
           </group>
         </group>
@@ -360,7 +344,7 @@ function Stage1Gem({ activeRef, progressRef }) {
           />
         </bufferGeometry>
         <pointsMaterial
-          size={0.08}
+          size={0.045}
           color={YELLOW}
           transparent
           opacity={0}
@@ -843,7 +827,9 @@ export function MetamorphosisScene({
       <pointLight position={[-3, -2, 2]} intensity={2.2} color={PINK} />
       <pointLight position={[0, 3, 1.5]} intensity={1.8} color={YELLOW} />
       <pointLight position={[2, -2, 4]} intensity={1.4} color={WHITE} />
-      <StageDriver progressRef={progressRef} />
+      <Suspense fallback={null}>
+        <StageDriver progressRef={progressRef} />
+      </Suspense>
     </Canvas>
   );
 }
