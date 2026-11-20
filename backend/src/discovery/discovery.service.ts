@@ -1846,13 +1846,16 @@ export class DiscoveryService {
     const limit = Math.min(params.limit ?? 12, 30);
     let seed: string;
     let offset = 0;
+    let lockedAuthorId: string | null = null;
     if (params.cursor) {
       try {
         const parsed = JSON.parse(
           Buffer.from(params.cursor, 'base64').toString('utf8'),
-        ) as { seed?: string; offset?: number };
+        ) as { seed?: string; offset?: number; authorId?: string };
         seed = (parsed.seed ?? '').toString();
         offset = Math.max(0, Number(parsed.offset ?? 0));
+        const authorFromCursor = (parsed.authorId ?? '').toString().trim();
+        lockedAuthorId = authorFromCursor || null;
       } catch {
         seed = new Date().toISOString();
       }
@@ -1889,14 +1892,79 @@ export class DiscoveryService {
     );
 
     if (params.anchorPostId && offset === 0) {
-      const idx = ranked.findIndex((r) => r.id === params.anchorPostId);
-      if (idx > 0) {
+      let idx = ranked.findIndex((r) => r.id === params.anchorPostId);
+      // Portfolio taps can point at a post older than the explore window.
+      // Without it, the stream starts on someone else's recent video.
+      if (idx < 0) {
+        const { data: anchor } = await supabase
+          .from('discover_feed_posts')
+          .select(
+            `
+          id,
+          author_user_id,
+          image_url,
+          audio_url,
+          caption,
+          created_at,
+          users!author_user_id(display_name, username, avatar_url, headline)
+        `,
+          )
+          .eq('id', params.anchorPostId)
+          .maybeSingle();
+        if (anchor) {
+          const authorId = (anchor as { author_user_id?: string }).author_user_id;
+          const { data: authorRows } = authorId
+            ? await supabase
+                .from('discover_feed_posts')
+                .select(
+                  `
+          id,
+          author_user_id,
+          image_url,
+          audio_url,
+          caption,
+          created_at,
+          users!author_user_id(display_name, username, avatar_url, headline)
+        `,
+                )
+                .eq('author_user_id', authorId)
+                .order('created_at', { ascending: false })
+                .limit(60)
+            : { data: null };
+          const own = ((authorRows ?? []) as any[]).filter(
+            (row) => row.id !== params.anchorPostId,
+          );
+          ranked = [anchor, ...own];
+          lockedAuthorId = authorId ?? null;
+          idx = 0;
+        }
+      } else if (idx > 0) {
         ranked = [
           ranked[idx],
           ...ranked.slice(0, idx),
           ...ranked.slice(idx + 1),
         ];
       }
+    }
+
+    if (lockedAuthorId && offset > 0) {
+      const { data: authorRows } = await supabase
+        .from('discover_feed_posts')
+        .select(
+          `
+          id,
+          author_user_id,
+          image_url,
+          audio_url,
+          caption,
+          created_at,
+          users!author_user_id(display_name, username, avatar_url, headline)
+        `,
+        )
+        .eq('author_user_id', lockedAuthorId)
+        .order('created_at', { ascending: false })
+        .limit(60);
+      ranked = (authorRows ?? []) as any[];
     }
 
     const slice = ranked.slice(offset, offset + limit);
@@ -1908,7 +1976,11 @@ export class DiscoveryService {
     const hasMore = nextOffset < ranked.length;
     const nextCursor = hasMore
       ? Buffer.from(
-          JSON.stringify({ seed, offset: nextOffset }),
+          JSON.stringify({
+            seed,
+            offset: nextOffset,
+            ...(lockedAuthorId ? { authorId: lockedAuthorId } : {}),
+          }),
           'utf8',
         ).toString('base64')
       : null;

@@ -144,10 +144,18 @@ class AppRouter {
           settings,
         );
       case AppRoutes.proNetworxExploreDetail:
-        final postId = args?.toString();
+        final postId = args is Map
+            ? args['postId']?.toString()
+            : args?.toString();
+        final authorUserId = args is Map
+            ? args['authorUserId']?.toString()
+            : null;
         if (postId == null || postId.isEmpty) return _unknown(settings);
         return _route(
-          ProExploreDetailScreen(anchorPostId: postId),
+          ProExploreDetailScreen(
+            anchorPostId: postId,
+            authorUserId: authorUserId,
+          ),
           settings,
         );
       case AppRoutes.proNetworxServiceDetail:

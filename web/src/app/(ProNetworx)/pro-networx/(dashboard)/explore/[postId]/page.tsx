@@ -15,6 +15,10 @@ export default function ProNetworxExploreDetailPage({
   params: Promise<{ postId: string }>;
 }) {
   const { postId } = use(params);
+  const authorId =
+    typeof window === 'undefined'
+      ? null
+      : new URLSearchParams(window.location.search).get('author');
   const [posts, setPosts] = useState<DiscoverFeedPost[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -24,12 +28,20 @@ export default function ProNetworxExploreDetailPage({
   const loadInitial = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await discoveryApi.exploreStream({
-        anchorPostId: postId,
-        limit: PAGE_SIZE,
-      });
+      const res = authorId
+        ? await discoveryApi.listUserPosts(authorId, { limit: PAGE_SIZE })
+        : await discoveryApi.exploreStream({
+            anchorPostId: postId,
+            limit: PAGE_SIZE,
+          });
       const data = res.data as { items: DiscoverFeedPost[]; nextCursor: string | null };
-      setPosts(data.items);
+      const items = [...(data.items ?? [])];
+      const anchor = items.findIndex((post) => post.id === postId);
+      if (anchor > 0) {
+        const [tapped] = items.splice(anchor, 1);
+        items.unshift(tapped);
+      }
+      setPosts(items);
       setNextCursor(data.nextCursor);
     } catch (e) {
       console.error('Failed to load explore detail:', e);
@@ -37,15 +49,20 @@ export default function ProNetworxExploreDetailPage({
     } finally {
       setLoading(false);
     }
-  }, [postId]);
+  }, [authorId, postId]);
 
   const loadMore = useCallback(async (cursor: string) => {
     setLoadingMore(true);
     try {
-      const res = await discoveryApi.exploreStream({
-        cursor,
-        limit: PAGE_SIZE,
-      });
+      const res = authorId
+        ? await discoveryApi.listUserPosts(authorId, {
+            cursor,
+            limit: PAGE_SIZE,
+          })
+        : await discoveryApi.exploreStream({
+            cursor,
+            limit: PAGE_SIZE,
+          });
       const data = res.data as { items: DiscoverFeedPost[]; nextCursor: string | null };
       setPosts((prev) => [...prev, ...data.items]);
       setNextCursor(data.nextCursor);
@@ -54,7 +71,7 @@ export default function ProNetworxExploreDetailPage({
     } finally {
       setLoadingMore(false);
     }
-  }, []);
+  }, [authorId]);
 
   useEffect(() => {
     void loadInitial();

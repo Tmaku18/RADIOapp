@@ -5,8 +5,16 @@ import '../../core/services/pro_networx_service.dart';
 import 'widgets/pro_feed_post_card.dart';
 
 class ProExploreDetailScreen extends StatefulWidget {
-  const ProExploreDetailScreen({super.key, required this.anchorPostId});
+  const ProExploreDetailScreen({
+    super.key,
+    required this.anchorPostId,
+    this.authorUserId,
+  });
   final String anchorPostId;
+
+  /// When set, the list is only this person's posts. Profile portfolios use
+  /// this so opening one tile does not play someone else's feed video.
+  final String? authorUserId;
 
   @override
   State<ProExploreDetailScreen> createState() => _ProExploreDetailScreenState();
@@ -37,14 +45,23 @@ class _ProExploreDetailScreenState extends State<ProExploreDetailScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final res = await _service.exploreStream(
-        anchorPostId: widget.anchorPostId,
-      );
+      final authorId = widget.authorUserId;
+      final res = authorId != null && authorId.isNotEmpty
+          ? await _service.listUserPosts(authorId, limit: 24)
+          : await _service.exploreStream(
+              anchorPostId: widget.anchorPostId,
+            );
       if (!mounted) return;
+      final items = [...res.items];
+      final anchor = items.indexWhere((p) => p.id == widget.anchorPostId);
+      if (anchor > 0) {
+        final tapped = items.removeAt(anchor);
+        items.insert(0, tapped);
+      }
       setState(() {
         _posts
           ..clear()
-          ..addAll(res.items);
+          ..addAll(items);
         _nextCursor = res.nextCursor;
       });
     } finally {
@@ -56,7 +73,14 @@ class _ProExploreDetailScreenState extends State<ProExploreDetailScreen> {
     if (_loadingMore || _nextCursor == null) return;
     setState(() => _loadingMore = true);
     try {
-      final res = await _service.exploreStream(cursor: _nextCursor);
+      final authorId = widget.authorUserId;
+      final res = authorId != null && authorId.isNotEmpty
+          ? await _service.listUserPosts(
+              authorId,
+              limit: 24,
+              cursor: _nextCursor,
+            )
+          : await _service.exploreStream(cursor: _nextCursor);
       if (!mounted) return;
       setState(() {
         _posts.addAll(res.items);
@@ -77,7 +101,13 @@ class _ProExploreDetailScreenState extends State<ProExploreDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Explore')),
+      appBar: AppBar(
+        title: Text(
+          widget.authorUserId != null && widget.authorUserId!.isNotEmpty
+              ? 'Portfolio'
+              : 'Explore',
+        ),
+      ),
       body: _loading && _posts.isEmpty
           ? const Center(child: CircularProgressIndicator())
           : _posts.isEmpty

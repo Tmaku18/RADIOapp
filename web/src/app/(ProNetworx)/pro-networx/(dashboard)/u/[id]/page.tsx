@@ -597,7 +597,7 @@ export default function ProNetworxProfilePage() {
                       {portfolioPosts.map((post) => (
                         <Link
                           key={post.id}
-                          href={`/pro-networx/explore/${post.id}`}
+                          href={`/pro-networx/explore/${post.id}?author=${id}`}
                           className="relative aspect-square overflow-hidden rounded-md bg-muted group"
                         >
                           {post.mediaType === 'video' ? (

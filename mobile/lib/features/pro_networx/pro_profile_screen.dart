@@ -464,22 +464,31 @@ class _ProNetworxProfileScreenState extends State<ProNetworxProfileScreen> {
               itemBuilder: (context, i) {
                 final post = _posts[i];
                 final url = post.imageUrl;
+                final isVideo = post.mediaType == 'video' ||
+                    url.toLowerCase().contains('.mov') ||
+                    url.toLowerCase().contains('.mp4') ||
+                    url.toLowerCase().contains('.webm');
                 return InkWell(
                   onTap: () => Navigator.pushNamed(
                     context,
                     AppRoutes.proNetworxExploreDetail,
-                    arguments: post.id,
+                    arguments: {
+                      'postId': post.id,
+                      'authorUserId': widget.userId,
+                    },
                   ),
                   child: Container(
                     color: surfaces.elevated,
                     child: url.isEmpty
                         ? const Icon(Icons.image_outlined)
-                        : CachedNetworkImage(
-                            imageUrl: url,
-                            fit: BoxFit.cover,
-                            errorWidget: (context, _, _) =>
-                                const Icon(Icons.broken_image_outlined),
-                          ),
+                        : isVideo
+                            ? const Icon(Icons.play_circle_fill)
+                            : CachedNetworkImage(
+                                imageUrl: url,
+                                fit: BoxFit.cover,
+                                errorWidget: (context, _, _) =>
+                                    const Icon(Icons.broken_image_outlined),
+                              ),
                   ),
                 );
               },
