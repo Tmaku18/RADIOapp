@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../../core/constants/refinery_questions.dart';
 import '../../core/services/api_service.dart';
+import '../../core/services/audio_player_service.dart';
 import '../../core/services/refinery_service.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 
@@ -27,6 +30,7 @@ class _RefineryReviewScreenState extends State<RefineryReviewScreen> {
   bool _submitting = false;
   String? _error;
   bool _playing = false;
+  bool _didMuteRadio = false;
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
   Duration? _scrub;
@@ -48,12 +52,11 @@ class _RefineryReviewScreenState extends State<RefineryReviewScreen> {
     });
     _player.playerStateStream.listen((s) {
       if (!mounted) return;
+      final finished = s.processingState == ProcessingState.completed;
+      if (finished) unawaited(_unmuteRadioIfNeeded());
       setState(() {
-        _playing = s.playing;
-        if (s.processingState == ProcessingState.completed) {
-          _playing = false;
-          _position = _duration;
-        }
+        _playing = s.playing && !finished;
+        if (finished) _position = _duration;
       });
     });
     _load();
@@ -61,6 +64,8 @@ class _RefineryReviewScreenState extends State<RefineryReviewScreen> {
 
   @override
   void dispose() {
+    unawaited(_player.pause());
+    unawaited(_unmuteRadioIfNeeded());
     _player.dispose();
     _comment.dispose();
     for (final c in _customControllers.values) {
@@ -115,15 +120,41 @@ class _RefineryReviewScreenState extends State<RefineryReviewScreen> {
   bool get _canSubmit =>
       !_submitting && _form != null && _surveyComplete && _customComplete;
 
+  /// Silence the live station before this song starts, then restore it only if
+  /// this screen was the one that muted it.
+  Future<void> _muteRadio() async {
+    try {
+      final handler = AudioPlayerService.handler;
+      if (!handler.userPaused) {
+        await handler.setUserPaused(true);
+        _didMuteRadio = true;
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _unmuteRadioIfNeeded() async {
+    if (!_didMuteRadio) return;
+    _didMuteRadio = false;
+    try {
+      await AudioPlayerService.handler.setUserPaused(false);
+    } catch (_) {}
+  }
+
   Future<void> _togglePlay() async {
     if (_form == null || _form!.song.audioUrl.isEmpty) return;
     if (_playing) {
       await _player.pause();
-    } else {
+      await _unmuteRadioIfNeeded();
+      return;
+    }
+    await _muteRadio();
+    try {
       if (_duration > Duration.zero && _position >= _duration) {
         await _player.seek(Duration.zero);
       }
       await _player.play();
+    } catch (_) {
+      await _unmuteRadioIfNeeded();
     }
   }
 

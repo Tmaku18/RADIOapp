@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { refineryApi } from '@/lib/api';
@@ -14,6 +14,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ArtworkImage } from '@/components/common/ArtworkImage';
+import { usePlaybackOptional } from '@/components/playback/PlaybackProvider';
 import {
   REFINERY_RATING_QUESTIONS,
   REFINERY_REVIEW_REWARD_CENTS,
@@ -24,6 +25,38 @@ import {
 type Ratings = Record<RatingKey, number>;
 type SurveyAnswers = Record<string, string>;
 type CustomAnswers = Record<string, string>;
+
+function RefineryTrackPlayer({ src }: { src: string }) {
+  const playback = usePlaybackOptional();
+  const playbackRef = useRef(playback);
+  playbackRef.current = playback;
+  const heldRef = useRef(false);
+
+  const release = useCallback(() => {
+    if (!heldRef.current) return;
+    heldRef.current = false;
+    playbackRef.current?.actions.releaseExternalMedia();
+  }, []);
+
+  const hold = useCallback(() => {
+    if (heldRef.current) return;
+    heldRef.current = true;
+    playbackRef.current?.actions.holdForExternalMedia();
+  }, []);
+
+  useEffect(() => release, [release]);
+
+  return (
+    <audio
+      controls
+      src={src}
+      className="w-full"
+      onPlay={hold}
+      onPause={release}
+      onEnded={release}
+    />
+  );
+}
 
 const initialRatings: Ratings = {
   overall_rating: 5,
@@ -164,7 +197,7 @@ export default function ReviewPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <audio controls src={song.audioUrl} className="w-full" />
+          <RefineryTrackPlayer src={song.audioUrl} />
         </CardContent>
       </Card>
 
