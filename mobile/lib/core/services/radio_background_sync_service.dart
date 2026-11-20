@@ -109,6 +109,34 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
     await tuneStation(stationId);
   }
 
+  /// A Discover clip (or any other non-radio source) took the shared player.
+  /// Put the live station back and play it out loud. No-op when radio is
+  /// already the loaded source, so a deliberate mute on the station stays put.
+  Future<void> playRadioIfDisplaced() async {
+    final handler = AudioPlayerService.handler;
+    if (handler.holdsExternalAudio) return;
+    if (_hasRadioSource) return;
+    try {
+      await _player.pause();
+    } catch (_) {}
+    String stationId = _defaultBootstrapStationId;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getString(_selectedStationPrefKey)?.trim();
+      if (stored != null && stored.isNotEmpty) stationId = stored;
+    } catch (_) {}
+    if (_hasRadioSource || handler.holdsExternalAudio) return;
+    await tuneStation(stationId);
+    if (!_hasRadioSource) return;
+    await handler.setUserPaused(false);
+    await handler.applyOutputVolume();
+    if (!_player.playing) {
+      try {
+        await _player.play();
+      } catch (_) {}
+    }
+  }
+
   Future<void> tuneStation(String stationId) async {
     if (stationId.isEmpty || stationSwitchInFlight) return;
     _bootstrapAttempted = true;

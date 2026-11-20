@@ -21,6 +21,7 @@ class DiscoveryScreen extends StatefulWidget {
     super.key,
     this.onOpenNavDrawer,
     this.initialTabIndex = 0,
+    this.isActive = true,
   });
 
   /// Opens the app's left navigation drawer (shown as a hamburger in the bar).
@@ -29,6 +30,9 @@ class DiscoveryScreen extends StatefulWidget {
   /// 0 Swipe · 1 Artists · 2 Library.
   /// Legacy indices (Saved=1, Artists=2, Library=3) are remapped in [initState].
   final int initialTabIndex;
+
+  /// False when another main tab (Home, Radio, Feed, Pro) is showing.
+  final bool isActive;
 
   @override
   State<DiscoveryScreen> createState() => _DiscoveryScreenState();
@@ -293,7 +297,10 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
                   TabBarView(
                     controller: _tabController,
                     children: [
-                      DiscoverAudioTab(key: _swipeKey),
+                      DiscoverAudioTab(
+                        key: _swipeKey,
+                        isActive: widget.isActive,
+                      ),
                       _LikedArtistsTab(key: _likedArtistsKey),
                       _LibraryTab(
                         key: _libraryKey,

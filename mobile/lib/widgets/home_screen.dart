@@ -14,6 +14,7 @@ import '../features/competition/competition_screen.dart';
 import '../features/pro_networx/pro_networx_shell_screen.dart';
 import '../core/auth/auth_service.dart';
 import '../core/services/push_notification_service.dart';
+import '../core/services/radio_background_sync_service.dart';
 import '../core/services/location_permission_service.dart';
 import '../core/services/app_tutorial_service.dart';
 import '../features/tutorial/app_tutorial.dart';
@@ -155,11 +156,18 @@ class _HomeScreenState extends State<HomeScreen> {
   final List<bool> _tabBuilt = [true, false, false, false, false];
 
   void _selectTab(int index) {
+    final prev = _currentIndex.clamp(0, 4);
     final next = index.clamp(0, 4);
     setState(() {
       _currentIndex = next;
       _tabBuilt[next] = true;
     });
+    // Discover borrows the radio player for clips. Leaving that tab, or
+    // opening Radio, puts the live station back in the bottom player.
+    if ((prev == _tabDiscover && next != _tabDiscover) ||
+        (next == _tabRadio && prev != _tabRadio)) {
+      unawaited(RadioBackgroundSyncService.instance.playRadioIfDisplaced());
+    }
   }
 
   Future<void> _signOut() async {
@@ -262,7 +270,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     ))
                   : const SizedBox.shrink(),
               _tabBuilt[3]
-                  ? aboveBar(DiscoveryScreen(onOpenNavDrawer: _openNavDrawer))
+                  ? aboveBar(DiscoveryScreen(
+                      onOpenNavDrawer: _openNavDrawer,
+                      isActive: safeIndex == _tabDiscover,
+                    ))
                   : const SizedBox.shrink(),
               if (!_tabBuilt[4])
                 const SizedBox.shrink()

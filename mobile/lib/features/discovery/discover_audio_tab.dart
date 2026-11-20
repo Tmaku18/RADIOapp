@@ -12,7 +12,11 @@ import '../../core/theme/networx_extensions.dart';
 import '../pro_radio/widgets/add_to_playlist_sheet.dart';
 
 class DiscoverAudioTab extends StatefulWidget {
-  const DiscoverAudioTab({super.key});
+  const DiscoverAudioTab({super.key, this.isActive = true});
+
+  /// False once the listener leaves the Discover tab. The clip must not keep
+  /// the shared player after that.
+  final bool isActive;
 
   @override
   DiscoverAudioTabState createState() => DiscoverAudioTabState();
@@ -39,7 +43,8 @@ class DiscoverAudioTabState extends State<DiscoverAudioTab>
   String _stationId = _defaultStationId;
   String _seed =
       '${DateTime.now().millisecondsSinceEpoch}-${Random().nextInt(1 << 30)}';
-  bool _clipIsPlaying = false;
+  bool _clipIsAudible = false;
+  int _playEpoch = 0;
   double _dragDx = 0;
   bool _dragActive = false;
   bool _flyingOff = false;
@@ -65,6 +70,8 @@ class DiscoverAudioTabState extends State<DiscoverAudioTab>
       _syncClipPlayingState();
     });
     _syncClipPlayingState();
+    AudioPlayerService.handler.userPausedNotifier
+        .addListener(_syncClipPlayingState);
     _coverMotion = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 14),
@@ -73,9 +80,19 @@ class DiscoverAudioTabState extends State<DiscoverAudioTab>
   }
 
   @override
+  void didUpdateWidget(DiscoverAudioTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isActive && !widget.isActive) {
+      _abandonClip();
+    }
+  }
+
+  @override
   void dispose() {
+    _abandonClip();
     _coverMotion.dispose();
-    _clipStopTimer?.cancel();
+    AudioPlayerService.handler.userPausedNotifier
+        .removeListener(_syncClipPlayingState);
     _playerStateSub?.cancel();
     _sequenceStateSub?.cancel();
     // Only stop if we're the ones playing a discover clip (check the media tag).
@@ -98,18 +115,26 @@ class DiscoverAudioTabState extends State<DiscoverAudioTab>
     return false;
   }
 
-  /// True only when the current Discover card's clip is loaded and playing.
-  bool _isClipActivelyPlaying([DiscoverAudioSongCard? card]) {
+  void _abandonClip() {
+    _playEpoch++;
+    _clipStopTimer?.cancel();
+  }
+
+  /// True only when this card's clip is loaded and can actually be heard.
+  /// A muted radio session shares this player, so "playing" alone is not enough.
+  bool _isClipAudibleNow([DiscoverAudioSongCard? card]) {
     final c = card ?? _currentCard;
     if (c == null || c.clipUrl.isEmpty) return false;
-    return _player.playing && _isCurrentClipLoaded(c);
+    if (!_isCurrentClipLoaded(c)) return false;
+    final handler = AudioPlayerService.handler;
+    return _player.playing && !handler.userPaused && _player.volume > 0.001;
   }
 
   void _syncClipPlayingState() {
     if (!mounted) return;
-    final next = _isClipActivelyPlaying();
-    if (next == _clipIsPlaying) return;
-    setState(() => _clipIsPlaying = next);
+    final next = _isClipAudibleNow();
+    if (next == _clipIsAudible) return;
+    setState(() => _clipIsAudible = next);
   }
 
   /// Discover shares the app-wide player with radio. Don't hijack it on startup.
@@ -202,7 +227,9 @@ class DiscoverAudioTabState extends State<DiscoverAudioTab>
 
   Future<void> _autoplayCurrent({bool userInitiated = false}) async {
     _clipStopTimer?.cancel();
+    final epoch = ++_playEpoch;
     final card = _currentCard;
+    if (!widget.isActive) return;
     if (card == null || card.clipUrl.isEmpty) {
       if (!userInitiated && _radioOwnsPlayer()) return;
       try {
@@ -229,6 +256,27 @@ class DiscoverAudioTabState extends State<DiscoverAudioTab>
         ),
         initialPosition: Duration.zero,
       );
+      if (!widget.isActive || epoch != _playEpoch) {
+        if (!widget.isActive) {
+          unawaited(
+            RadioBackgroundSyncService.instance.playRadioIfDisplaced(),
+          );
+        }
+        return;
+      }
+      // The bottom mute belongs to the station. A clip the listener just
+      // started should be heard, not inherit that mute.
+      final handler = AudioPlayerService.handler;
+      await handler.setUserPaused(false);
+      await handler.applyOutputVolume();
+      if (!widget.isActive || epoch != _playEpoch) {
+        if (!widget.isActive) {
+          unawaited(
+            RadioBackgroundSyncService.instance.playRadioIfDisplaced(),
+          );
+        }
+        return;
+      }
       unawaited(_player.play());
       _startClipStopTimer(card);
     } catch (e) {
@@ -239,18 +287,11 @@ class DiscoverAudioTabState extends State<DiscoverAudioTab>
     }
   }
 
-  Future<void> _toggleCurrentClipPlayback() async {
+  /// Mute or unmute the clip. This is not play/pause — leaving Discover is
+  /// what hands the player back to the radio.
+  Future<void> _toggleClipMute() async {
     final card = _currentCard;
-    if (card == null || card.clipUrl.isEmpty) return;
-
-    // Use live player state (not the icon flag) so a soft-paused radio session
-    // never steals the first tap into a no-op pause.
-    if (_isClipActivelyPlaying(card)) {
-      _clipStopTimer?.cancel();
-      await _player.pause();
-      _syncClipPlayingState();
-      return;
-    }
+    if (card == null || card.clipUrl.isEmpty || !widget.isActive) return;
 
     if (!_isCurrentClipLoaded(card)) {
       await _autoplayCurrent(userInitiated: true);
@@ -258,8 +299,17 @@ class DiscoverAudioTabState extends State<DiscoverAudioTab>
       return;
     }
 
-    unawaited(_player.play());
-    _startClipStopTimer(card);
+    final handler = AudioPlayerService.handler;
+    if (_isClipAudibleNow(card)) {
+      await handler.setUserPaused(true);
+    } else {
+      await handler.setUserPaused(false);
+      await handler.applyOutputVolume();
+      if (!_player.playing) {
+        unawaited(_player.play());
+        _startClipStopTimer(card);
+      }
+    }
     _syncClipPlayingState();
   }
 
@@ -603,15 +653,13 @@ class DiscoverAudioTabState extends State<DiscoverAudioTab>
                                     : () => _applySwipe('left_skip'),
                               ),
                               _SwipeCircleButton(
-                                tooltip: _clipIsPlaying ? 'Pause' : 'Play',
-                                icon: _clipIsPlaying
-                                    ? Icons.pause
-                                    : Icons.play_arrow,
+                                tooltip: _clipIsAudible ? 'Mute' : 'Unmute',
+                                icon: _clipIsAudible
+                                    ? Icons.volume_up_rounded
+                                    : Icons.volume_off_rounded,
                                 filled: true,
                                 large: true,
-                                onPressed: _busySwipe
-                                    ? null
-                                    : _toggleCurrentClipPlayback,
+                                onPressed: _busySwipe ? null : _toggleClipMute,
                               ),
                               _SwipeCircleButton(
                                 tooltip: 'Like',
