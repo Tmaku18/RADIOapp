@@ -1,4 +1,4 @@
-import { loadAudioBuffer, startMixedRecording } from '@/lib/social-share';
+import { loadAudioBuffer, pickRecorderMime, startMixedRecording } from '@/lib/social-share';
 
 export type ArtistCreditStyle = 'words' | 'glass' | 'neon' | 'ticket' | 'stamp';
 
@@ -19,6 +19,15 @@ export type ArtistCreditPlacement = {
   scale: number;
   title: string;
   artist: string;
+};
+
+/** Words typed on the video. Separate from the caption and the artist credit. */
+export type ClipWord = {
+  id: string;
+  text: string;
+  x: number;
+  y: number;
+  scale: number;
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -77,7 +86,7 @@ export function drawArtistCredit(
   const name = artistLine(credit.artist);
   const centerX = width * clamp(credit.x, 0.08, 0.92);
   const centerY = height * clamp(credit.y, 0.08, 0.92);
-  const unit = clamp(Math.min(width, height) * 0.042 * credit.scale, 11, 46);
+  const unit = clamp(Math.min(width, height) * 0.042 * credit.scale, 11, 168);
   ctx.save();
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
@@ -300,6 +309,33 @@ function drawStamp(
   ctx.fillText(artist, cx, y);
 }
 
+export function drawClipWords(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  words: ClipWord[],
+) {
+  if (width < 8 || height < 8) return;
+  for (const word of words) {
+    const text = word.text.trim();
+    if (!text) continue;
+    const unit = clamp(Math.min(width, height) * 0.055 * word.scale, 14, 220);
+    const x = width * clamp(word.x, 0.05, 0.95);
+    const y = height * clamp(word.y, 0.05, 0.95);
+    ctx.save();
+    ctx.font = `800 ${unit}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = Math.max(2, unit * 0.12);
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeText(text, x, y, width * 0.9);
+    ctx.fillText(text, x, y, width * 0.9);
+    ctx.restore();
+  }
+}
+
 function waitFor(video: HTMLVideoElement, event: string) {
   return new Promise<void>((resolve, reject) => {
     const ok = () => {
@@ -319,12 +355,57 @@ function waitFor(video: HTMLVideoElement, event: string) {
   });
 }
 
-/// Draws the credit onto a copy of the clip and keeps the song audio.
-export async function burnArtistCredit(file: File, credit: ArtistCreditPlacement): Promise<File> {
+function fileFromBlob(blob: Blob): File {
+  const type = blob.type || 'video/mp4';
+  const ext = type.includes('webm') ? 'webm' : type.includes('quicktime') ? 'mov' : 'mp4';
+  return new File([blob], `networx-clip.${ext}`, { type });
+}
+
+/** Records the canvas and keeps an existing audio track from the clip. */
+function recordWithTrack(videoTrack: MediaStreamTrack, audioTrack: MediaStreamTrack) {
+  const mime = pickRecorderMime();
+  const recorder = new MediaRecorder(
+    new MediaStream([videoTrack, audioTrack]),
+    mime ? { mimeType: mime } : undefined,
+  );
+  const chunks: Blob[] = [];
+  recorder.ondataavailable = (event) => {
+    if (event.data.size > 0) chunks.push(event.data);
+  };
+  const done = new Promise<Blob>((resolve, reject) => {
+    recorder.onstop = () =>
+      resolve(new Blob(chunks, { type: recorder.mimeType || mime || 'video/webm' }));
+    recorder.onerror = () => reject(new Error('Could not add the artist credit.'));
+  });
+  recorder.start(250);
+  return {
+    stop: async () => {
+      if (recorder.state !== 'inactive') recorder.stop();
+      return fileFromBlob(await done);
+    },
+  };
+}
+
+function liveAudioTrack(video: HTMLVideoElement): MediaStreamTrack | null {
+  const capture = (
+    video as HTMLVideoElement & { captureStream?: () => MediaStream }
+  ).captureStream;
+  if (typeof capture !== 'function') return null;
+  const track = capture.call(video).getAudioTracks()[0];
+  return track && track.readyState === 'live' ? track : null;
+}
+
+/// Draws the credit and typed words onto a copy of the clip and keeps the song.
+export async function burnArtistCredit(
+  file: File,
+  credit: ArtistCreditPlacement | null,
+  words: ClipWord[] = [],
+): Promise<File> {
   const url = URL.createObjectURL(file);
   const video = document.createElement('video');
   video.src = url;
-  video.muted = true;
+  video.muted = false;
+  video.volume = 0;
   video.playsInline = true;
   video.preload = 'auto';
   try {
@@ -342,31 +423,39 @@ export async function burnArtistCredit(file: File, credit: ArtistCreditPlacement
     if (!ctx || typeof canvas.captureStream !== 'function') {
       throw new Error('Could not add the artist credit.');
     }
-    const buffer = await loadAudioBuffer(url);
     let frame = 0;
     const draw = () => {
       ctx.drawImage(video, 0, 0, width, height);
-      drawArtistCredit(ctx, width, height, credit);
+      if (credit) drawArtistCredit(ctx, width, height, credit);
+      drawClipWords(ctx, width, height, words);
       frame = requestAnimationFrame(draw);
     };
     draw();
     const track = canvas.captureStream(30).getVideoTracks()[0];
     if (!track) throw new Error('Could not add the artist credit.');
-    const recordingPromise = startMixedRecording({
-      videoTrack: track,
-      audioBuffer: buffer,
-      offsetSeconds: 0,
-      durationSeconds: duration,
-      audible: false,
-    });
-    const playPromise = video.play();
-    const [recording] = await Promise.all([recordingPromise, playPromise]);
-    await new Promise((resolve) => window.setTimeout(resolve, duration * 1000 + 200));
-    cancelAnimationFrame(frame);
-    video.pause();
+    await video.play();
+    const sourceAudio = liveAudioTrack(video);
     try {
+      if (sourceAudio) {
+        const recording = recordWithTrack(track, sourceAudio);
+        await new Promise((resolve) => window.setTimeout(resolve, duration * 1000 + 200));
+        return await recording.stop();
+      }
+      const buffer = await loadAudioBuffer(url);
+      const recording = await startMixedRecording({
+        videoTrack: track,
+        audioBuffer: buffer,
+        offsetSeconds: 0,
+        durationSeconds: duration,
+        audible: false,
+      });
+      video.currentTime = 0;
+      await video.play();
+      await new Promise((resolve) => window.setTimeout(resolve, duration * 1000 + 200));
       return await recording.stop();
     } finally {
+      cancelAnimationFrame(frame);
+      video.pause();
       track.stop();
     }
   } finally {

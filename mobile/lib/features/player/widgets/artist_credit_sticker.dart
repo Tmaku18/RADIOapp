@@ -6,6 +6,33 @@ import 'package:flutter/material.dart';
 /// Looks for the song credit, in the same spirit as a sticker pack.
 enum ArtistCreditStyle { words, glass, neon, ticket, stamp }
 
+/// Words typed onto the video. Separate from the caption and the artist credit.
+class ClipWord {
+  const ClipWord({
+    required this.id,
+    required this.text,
+    required this.x,
+    required this.y,
+    required this.scale,
+  });
+
+  final String id;
+  final String text;
+  final double x;
+  final double y;
+  final double scale;
+
+  ClipWord copy({String? text, double? x, double? y, double? scale}) {
+    return ClipWord(
+      id: id,
+      text: text ?? this.text,
+      x: x ?? this.x,
+      y: y ?? this.y,
+      scale: scale ?? this.scale,
+    );
+  }
+}
+
 /// Song title and artist credit drawn on a clip.
 ///
 /// The same painter is used for the live preview and the PNG that gets
@@ -18,14 +45,16 @@ class ArtistCreditPainter extends CustomPainter {
     required this.dx,
     required this.dy,
     required this.scale,
+    this.words = const [],
   });
 
   final String title;
   final String artist;
-  final ArtistCreditStyle style;
+  final ArtistCreditStyle? style;
   final double dx;
   final double dy;
   final double scale;
+  final List<ClipWord> words;
 
   static const cyan = Color(0xFF22D3EE);
 
@@ -38,8 +67,10 @@ class ArtistCreditPainter extends CustomPainter {
       size.width * dx.clamp(0.08, 0.92),
       size.height * dy.clamp(0.08, 0.92),
     );
-    final unit = (size.shortestSide * 0.042 * scale).clamp(11.0, 46.0);
+    final unit = (size.shortestSide * 0.042 * scale).clamp(11.0, 168.0);
     switch (style) {
+      case null:
+        break;
       case ArtistCreditStyle.words:
         _words(canvas, center, unit, size, song, name);
       case ArtistCreditStyle.glass:
@@ -74,6 +105,30 @@ class ArtistCreditPainter extends CustomPainter {
         _ticket(canvas, center, unit, size, song, name);
       case ArtistCreditStyle.stamp:
         _stamp(canvas, center, unit, size, song, name);
+    }
+    for (final word in words) {
+      final typed = word.text.trim();
+      if (typed.isEmpty) continue;
+      final wordUnit = (size.shortestSide * 0.055 * word.scale).clamp(14.0, 220.0);
+      final painter = _text(
+        typed,
+        wordUnit,
+        FontWeight.w800,
+        Colors.white,
+        size.width * 0.9,
+      );
+      final wordCenter = Offset(
+        size.width * word.x.clamp(0.05, 0.95),
+        size.height * word.y.clamp(0.05, 0.95),
+      );
+      _shadowed(
+        canvas,
+        painter,
+        Offset(
+          wordCenter.dx - painter.width / 2,
+          wordCenter.dy - painter.height / 2,
+        ),
+      );
     }
   }
 
@@ -361,18 +416,20 @@ class ArtistCreditPainter extends CustomPainter {
         oldDelegate.style != style ||
         oldDelegate.dx != dx ||
         oldDelegate.dy != dy ||
-        oldDelegate.scale != scale;
+        oldDelegate.scale != scale ||
+        oldDelegate.words != words;
   }
 
   /// Transparent frame with the credit in the same place as the preview.
   static Future<File> renderPng({
     required String title,
     required String artist,
-    required ArtistCreditStyle style,
+    required ArtistCreditStyle? style,
     required double dx,
     required double dy,
     required double scale,
     required double aspect,
+    List<ClipWord> words = const [],
   }) async {
     final safeAspect = aspect.isFinite && aspect > 0.35 && aspect < 2.4
         ? aspect
@@ -394,6 +451,7 @@ class ArtistCreditPainter extends CustomPainter {
       dx: dx,
       dy: dy,
       scale: scale,
+      words: words,
     ).paint(canvas, Size(w.toDouble(), h.toDouble()));
     final image = await recorder.endRecording().toImage(w, h);
     try {
@@ -416,15 +474,11 @@ class ArtistCreditTray extends StatelessWidget {
   const ArtistCreditTray({
     super.key,
     required this.style,
-    required this.scale,
     required this.onStyle,
-    required this.onScale,
   });
 
   final ArtistCreditStyle? style;
-  final double scale;
   final ValueChanged<ArtistCreditStyle?> onStyle;
-  final ValueChanged<double> onScale;
 
   static const _styles = <(ArtistCreditStyle, String)>[
     (ArtistCreditStyle.words, 'Words'),
@@ -450,7 +504,7 @@ class ArtistCreditTray extends StatelessWidget {
         ),
         const SizedBox(height: 2),
         const Text(
-          'Drag it to move it. It is saved onto the clip when you post or share.',
+          'Drag it to move it and pinch to resize. Tap the video to type your own words. The caption stays separate.',
           style: TextStyle(color: Colors.white70, fontSize: 11),
         ),
         const SizedBox(height: 8),
@@ -471,26 +525,6 @@ class ArtistCreditTray extends StatelessWidget {
                 ),
             ],
           ),
-        ),
-        const SizedBox(height: 6),
-        Row(
-          children: [
-            _chip(
-              label: 'Small',
-              selected: (scale - 0.8).abs() < 0.05,
-              onTap: () => onScale(0.8),
-            ),
-            _chip(
-              label: 'Medium',
-              selected: (scale - 1).abs() < 0.05,
-              onTap: () => onScale(1),
-            ),
-            _chip(
-              label: 'Large',
-              selected: (scale - 1.25).abs() < 0.05,
-              onTap: () => onScale(1.25),
-            ),
-          ],
         ),
       ],
     );

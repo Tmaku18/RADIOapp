@@ -181,7 +181,8 @@ object ClipMuxer {
                 return
             }
             heldOverlay = overlay
-            val item = EditedMediaItem.Builder(MediaItem.fromUri(Uri.fromFile(videoFile)))
+            val videoItem = EditedMediaItem.Builder(MediaItem.fromUri(Uri.fromFile(videoFile)))
+                .setRemoveAudio(true)
                 .setEffects(
                     Effects(
                         emptyList(),
@@ -193,9 +194,16 @@ object ClipMuxer {
                     ),
                 )
                 .build()
-            val composition = Composition.Builder(
-                EditedMediaItemSequence.withAudioAndVideoFrom(listOf(item)),
-            ).build()
+            val sequences = mutableListOf(
+                EditedMediaItemSequence.withVideoFrom(listOf(videoItem)),
+            )
+            if (hasAudio(videoFile)) {
+                val audioItem = EditedMediaItem.Builder(MediaItem.fromUri(Uri.fromFile(videoFile)))
+                    .setRemoveVideo(true)
+                    .build()
+                sequences.add(EditedMediaItemSequence.withAudioFrom(listOf(audioItem)))
+            }
+            val composition = Composition.Builder(sequences).build()
             val transformer = Transformer.Builder(context.applicationContext)
                 .addListener(object : Transformer.Listener {
                     override fun onCompleted(composition: Composition, exportResult: ExportResult) {

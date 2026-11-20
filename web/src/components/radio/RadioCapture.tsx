@@ -13,10 +13,15 @@ import {
   stationShareText,
 } from '@/lib/radio-share';
 import { startLiveSongRecording, startMirrorLoop } from '@/lib/social-share';
-import { ArtistCreditOverlay, ArtistCreditTray } from '@/components/radio/ArtistCreditOverlay';
+import {
+  ArtistCreditOverlay,
+  ArtistCreditTray,
+  ClipWordView,
+  StickerHandle,
+} from '@/components/radio/ArtistCreditOverlay';
 import { CaptureShutter } from '@/components/radio/CaptureShutter';
 import { SocialShareButtons } from '@/components/radio/SocialShareButtons';
-import { burnArtistCredit, type ArtistCreditStyle } from '@/lib/artist-credit';
+import { burnArtistCredit, type ArtistCreditStyle, type ClipWord } from '@/lib/artist-credit';
 
 const CLIP_SECONDS = 15;
 
@@ -89,6 +94,18 @@ export function RadioCaptureDialog({
   const [creditX, setCreditX] = useState(0.5);
   const [creditY, setCreditY] = useState(0.58);
   const [creditScale, setCreditScale] = useState(1);
+  const [words, setWords] = useState<ClipWord[]>([]);
+  const [draft, setDraft] = useState<{
+    id: string | null;
+    x: number;
+    y: number;
+    text: string;
+  } | null>(null);
+  const [stageSize, setStageSize] = useState(320);
+  const draftInput = useRef<HTMLInputElement>(null);
+  const draftRef = useRef(draft);
+  const skipDraftBlur = useRef(false);
+  draftRef.current = draft;
   const [reviewPlaying, setReviewPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const pressGen = useRef(0);
@@ -96,6 +113,11 @@ export function RadioCaptureDialog({
   const [aspect, setAspect] = useState<number | null>(null);
   const [caption, setCaption] = useState(() => songLine(track));
   const burned = useRef<{ key: string; file: File } | null>(null);
+
+  useEffect(() => {
+    if (!draft) return;
+    draftInput.current?.focus();
+  }, [draft]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -233,6 +255,8 @@ export function RadioCaptureDialog({
       clipUrl.current = null;
     }
     setClip(null);
+    setWords([]);
+    setDraft(null);
     burned.current = null;
     setAspect(null);
     setPhase('ready');
@@ -240,28 +264,65 @@ export function RadioCaptureDialog({
     restartPreview();
   };
 
-  const creditKey = `${creditStyle}|${creditX.toFixed(3)}|${creditY.toFixed(3)}|${creditScale}`;
+  const wordKey = words
+    .map((word) => `${word.text}@${word.x.toFixed(3)},${word.y.toFixed(3)},${word.scale.toFixed(2)}`)
+    .join(';');
+  const creditKey = `${creditStyle}|${creditX.toFixed(3)}|${creditY.toFixed(3)}|${creditScale.toFixed(2)}|${wordKey}`;
+  const hasMarks = creditStyle != null || words.length > 0;
 
   const clipWithCredit = async () => {
     if (!clip) throw new Error('Record a clip first.');
-    if (!creditStyle) return clip.file;
+    if (!hasMarks) return clip.file;
     if (burned.current?.key === creditKey) return burned.current.file;
-    const file = await burnArtistCredit(clip.file, {
-      style: creditStyle,
-      x: creditX,
-      y: creditY,
-      scale: creditScale,
-      title: track.title,
-      artist: track.artistName,
-    });
+    const file = await burnArtistCredit(
+      clip.file,
+      creditStyle
+        ? {
+            style: creditStyle,
+            x: creditX,
+            y: creditY,
+            scale: creditScale,
+            title: track.title,
+            artist: track.artistName,
+          }
+        : null,
+      words,
+    );
     burned.current = { key: creditKey, file };
     return file;
+  };
+
+  const placeDraft = () => {
+    const currentDraft = draftRef.current;
+    if (!currentDraft) return;
+    draftRef.current = null;
+    const text = currentDraft.text.trim();
+    setWords((current) => {
+      if (currentDraft.id) {
+        if (!text) return current.filter((word) => word.id !== currentDraft.id);
+        return current.map((word) =>
+          word.id === currentDraft.id ? { ...word, text } : word,
+        );
+      }
+      if (!text) return current;
+      return [
+        ...current,
+        {
+          id: `${Date.now()}`,
+          text,
+          x: currentDraft.x,
+          y: currentDraft.y,
+          scale: 1,
+        },
+      ];
+    });
+    setDraft(null);
   };
 
   const postStory = async () => {
     if (!clip || postingStory || !/^[0-9a-f-]{36}$/i.test(track.id)) return;
     setPostingStory(true);
-    setPreparing(creditStyle != null);
+    setPreparing(hasMarks);
     setError(null);
     try {
       const file = await clipWithCredit();
@@ -293,7 +354,7 @@ export function RadioCaptureDialog({
   const post = async () => {
     if (!clip || posting) return;
     setPosting(true);
-    setPreparing(creditStyle != null);
+    setPreparing(hasMarks);
     setError(null);
     try {
       const file = await clipWithCredit();
@@ -320,13 +381,29 @@ export function RadioCaptureDialog({
               className="relative h-full max-w-full"
               style={{ aspectRatio: aspect && aspect > 0 ? String(aspect) : '9 / 16' }}
               onPointerDown={(event) => {
-                const video = event.currentTarget.querySelector('video');
+                const target = event.target as HTMLElement;
+                if (target.dataset.stage !== '1') return;
+                if (draftRef.current && document.activeElement === draftInput.current) {
+                  skipDraftBlur.current = true;
+                }
+                placeDraft();
+                const video = reviewRef.current;
                 if (video?.paused) void video.play();
+                const rect = event.currentTarget.getBoundingClientRect();
+                if (rect.width <= 0 || rect.height <= 0) return;
+                setStageSize(Math.min(rect.width, rect.height));
+                setDraft({
+                  id: null,
+                  x: Math.min(0.92, Math.max(0.08, (event.clientX - rect.left) / rect.width)),
+                  y: Math.min(0.92, Math.max(0.08, (event.clientY - rect.top) / rect.height)),
+                  text: '',
+                });
               }}
             >
               <video
                 ref={reviewRef}
                 src={clip.url}
+                data-stage="1"
                 autoPlay
                 loop
                 playsInline
@@ -335,6 +412,10 @@ export function RadioCaptureDialog({
                   const item = event.currentTarget;
                   item.muted = false;
                   item.volume = 1;
+                  const box = item.parentElement?.getBoundingClientRect();
+                  if (box && box.width > 0 && box.height > 0) {
+                    setStageSize(Math.min(box.width, box.height));
+                  }
                   if (item.videoWidth > 0 && item.videoHeight > 0) {
                     setAspect(item.videoWidth / item.videoHeight);
                   }
@@ -350,11 +431,78 @@ export function RadioCaptureDialog({
                   x={creditX}
                   y={creditY}
                   scale={creditScale}
+                />
+              ) : null}
+              {creditStyle ? (
+                <StickerHandle
+                  x={creditX}
+                  y={creditY}
+                  scale={creditScale}
+                  disabled={posting || postingStory || preparing}
+                  className="h-28 w-[78%]"
                   onMove={(nextX, nextY) => {
                     setCreditX(nextX);
                     setCreditY(nextY);
                   }}
+                  onScale={setCreditScale}
                 />
+              ) : null}
+              {words.map((word) => (
+                <ClipWordView
+                  key={word.id}
+                  word={word}
+                  stageSize={stageSize}
+                  disabled={posting || postingStory || preparing}
+                  onMove={(nextX, nextY) => {
+                    setWords((current) =>
+                      current.map((item) =>
+                        item.id === word.id ? { ...item, x: nextX, y: nextY } : item,
+                      ),
+                    );
+                  }}
+                  onScale={(nextScale) => {
+                    setWords((current) =>
+                      current.map((item) =>
+                        item.id === word.id ? { ...item, scale: nextScale } : item,
+                      ),
+                    );
+                  }}
+                  onTap={() =>
+                    setDraft({ id: word.id, x: word.x, y: word.y, text: word.text })
+                  }
+                />
+              ))}
+              {draft ? (
+                <form
+                  className="absolute inset-x-3 z-30"
+                  style={{ top: '38%' }}
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    placeDraft();
+                  }}
+                  onPointerDown={(event) => event.stopPropagation()}
+                >
+                  <input
+                    ref={draftInput}
+                    value={draft.text}
+                    maxLength={80}
+                    enterKeyHint="done"
+                    placeholder="Type something"
+                    onChange={(event) => {
+                      const text = event.target.value;
+                      setDraft((current) => (current ? { ...current, text } : current));
+                      if (draftRef.current) draftRef.current = { ...draftRef.current, text };
+                    }}
+                    onBlur={() => {
+                      if (skipDraftBlur.current) {
+                        skipDraftBlur.current = false;
+                        return;
+                      }
+                      placeDraft();
+                    }}
+                    className="w-full rounded-xl border border-white/30 bg-black/70 px-3 py-2 text-center text-base text-white outline-none placeholder:text-white/40"
+                  />
+                </form>
               ) : null}
             </div>
           </div>
@@ -413,10 +561,8 @@ export function RadioCaptureDialog({
             </button>
             <ArtistCreditTray
               style={creditStyle}
-              scale={creditScale}
               disabled={posting || postingStory || preparing}
               onStyle={setCreditStyle}
-              onScale={setCreditScale}
             />
             {preparing ? <p className="text-xs text-white/70">Adding the artist credit…</p> : null}
             <label className="block space-y-1">
@@ -500,7 +646,7 @@ export function RadioCaptureDialog({
             <SocialShareButtons
               caption={captionFor(track)}
               getFile={async () => {
-                setPreparing(creditStyle != null);
+                setPreparing(hasMarks);
                 try {
                   return await clipWithCredit();
                 } finally {

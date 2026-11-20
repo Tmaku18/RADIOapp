@@ -434,6 +434,8 @@ private enum ClipMux {
         session.outputFileType = .mp4
         session.shouldOptimizeForNetworkUse = true
         session.videoComposition = videoComposition
+        // A video composition drops the song unless the mix is set too.
+        session.audioMix = fullVolumeMix(composition)
         session.exportAsynchronously {
           DispatchQueue.main.async {
             if session.status == .completed {
@@ -449,6 +451,16 @@ private enum ClipMux {
         DispatchQueue.main.async { completion(.failure(error)) }
       }
     }
+  }
+
+  private static func fullVolumeMix(_ composition: AVMutableComposition) -> AVMutableAudioMix {
+    let mix = AVMutableAudioMix()
+    mix.inputParameters = composition.tracks(withMediaType: .audio).map { track in
+      let params = AVMutableAudioMixInputParameters(track: track)
+      params.setVolume(1, at: .zero)
+      return params
+    }
+    return mix
   }
 
   private static func loadAsset(_ url: URL) throws -> AVURLAsset {

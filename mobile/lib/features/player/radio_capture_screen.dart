@@ -52,6 +52,56 @@ class RadioCaptureScreen extends StatefulWidget {
 
 enum _CapturePhase { preparing, ready, recording, mixing, review, failed }
 
+/// One finger drags, two fingers pinch. A tap that does not move can edit.
+class _PinchBox extends StatefulWidget {
+  const _PinchBox({
+    required this.baseScale,
+    required this.onMove,
+    required this.onScale,
+    required this.child,
+    this.onTap,
+  });
+
+  final double baseScale;
+  final void Function(double dx, double dy) onMove;
+  final ValueChanged<double> onScale;
+  final VoidCallback? onTap;
+  final Widget child;
+
+  @override
+  State<_PinchBox> createState() => _PinchBoxState();
+}
+
+class _PinchBoxState extends State<_PinchBox> {
+  double _startScale = 1;
+  bool _moved = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onScaleStart: (_) {
+        _startScale = widget.baseScale;
+        _moved = false;
+      },
+      onScaleUpdate: (details) {
+        if (details.focalPointDelta.distance > 2 ||
+            (details.pointerCount > 1 && (details.scale - 1).abs() > 0.03)) {
+          _moved = true;
+        }
+        widget.onMove(details.focalPointDelta.dx, details.focalPointDelta.dy);
+        if (details.pointerCount > 1) {
+          widget.onScale((_startScale * details.scale).clamp(0.4, 3.5));
+        }
+      },
+      onScaleEnd: (_) {
+        if (!_moved) widget.onTap?.call();
+      },
+      child: widget.child,
+    );
+  }
+}
+
 /// Sits above the review tray so a drag on the credit is not stolen by the
 /// tray's scroll view. Empty space still passes taps through to the buttons.
 class _CreditDragOverlay extends StatelessWidget {
@@ -60,14 +110,26 @@ class _CreditDragOverlay extends StatelessWidget {
     required this.dx,
     required this.dy,
     required this.scale,
+    required this.showCredit,
+    required this.words,
     required this.onMove,
+    required this.onScale,
+    required this.onWordMove,
+    required this.onWordScale,
+    required this.onWordTap,
   });
 
   final double aspectRatio;
   final double dx;
   final double dy;
   final double scale;
+  final bool showCredit;
+  final List<ClipWord> words;
   final void Function(double dx, double dy) onMove;
+  final ValueChanged<double> onScale;
+  final void Function(String id, double x, double y) onWordMove;
+  final void Function(String id, double scale) onWordScale;
+  final ValueChanged<ClipWord> onWordTap;
 
   @override
   Widget build(BuildContext context) {
@@ -88,21 +150,53 @@ class _CreditDragOverlay extends StatelessWidget {
         final top = (maxH - videoH) / 2;
         final hitW = videoW * 0.84 < 140 ? 140.0 : videoW * 0.84;
         final hitH = videoW * 0.34 * scale < 96 ? 96.0 : videoW * 0.34 * scale;
+        final shortest = videoW < videoH ? videoW : videoH;
         return Stack(
           children: [
-            Positioned(
-              left: left + videoW * dx - hitW / 2,
-              top: top + videoH * dy - hitH / 2,
-              width: hitW,
-              height: hitH,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onPanUpdate: (details) {
-                  onMove(details.delta.dx / videoW, details.delta.dy / videoH);
-                },
-                child: const SizedBox.expand(),
+            for (final word in words)
+              Positioned(
+                left: left + videoW * word.x,
+                top: top + videoH * word.y,
+                child: FractionalTranslation(
+                  translation: const Offset(-0.5, -0.5),
+                  child: _PinchBox(
+                    onMove: (deltaX, deltaY) => onWordMove(
+                      word.id,
+                      (word.x + deltaX / videoW).clamp(0.08, 0.92),
+                      (word.y + deltaY / videoH).clamp(0.08, 0.92),
+                    ),
+                    onScale: (next) => onWordScale(word.id, next),
+                    onTap: () => onWordTap(word),
+                    baseScale: word.scale,
+                    child: Text(
+                      word.text,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: (shortest * 0.055 * word.scale).clamp(14.0, 220.0),
+                        height: 1.05,
+                        shadows: const [
+                          Shadow(color: Color(0xCC000000), offset: Offset(0, 2)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ),
-            ),
+            if (showCredit)
+              Positioned(
+                left: left + videoW * dx - hitW / 2,
+                top: top + videoH * dy - hitH / 2,
+                width: hitW,
+                height: hitH,
+                child: _PinchBox(
+                  onMove: (deltaX, deltaY) => onMove(deltaX / videoW, deltaY / videoH),
+                  onScale: onScale,
+                  baseScale: scale,
+                  child: const SizedBox.expand(),
+                ),
+              ),
           ],
         );
       },
@@ -144,6 +238,7 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
   double _creditX = 0.5;
   double _creditY = 0.58;
   double _creditScale = 1;
+  final List<ClipWord> _words = [];
   String? _burnKey;
   File? _burned;
   bool _stopping = false;
@@ -744,6 +839,7 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     _clip = null;
     _burned = null;
     _burnKey = null;
+    _words.clear();
     await previous?.dispose();
     try {
       await _cue.pause();
@@ -759,14 +855,79 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     });
   }
 
-  String get _creditKey =>
-      '${_creditStyle?.name}|${_creditX.toStringAsFixed(3)}|${_creditY.toStringAsFixed(3)}|$_creditScale';
+  String get _creditKey {
+    final words = _words
+        .map(
+          (word) =>
+              '${word.text}|${word.x.toStringAsFixed(3)}|${word.y.toStringAsFixed(3)}|${word.scale.toStringAsFixed(2)}',
+        )
+        .join(';');
+    return '${_creditStyle?.name}|${_creditX.toStringAsFixed(3)}|${_creditY.toStringAsFixed(3)}|${_creditScale.toStringAsFixed(2)}|$words';
+  }
+
+  bool get _hasMarks => _creditStyle != null || _words.isNotEmpty;
+
+  Future<void> _typeWord({ClipWord? word, required double x, required double y}) async {
+    if (_applyingCredit) return;
+    final controller = TextEditingController(text: word?.text ?? '');
+    final typed = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF121214),
+      builder: (sheetContext) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 16,
+            bottom: MediaQuery.viewInsetsOf(sheetContext).bottom + 16,
+          ),
+          child: TextField(
+            controller: controller,
+            autofocus: true,
+            maxLength: 80,
+            textInputAction: TextInputAction.done,
+            style: const TextStyle(color: Colors.white, fontSize: 18),
+            decoration: const InputDecoration(
+              hintText: 'Type something',
+              hintStyle: TextStyle(color: Colors.white38),
+            ),
+            onSubmitted: (value) => Navigator.pop(sheetContext, value),
+          ),
+        );
+      },
+    );
+    controller.dispose();
+    if (!mounted || typed == null) return;
+    final text = typed.trim();
+    setState(() {
+      if (word != null) {
+        final index = _words.indexWhere((item) => item.id == word.id);
+        if (index < 0) return;
+        if (text.isEmpty) {
+          _words.removeAt(index);
+        } else {
+          _words[index] = word.copy(text: text);
+        }
+        return;
+      }
+      if (text.isEmpty) return;
+      _words.add(
+        ClipWord(
+          id: DateTime.now().microsecondsSinceEpoch.toString(),
+          text: text,
+          x: x,
+          y: y,
+          scale: 1,
+        ),
+      );
+    });
+  }
 
   Future<File> _clipWithCredit() async {
     final source = _clip;
     if (source == null) throw Exception('Record a clip first');
-    final style = _creditStyle;
-    if (style == null) return source;
+    if (!_hasMarks) return source;
     final cached = _burned;
     if (_burnKey == _creditKey && cached != null && await cached.exists()) {
       return cached;
@@ -775,11 +936,12 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     final png = await ArtistCreditPainter.renderPng(
       title: widget.title,
       artist: widget.artistName,
-      style: style,
+      style: _creditStyle,
       dx: _creditX,
       dy: _creditY,
       scale: _creditScale,
       aspect: aspect,
+      words: List<ClipWord>.of(_words),
     );
     final out = await SocialShare.burnOverlay(
       videoPath: source.path,
@@ -795,7 +957,7 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     if (_clip == null || _posting || _applyingCredit) return;
     setState(() {
       _posting = true;
-      _applyingCredit = _creditStyle != null;
+      _applyingCredit = _hasMarks;
       _error = null;
     });
     try {
@@ -833,7 +995,7 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
     }
     setState(() {
       _postingStory = true;
-      _applyingCredit = _creditStyle != null;
+      _applyingCredit = _hasMarks;
       _error = null;
     });
     try {
@@ -994,21 +1156,18 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
                                 fit: StackFit.expand,
                                 children: [
                                   GestureDetector(
-                                    onPanUpdate: (details) {
+                                    onTapUp: (details) {
                                       final width = constraints.maxWidth;
                                       final height = constraints.maxHeight;
                                       if (width <= 0 || height <= 0) return;
-                                      if (_creditStyle == null) return;
-                                      setState(() {
-                                        _creditX =
-                                            (_creditX +
-                                                    details.delta.dx / width)
-                                                .clamp(0.12, 0.88);
-                                        _creditY =
-                                            (_creditY +
-                                                    details.delta.dy / height)
-                                                .clamp(0.12, 0.88);
-                                      });
+                                      unawaited(
+                                        _typeWord(
+                                          x: (details.localPosition.dx / width)
+                                              .clamp(0.08, 0.92),
+                                          y: (details.localPosition.dy / height)
+                                              .clamp(0.08, 0.92),
+                                        ),
+                                      );
                                     },
                                     child: Stack(
                                       fit: StackFit.expand,
@@ -1078,7 +1237,7 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
                 if (_phase == _CapturePhase.review &&
                     preview != null &&
                     preview.value.isInitialized &&
-                    _creditStyle != null)
+                    _hasMarks)
                   Positioned.fill(
                     child: _CreditDragOverlay(
                       aspectRatio: preview.value.aspectRatio == 0
@@ -1087,12 +1246,32 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
                       dx: _creditX,
                       dy: _creditY,
                       scale: _creditScale,
+                      showCredit: _creditStyle != null,
+                      words: List<ClipWord>.of(_words),
                       onMove: (dx, dy) {
                         setState(() {
                           _creditX = (_creditX + dx).clamp(0.12, 0.88);
                           _creditY = (_creditY + dy).clamp(0.12, 0.88);
                         });
                       },
+                      onScale: (value) => setState(() => _creditScale = value),
+                      onWordMove: (id, x, y) {
+                        setState(() {
+                          final index = _words.indexWhere((word) => word.id == id);
+                          if (index < 0) return;
+                          _words[index] = _words[index].copy(x: x, y: y);
+                        });
+                      },
+                      onWordScale: (id, value) {
+                        setState(() {
+                          final index = _words.indexWhere((word) => word.id == id);
+                          if (index < 0) return;
+                          _words[index] = _words[index].copy(scale: value);
+                        });
+                      },
+                      onWordTap: (word) => unawaited(
+                        _typeWord(word: word, x: word.x, y: word.y),
+                      ),
                     ),
                   ),
               ],
@@ -1211,13 +1390,9 @@ class _RadioCaptureScreenState extends State<RadioCaptureScreen> {
                         ),
                       ArtistCreditTray(
                         style: _creditStyle,
-                        scale: _creditScale,
                         onStyle: _applyingCredit
                             ? (_) {}
                             : (value) => setState(() => _creditStyle = value),
-                        onScale: _applyingCredit
-                            ? (_) {}
-                            : (value) => setState(() => _creditScale = value),
                       ),
                       const SizedBox(height: 10),
                       if (_applyingCredit)
