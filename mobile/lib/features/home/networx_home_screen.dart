@@ -36,38 +36,80 @@ class NetworxHomeScreen extends StatefulWidget {
 class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
   final AnalyticsService _analytics = AnalyticsService();
   bool _loadingStats = true;
-  int _songs = 0;
-  int _ears = 0;
-  int _listens = 0;
-  int _likes = 0;
+  String? _statsRole;
+  int _personalSongs = 0;
+  int _personalListens = 0;
+  int _personalEars = 0;
+  int _personalLikes = 0;
+  int _platformSongs = 0;
+  int _platformListens = 0;
+  int _platformEars = 0;
+  int _platformLikes = 0;
+  int _platformArtists = 0;
+  int _platformUsers = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadStats();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadStats());
   }
 
   Future<void> _loadStats() async {
+    int asInt(dynamic v) =>
+        v is int ? v : int.tryParse(v?.toString() ?? '') ?? 0;
+    String? role = _statsRole;
+    Map<String, dynamic>? stats;
     try {
-      final stats = await _analytics.getPlatformStats();
-      if (!mounted || stats == null) return;
-      int asInt(dynamic v) =>
-          v is int ? v : int.tryParse(v?.toString() ?? '') ?? 0;
-      setState(() {
-        _songs = asInt(stats['totalSongs'] ?? stats['total_songs']);
-        _ears = asInt(stats['earsReached'] ?? stats['ears_reached']);
-        _listens = asInt(
+      final auth = Provider.of<AuthService>(context, listen: false);
+      final profile = await auth.getUserProfile();
+      role = profile?.role ?? role;
+    } catch (_) {
+      // Keep the last known role so a refresh still picks the right bars.
+    }
+    try {
+      stats = await _analytics.getPlatformStats();
+    } catch (_) {
+      stats = null;
+    }
+    if (!mounted) return;
+    var personalSongs = _personalSongs;
+    var personalListens = _personalListens;
+    var personalEars = _personalEars;
+    var personalLikes = _personalLikes;
+    if (role == 'artist' || role == 'admin') {
+      try {
+        final mine = await _analytics.getMyAnalytics();
+        personalSongs = mine?.totalSongs ?? 0;
+        personalListens = mine?.totalListenCount ?? 0;
+        personalEars = mine?.earsReached ?? 0;
+        personalLikes = mine?.totalLikes ?? 0;
+      } catch (_) {
+        // Personal numbers stay at the last good value.
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _statsRole = role;
+      _personalSongs = personalSongs;
+      _personalListens = personalListens;
+      _personalEars = personalEars;
+      _personalLikes = personalLikes;
+      if (stats != null) {
+        _platformSongs = asInt(stats['totalSongs'] ?? stats['total_songs']);
+        _platformEars = asInt(stats['earsReached'] ?? stats['ears_reached']);
+        _platformListens = asInt(
           stats['listens'] ??
               stats['totalListenCount'] ??
               stats['total_listen_count'],
         );
-        _likes = asInt(stats['totalLikes'] ?? stats['total_likes']);
-      });
-    } catch (_) {
-      // Best-effort; keep zeros.
-    } finally {
-      if (mounted) setState(() => _loadingStats = false);
-    }
+        _platformLikes = asInt(stats['totalLikes'] ?? stats['total_likes']);
+        _platformArtists = asInt(
+          stats['totalArtists'] ?? stats['total_artists'],
+        );
+        _platformUsers = asInt(stats['totalUsers'] ?? stats['total_users']);
+      }
+      _loadingStats = false;
+    });
   }
 
   String _greeting() {
@@ -407,23 +449,7 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
                         child: Center(child: CircularProgressIndicator()),
                       )
                     else
-                      // One card, four figures. Four separate tiles each with its
-                      // own circular badge in its own accent colour turned basic
-                      // counts into the loudest thing on the screen.
-                      GlassCard(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        child: Row(
-                          children: [
-                            _Stat(label: 'Songs', value: _songs),
-                            _StatDivider(),
-                            _Stat(label: 'Listens', value: _listens),
-                            _StatDivider(),
-                            _Stat(label: 'Ears', value: _ears),
-                            _StatDivider(),
-                            _Stat(label: 'Likes', value: _likes),
-                          ],
-                        ),
-                      ),
+                      ..._statBars(),
                     DimensionSectionHeader(
                       title: _roleHomeTitle(role),
                       color: Colors.white,
@@ -484,6 +510,74 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
           ],
         );
       },
+    );
+  }
+
+  List<Widget> _statBars() {
+    final yours = _statRow([
+      ('Songs', _personalSongs),
+      ('Listens', _personalListens),
+      ('Ears', _personalEars),
+      ('Likes', _personalLikes),
+    ]);
+    final platformOriginal = _statRow([
+      ('Songs', _platformSongs),
+      ('Listens', _platformListens),
+      ('Ears', _platformEars),
+      ('Likes', _platformLikes),
+    ]);
+    final platformTotals = _statRow([
+      ('Songs', _platformSongs),
+      ('Artists', _platformArtists),
+      ('Users', _platformUsers),
+      ('Listens', _platformListens),
+    ]);
+    if (_statsRole == 'admin') {
+      return [
+        _statCaption('Platform'),
+        platformOriginal,
+        const SizedBox(height: 14),
+        _statCaption('Your stats'),
+        yours,
+      ];
+    }
+    if (_statsRole == 'artist') {
+      return [
+        _statCaption('Your stats'),
+        yours,
+        const SizedBox(height: 14),
+        _statCaption('Platform'),
+        platformTotals,
+      ];
+    }
+    return [platformOriginal];
+  }
+
+  Widget _statCaption(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 6),
+      child: Text(
+        text.toUpperCase(),
+        style: const TextStyle(
+          fontSize: 11,
+          letterSpacing: 1.2,
+          color: Colors.white54,
+        ),
+      ),
+    );
+  }
+
+  Widget _statRow(List<(String, int)> items) {
+    return GlassCard(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Row(
+        children: [
+          for (var i = 0; i < items.length; i++) ...[
+            if (i > 0) _StatDivider(),
+            _Stat(label: items[i].$1, value: items[i].$2),
+          ],
+        ],
+      ),
     );
   }
 }

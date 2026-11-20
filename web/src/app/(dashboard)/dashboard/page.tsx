@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type ElementType } from 'react';
+import { useEffect, useState, type ElementType, type ReactNode } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -34,6 +34,7 @@ const WELCOME_HERO_IMAGE = '/images/welcome-to-the-networx.png';
 interface DashboardStats {
   platform?: {
     totalArtists: number;
+    totalUsers: number;
     totalSongs: number;
     totalPlays: number;
     totalListenCount: number;
@@ -218,6 +219,125 @@ function DimensionStatCard({
   );
 }
 
+function StatRow({
+  caption,
+  children,
+}: {
+  caption: string;
+  children: ReactNode;
+}) {
+  return (
+    <div>
+      <div className="font-dim-mono text-[10px] tracking-[0.3em] text-white/50 mb-2">
+        {caption.toUpperCase()}
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">{children}</div>
+    </div>
+  );
+}
+
+function PersonalStatCards({
+  artist,
+}: {
+  artist?: DashboardStats['artist'];
+}) {
+  const cards = [
+    {
+      label: 'Songs',
+      value: artist?.totalSongs ?? 0,
+      Icon: Headphones,
+      valueClass: 'text-pink-400',
+      borderClass: 'border-pink-400/40',
+    },
+    {
+      label: 'Listens',
+      value: artist?.totalListenCount ?? 0,
+      Icon: BarChart3,
+      valueClass: 'text-cyan-300',
+      borderClass: 'border-cyan-400/40',
+    },
+    {
+      label: 'Ears Reached',
+      value: artist?.earsReached ?? 0,
+      Icon: Heart,
+      valueClass: 'text-yellow-300',
+      borderClass: 'border-yellow-300/40',
+    },
+    {
+      label: 'Likes',
+      value: artist?.totalLikes ?? 0,
+      Icon: Flame,
+      valueClass: 'text-cyan-300',
+      borderClass: 'border-cyan-400/40',
+    },
+  ];
+  return (
+    <>
+      {cards.map((stat) => (
+        <DimensionStatCard
+          key={stat.label}
+          label={stat.label}
+          value={stat.value.toLocaleString()}
+          Icon={stat.Icon}
+          valueClass={stat.valueClass}
+          borderClass={stat.borderClass}
+        />
+      ))}
+    </>
+  );
+}
+
+function PlatformTotalCards({
+  platform,
+}: {
+  platform?: DashboardStats['platform'];
+}) {
+  const cards = [
+    {
+      label: 'Songs',
+      value: platform?.totalSongs ?? 0,
+      Icon: Headphones,
+      valueClass: 'text-pink-400',
+      borderClass: 'border-pink-400/40',
+    },
+    {
+      label: 'Artists',
+      value: platform?.totalArtists ?? 0,
+      Icon: Users,
+      valueClass: 'text-yellow-300',
+      borderClass: 'border-yellow-300/40',
+    },
+    {
+      label: 'Users',
+      value: platform?.totalUsers ?? 0,
+      Icon: User,
+      valueClass: 'text-cyan-300',
+      borderClass: 'border-cyan-400/40',
+    },
+    {
+      label: 'Listens',
+      value: platform?.totalListenCount ?? 0,
+      Icon: BarChart3,
+      valueClass: 'text-pink-400',
+      borderClass: 'border-pink-400/40',
+    },
+  ];
+  return (
+    <>
+      {cards.map((stat) => (
+        <DimensionStatCard
+          key={stat.label}
+          label={stat.label}
+          value={stat.value.toLocaleString()}
+          Icon={stat.Icon}
+          valueClass={stat.valueClass}
+          borderClass={stat.borderClass}
+        />
+      ))}
+    </>
+  );
+}
+
 function LoadingSpinner() {
   return (
     <div className="flex justify-center py-8">
@@ -262,6 +382,7 @@ export default function DashboardPage() {
   const homeKey: keyof typeof ROLE_HOME = role === 'admin' ? 'admin' : role === 'service_provider' ? 'service_provider' : 'artist';
   const home = role ? (ROLE_HOME[homeKey] ?? ROLE_HOME.artist) : null;
   const hasArtistStats = role === 'artist' || role === 'service_provider';
+  const wantsOwnStats = role === 'artist' || role === 'admin' || hasArtistStats;
   const hasProspectorStats = role === 'listener';
   const roleResolved = !!role;
   const displayName = profile?.displayName || 'Prospector';
@@ -275,6 +396,7 @@ export default function DashboardPage() {
           const platformResponse = await analyticsApi.getPlatformStats();
           const platform = platformResponse.data as {
             totalArtists?: number;
+            totalUsers?: number;
             totalSongs?: number;
             totalPlays?: number;
             totalListenCount?: number;
@@ -284,6 +406,7 @@ export default function DashboardPage() {
           };
           next.platform = {
             totalArtists: platform.totalArtists ?? 0,
+            totalUsers: platform.totalUsers ?? 0,
             totalSongs: platform.totalSongs ?? 0,
             totalPlays: platform.totalPlays ?? 0,
             totalListenCount:
@@ -297,22 +420,26 @@ export default function DashboardPage() {
           console.error('Failed to load platform stats:', platformError);
         }
 
-        if (hasArtistStats) {
-          const artistAnalyticsResponse = await analyticsApi.getMyAnalytics(30);
-          const artist = artistAnalyticsResponse.data as {
-            totalPlays?: number;
-            totalListenCount?: number;
-            earsReached?: number;
-            totalSongs?: number;
-            totalLikes?: number;
-          };
-          next.artist = {
-            totalPlays: artist.totalPlays ?? 0,
-            totalListenCount: artist.totalListenCount ?? 0,
-            earsReached: artist.earsReached ?? 0,
-            totalSongs: artist.totalSongs ?? 0,
-            totalLikes: artist.totalLikes ?? 0,
-          };
+        if (wantsOwnStats) {
+          try {
+            const artistAnalyticsResponse = await analyticsApi.getMyAnalytics(30);
+            const artist = artistAnalyticsResponse.data as {
+              totalPlays?: number;
+              totalListenCount?: number;
+              earsReached?: number;
+              totalSongs?: number;
+              totalLikes?: number;
+            };
+            next.artist = {
+              totalPlays: artist.totalPlays ?? 0,
+              totalListenCount: artist.totalListenCount ?? 0,
+              earsReached: artist.earsReached ?? 0,
+              totalSongs: artist.totalSongs ?? 0,
+              totalLikes: artist.totalLikes ?? 0,
+            };
+          } catch (artistError) {
+            console.error('Failed to load personal stats:', artistError);
+          }
         }
 
         if (hasProspectorStats) {
@@ -341,7 +468,7 @@ export default function DashboardPage() {
     } else {
       setLoading(false);
     }
-  }, [profile?.id, hasArtistStats, hasProspectorStats]);
+  }, [profile?.id, wantsOwnStats, hasProspectorStats]);
 
   return (
     <div data-dimension className="space-y-6">
@@ -390,14 +517,38 @@ export default function DashboardPage() {
         </div>
       </Reveal>
 
-      {/* Platform stats row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {loading ? (
-          <div className="col-span-full">
-            <LoadingSpinner />
-          </div>
-        ) : (
-          PLATFORM_STATS.map((stat, index) => (
+      {loading ? (
+        <LoadingSpinner />
+      ) : role === 'artist' ? (
+        <div className="space-y-4">
+          <StatRow caption="Your stats">
+            <PersonalStatCards artist={stats.artist} />
+          </StatRow>
+          <StatRow caption="Platform">
+            <PlatformTotalCards platform={stats.platform} />
+          </StatRow>
+        </div>
+      ) : role === 'admin' ? (
+        <div className="space-y-4">
+          <StatRow caption="Platform">
+            {PLATFORM_STATS.map((stat) => (
+              <DimensionStatCard
+                key={stat.label}
+                label={stat.label}
+                value={(stats.platform?.[stat.key] ?? 0).toLocaleString()}
+                Icon={stat.Icon}
+                valueClass={stat.valueClass}
+                borderClass={stat.borderClass}
+              />
+            ))}
+          </StatRow>
+          <StatRow caption="Your stats">
+            <PersonalStatCards artist={stats.artist} />
+          </StatRow>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {PLATFORM_STATS.map((stat, index) => (
             <Reveal key={stat.label} delay={index * 0.06}>
               <DimensionStatCard
                 label={stat.label}
@@ -407,9 +558,9 @@ export default function DashboardPage() {
                 borderClass={stat.borderClass}
               />
             </Reveal>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Quick actions */}
       {roleResolved && home && (
@@ -459,7 +610,7 @@ export default function DashboardPage() {
         </Reveal>
       )}
 
-      {hasArtistStats && (
+      {role === 'service_provider' && (
         <Reveal>
           <div className="rounded-2xl glass p-6">
             <div className="font-dim-mono text-[10px] tracking-[0.3em] text-pink-400 mb-4">
