@@ -18,6 +18,8 @@ Structured ADR-style record. Each entry: **Context → Decision → Rationale �
 | 12 | Android package `com.discovermeradio.networxradio` | Infra | 2026-03 | Accepted |
 | 13 | Discovery placement targets ~100 exposures | Monetization | 2026-11-19 | Accepted |
 | 14 | Placement pack bonuses | Monetization | 2026-11-19 | Accepted |
+| 15 | Badge catalog, permanent beta badge | Product | 2026-11-20 | Accepted |
+| 16 | Invite-only Refinery, raffle or referral | Product | 2026-11-20 | Accepted |
 
 ---
 
@@ -146,3 +148,21 @@ Structured ADR-style record. Each entry: **Context → Decision → Rationale �
 **Impact:** `bonusPlacementsFor` and `packPriceCents` in payments. Web checkout and the mobile store catalog both use that table, so the list price is the same. Store consoles still have to be set to these amounts or Apple and Google charge the old price.
 
 **Income planning (Nov 2026):** subscriptions stay on the previous model (2% Pro Bundle, 2% Pro-Networx, 1.5% Pro-Radio, 25% blended store cut). Discovery changes to 2% of monthly active users buying one pack. The mix averages $8.38 before the store cut. At 10,000 monthly active users that is about $5,860 net per month, about $70,320 per year, before hosting, payroll, refunds, and tax.
+
+---
+
+## 15. Badge catalog and permanent beta badge
+
+**Context:** The product has no trophy people can earn and show. Beta members need a lasting mark, and later badges need different earn rules and optional perks.  
+**Decision:** Badges live in a catalog. Each badge is cosmetic, carries a perk, or both. Perks are defined when that badge is created. Every account created while beta is open receives one badge, once, and keeps it after beta ends. The full set shows in a profile trophy case (earned date and meaning). A name chip sits next to the display name on Refinery comments, then on chat and other comment surfaces using the same treatment. When someone holds several badges, the name chip shows the primary one.  
+**Rationale:** Badges are trophies. A catalog lets new badges ship over time without a new display system. The beta badge rewards people who joined early without making it expire.  
+**Impact:** Strategy in [`badges-and-refinery-access.md`](badges-and-refinery-access.md). Planned tables `badge_definitions` and `user_badges`. Profile, Refinery comments, and later comment surfaces. Not built yet.
+
+---
+
+## 16. Invite-only Refinery
+
+**Context:** The Refinery pays Yield for verified review work. Open signup would admit more reviewers than artist submissions can fund. Artists who pay are owed a real review, and that review should come from people they respect.  
+**Decision:** The Refinery is invite-only. Open “sign up and review” is retired. Two ways in: enter the raffle, or be referred by someone already inside. Both still pass a capacity check. Seats open in batches. A paid Refinery submission is staffed toward a floor of at least 100 reviewers. The first campaign recruits those 100 from people artists already respect (producers, respected listeners, scene voices). They are the founding review bench. Later reviewers still enter by raffle or referral. The merch **Founding 100** cohort is a different thing and stays named as it is.  
+**Rationale:** Capacity is how Yield stays payable. The first 100 are how the paid-review promise is staffed before the room grows. Scarcity is the public hook; credibility is who gets the first seats.  
+**Impact:** Strategy in [`badges-and-refinery-access.md`](badges-and-refinery-access.md). Planned `refinery_membership` with source `raffle`, `referral`, or `founding_reviewer`. Public copy stays truth-safe: Yield for verified Refinery work, seats limited. No “get paid to listen” as a shipped slogan. Not built yet.

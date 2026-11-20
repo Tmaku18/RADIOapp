@@ -32,7 +32,8 @@ All Networx terminology hangs off three connected metaphors. This grouping is th
 
 - **Mining the Frequency**: How value is surfaced from the always-on stream — the people dig through the radio to find what shines.
 - **Prospectors**: The listeners; they tune in, send Ripples, and refine raw songs into trustworthy signal. (Technical: role `listener`.)
-- **The Refinery**: The portal where Prospectors rank, survey, and comment to refine songs. (Technical: `songs.in_refinery`, `refinery_comments`.)
+- **The Refinery**: The invite-only portal where admitted Prospectors rank, survey, and comment to refine songs. Entry is by raffle or by referral, and seats are capped. (Technical: `songs.in_refinery`, `refinery_comments`; planned `refinery_membership`.)
+- **Badge**: A trophy on a profile, with an optional perk. Shown in the trophy case and as a chip next to the display name on comments. (Technical: planned `badge_definitions`, `user_badges`.)
 - **The Yield**: A Prospector's rewards — steady earnings from verified engagement. (Technical: `prospector_yield`.)
 
 Detailed entries for each term follow below.
@@ -84,9 +85,17 @@ Detailed entries for each term follow below.
 ## The Refinery (Prospector portal)
 
 - **Term**: **The Refinery**
-- **Meaning**: A portal where artists select uploaded songs to be considered for review. Listeners can sign up to be Prospectors to hear songs in The Refinery unlimited times, answer survey questions, rank (1–10), and leave comments to get rewards. Regular listeners do not have access.
+- **Meaning**: An invite-only portal where artists select uploaded songs to be considered for review. Admitted Prospectors hear those songs, answer survey questions, rank (1–10), and leave comments to earn Yield. Regular listeners do not have access. Entry is by raffle or by referral from someone already inside, and both still pass a capacity check so Yield stays payable. A paid submission is staffed toward at least 100 reviewers. The first 100 are recruited from people artists already respect. That bench is not the merch Founding 100.
 - **Where used**: Nav (“The Refinery”), Refinery page (web + Flutter), artist Studio (“Add to Refinery” / “Remove from Refinery” on My Songs).
-- **Technical**: `songs.in_refinery`, `refinery_comments` table; `/refinery/songs`, `/refinery/songs/:id/add`, `/refinery/songs/:id/remove`, `/refinery/songs/:id/comments`. Rank/survey/rewards use existing Prospector Yield (refinement, survey).
+- **Technical**: `songs.in_refinery`, `refinery_comments` table; `/refinery/songs`, `/refinery/songs/:id/add`, `/refinery/songs/:id/remove`, `/refinery/songs/:id/comments`. Rank/survey/rewards use existing Prospector Yield (refinement, survey). Planned membership: `refinery_membership` with source `raffle`, `referral`, or `founding_reviewer`. See [badges and Refinery access](business/badges-and-refinery-access.md).
+- **Public line**: Earn Yield for verified Refinery work. Seats are limited. Enter the raffle, or get referred by someone already inside. Do not ship “get paid to listen” as a slogan.
+
+## Badge (trophy)
+
+- **Term**: **Badge**
+- **Meaning**: A trophy someone earns and shows off. Each badge lives in a catalog, has its own way to be earned, and may carry a perk. The beta badge goes to every account created while beta is open and stays after beta ends. The full set sits in a trophy case on the profile. A chip sits next to the display name on comments (Refinery comments first, then chat and other comment surfaces). When someone holds several badges, the chip shows the primary one.
+- **Where used**: Profile trophy case; name chip on Refinery comments, chat, and other comments. Not built yet.
+- **Technical**: Planned `badge_definitions` and `user_badges`. No perk menu in the strategy; perks are set per badge when that badge is added.
 
 ## Metamorphosis (artist transformation)
 
@@ -164,7 +173,8 @@ Detailed entries for each term follow below.
 | Ripple(s)        | like, likes         |
 | The Wake         | analytics, stats, artist stats report |
 | The Yield        | prospector_yield, prospector_redemptions |
-| The Refinery     | songs.in_refinery, refinery_comments, /refinery/* |
+| The Refinery     | songs.in_refinery, refinery_comments, /refinery/*; planned refinery_membership |
+| Badge            | planned badge_definitions, user_badges |
 | Metamorphosis    | narrative (Gem -> Diamond progression) |
 | Mining the Frequency | radio + Prospector/Refinery engagement |
 | Songs            | song, songs         |
@@ -174,4 +184,4 @@ Detailed entries for each term follow below.
 | Ears Reached     | earsReached, get_radio_ears_reached |
 | Spins            | totalPlays, plays table |
 
-Last updated: June 2026 (truth-safe positioning added).
+Last updated: November 2026 (invite-only Refinery and badge terminology).

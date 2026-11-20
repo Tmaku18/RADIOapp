@@ -80,6 +80,17 @@ Independent audio creators — hip-hop producers, artists, and audio creators wh
 - **Prospectors** (listeners) — mine the Frequency, send Ripples, vote, earn Yield  
 - **Catalysts** (service providers) — accelerate metamorphosis via Pro-Networx  
 
+### Founding 100 vs first 100 reviewers
+
+These are different cohorts. Do not merge the names.
+
+| Cohort | What it is |
+|--------|------------|
+| **Founding 100** | Creator and merch cohort. Samurai Signal posters, limited merch run. Unchanged. |
+| **First 100 reviewers** | The Refinery review bench. People artists already respect (producers, respected listeners, scene voices). A paid Refinery submission is staffed toward at least 100 of them. |
+
+The Refinery is invite-only. Entry is by raffle or by referral, and seats open in batches so Yield stays payable. Strategy: [`docs/business/badges-and-refinery-access.md`](business/badges-and-refinery-access.md).
+
 ### The Magnet
 
 Creators bring fans to NETWORX for owned relationships: artist pages, track purchases, livestreams, Ripples, and Pro-Networx services — not only algorithmic reach.
@@ -157,8 +168,10 @@ Celebrate business progress and cultural momentum:
 - Yield redemption  
 - Pro-Networx profile published  
 - First Catalyst booking  
+- **Beta badge** — every account created while beta is open; kept after beta ends  
+- Later earned badges — each catalog entry has its own earn rule and an optional perk  
 
-Visual: premium achievement cards — dark glass background, clean metrics, **Neon Cyan / Signal Pink** glow, shareable square/story formats.
+Badges are trophies: a full set on the profile, and a chip next to the display name on comments. Visual for the cards stays the same: premium achievement cards — dark glass background, clean metrics, **Neon Cyan / Signal Pink** glow, shareable square/story formats. Samurai Signal is the poster world for the beta badge and for the first-100-reviewers campaign. It does not rename the merch Founding 100.
 
 ---
 
@@ -312,7 +325,7 @@ The original PDF framed a 30-day storefront-first MVP. **What actually shipped**
 2. Stripe Connect artist payouts (production-ready)  
 3. Play Store + App Store launch polish (listing in `docs/play-store-listing.md`)  
 4. Pro-Networx Google Play subscription parity (policy compliance)  
-5. Founding 100 cohort tooling  
+5. Badge catalog (permanent beta badge, profile trophy case, name chip on comments) and invite-only Refinery (raffle or referral, seat caps, first 100 respected reviewers). See [`docs/business/badges-and-refinery-access.md`](business/badges-and-refinery-access.md) and [`docs/planned-implementation-badges-refinery.md`](planned-implementation-badges-refinery.md). The merch Founding 100 stays a separate cohort.  
 
 ---
 
@@ -396,3 +409,4 @@ NETWORX creates the culture. NETWORX runs the backend. The creator keeps the pow
 | June 2026 (original PDF) | Storefront-first 30-day MVP compass; Royal Amethyst palette; no Pro-Networx / Refinery / Yield |
 | June 13, 2026 | Aligned to shipped product, design tokens, terminology, and honest build status |
 | June 18, 2026 | Visual palette aligned to origin/3d **Dimension Cyber** (`#00F0FF` / `#FF007F` / `#F4D03F`); typography adds Unbounded + JetBrains Mono |
+| November 20, 2026 | Badge catalog and invite-only Refinery added to celebration, audience, and next-focus. Merch Founding 100 kept separate from the first 100 reviewers. |

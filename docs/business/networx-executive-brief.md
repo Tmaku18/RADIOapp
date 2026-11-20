@@ -69,6 +69,8 @@ NetworX is a full-stack **live radio platform** and **creator network** for inde
 2. Continue radio reliability (background tab, station switch).
 3. Expand doc + Notion OS for business/engineering alignment.
 4. Policy pages before broad public launch (copyright, DMCA, refunds).
+5. **Badge catalog** — permanent beta badge, profile trophy case, name chip beside the display name on comments. See [`badges-and-refinery-access.md`](badges-and-refinery-access.md).
+6. **Invite-only Refinery** — raffle or referral, seats in batches so Yield stays payable. First campaign recruits 100 respected reviewers as the floor for a paid submission. Yield risk is managed by those seat caps, not by opening the Refinery to everyone.
 
 ---
 
