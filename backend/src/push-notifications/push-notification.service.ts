@@ -10,6 +10,8 @@ interface SendPushNotificationDto {
   body: string;
   data?: Record<string, string>;
   imageUrl?: string;
+  /** When false, send the push only and do not write the notification inbox. */
+  storeInApp?: boolean;
 }
 
 interface Song {
@@ -344,6 +346,7 @@ export class PushNotificationService {
    * Send push notification via Firebase Cloud Messaging
    */
   async sendPushNotification(dto: SendPushNotificationDto): Promise<boolean> {
+    const storeInApp = dto.storeInApp !== false;
     const supabase = getSupabaseClient();
     const admin = getFirebaseAdmin();
 
@@ -398,13 +401,15 @@ export class PushNotificationService {
       this.logger.debug(
         `No mobile tokens for user ${dto.userId}, falling back to in-app`,
       );
-      await this.notificationService.create({
-        userId: dto.userId,
-        type: dto.data?.type || 'push_notification',
-        title: dto.title,
-        message: dto.body,
-        metadata: dto.data,
-      });
+      if (storeInApp) {
+        await this.notificationService.create({
+          userId: dto.userId,
+          type: dto.data?.type || 'push_notification',
+          title: dto.title,
+          message: dto.body,
+          metadata: dto.data,
+        });
+      }
       return false;
     }
 
@@ -481,13 +486,15 @@ export class PushNotificationService {
       });
 
       // Also store in notifications table for in-app history
-      await this.notificationService.create({
-        userId: dto.userId,
-        type: dto.data?.type || 'push_notification',
-        title: dto.title,
-        message: dto.body,
-        metadata: dto.data,
-      });
+      if (storeInApp) {
+        await this.notificationService.create({
+          userId: dto.userId,
+          type: dto.data?.type || 'push_notification',
+          title: dto.title,
+          message: dto.body,
+          metadata: dto.data,
+        });
+      }
 
       return response.successCount > 0;
     } catch (error) {
@@ -578,30 +585,19 @@ export class PushNotificationService {
   }
 
   /**
-   * After a song finishes: notify the artist "Your song has been played" with a link to view analytics.
-   * Creates in-app notification and optionally sends push (with playId for deep link to stats).
+   * After a song finishes: push the artist "Your song has been played".
+   * These fire on every spin, so they stay out of the in-app inbox.
    */
   async sendSongPlayedNotification(dto: {
     artistId: string;
     songTitle: string;
     playId: string;
   }) {
-    await this.notificationService.create({
-      userId: dto.artistId,
-      type: 'song_played',
-      title: 'Your song has been played',
-      message: `"${dto.songTitle}" just finished. Tap to see how it performed.`,
-      metadata: {
-        playId: dto.playId,
-        songTitle: dto.songTitle,
-        action: 'open_stats',
-      },
-    });
-
     await this.sendPushNotification({
       userId: dto.artistId,
       title: 'Your song has been played',
       body: `"${dto.songTitle}" just finished. Tap to see how it performed.`,
+      storeInApp: false,
       data: {
         type: 'song_played',
         playId: dto.playId,

@@ -82,6 +82,23 @@ export interface ArtistAnalytics {
   recentPlays: any[];
 }
 
+type PlatformTotals = {
+  totalUsers: number;
+  totalArtists: number;
+  totalCatalysts: number;
+  totalSongs: number;
+  totalApprovedSongs: number;
+  totalPlays: number;
+  totalProfileClicks: number;
+  totalLikes: number;
+};
+
+type PlatformLiveStats = {
+  liveListeners: number;
+  earsReached: number;
+  listens: number;
+};
+
 /**
  * Analytics Service
  * Provides real-time and historical analytics for artists and platform.
@@ -89,8 +106,57 @@ export interface ArtistAnalytics {
 @Injectable()
 export class AnalyticsService {
   private readonly logger = new Logger(AnalyticsService.name);
+  private static readonly PLATFORM_TOTALS_TTL_MS = 60_000;
+  private static readonly PLATFORM_LIVE_TTL_MS = 15_000;
+
+  private platformTotalsCache: { at: number; value: PlatformTotals } | null =
+    null;
+  private platformTotalsInflight: Promise<PlatformTotals> | null = null;
+  private platformLiveCache: { at: number; value: PlatformLiveStats } | null =
+    null;
+  private platformLiveInflight: Promise<PlatformLiveStats> | null = null;
 
   constructor(private readonly radioStateService: RadioStateService) {}
+
+  /**
+   * Serve a cached value, and refresh it in the background once it is stale,
+   * so repeated polls never wait on the database.
+   */
+  private serveCached<T>(
+    cached: { at: number; value: T } | null,
+    ttlMs: number,
+    inflight: Promise<T> | null,
+    remember: (pending: Promise<T> | null) => void,
+    store: (entry: { at: number; value: T }) => void,
+    load: () => Promise<T>,
+  ): Promise<T> {
+    const age = cached ? Date.now() - cached.at : Number.POSITIVE_INFINITY;
+    if (cached && age < ttlMs) return Promise.resolve(cached.value);
+
+    const start = (): Promise<T> => {
+      if (inflight) return inflight;
+      const pending = load()
+        .then((value) => {
+          store({ at: Date.now(), value });
+          return value;
+        })
+        .finally(() => remember(null));
+      remember(pending);
+      return pending;
+    };
+
+    if (cached) {
+      void start().catch((error) => {
+        this.logger.warn(
+          `Cached stats refresh failed: ${
+            (error as Error)?.message ?? error
+          }`,
+        );
+      });
+      return Promise.resolve(cached.value);
+    }
+    return start();
+  }
 
   /**
    * Per-song unique "Ears Reached" via get_song_ears_reached. Best-effort.
@@ -958,51 +1024,21 @@ export class AnalyticsService {
 
   /**
    * Get platform-wide statistics (for marketing page).
+   * Totals stay cached for about a minute. Live numbers refresh faster.
    */
   async getPlatformStats() {
-    const supabase = getSupabaseClient();
-
-    // Total users in DB
-    const { count: totalUsers } = await supabase
-      .from('users')
-      .select('*', { count: 'exact', head: true });
-
-    // Artist accounts in DB
-    const { count: totalArtists } = await supabase
-      .from('users')
-      .select('*', { count: 'exact', head: true })
-      .eq('role', 'artist');
-
-    // Catalyst accounts in DB
-    const { count: totalCatalysts } = await supabase
-      .from('users')
-      .select('*', { count: 'exact', head: true })
-      .eq('role', 'service_provider');
-
-    // Songs in DB (all statuses)
-    const { count: totalSongs } = await supabase
-      .from('songs')
-      .select('*', { count: 'exact', head: true });
-
-    // Approved songs (kept for dashboard/reference)
-    const { count: totalApprovedSongs } = await supabase
-      .from('songs')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'approved');
-
-    // Total plays
-    const { count: totalPlays } = await supabase
-      .from('plays')
-      .select('*', { count: 'exact', head: true });
-    // Discoveries = profile clicks from radio/leaderboards (artist profile clicks)
-    const { count: totalProfileClicks } = await supabase
-      .from('profile_clicks')
-      .select('*', { count: 'exact', head: true });
-
-    // Total Ripples (likes) across the platform
-    const { count: totalLikes } = await supabase
-      .from('likes')
-      .select('*', { count: 'exact', head: true });
+    const totals = await this.serveCached(
+      this.platformTotalsCache,
+      AnalyticsService.PLATFORM_TOTALS_TTL_MS,
+      this.platformTotalsInflight,
+      (pending) => {
+        this.platformTotalsInflight = pending;
+      },
+      (entry) => {
+        this.platformTotalsCache = entry;
+      },
+      () => this.loadPlatformTotals(),
+    );
 
     // Live radio metrics (current listeners + cumulative unique ears). Folded
     // into the public platform payload so clients that only poll /platform
@@ -1010,11 +1046,12 @@ export class AnalyticsService {
     // Best-effort: never let a transient radio/Redis issue fail the totals.
     let liveListeners = 0;
     let earsReached = 0;
-    let platformListenCount: number | null = null;
+    let listens = 0;
     try {
       const live = await this.getPlatformLiveStats();
       liveListeners = live.liveListeners;
       earsReached = live.earsReached;
+      listens = live.listens;
     } catch (error) {
       this.logger.warn(
         `Live stats unavailable for platform payload: ${
@@ -1022,48 +1059,105 @@ export class AnalyticsService {
         }`,
       );
     }
-    platformListenCount = await this.getPlatformListenCount();
 
     return {
-      totalUsers: totalUsers || 0,
-      totalArtists: totalArtists || 0,
-      totalCatalysts: totalCatalysts || 0,
-      totalSongs: totalSongs || 0,
-      totalApprovedSongs: totalApprovedSongs || 0,
-      totalPlays: totalPlays || 0,
-      totalListenCount: platformListenCount ?? 0,
-      totalProfileClicks: totalProfileClicks || 0,
-      totalLikes: totalLikes || 0,
+      ...totals,
+      totalListenCount: listens,
       liveListeners,
       earsReached,
-      listens: platformListenCount ?? 0,
+      listens,
+    };
+  }
+
+  private async loadPlatformTotals(): Promise<PlatformTotals> {
+    const supabase = getSupabaseClient();
+    const [
+      usersRes,
+      artistsRes,
+      catalystsRes,
+      songsRes,
+      approvedRes,
+      playsRes,
+      clicksRes,
+      likesRes,
+    ] = await Promise.all([
+      supabase.from('users').select('*', { count: 'exact', head: true }),
+      supabase
+        .from('users')
+        .select('*', { count: 'exact', head: true })
+        .eq('role', 'artist'),
+      supabase
+        .from('users')
+        .select('*', { count: 'exact', head: true })
+        .eq('role', 'service_provider'),
+      supabase.from('songs').select('*', { count: 'exact', head: true }),
+      supabase
+        .from('songs')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'approved'),
+      // Exact counts over every play row are slow. The planner estimate is
+      // close enough for the public marketing total.
+      supabase.from('plays').select('*', { count: 'estimated', head: true }),
+      supabase
+        .from('profile_clicks')
+        .select('*', { count: 'exact', head: true }),
+      supabase.from('likes').select('*', { count: 'exact', head: true }),
+    ]);
+
+    return {
+      totalUsers: usersRes.count || 0,
+      totalArtists: artistsRes.count || 0,
+      totalCatalysts: catalystsRes.count || 0,
+      totalSongs: songsRes.count || 0,
+      totalApprovedSongs: approvedRes.count || 0,
+      totalPlays: playsRes.count || 0,
+      totalProfileClicks: clicksRes.count || 0,
+      totalLikes: likesRes.count || 0,
     };
   }
 
   /**
    * Live radio metrics for the marketing homepage (poll every ~30s).
    */
-  async getPlatformLiveStats(): Promise<{
-    liveListeners: number;
-    earsReached: number;
-    listens: number;
-  }> {
-    const liveListeners = await this.getPlatformLiveListenerCount();
+  getPlatformLiveStats(): Promise<PlatformLiveStats> {
+    return this.serveCached(
+      this.platformLiveCache,
+      AnalyticsService.PLATFORM_LIVE_TTL_MS,
+      this.platformLiveInflight,
+      (pending) => {
+        this.platformLiveInflight = pending;
+      },
+      (entry) => {
+        this.platformLiveCache = entry;
+      },
+      () => this.loadPlatformLiveStats(),
+    );
+  }
 
+  private async loadPlatformLiveStats(): Promise<PlatformLiveStats> {
+    const [liveListeners, earsReached, platformListens] = await Promise.all([
+      this.getPlatformLiveListenerCount(),
+      this.loadRadioEarsReached(),
+      this.getPlatformListenCount(),
+    ]);
+
+    return {
+      liveListeners,
+      earsReached,
+      listens: platformListens ?? 0,
+    };
+  }
+
+  private async loadRadioEarsReached(): Promise<number> {
     const supabase = getSupabaseClient();
-    let earsReached = 0;
     try {
       const { data: ears } = await supabase.rpc('get_radio_ears_reached');
-      if (typeof ears === 'number') earsReached = ears;
-      else if (ears != null) earsReached = Number(ears) || 0;
+      if (typeof ears === 'number') return ears;
+      if (ears != null) return Number(ears) || 0;
     } catch {
-      earsReached = 0;
+      return 0;
     }
-
-    const platformListens = await this.getPlatformListenCount();
-    const listens = platformListens ?? 0;
-
-    return { liveListeners, earsReached, listens };
+    return 0;
   }
 
   /**

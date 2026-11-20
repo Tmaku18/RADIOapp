@@ -58,6 +58,41 @@ export class CleanupService {
   }
 
   /**
+   * Drop automated radio notices older than 30 days. These are generated on
+   * every spin and would otherwise fill the inbox. Runs once a day, one batch
+   * at a time, until nothing older than the cutoff remains.
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_4AM)
+  async pruneAutomatedNotifications() {
+    this.logger.log('Pruning automated notifications older than 30 days...');
+
+    const supabase = getSupabaseClient();
+    let total = 0;
+
+    try {
+      for (;;) {
+        const { data, error } = await supabase.rpc(
+          'prune_automated_notifications',
+          { p_older_than: '30 days', p_batch: 50000 },
+        );
+
+        if (error) {
+          this.logger.error(`Notification prune RPC failed: ${error.message}`);
+          return;
+        }
+
+        const deleted = typeof data === 'number' ? data : Number(data) || 0;
+        total += deleted;
+        if (deleted === 0) break;
+      }
+
+      this.logger.log(`Pruned ${total} automated notifications`);
+    } catch (error) {
+      this.logger.error(`Notification prune error: ${error.message}`);
+    }
+  }
+
+  /**
    * Run cleanup every hour to check for expired rejected songs.
    * Songs rejected more than 48 hours ago will be permanently deleted.
    */

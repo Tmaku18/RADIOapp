@@ -31,7 +31,7 @@ describe('NotificationService', () => {
   it('returns 0 unread when count missing', async () => {
     const service = new NotificationService();
     const supabase = createSupabaseMock();
-    supabase.__builder.is.mockResolvedValue({ count: null, error: null });
+    supabase.__builder.limit.mockResolvedValue({ data: null, error: null });
 
     (getSupabaseClient as jest.Mock).mockReturnValue(supabase);
 

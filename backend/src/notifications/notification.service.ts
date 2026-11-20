@@ -69,12 +69,16 @@ export class NotificationService {
     try {
       const supabase = getSupabaseClient();
 
-      const { count, error } = await supabase
+      // The badge only needs to know there are unread items. Counting every
+      // unread row is slow for artists with a long history, and the clients
+      // cap the display well below this limit.
+      const { data, error } = await supabase
         .from('notifications')
-        .select('*', { count: 'exact', head: true })
+        .select('id')
         .eq('user_id', userId)
         .eq('read', false)
-        .is('deleted_at', null); // Exclude soft-deleted
+        .is('deleted_at', null)
+        .limit(100);
 
       if (error) {
         this.logger.warn(
@@ -83,7 +87,7 @@ export class NotificationService {
         return 0;
       }
 
-      return count ?? 0;
+      return Array.isArray(data) ? data.length : 0;
     } catch (err) {
       this.logger.warn(
         `getUnreadCount failed for user ${userId}: ${err instanceof Error ? err.message : String(err)}`,
