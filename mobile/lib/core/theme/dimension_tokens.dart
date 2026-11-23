@@ -92,9 +92,8 @@ class DimensionTokens {
       ? Colors.white.withValues(alpha: 0.14)
       : Colors.black.withValues(alpha: 0.12);
 
-  /// Fixed bottom player height. Sized for a single Apple-Music-style row:
-  /// artwork, two lines of text, and transport.
-  static const double radioBarHeight = 74;
+  /// Fixed bottom player height: the 2px progress line plus the 64px row.
+  static const double radioBarHeight = 66;
 
   /// Responsive breakpoints — mirrors web Tailwind tiers.
   static const double breakpointTablet = 600;

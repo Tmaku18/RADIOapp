@@ -107,6 +107,9 @@ class _ProNetworxShellScreenState extends State<ProNetworxShellScreen> {
             onSelectTab: _selectTab,
             onOpenRoute: _openRoute,
             onBackToRadio: _exitToRadio,
+            // Embedded in the home shell, the drawer already ends at the
+            // player. A second home-indicator inset left a gap under the menu.
+            padForHomeIndicator: widget.onExitToRadio == null,
           ),
           appBar: PreferredSize(
             preferredSize: const Size.fromHeight(kToolbarHeight),

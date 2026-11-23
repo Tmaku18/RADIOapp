@@ -319,8 +319,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final safeBottom = MediaQuery.paddingOf(context).bottom;
     const navHeight = 80.0;
     final navIndex = _radioHighlighted ? _tabRadio : safeIndex;
-    // The mini bar is part of the bottom chrome whenever the sheet is down.
-    final barInset = navHeight + safeBottom + DimensionTokens.radioBarHeight;
+    // Matches the real bottom chrome (player row + tab bar). The home
+    // indicator sits inside the tab bar, so adding it again left a gap
+    // between the Pro menu and the player.
+    final barInset = navHeight + DimensionTokens.radioBarHeight;
 
     Widget aboveBar(Widget child) {
       return Padding(

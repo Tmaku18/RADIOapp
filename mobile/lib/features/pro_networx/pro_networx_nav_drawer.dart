@@ -14,6 +14,7 @@ class ProNetworxNavDrawer extends StatelessWidget {
     required this.onSelectTab,
     required this.onOpenRoute,
     required this.onBackToRadio,
+    this.padForHomeIndicator = true,
   });
 
   /// Active index in the Pro shell [IndexedStack].
@@ -22,6 +23,10 @@ class ProNetworxNavDrawer extends StatelessWidget {
   final ValueChanged<int> onSelectTab;
   final void Function(String route, [Object? arguments]) onOpenRoute;
   final VoidCallback onBackToRadio;
+
+  /// Standalone shell reaches the screen edge. The home-tab shell already
+  /// stops at the player, so the menu sits flush on that bar.
+  final bool padForHomeIndicator;
 
   static const tabLabels = <String>[
     'Home',
@@ -69,10 +74,10 @@ class ProNetworxNavDrawer extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
           topRight: Radius.circular(24),
-          bottomRight: Radius.circular(24),
         ),
       ),
       child: SafeArea(
+        bottom: padForHomeIndicator,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
