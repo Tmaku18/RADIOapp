@@ -30,13 +30,22 @@ class DimensionRadioBar extends StatelessWidget {
   const DimensionRadioBar({
     super.key,
     this.onOpenPlayer,
+    this.onSheetDragUpdate,
+    this.onSheetDragEnd,
     this.includeBottomInset = true,
     this.shareParentGlass = false,
   });
 
-  /// When set, a tap or upward drag opens the in-shell player instead of
-  /// pushing a second [PlayerScreen] route.
+  /// When set, a tap opens the in-shell player instead of pushing a second
+  /// [PlayerScreen] route.
   final VoidCallback? onOpenPlayer;
+
+  /// Finger movement while dragging the bar. Positive is downward.
+  /// Only used for a live radio source; other playback keeps the lyrics sheet.
+  final ValueChanged<double>? onSheetDragUpdate;
+
+  /// Release velocity for [onSheetDragUpdate]. Negative is an upward flick.
+  final ValueChanged<double>? onSheetDragEnd;
 
   /// Home indicator clearance. Off when a [NavigationBar] already sits under
   /// this row — otherwise the inset becomes an empty band between them.
@@ -102,7 +111,9 @@ class DimensionRadioBar extends StatelessWidget {
                   ctrl.isFavorite ? Icons.star : Icons.star_border,
                   color: ctrl.isFavorite ? DimensionTokens.neonCyan : null,
                 ),
-                title: Text(ctrl.isFavorite ? 'In favorites' : 'Add to favorites'),
+                title: Text(
+                  ctrl.isFavorite ? 'In favorites' : 'Add to favorites',
+                ),
                 onTap: ctrl.favoriteBusy ? null : ctrl.toggleFavorite,
               ),
               if (ctrl.canVote) ...[
@@ -233,12 +244,13 @@ class DimensionRadioBar extends StatelessWidget {
             if (item == null) return const SizedBox.shrink();
 
             final openInShell = onOpenPlayer;
+            final extras = item.extras;
+            final isRadio =
+                extras == null ||
+                extras['source'] == 'radio' ||
+                extras['radioId'] != null;
             void openPlayer() {
               HapticFeedback.lightImpact();
-              final extras = item.extras;
-              final isRadio = extras == null ||
-                  extras['source'] == 'radio' ||
-                  extras['radioId'] != null;
               if (isRadio && openInShell != null) {
                 openInShell();
                 return;
@@ -251,118 +263,133 @@ class DimensionRadioBar extends StatelessWidget {
             }
 
             final bar = GestureDetector(
+              onVerticalDragUpdate: (details) {
+                if (!isRadio || onSheetDragUpdate == null) return;
+                onSheetDragUpdate!(details.delta.dy);
+              },
               onVerticalDragEnd: (details) {
-                if ((details.primaryVelocity ?? 0) < -200) openPlayer();
+                final velocity = details.primaryVelocity ?? 0;
+                if (isRadio && onSheetDragEnd != null) {
+                  onSheetDragEnd!(velocity);
+                  return;
+                }
+                if (velocity < -200) openPlayer();
+              },
+              onVerticalDragCancel: () {
+                if (isRadio && onSheetDragEnd != null) onSheetDragEnd!(0);
               },
               child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: shareParentGlass
-                    ? Colors.transparent
-                    : (isDark ? const Color(0xFF0A0A0C) : Colors.white)
-                        .withValues(alpha: isDark ? 0.25 : 0.55),
-                border: shareParentGlass
-                    ? null
-                    : Border(
-                        top: BorderSide(color: DimensionTokens.glassBorder),
-                      ),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // A hairline of progress across the top edge. The old bar
-                  // spent a whole row on a scrubber plus two timestamps; the
-                  // full player is where you actually seek.
-                  _ProgressHairline(progress: ctrl.progress),
-                  SafeArea(
-                    top: false,
-                    bottom: includeBottomInset,
-                    child: SizedBox(
-                      height: _rowHeight,
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: InkWell(
-                              onTap: openPlayer,
-                              onLongPress: () =>
-                                  _showActionsSheet(context, item),
-                              child: Padding(
-                                padding: const EdgeInsets.only(left: 12),
-                                child: Row(
-                                  children: [
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(6),
-                                      child: SizedBox(
-                                        width: _artSize,
-                                        height: _artSize,
-                                        child: _Artwork(item: item),
+                decoration: BoxDecoration(
+                  color: shareParentGlass
+                      ? Colors.transparent
+                      : (isDark ? const Color(0xFF0A0A0C) : Colors.white)
+                            .withValues(alpha: isDark ? 0.25 : 0.55),
+                  border: shareParentGlass
+                      ? null
+                      : Border(
+                          top: BorderSide(color: DimensionTokens.glassBorder),
+                        ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // A hairline of progress across the top edge. The old bar
+                    // spent a whole row on a scrubber plus two timestamps; the
+                    // full player is where you actually seek.
+                    _ProgressHairline(progress: ctrl.progress),
+                    SafeArea(
+                      top: false,
+                      bottom: includeBottomInset,
+                      child: SizedBox(
+                        height: _rowHeight,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: InkWell(
+                                onTap: openPlayer,
+                                onLongPress: () =>
+                                    _showActionsSheet(context, item),
+                                child: Padding(
+                                  padding: const EdgeInsets.only(left: 12),
+                                  child: Row(
+                                    children: [
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(6),
+                                        child: SizedBox(
+                                          width: _artSize,
+                                          height: _artSize,
+                                          child: _Artwork(item: item),
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              if (ctrl.isPlaying) ...[
-                                                const NowPlayingBars(),
-                                                const SizedBox(width: 6),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                if (ctrl.isPlaying) ...[
+                                                  const NowPlayingBars(),
+                                                  const SizedBox(width: 6),
+                                                ],
+                                                Expanded(
+                                                  child: Text(
+                                                    item.title,
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                      color: DimensionTokens
+                                                          .textPrimary,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                      fontSize: 15,
+                                                      letterSpacing: -0.2,
+                                                    ),
+                                                  ),
+                                                ),
                                               ],
-                                              Expanded(
-                                                child: Text(
-                                            item.title,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              color:
-                                                  DimensionTokens.textPrimary,
-                                              fontWeight: FontWeight.w500,
-                                              fontSize: 15,
-                                              letterSpacing: -0.2,
                                             ),
-                                          ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 1),
-                                          _SubtitleLine(
-                                            text: item.artist ??
-                                                'NETWORX Radio',
-                                            live: ctrl.showLiveBadge,
-                                            reconnecting: ctrl.isReconnecting,
-                                          ),
-                                        ],
+                                            const SizedBox(height: 1),
+                                            _SubtitleLine(
+                                              text:
+                                                  item.artist ??
+                                                  'NETWORX Radio',
+                                              live: ctrl.showLiveBadge,
+                                              reconnecting: ctrl.isReconnecting,
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          _BarButton(
-                            icon: ctrl.isPlaying
-                                ? Icons.volume_up_rounded
-                                : Icons.volume_off_rounded,
-                            iconSize: 32,
-                            tooltip: ctrl.isPlaying ? 'Mute' : 'Unmute',
-                            onPressed: ctrl.togglePlay,
-                          ),
-                          _BarButton(
-                            icon: Icons.more_horiz_rounded,
-                            iconSize: 22,
-                            tooltip: 'More',
-                            onPressed: () => _showActionsSheet(context, item),
-                          ),
-                          const SizedBox(width: 4),
-                        ],
+                            _BarButton(
+                              icon: ctrl.isPlaying
+                                  ? Icons.volume_up_rounded
+                                  : Icons.volume_off_rounded,
+                              iconSize: 32,
+                              tooltip: ctrl.isPlaying ? 'Mute' : 'Unmute',
+                              onPressed: ctrl.togglePlay,
+                            ),
+                            _BarButton(
+                              icon: Icons.more_horiz_rounded,
+                              iconSize: 22,
+                              tooltip: 'More',
+                              onPressed: () => _showActionsSheet(context, item),
+                            ),
+                            const SizedBox(width: 4),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
             );
 
             if (shareParentGlass) return bar;

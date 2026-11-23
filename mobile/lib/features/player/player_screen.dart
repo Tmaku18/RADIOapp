@@ -104,7 +104,8 @@ class _PlayerScreenState extends State<PlayerScreen>
   /// Only the top-most mounted instance drives the shared player (sync polls,
   /// end-of-track advance, booth overlays). A buried instance stays passive —
   /// two active drivers is what made the radio flip between stations.
-  bool get _isSyncDriver => _mounted.isNotEmpty && identical(_mounted.last, this);
+  bool get _isSyncDriver =>
+      _mounted.isNotEmpty && identical(_mounted.last, this);
 
   final AudioPlayer _audioPlayer = AudioPlayerService().player;
   final ValueNotifier<Offset> _coverTilt = ValueNotifier(Offset.zero);
@@ -136,6 +137,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   Timer? _trackBoundaryTimer;
   Timer? _prefetchTimer;
   bool _globalTransportPaused = false;
+
   /// User-facing music volume (0..1). The DJ talk-over ducks below this via the
   /// audio handler's separate voice player; we restore to this level when the
   /// overlay ends.
@@ -145,6 +147,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   bool _trackSyncInFlight = false;
   bool _trackAdvanceInFlight = false;
   DateTime _lastSyncSeekAt = DateTime(2000);
+
   /// Song we just advanced away from; ignore server "current" for ~12s so pollers
   /// don't jump the listener backward (or reload mid-handoff).
   ({String id, DateTime at})? _recentlyAdvancedFrom;
@@ -191,6 +194,13 @@ class _PlayerScreenState extends State<PlayerScreen>
       duration: const Duration(milliseconds: 950),
     );
     _loadMe();
+    final seeded = _trackFromLiveRadio();
+    if (seeded != null) {
+      _currentTrack = seeded;
+      _isLoading = false;
+      _isPlaying =
+          _audioPlayer.playing && !AudioPlayerService.handler.userPaused;
+    }
     _initializeStationAndPlayback();
     _risingStarSub = StationEventsService().risingStarStream.listen((event) {
       if (!mounted) return;
@@ -226,7 +236,9 @@ class _PlayerScreenState extends State<PlayerScreen>
     _startTrackSyncTimer();
     // Catch up the moment service returns instead of waiting out the poll.
     RadioConnectionMonitor.instance.addRestoreListener(_onConnectionRestored);
-    RadioConnectionMonitor.instance.state.addListener(_onConnectionStateChanged);
+    RadioConnectionMonitor.instance.state.addListener(
+      _onConnectionStateChanged,
+    );
   }
 
   /// Playing from the buffer but no longer able to vouch for being in sync.
@@ -275,6 +287,21 @@ class _PlayerScreenState extends State<PlayerScreen>
       ]);
       if (!mounted) return;
       final ad = results[1] as VenueAd?;
+      // The station is already audible. Paint that track and refresh votes,
+      // ads, and sync behind it — never replace it with a spinner or a second
+      // load of the same source.
+      if (_hasLiveRadioSource) {
+        setState(() {
+          _ad = ad;
+          _isLoading = false;
+          _noContent = false;
+          _currentTrack ??= _trackFromLiveRadio();
+          _isPlaying =
+              _audioPlayer.playing && !AudioPlayerService.handler.userPaused;
+        });
+        unawaited(_syncCurrentTrack());
+        return;
+      }
       setState(() => _ad = ad);
       final res = results[0] as TrackFetchResult;
       if (res.noContent) {
@@ -326,6 +353,29 @@ class _PlayerScreenState extends State<PlayerScreen>
     return tag is MediaItem && tag.extras?['source'] == 'radio';
   }
 
+  /// What the shared player is already playing, so the first frame of this
+  /// screen can show artwork, title, and transport before the network sync.
+  Track? _trackFromLiveRadio() {
+    final source = _audioPlayer.sequenceState.currentSource;
+    final tag = source?.tag;
+    if (tag is! MediaItem || tag.extras?['source'] != 'radio') return null;
+    final extras = tag.extras ?? const <String, dynamic>{};
+    final uri = source is UriAudioSource ? source.uri.toString() : '';
+    final duration = _audioPlayer.duration?.inSeconds ?? 0;
+    final artist = tag.artist?.trim();
+    return Track(
+      id: (extras['songId'] ?? tag.id).toString(),
+      title: tag.title.trim().isEmpty ? 'NETWORX Radio' : tag.title,
+      artistName: artist == null || artist.isEmpty ? 'NETWORX Radio' : artist,
+      artistId: extras['artistId']?.toString(),
+      audioUrl: uri,
+      artworkUrl: tag.artUri?.toString(),
+      durationSeconds: duration < 0 ? 0 : duration,
+      playId: extras['playId']?.toString(),
+      positionSeconds: _audioPlayer.position.inSeconds,
+    );
+  }
+
   /// Track id of whatever source is loaded in the shared player right now.
   String? _loadedTrackId() {
     final tag = _audioPlayer.sequenceState.currentSource?.tag;
@@ -348,7 +398,8 @@ class _PlayerScreenState extends State<PlayerScreen>
   /// fighting over the shared player — whenever the full player was pushed
   /// after a station switch.
   Future<void> _restoreStationSelection() async {
-    final stationId = _StationTuner.radioId ??
+    final stationId =
+        _StationTuner.radioId ??
         _liveSourceRadioId() ??
         env('RADIO_STATION_ID') ??
         'us-ready-now-rap';
@@ -409,9 +460,9 @@ class _PlayerScreenState extends State<PlayerScreen>
   }
 
   void _announceTunedTo(StationOption station) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Tuned to ${station.genre}')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Tuned to ${station.genre}')));
   }
 
   Future<void> _changeStation(StationOption station) async {
@@ -483,12 +534,7 @@ class _PlayerScreenState extends State<PlayerScreen>
         return;
       }
 
-      await _loadAndPlay(
-        track,
-        res,
-        switchId: switchId,
-        radioId: station.id,
-      );
+      await _loadAndPlay(track, res, switchId: switchId, radioId: station.id);
       if (_stationContextLost(switchId, station.id)) return;
       if (mounted) _announceTunedTo(station);
     } finally {
@@ -505,10 +551,8 @@ class _PlayerScreenState extends State<PlayerScreen>
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (context) => _StationPickerSheet(
-        currentId: _radioId,
-        api: ApiService(),
-      ),
+      builder: (context) =>
+          _StationPickerSheet(currentId: _radioId, api: ApiService()),
     );
     if (selected != null) {
       await _changeStation(selected);
@@ -617,8 +661,7 @@ class _PlayerScreenState extends State<PlayerScreen>
           initialPosition: startAt > 0 ? Duration(seconds: startAt) : null,
           // Re-checked inside the load gate: rapid retunes queue several loads
           // and they don't resume in call order.
-          isStale: () =>
-              _stationContextLost(expectedSwitchId, expectedRadioId),
+          isStale: () => _stationContextLost(expectedSwitchId, expectedRadioId),
         );
         lastError = null;
         break;
@@ -673,12 +716,14 @@ class _PlayerScreenState extends State<PlayerScreen>
     }
     if (reportPlay) {
       unawaited(_radioService.reportPlay(track.id, radioId: expectedRadioId));
-      unawaited(GrowthService().recordListen(
-        songId: track.id,
-        title: track.title,
-        artistName: track.artistName,
-        artworkUrl: track.artworkUrl,
-      ));
+      unawaited(
+        GrowthService().recordListen(
+          songId: track.id,
+          title: track.title,
+          artistName: track.artistName,
+          artworkUrl: track.artworkUrl,
+        ),
+      );
     }
     if (_stationContextLost(expectedSwitchId, expectedRadioId)) return;
 
@@ -688,7 +733,7 @@ class _PlayerScreenState extends State<PlayerScreen>
 
     setState(() {
       _currentTrack = track;
-      _isPlaying = true;
+      _isPlaying = !AudioPlayerService.handler.userPaused;
       _isLoading = false;
       _hasVoted = alreadyVoted;
       if (!alreadyVoted) {
@@ -753,9 +798,9 @@ class _PlayerScreenState extends State<PlayerScreen>
     } catch (e) {
       if (!mounted) return;
       setState(() => _isFavorite = !next);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not update favorite: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not update favorite: $e')));
     } finally {
       if (mounted) setState(() => _favoriteBusy = false);
     }
@@ -780,9 +825,9 @@ class _PlayerScreenState extends State<PlayerScreen>
     if (track == null || _isBuying) return;
     if (_me == null) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Log in to buy songs.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Log in to buy songs.')));
       return;
     }
     setState(() => _isBuying = true);
@@ -901,7 +946,6 @@ class _PlayerScreenState extends State<PlayerScreen>
     }
   }
 
-
   void _markAdvancedFrom(Track? track) {
     if (track == null || track.id.isEmpty) return;
     _recentlyAdvancedFrom = (id: track.id, at: DateTime.now());
@@ -921,8 +965,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   bool _isNearLocalTrackEnd({int thresholdSeconds = 8}) {
     final track = _currentTrack;
     if (track == null) return true;
-    final duration =
-        _audioPlayer.duration?.inSeconds ?? track.durationSeconds;
+    final duration = _audioPlayer.duration?.inSeconds ?? track.durationSeconds;
     if (duration <= 0) return true;
     final position = _audioPlayer.position.inSeconds;
     return position >= duration - thresholdSeconds;
@@ -954,9 +997,7 @@ class _PlayerScreenState extends State<PlayerScreen>
     _prefetchTimer?.cancel();
     final endedId = _currentTrack?.id;
     try {
-      var res = await _radioService.getNextTrack(
-        radioId: radioId,
-      );
+      var res = await _radioService.getNextTrack(radioId: radioId);
       RadioConnectionMonitor.instance.reportRequestResult(
         networkError: res.networkError,
       );
@@ -1139,7 +1180,8 @@ class _PlayerScreenState extends State<PlayerScreen>
             localSeconds: _audioPlayer.position.inSeconds,
             durationSeconds:
                 _audioPlayer.duration?.inSeconds ?? localTrack.durationSeconds,
-            isPlaying: _audioPlayer.playing &&
+            isPlaying:
+                _audioPlayer.playing &&
                 _audioPlayer.processingState == ProcessingState.ready,
           )) {
         return;
@@ -1154,13 +1196,12 @@ class _PlayerScreenState extends State<PlayerScreen>
         // pops and the home-tab instance resumes driving.
         if (playerOnRadio && _loadedTrackId() == serverTrack.id) {
           final playId = serverTrack.playId;
-          final alreadyVoted = playId != null &&
-              playId.isNotEmpty &&
-              playId == _lastVotedPlayId;
+          final alreadyVoted =
+              playId != null && playId.isNotEmpty && playId == _lastVotedPlayId;
           setState(() {
             _currentTrack = serverTrack;
-            _isPlaying = _audioPlayer.playing &&
-                !AudioPlayerService.handler.userPaused;
+            _isPlaying =
+                _audioPlayer.playing && !AudioPlayerService.handler.userPaused;
             _isLoading = false;
             _noContent = false;
             _noContentMessage = null;
@@ -1183,7 +1224,12 @@ class _PlayerScreenState extends State<PlayerScreen>
         // song, so every device on a station hears the same track. Explicit
         // user pause is still respected inside [_loadAndPlay].
         setState(() {
-          _isLoading = true;
+          // A station that's already playing keeps its artwork on screen while
+          // a newer song loads. The spinner is only for a player with nothing
+          // to show yet.
+          if (!playerOnRadio || _currentTrack == null) {
+            _isLoading = true;
+          }
           _noContent = false;
           _noContentMessage = null;
           _hasVoted = false;
@@ -1238,8 +1284,7 @@ class _PlayerScreenState extends State<PlayerScreen>
       targetSeconds: liveTargetSeconds(serverTrack),
       durationSeconds:
           _audioPlayer.duration?.inSeconds ?? serverTrack.durationSeconds,
-      isBuffering:
-          _audioPlayer.processingState == ProcessingState.buffering,
+      isBuffering: _audioPlayer.processingState == ProcessingState.buffering,
       connectionDegraded: RadioConnectionMonitor.instance.current.isImpaired,
       currentSpeed: _audioPlayer.speed,
     );
@@ -1268,7 +1313,8 @@ class _PlayerScreenState extends State<PlayerScreen>
   Future<void> _refreshTrackStats() async {
     if (!mounted || _presenceTickInFlight || !_isSyncDriver) return;
     final track = _currentTrack;
-    final isTunedIn = _isPlaying || AudioPlayerService.handler.userPausedNotifier.value;
+    final isTunedIn =
+        _isPlaying || AudioPlayerService.handler.userPausedNotifier.value;
     if (!isTunedIn || track == null || track.id.isEmpty) return;
 
     _presenceTickInFlight = true;
@@ -1298,9 +1344,9 @@ class _PlayerScreenState extends State<PlayerScreen>
     if (track == null) return;
     if (_me == null) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Log in to rate songs.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Log in to rate songs.')));
       return;
     }
     final rating = await SongRatingSheet.show(
@@ -1319,15 +1365,17 @@ class _PlayerScreenState extends State<PlayerScreen>
     if (track == null || artistId.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Reporting is unavailable for this track.')),
+        const SnackBar(
+          content: Text('Reporting is unavailable for this track.'),
+        ),
       );
       return;
     }
     if (_me == null) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Log in to report songs.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Log in to report songs.')));
       return;
     }
     if (_me!.id == artistId) {
@@ -1396,7 +1444,9 @@ class _PlayerScreenState extends State<PlayerScreen>
         setState(() => _isVoting = false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Could not save your vote. Check your connection and try again.'),
+            content: Text(
+              'Could not save your vote. Check your connection and try again.',
+            ),
           ),
         );
         return;
@@ -1423,8 +1473,9 @@ class _PlayerScreenState extends State<PlayerScreen>
       shitVotes = shitVotes < 0 ? 0 : shitVotes;
       // Mirror the server formula (clamp(0..100, baseline + fire - shit)) so the
       // optimistic value matches web instead of jumping to 100% on a single vote.
-      final temperaturePercent =
-          (_kTempBaseline + fireVotes - shitVotes).clamp(0, 100).toInt();
+      final temperaturePercent = (_kTempBaseline + fireVotes - shitVotes)
+          .clamp(0, 100)
+          .toInt();
 
       if (!mounted) return;
       setState(() {
@@ -1492,7 +1543,9 @@ class _PlayerScreenState extends State<PlayerScreen>
       }
     } catch (_) {
       if (mounted) {
-        setState(() => _isPlaying = !handler.userPaused && _audioPlayer.playing);
+        setState(
+          () => _isPlaying = !handler.userPaused && _audioPlayer.playing,
+        );
       }
     }
   }
@@ -1515,7 +1568,9 @@ class _PlayerScreenState extends State<PlayerScreen>
         if (next.mounted) unawaited(next._syncCurrentTrack());
       });
     }
-    RadioConnectionMonitor.instance.removeRestoreListener(_onConnectionRestored);
+    RadioConnectionMonitor.instance.removeRestoreListener(
+      _onConnectionRestored,
+    );
     RadioConnectionMonitor.instance.state.removeListener(
       _onConnectionStateChanged,
     );
@@ -1576,9 +1631,8 @@ class _PlayerScreenState extends State<PlayerScreen>
       create: (_) => ChatService()..initialize(radioId: _radioId),
       child: Builder(
         builder: (providerContext) {
-          final showCoverBackdrop = !_isLoading &&
-              !_noContent &&
-              _currentTrack != null;
+          final showCoverBackdrop =
+              !_isLoading && !_noContent && _currentTrack != null;
           final coverUrl = showCoverBackdrop
               ? BrandAssets.displayArtworkUrl(_currentTrack!.artworkUrl)
               : null;
@@ -1594,8 +1648,9 @@ class _PlayerScreenState extends State<PlayerScreen>
               elevation: 0,
               scrolledUnderElevation: 0,
               centerTitle: true,
-              foregroundColor:
-                  showCoverBackdrop ? Colors.white : DimensionTokens.textPrimary,
+              foregroundColor: showCoverBackdrop
+                  ? Colors.white
+                  : DimensionTokens.textPrimary,
               leading: widget.onOpenNavDrawer != null
                   ? IconButton(
                       icon: const Icon(Icons.menu),
@@ -1617,7 +1672,8 @@ class _PlayerScreenState extends State<PlayerScreen>
                   itemBuilder: (context) {
                     final track = _currentTrack;
                     final artistId = track?.artistId?.trim() ?? '';
-                    final canReport = track != null &&
+                    final canReport =
+                        track != null &&
                         artistId.isNotEmpty &&
                         (_me == null || _me!.id != artistId);
                     return [
@@ -1681,9 +1737,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                 // where the small type lives. It takes the theme's colour so
                 // body text stays legible in light mode too.
                 if (coverUrl != null)
-                  Positioned.fill(
-                    child: IgnorePointer(child: _ArtworkScrim()),
-                  ),
+                  Positioned.fill(child: IgnorePointer(child: _ArtworkScrim())),
                 if (_isLoading)
                   const Center(child: CircularProgressIndicator())
                 else if (_noContent)

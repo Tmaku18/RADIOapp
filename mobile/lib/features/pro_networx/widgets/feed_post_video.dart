@@ -20,8 +20,8 @@ class FeedMediaPlayback extends InheritedWidget {
   final bool active;
 
   static bool isActive(BuildContext context) {
-    final scope =
-        context.dependOnInheritedWidgetOfExactType<FeedMediaPlayback>();
+    final scope = context
+        .dependOnInheritedWidgetOfExactType<FeedMediaPlayback>();
     return scope?.active ?? true;
   }
 
@@ -50,6 +50,7 @@ class _FeedPostVideoState extends State<FeedPostVideo> {
   bool _muted = true;
   bool _didSoftPauseRadio = false;
   bool _tabVisible = true;
+
   /// Whether the clip should be running while this tab is on screen.
   bool _shouldPlay = true;
 
@@ -194,12 +195,13 @@ class _FeedPostVideoState extends State<FeedPostVideo> {
     if (c.value.isPlaying) await c.pause();
     if (!mounted) return;
     await Navigator.of(context, rootNavigator: true).push(
-      MaterialPageRoute<void>(
-        fullscreenDialog: true,
-        builder: (_) => _FeedVideoFullscreenPage(
-          url: widget.url,
-          startAt: position,
-        ),
+      PageRouteBuilder<void>(
+        opaque: false,
+        barrierColor: Colors.transparent,
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+        pageBuilder: (_, _, _) =>
+            _FeedVideoFullscreenPage(url: widget.url, startAt: position),
       ),
     );
     if (!mounted) return;
@@ -218,10 +220,7 @@ class _FeedPostVideoState extends State<FeedPostVideo> {
     } else {
       await c.pause();
     }
-    await _syncRadioWithAudiblePlayback(
-      muted: _muted,
-      playing: willPlay,
-    );
+    await _syncRadioWithAudiblePlayback(muted: _muted, playing: willPlay);
     if (mounted) setState(() {});
   }
 
@@ -247,67 +246,71 @@ class _FeedPostVideoState extends State<FeedPostVideo> {
     return GestureDetector(
       onTap: _openFullscreen,
       child: ClipRect(
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          FittedBox(
-            fit: BoxFit.cover,
-            clipBehavior: Clip.hardEdge,
-            child: SizedBox(
-              width: c.value.size.width,
-              height: c.value.size.height,
-              child: VideoPlayer(c),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            FittedBox(
+              fit: BoxFit.cover,
+              clipBehavior: Clip.hardEdge,
+              child: SizedBox(
+                width: c.value.size.width,
+                height: c.value.size.height,
+                child: VideoPlayer(c),
+              ),
             ),
-          ),
-          const Positioned(
-            top: 8,
-            right: 8,
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  shape: BoxShape.circle,
-                ),
-                child: Padding(
-                  padding: EdgeInsets.all(6),
-                  child: Icon(Icons.fullscreen, color: Colors.white, size: 20),
+            const Positioned(
+              top: 8,
+              right: 8,
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.all(6),
+                    child: Icon(
+                      Icons.fullscreen,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
-          Positioned(
-            right: 8,
-            bottom: 8,
-            child: Row(
-              children: [
-                Material(
-                  color: Colors.black54,
-                  shape: const CircleBorder(),
-                  child: IconButton(
-                    icon: Icon(
-                      c.value.isPlaying ? Icons.pause : Icons.play_arrow,
-                      color: Colors.white,
+            Positioned(
+              right: 8,
+              bottom: 8,
+              child: Row(
+                children: [
+                  Material(
+                    color: Colors.black54,
+                    shape: const CircleBorder(),
+                    child: IconButton(
+                      icon: Icon(
+                        c.value.isPlaying ? Icons.pause : Icons.play_arrow,
+                        color: Colors.white,
+                      ),
+                      onPressed: _togglePlay,
                     ),
-                    onPressed: _togglePlay,
                   ),
-                ),
-                const SizedBox(width: 4),
-                Material(
-                  color: Colors.black54,
-                  shape: const CircleBorder(),
-                  child: IconButton(
-                    icon: Icon(
-                      _muted ? Icons.volume_off : Icons.volume_up,
-                      color: Colors.white,
+                  const SizedBox(width: 4),
+                  Material(
+                    color: Colors.black54,
+                    shape: const CircleBorder(),
+                    child: IconButton(
+                      icon: Icon(
+                        _muted ? Icons.volume_off : Icons.volume_up,
+                        color: Colors.white,
+                      ),
+                      onPressed: _toggleMute,
                     ),
-                    onPressed: _toggleMute,
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
@@ -316,10 +319,7 @@ class _FeedPostVideoState extends State<FeedPostVideo> {
 /// Full-frame viewer opened from a feed card. Owns its own player so the
 /// inline preview can stay paused underneath.
 class _FeedVideoFullscreenPage extends StatefulWidget {
-  const _FeedVideoFullscreenPage({
-    required this.url,
-    required this.startAt,
-  });
+  const _FeedVideoFullscreenPage({required this.url, required this.startAt});
 
   final String url;
   final Duration startAt;
@@ -329,16 +329,33 @@ class _FeedVideoFullscreenPage extends StatefulWidget {
       _FeedVideoFullscreenPageState();
 }
 
-class _FeedVideoFullscreenPageState extends State<_FeedVideoFullscreenPage> {
+class _FeedVideoFullscreenPageState extends State<_FeedVideoFullscreenPage>
+    with SingleTickerProviderStateMixin {
   VideoPlayerController? _controller;
   bool _ready = false;
   bool _failed = false;
   bool _muted = false;
   bool _didSoftPauseRadio = false;
+  bool _closing = false;
+  late final AnimationController _drag;
 
   @override
   void initState() {
     super.initState();
+    // Start off-screen so the first frame doesn't flash the clip over the feed.
+    _drag = AnimationController.unbounded(vsync: this, value: 4000)
+      ..addListener(() {
+        if (mounted) setState(() {});
+      });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _closing) return;
+      _drag.value = MediaQuery.sizeOf(context).height;
+      _drag.animateTo(
+        0,
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+      );
+    });
     unawaited(_init());
   }
 
@@ -364,9 +381,42 @@ class _FeedVideoFullscreenPageState extends State<_FeedVideoFullscreenPage> {
 
   @override
   void dispose() {
+    _drag.dispose();
     _controller?.dispose();
     unawaited(_softResumeRadioIfNeeded());
     super.dispose();
+  }
+
+  Future<void> _dismiss() async {
+    if (_closing || !mounted) return;
+    _closing = true;
+    final h = MediaQuery.sizeOf(context).height;
+    await _drag.animateTo(
+      h,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+    );
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  void _onDragUpdate(DragUpdateDetails details) {
+    if (_closing) return;
+    final next = _drag.value + details.delta.dy;
+    _drag.value = next < 0 ? 0 : next;
+  }
+
+  void _onDragEnd(DragEndDetails details) {
+    if (_closing) return;
+    final velocity = details.primaryVelocity ?? 0;
+    if (_drag.value > 120 || velocity > 900) {
+      unawaited(_dismiss());
+      return;
+    }
+    _drag.animateTo(
+      0,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   Future<void> _softPauseRadio() async {
@@ -410,85 +460,111 @@ class _FeedVideoFullscreenPageState extends State<_FeedVideoFullscreenPage> {
   @override
   Widget build(BuildContext context) {
     final c = _controller;
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (_failed)
-            const Center(
-              child: Icon(Icons.broken_image_outlined, color: Colors.white54),
-            )
-          else if (!_ready || c == null)
-            const Center(
-              child: CircularProgressIndicator(color: Colors.white54),
-            )
-          else
-            GestureDetector(
-              onTap: _togglePlay,
-              child: Center(
-                child: AspectRatio(
-                  aspectRatio: c.value.aspectRatio == 0
-                      ? 1
-                      : c.value.aspectRatio,
-                  child: VideoPlayer(c),
+    final dy = _drag.value < 0 ? 0.0 : _drag.value;
+    final travel = MediaQuery.sizeOf(context).height;
+    final fade = travel <= 0 ? 1.0 : (1 - dy / travel).clamp(0.0, 1.0);
+    return GestureDetector(
+      onVerticalDragUpdate: _onDragUpdate,
+      onVerticalDragEnd: _onDragEnd,
+      onVerticalDragCancel: () {
+        if (_closing) return;
+        _drag.animateTo(
+          0,
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+        );
+      },
+      child: Transform.translate(
+        offset: Offset(0, dy),
+        child: Scaffold(
+          backgroundColor: Colors.black.withValues(alpha: fade),
+          body: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (_failed)
+                const Center(
+                  child: Icon(
+                    Icons.broken_image_outlined,
+                    color: Colors.white54,
+                  ),
+                )
+              else if (!_ready || c == null)
+                const Center(
+                  child: CircularProgressIndicator(color: Colors.white54),
+                )
+              else
+                GestureDetector(
+                  onTap: _togglePlay,
+                  child: Center(
+                    child: AspectRatio(
+                      aspectRatio: c.value.aspectRatio == 0
+                          ? 1
+                          : c.value.aspectRatio,
+                      child: VideoPlayer(c),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          SafeArea(
-            child: Align(
-              alignment: Alignment.topLeft,
-              child: IconButton(
-                tooltip: 'Close',
-                onPressed: () => Navigator.of(context).pop(),
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.black54,
-                  foregroundColor: NetworxTokens.electricCyan,
-                ),
-                icon: const Icon(Icons.close, color: NetworxTokens.electricCyan),
-              ),
-            ),
-          ),
-          if (_ready && c != null)
-            SafeArea(
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      IconButton(
-                        tooltip: c.value.isPlaying ? 'Pause' : 'Play',
-                        onPressed: _togglePlay,
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.black54,
-                          foregroundColor: NetworxTokens.electricCyan,
-                        ),
-                        icon: Icon(
-                          c.value.isPlaying ? Icons.pause : Icons.play_arrow,
-                          color: NetworxTokens.electricCyan,
-                          size: 36,
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: _muted ? 'Unmute' : 'Mute',
-                        onPressed: _toggleMute,
-                        style: IconButton.styleFrom(
-                          backgroundColor: Colors.black54,
-                          foregroundColor: NetworxTokens.electricCyan,
-                        ),
-                        icon: Icon(
-                          _muted ? Icons.volume_off : Icons.volume_up,
-                          color: NetworxTokens.electricCyan,
-                        ),
-                      ),
-                    ],
+              SafeArea(
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: IconButton(
+                    tooltip: 'Close',
+                    onPressed: () => unawaited(_dismiss()),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.black54,
+                      foregroundColor: NetworxTokens.electricCyan,
+                    ),
+                    icon: const Icon(
+                      Icons.close,
+                      color: NetworxTokens.electricCyan,
+                    ),
                   ),
                 ),
               ),
-            ),
-        ],
+              if (_ready && c != null)
+                SafeArea(
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          IconButton(
+                            tooltip: c.value.isPlaying ? 'Pause' : 'Play',
+                            onPressed: _togglePlay,
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.black54,
+                              foregroundColor: NetworxTokens.electricCyan,
+                            ),
+                            icon: Icon(
+                              c.value.isPlaying
+                                  ? Icons.pause
+                                  : Icons.play_arrow,
+                              color: NetworxTokens.electricCyan,
+                              size: 36,
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: _muted ? 'Unmute' : 'Mute',
+                            onPressed: _toggleMute,
+                            style: IconButton.styleFrom(
+                              backgroundColor: Colors.black54,
+                              foregroundColor: NetworxTokens.electricCyan,
+                            ),
+                            icon: Icon(
+                              _muted ? Icons.volume_off : Icons.volume_up,
+                              color: NetworxTokens.electricCyan,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
