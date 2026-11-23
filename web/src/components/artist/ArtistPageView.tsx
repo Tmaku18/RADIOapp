@@ -638,14 +638,29 @@ export function ArtistPageView({
     }
   };
 
+  const openInApp =
+    variant === 'page' && mode === 'public' ? (
+      <OpenInAppBanner kind="artist" id={artistId} />
+    ) : null;
+
   if (loading) {
     if (variant === 'catalog') return null;
-    return <div className="p-6 text-muted-foreground">Loading artist page...</div>;
+    return (
+      <div className="space-y-6">
+        {openInApp}
+        <div className="p-6 text-muted-foreground">Loading artist page...</div>
+      </div>
+    );
   }
 
   if (error || !data) {
     if (variant === 'catalog') return null;
-    return <div className="p-6 text-destructive">{error ?? 'Artist not found.'}</div>;
+    return (
+      <div className="space-y-6">
+        {openInApp}
+        <div className="p-6 text-destructive">{error ?? 'Artist not found.'}</div>
+      </div>
+    );
   }
 
   if (variant === 'catalog' && data.librarySongs.length === 0) {
@@ -657,9 +672,7 @@ export function ArtistPageView({
 
   return (
     <div className="space-y-6">
-      {variant === 'page' && mode === 'public' ? (
-        <OpenInAppBanner kind="artist" id={artistId} />
-      ) : null}
+      {openInApp}
       {variant === 'page' && (
       <div className="rounded-xl overflow-hidden bg-gradient-to-b from-primary/40 to-card border border-border">
         <div className="p-6 md:p-8">

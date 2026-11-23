@@ -144,7 +144,17 @@ api.interceptors.request.use(
     const publicWriteEndpoints = ['/radio/presence'];
     const url = config.url ?? '';
     const method = config.method?.toLowerCase() ?? 'get';
+    const path = url.split('?')[0];
+    // Shared artist links are opened by people who are not signed in.
+    // These reads are public on the API; blocking them here shows
+    // "Unable to load artist page" before the request is sent.
+    const isPublicArtistRead =
+      method === 'get' &&
+      (/^\/users\/(?!me(?:\/|$))[^/]+\/artist-profile$/.test(path) ||
+        /^\/users\/(?!me(?:\/|$))[^/]+\/follow-counts$/.test(path) ||
+        path === '/songs');
     const isPublicEndpoint =
+      isPublicArtistRead ||
       (method === 'get' &&
         (publicEndpoints.some((endpoint) => url === endpoint) ||
           url.startsWith('/pro-networx/public/'))) ||

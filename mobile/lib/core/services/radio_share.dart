@@ -23,7 +23,9 @@ class RadioShare {
       '$siteOrigin/radio/${Uri.encodeComponent(stationId)}';
 
   static String artistLink(String artistId, {String? songId}) {
-    final base = '$siteOrigin/artists/${Uri.encodeComponent(artistId)}';
+    // /open/artists is the share landing. The site opens the installed app
+    // from there. A bare /artists link stays in the browser on iOS Chrome.
+    final base = '$siteOrigin/open/artists/${Uri.encodeComponent(artistId)}';
     final song = songId?.trim() ?? '';
     if (song.isEmpty) return base;
     return '$base?song=${Uri.encodeComponent(song)}';

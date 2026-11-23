@@ -59,6 +59,7 @@
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="https" android:host="www.networxradio.com" android:pathPrefix="/song"/>
                 <data android:scheme="https" android:host="www.networxradio.com" android:pathPrefix="/artists"/>
+                <data android:scheme="https" android:host="www.networxradio.com" android:pathPrefix="/open"/>
                 <data android:scheme="https" android:host="www.networxradio.com" android:pathPrefix="/radio"/>
             </intent-filter>
         </activity>
