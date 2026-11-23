@@ -677,7 +677,7 @@ export default function ProNetworxProfilePage() {
             </div>
 
             {/* Side rail: Services + Resume + Social */}
-            <div className="space-y-6">
+            <div className="min-w-0 space-y-6">
               {data.resumeUrl ? (
                 <Card className="glass-panel border border-border">
                   <CardContent className="pt-6 space-y-2">
@@ -716,7 +716,8 @@ export default function ProNetworxProfilePage() {
                 </Card>
               ) : null}
 
-              <Card className="glass-panel border border-border sticky top-20">
+              <div className="sticky top-24 z-10 flex max-h-[calc(100vh-7.5rem)] min-w-0 flex-col gap-6 overflow-x-hidden overflow-y-auto">
+              <Card className="min-w-0 border border-border bg-card">
                 <CardContent className="pt-6 space-y-4">
                   <div className="flex items-center justify-between gap-2">
                     <h2 className="text-lg font-semibold text-foreground inline-flex items-center gap-2">
@@ -734,21 +735,21 @@ export default function ProNetworxProfilePage() {
                         <Link
                           key={l.id}
                           href={`/pro-networx/services/${l.id}`}
-                          className="block rounded-lg border border-border p-3 space-y-1 hover:bg-muted/40 transition-colors"
+                          className="block min-w-0 overflow-hidden rounded-lg border border-border p-3 space-y-1 hover:bg-muted/40 transition-colors"
                         >
-                          <div className="flex justify-between gap-2">
-                            <p className="font-medium text-foreground text-sm truncate">
+                          <div className="flex min-w-0 justify-between gap-2">
+                            <p className="min-w-0 font-medium leading-5 text-foreground text-sm truncate">
                               {l.title}
                             </p>
-                            <span className="text-xs font-mono text-foreground shrink-0">
+                            <span className="text-xs font-mono leading-5 text-foreground shrink-0">
                               {formatPriceCents(l.priceCents, l.rateType)}
                             </span>
                           </div>
-                          <p className="text-xs text-muted-foreground capitalize">
+                          <p className="text-xs leading-4 text-muted-foreground capitalize truncate">
                             {l.serviceType.replace(/_/g, ' ')}
                           </p>
                           {l.description && (
-                            <p className="text-xs text-muted-foreground line-clamp-2">
+                            <p className="text-xs leading-4 text-muted-foreground line-clamp-2 break-words">
                               {l.description}
                             </p>
                           )}
@@ -813,6 +814,7 @@ export default function ProNetworxProfilePage() {
                   </CardContent>
                 </Card>
               )}
+              </div>
             </div>
           </div>
           )}
