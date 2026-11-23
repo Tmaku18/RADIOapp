@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-const POLL_MS = 15_000;
+const POLL_MS = 60_000;
 
 export type PlatformLiveStats = {
   liveListeners: number;
@@ -29,8 +29,8 @@ export function usePlatformLiveStats(initial: PlatformLiveStats): PlatformLiveSt
     const poll = async () => {
       try {
         const response = await fetch(
-          `/api/analytics/platform/live?t=${Date.now()}`,
-          { cache: 'no-store' },
+          '/api/analytics/platform/live',
+          { cache: 'default' },
         );
         if (!response.ok || cancelled) return;
         const data = (await response.json()) as LiveStatsResponse;

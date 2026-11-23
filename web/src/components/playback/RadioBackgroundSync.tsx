@@ -15,9 +15,9 @@ import { setLastRadioStationId } from '@/lib/playback-preferences';
 import { DEFAULT_STATION_ID } from '@/data/station-map';
 import { usePlaybackOptional } from './PlaybackProvider';
 
-const BACKGROUND_POLL_MS = 10000;
-const HIDDEN_TAB_POLL_MS = 5000;
-const HIDDEN_MOBILE_POLL_MS = 3000;
+const BACKGROUND_POLL_MS = 20000;
+const HIDDEN_TAB_POLL_MS = 60000;
+const HIDDEN_MOBILE_POLL_MS = 60000;
 
 /** Cold start always tunes Ready Now; mid-session switches still update last-station. */
 function resolveBootstrapStationId(_pathname: string | null): string {

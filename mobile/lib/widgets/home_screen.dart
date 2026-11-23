@@ -324,7 +324,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           IndexedStack(
             index: safeIndex,
             children: [
-              aboveBar(
+              TickerMode(
+                enabled: safeIndex == 0 && !_sheetCovers,
+                child: aboveBar(
                 NetworxHomeScreen(
                   onOpenNavDrawer: _openNavDrawer,
                   onOpenRadio: () => _selectTab(_tabRadio),
@@ -341,6 +343,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           AppRoutes.proNetworxShell,
                         ),
                 ),
+              ),
               ),
               // Radio is the sheet above this stack, so this slot stays empty
               // and there is only one PlayerScreen.
@@ -388,7 +391,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               );
             },
             child: _playerEverOpened
-                ? GestureDetector(
+                ? TickerMode(
+                    enabled: _sheetCovers,
+                    child: GestureDetector(
                     onVerticalDragUpdate: (details) =>
                         _applySheetDelta(details.delta.dy),
                     onVerticalDragEnd: (details) =>
@@ -400,7 +405,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       onUpload: _openUpload,
                       bottomOverlay: navHeight + safeBottom,
                     ),
-                  )
+                  ),
+                )
                 : const SizedBox.shrink(),
           ),
         ],

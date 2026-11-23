@@ -117,6 +117,7 @@ describe('FirebaseAuthGuard', () => {
       email: 'test@example.com',
       emailVerified: true,
       dbRole: 'listener',
+      dbUserId: 'user-id',
     });
   });
 });

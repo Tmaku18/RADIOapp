@@ -168,7 +168,10 @@ export class RadioController {
       body,
     );
     // Reflect this listener in the live count without waiting out the cache TTL.
-    if (body.songId) this.radioService.invalidateListenerCount(body.songId);
+    if (body.songId) {
+      this.radioService.invalidateListenerCount(body.songId);
+      void this.radioService.noteLiveListener(body.songId);
+    }
     return result;
   }
 

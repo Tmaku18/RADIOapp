@@ -1,4 +1,5 @@
-import Hls from 'hls.js';
+import type Hls from 'hls.js';
+import { loadHls } from '@/lib/load-hls';
 import { createClient, type RealtimeChannel, type SupabaseClient } from '@supabase/supabase-js';
 import { canPlayNativeHls } from '@/lib/browser-audio';
 
@@ -334,30 +335,39 @@ function attachOverlayLegacyHls(
     overlayAudio.src = hlsUrl;
     overlayAudio.addEventListener('canplay', startPlayback, { once: true });
     if (autoPlay) playOverlayWithAutoplayFallback(controller);
-  } else if (Hls.isSupported()) {
-    const hls = new Hls({
-      enableWorker: true,
-      lowLatencyMode: true,
-      liveSyncDurationCount: 3,
-    });
-    hls.loadSource(hlsUrl);
-    hls.attachMedia(overlayAudio);
-    hls.on(Hls.Events.MANIFEST_PARSED, startPlayback);
-    hls.on(Hls.Events.ERROR, (_, data) => {
-      if (!data.fatal) return;
-      hls.destroy();
-      hlsRef.current = null;
-      window.setTimeout(() => {
-        if (overlayAttachState.get(overlayAudio)?.url === hlsUrl) {
-          attachOverlayStream(controller, hlsUrl, autoPlay);
-        }
-      }, 2000);
-    });
-    hlsRef.current = hls;
   } else {
-    overlayAudio.src = hlsUrl;
-    overlayAudio.addEventListener('canplay', startPlayback, { once: true });
-    if (autoPlay) overlayAudio.play().catch(() => undefined);
+    void loadHls()
+      .then((Hls) => {
+        if (!Hls.isSupported()) {
+          overlayAudio.src = hlsUrl;
+          overlayAudio.addEventListener('canplay', startPlayback, { once: true });
+          if (autoPlay) overlayAudio.play().catch(() => undefined);
+          return;
+        }
+        const hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: true,
+          liveSyncDurationCount: 3,
+        });
+        hls.loadSource(hlsUrl);
+        hls.attachMedia(overlayAudio);
+        hls.on(Hls.Events.MANIFEST_PARSED, startPlayback);
+        hls.on(Hls.Events.ERROR, (_, data) => {
+          if (!data.fatal) return;
+          hls.destroy();
+          hlsRef.current = null;
+          window.setTimeout(() => {
+            if (overlayAttachState.get(overlayAudio)?.url === hlsUrl) {
+              attachOverlayStream(controller, hlsUrl, autoPlay);
+            }
+          }, 2000);
+        });
+        hlsRef.current = hls;
+      })
+      .catch(() => {
+        overlayAudio.src = hlsUrl;
+        overlayAudio.addEventListener('canplay', startPlayback, { once: true });
+      });
   }
 }
 

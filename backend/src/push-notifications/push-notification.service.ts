@@ -336,6 +336,7 @@ export class PushNotificationService {
           message: 'You are LIVE now! Check out the chat reactions.',
         },
       });
+      await supabase.removeChannel(channel);
       this.logger.debug(`Broadcasted "Live Now" to artist ${song.artist_id}`);
     } catch (error) {
       this.logger.warn(`Failed to broadcast "Live Now": ${error.message}`);

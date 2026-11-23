@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { getSupabaseClient } from '../config/supabase.config';
+import { putR2Object, r2PublicUrl } from '../common/r2-storage';
 import { ImageModerationService } from '../moderation/image-moderation.service';
 import * as crypto from 'crypto';
 
@@ -467,6 +468,17 @@ export class UploadsService {
       const { data: urlData } = supabase.storage
         .from(bucketName)
         .getPublicUrl(data.path);
+      try {
+        await putR2Object(bucketName, data.path, file.buffer, file.mimetype);
+        const mirrored = r2PublicUrl(bucketName, data.path);
+        if (mirrored) return mirrored;
+      } catch (mirrorError) {
+        this.logger.warn(
+          `R2 mirror skipped for ${bucketName}/${data.path}: ${
+            mirrorError instanceof Error ? mirrorError.message : mirrorError
+          }`,
+        );
+      }
       return urlData.publicUrl;
     }
 

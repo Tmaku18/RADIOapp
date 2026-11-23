@@ -300,9 +300,11 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
   void _schedulePoll() {
     _pollTimer?.cancel();
     if (!_isRadioActive || playerScreenActive) return;
+    // Backgrounded apps poll less often. The station still advances on the
+    // server; catching up on resume is enough.
     final interval = _appInBackground
-        ? const Duration(seconds: 5)
-        : const Duration(seconds: 10);
+        ? const Duration(seconds: 45)
+        : const Duration(seconds: 20);
     _pollTimer = Timer.periodic(interval, (_) => unawaited(_syncCurrentTrack()));
   }
 

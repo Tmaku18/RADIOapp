@@ -78,7 +78,7 @@ async function getHomepageData() {
           liveListeners?: number;
           listens?: number;
           earsReached?: number;
-        }>(`${baseUrl}/api/analytics/platform/live`, 5000, { revalidate: 0 }),
+        }>(`${baseUrl}/api/analytics/platform/live`, 5000, { revalidate: 60 }),
         fetchTrending(baseUrl),
       ]);
       if (!platform && !live && !trending) continue;

@@ -78,22 +78,26 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
     Map<String, dynamic>? stats;
     final auth = Provider.of<AuthService>(context, listen: false);
     try {
-      var profile = await auth.getUserProfile();
+      final results = await Future.wait([
+        auth.getUserProfile(),
+        _analytics.getPlatformStats(),
+      ]);
+      var profile = results[0] as app_user.User?;
+      stats = results[1] as Map<String, dynamic>?;
       if (_isFallbackProfile(profile)) {
         await auth.refreshIdToken();
-        profile = await auth.getUserProfile();
+        profile = await auth.getUserProfile(force: true);
       }
       if (!_isFallbackProfile(profile)) {
         role = profile?.role ?? role;
         makerRoles = profile?.userRoles ?? const [];
       }
     } catch (_) {
-      // Keep the last known role so a refresh still picks the right bars.
-    }
-    try {
-      stats = await _analytics.getPlatformStats();
-    } catch (_) {
-      stats = null;
+      try {
+        stats = await _analytics.getPlatformStats();
+      } catch (_) {
+        stats = null;
+      }
     }
     if (!mounted) return;
     var personalSongs = _personalSongs;
@@ -386,7 +390,7 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
     final auth = Provider.of<AuthService>(context, listen: false);
 
     return FutureBuilder(
-      future: auth.getUserProfile(),
+      future: auth.getUserProfile(), // cached; rebuilds do not refetch
       builder: (context, snapshot) {
         final user = snapshot.data;
         final role = user?.role;
@@ -642,6 +646,7 @@ class _WelcomeBanner extends StatelessWidget {
         child: Image.asset(
           'assets/images/branding/welcome-to-the-networx.png',
           fit: BoxFit.cover,
+          cacheWidth: 960,
           errorBuilder: (_, _, _) => ColoredBox(
             color: DimensionTokens.bgSurface,
             child: Center(

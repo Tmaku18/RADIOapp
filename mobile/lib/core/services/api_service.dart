@@ -128,6 +128,7 @@ class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
   ApiService._internal();
+  final http.Client _client = http.Client();
   static const Duration _requestTimeout = Duration(seconds: 15);
   /// Feed media can reach 1GB, which outlasts any short request timeout on a
   /// cellular connection. The stall watchdog below is what actually catches a
@@ -232,6 +233,17 @@ class ApiService {
       if (!urls.contains(trimmed)) {
         urls.add(trimmed);
       }
+    }
+
+    // After the first success, only retry that host plus the direct API and
+    // the website. Walking every candidate on each call was the slow path.
+    final resolved = _resolvedBaseUrl;
+    if (resolved != null && resolved.isNotEmpty && !preferDirectBackend) {
+      add(resolved);
+      add(env('API_DIRECT_URL'));
+      add(_directBackendFallback);
+      add(baseUrl);
+      return urls;
     }
 
     // Railway first for every request so a disabled Vercel site cannot take
@@ -354,7 +366,7 @@ class ApiService {
   /// GET request - returns dynamic (can be Map or List depending on endpoint)
   Future<dynamic> get(String endpoint) async {
     return _withFallback(
-      (base, headers) => http.get(
+      (base, headers) => _client.get(
         Uri.parse('$base/api/$endpoint'),
         headers: headers,
       ),
@@ -371,7 +383,7 @@ class ApiService {
     Duration? timeout,
   }) async {
     return _withFallback(
-      (base, headers) => http.post(
+      (base, headers) => _client.post(
         Uri.parse('$base/api/$endpoint'),
         headers: headers,
         body: body != null ? json.encode(body) : null,
@@ -389,7 +401,7 @@ class ApiService {
     Map<String, dynamic>? body,
   ) async {
     return _withFallback(
-      (base, headers) => http.put(
+      (base, headers) => _client.put(
         Uri.parse('$base/api/$endpoint'),
         headers: headers,
         body: body != null ? json.encode(body) : null,
@@ -405,7 +417,7 @@ class ApiService {
     Map<String, dynamic>? body,
   ) async {
     return _withFallback(
-      (base, headers) => http.patch(
+      (base, headers) => _client.patch(
         Uri.parse('$base/api/$endpoint'),
         headers: headers,
         body: body != null ? json.encode(body) : null,
@@ -418,7 +430,7 @@ class ApiService {
   /// DELETE request - returns dynamic (can be Map or List depending on endpoint)
   Future<dynamic> delete(String endpoint) async {
     return _withFallback(
-      (base, headers) => http.delete(
+      (base, headers) => _client.delete(
         Uri.parse('$base/api/$endpoint'),
         headers: headers,
       ),

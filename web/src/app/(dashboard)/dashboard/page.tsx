@@ -372,7 +372,7 @@ export default function DashboardPage() {
     void check();
     const retry = setInterval(() => {
       void check();
-    }, 10000);
+    }, 60000);
     return () => {
       cancelled = true;
       clearInterval(retry);
@@ -406,58 +406,69 @@ export default function DashboardPage() {
       try {
         const next: DashboardStats = {};
 
-        try {
-          const platformResponse = await analyticsApi.getPlatformStats();
-          const platform = platformResponse.data as {
-            totalArtists?: number;
-            totalUsers?: number;
-            totalSongs?: number;
-            totalPlays?: number;
-            totalListenCount?: number;
-            listens?: number;
-            earsReached?: number;
-            totalLikes?: number;
-          };
-          next.platform = {
-            totalArtists: platform.totalArtists ?? 0,
-            totalUsers: platform.totalUsers ?? 0,
-            totalSongs: platform.totalSongs ?? 0,
-            totalPlays: platform.totalPlays ?? 0,
-            totalListenCount:
-              platform.listens ??
-              platform.totalListenCount ??
-              0,
-            earsReached: platform.earsReached ?? 0,
-            totalLikes: platform.totalLikes ?? 0,
-          };
-        } catch (platformError) {
-          console.error('Failed to load platform stats:', platformError);
-        }
-
-        if (wantsOwnStats) {
-          try {
-            const artistAnalyticsResponse = await loadOwnAnalytics();
-            const artist = artistAnalyticsResponse.data as {
+        const [platformResult, artistResult, yieldResult] = await Promise.all([
+          analyticsApi.getPlatformStats().then(
+            (platformResponse) => platformResponse.data as {
+              totalArtists?: number;
+              totalUsers?: number;
+              totalSongs?: number;
               totalPlays?: number;
               totalListenCount?: number;
+              listens?: number;
               earsReached?: number;
-              totalSongs?: number;
               totalLikes?: number;
-            };
-            next.artist = {
-              totalPlays: artist.totalPlays ?? 0,
-              totalListenCount: artist.totalListenCount ?? 0,
-              earsReached: artist.earsReached ?? 0,
-              totalSongs: artist.totalSongs ?? 0,
-              totalLikes: artist.totalLikes ?? 0,
-            };
-          } catch (artistError) {
-            console.error('Failed to load personal stats:', artistError);
-          }
+            },
+            (platformError) => {
+              console.error('Failed to load platform stats:', platformError);
+              return null;
+            },
+          ),
+          wantsOwnStats
+            ? loadOwnAnalytics().then(
+                (artistAnalyticsResponse) =>
+                  artistAnalyticsResponse.data as {
+                    totalPlays?: number;
+                    totalListenCount?: number;
+                    earsReached?: number;
+                    totalSongs?: number;
+                    totalLikes?: number;
+                  },
+                (artistError) => {
+                  console.error('Failed to load personal stats:', artistError);
+                  return null;
+                },
+              )
+            : Promise.resolve(null),
+          hasProspectorStats
+            ? prospectorApi.getYield()
+            : Promise.resolve(null),
+        ]);
+
+        if (platformResult) {
+          next.platform = {
+            totalArtists: platformResult.totalArtists ?? 0,
+            totalUsers: platformResult.totalUsers ?? 0,
+            totalSongs: platformResult.totalSongs ?? 0,
+            totalPlays: platformResult.totalPlays ?? 0,
+            totalListenCount:
+              platformResult.listens ?? platformResult.totalListenCount ?? 0,
+            earsReached: platformResult.earsReached ?? 0,
+            totalLikes: platformResult.totalLikes ?? 0,
+          };
         }
 
-        if (hasProspectorStats) {
-          const yieldResponse = await prospectorApi.getYield();
+        if (artistResult) {
+          next.artist = {
+            totalPlays: artistResult.totalPlays ?? 0,
+            totalListenCount: artistResult.totalListenCount ?? 0,
+            earsReached: artistResult.earsReached ?? 0,
+            totalSongs: artistResult.totalSongs ?? 0,
+            totalLikes: artistResult.totalLikes ?? 0,
+          };
+        }
+
+        if (yieldResult) {
+          const yieldResponse = yieldResult;
           const yieldData = yieldResponse.data as {
             balanceCents?: number;
             tier?: string;

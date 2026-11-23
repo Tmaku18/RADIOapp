@@ -119,9 +119,9 @@ Future<void> _startApp() async {
       debugPrint('Google Sign-In init failed (will retry on sign-in): $e');
     }
 
-    // Initialize push notifications after Firebase (lazy permission strategy)
-    await PushNotificationService().initialize();
-    debugPrint('Push notifications initialized');
+    // Don't block the first frame on the APNs token. Registration retries
+    // after login, when a real auth token exists.
+    unawaited(PushNotificationService().initialize());
   } catch (e) {
     debugPrint('Error initializing Firebase: $e');
     debugPrint('App will continue but authentication features will not work');

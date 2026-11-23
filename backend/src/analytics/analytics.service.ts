@@ -769,9 +769,12 @@ export class AnalyticsService {
       }
     }
 
-    const viewCountBySongId = await this.getProfileViewCounts(songIds);
-    const earsBySongId = await this.getEarsReachedBySongId(songIds);
-    const listensBySongId = await this.getListenCountBySongId(songIds);
+    const [viewCountBySongId, earsBySongId, listensBySongId] =
+      await Promise.all([
+        this.getProfileViewCounts(songIds),
+        this.getEarsReachedBySongId(songIds),
+        this.getListenCountBySongId(songIds),
+      ]);
     listenCountBySongId.clear();
     for (const id of songIds) {
       listenCountBySongId.set(id, listensBySongId.get(id) ?? 0);
@@ -785,12 +788,15 @@ export class AnalyticsService {
       (sum, value) => sum + value,
       0,
     );
-    const artistEarsReached = scopedSongId
-      ? (earsBySongId.get(songIds[0]) ?? 0)
-      : await this.getArtistEarsReached(artistId);
-    const artistListenCount = scopedSongId
-      ? (listensBySongId.get(songIds[0]) ?? 0)
-      : await this.getArtistListenCount(artistId);
+    const [artistEarsReached, artistListenCount] = scopedSongId
+      ? [
+          earsBySongId.get(songIds[0]) ?? 0,
+          listensBySongId.get(songIds[0]) ?? 0,
+        ]
+      : await Promise.all([
+          this.getArtistEarsReached(artistId),
+          this.getArtistListenCount(artistId),
+        ]);
     const totalListenCount = artistListenCount ?? summedSongListens;
     const earsReached = artistEarsReached ?? summedSongEars;
     const totalPaidPlays = scopedSongs.reduce(

@@ -233,7 +233,7 @@ export default function DashboardLayout({
     void check();
     const retry = setInterval(() => {
       void check();
-    }, 10000);
+    }, 60000);
     return () => {
       cancelled = true;
       clearInterval(retry);

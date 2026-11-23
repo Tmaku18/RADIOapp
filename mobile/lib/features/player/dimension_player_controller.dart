@@ -176,7 +176,7 @@ class DimensionPlayerController extends ChangeNotifier {
     _pausedListener = _onPausedChanged;
     AudioPlayerService.handler.userPausedNotifier.addListener(_onPausedChanged);
     RadioConnectionMonitor.instance.state.addListener(_onPausedChanged);
-    _tempTimer = Timer.periodic(const Duration(seconds: 7), (_) {
+    _tempTimer = Timer.periodic(const Duration(seconds: 20), (_) {
       unawaited(_refreshTemperature());
     });
     await _loadStoredReaction();

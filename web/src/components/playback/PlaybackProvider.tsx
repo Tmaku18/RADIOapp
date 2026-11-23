@@ -11,7 +11,8 @@ import {
   type MutableRefObject,
   type ReactNode,
 } from 'react';
-import Hls from 'hls.js';
+import type Hls from 'hls.js';
+import { loadHls } from '@/lib/load-hls';
 import type { PlaybackSource, PlaybackState, PlaybackTrack } from './types';
 import { initialPlaybackState } from './types';
 import { canPlayNativeHls, isIosSafari, isSafari } from '@/lib/browser-audio';
@@ -27,7 +28,11 @@ import {
   type DjOverlayState,
 } from '@/lib/dj-booth-listener';
 import { resolveTrackArtworkUrl } from '@/lib/media-artwork';
-import { setLastRadioStationId } from '@/lib/playback-preferences';
+import {
+  readRadioUserMuted,
+  setLastRadioStationId,
+  writeRadioUserMuted,
+} from '@/lib/playback-preferences';
 import { createSafariFftTap, type SafariFftTap } from '@/lib/safari-fft-tap';
 import {
   ANALYSER_BARS,
@@ -69,9 +74,9 @@ type PlaybackActions = {
   /** Radio: sync to server position */
   syncToPosition: (positionSeconds: number) => void;
   /** Radio: soft pause (DVR buffer) */
-  softPause: () => void;
+  softPause: (opts?: { remember?: boolean }) => void;
   /** Radio: resume from soft pause */
-  softResume: () => Promise<void>;
+  softResume: (opts?: { userGesture?: boolean }) => Promise<void>;
   /**
    * Mute live radio while some other sound is audible. Refcounted.
    * Resumes only if this hold is what muted the radio and every hold is released.
@@ -191,6 +196,9 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   // True when the listener muted the radio via the pause button. The stream
   // keeps playing/advancing and stays synced to live; only output is silenced.
   const mutedByUserRef = useRef(false);
+  // Track changes and page opens fire play events. Ignore those while the
+  // listener's mute is still settling on the new element.
+  const ignoreUnmuteUntilRef = useRef(0);
   // Page media (clips, recorded takes, story video) that is currently audible.
   // `new Audio()` is not in the document, so those callers use the hold API.
   const externalPlayingRef = useRef<Set<HTMLMediaElement>>(new Set());
@@ -593,28 +601,48 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         if (canPlayNativeHls(audio)) {
           audio.src = url;
           audio.addEventListener('canplay', onReady, { once: true });
-        } else if (Hls.isSupported()) {
-          const hls = new Hls({
-            enableWorker: true,
-            lowLatencyMode: true,
-            xhrSetup: (xhr) => {
-              xhr.withCredentials = false;
-            },
-          });
-          hls.loadSource(url);
-          hls.attachMedia(audio);
-          hls.on(Hls.Events.MANIFEST_PARSED, onReady);
-          hls.on(Hls.Events.ERROR, (_, data) => {
-            if (data.fatal) {
-              setState((s) => ({ ...s, error: 'Stream error', isLoading: false }));
-              if (source === 'radio' && onRadioTrackEndedRef.current) {
-                onRadioTrackEndedRef.current();
-              }
-            }
-          });
-          hlsBySlotRef.current[slot] = hls;
         } else {
-          setState((s) => ({ ...s, error: 'HLS not supported', isLoading: false }));
+          void loadHls()
+            .then((Hls) => {
+              if (!Hls.isSupported()) {
+                setState((s) => ({
+                  ...s,
+                  error: 'HLS not supported',
+                  isLoading: false,
+                }));
+                return;
+              }
+              const hls = new Hls({
+                enableWorker: true,
+                lowLatencyMode: true,
+                xhrSetup: (xhr) => {
+                  xhr.withCredentials = false;
+                },
+              });
+              hls.loadSource(url);
+              hls.attachMedia(audio);
+              hls.on(Hls.Events.MANIFEST_PARSED, onReady);
+              hls.on(Hls.Events.ERROR, (_, data) => {
+                if (data.fatal) {
+                  setState((s) => ({
+                    ...s,
+                    error: 'Stream error',
+                    isLoading: false,
+                  }));
+                  if (source === 'radio' && onRadioTrackEndedRef.current) {
+                    onRadioTrackEndedRef.current();
+                  }
+                }
+              });
+              hlsBySlotRef.current[slot] = hls;
+            })
+            .catch(() => {
+              setState((s) => ({
+                ...s,
+                error: 'HLS not supported',
+                isLoading: false,
+              }));
+            });
         }
       } else {
         audio.src = url;
@@ -1235,15 +1263,16 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       const outgoing = getActiveAudio();
       if (!pair || !outgoing) return;
 
-      // Switching away from radio (e.g. discography/refinery) clears the radio
-      // mute so other sources aren't silenced.
+      // Leaving the station (a clip, a Pro post, a preview) should be audible,
+      // but the listener's mute comes back with the station.
       if (source !== 'radio' && mutedByUserRef.current) {
+        writeRadioUserMuted(true);
         mutedByUserRef.current = false;
         setState((s) => ({ ...s, isMuted: false }));
       }
-      // Tuning back into live radio (from library preview, etc.) should be audible.
-      if (source === 'radio' && sourceRef.current !== 'radio') {
-        mutedByUserRef.current = false;
+      if (source === 'radio' && readRadioUserMuted()) {
+        mutedByUserRef.current = true;
+        ignoreUnmuteUntilRef.current = Date.now() + 2500;
       }
 
       // Join the radio at its live offset so all listeners stay aligned. Ignore
@@ -1293,8 +1322,8 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         !!previousRadioId &&
         !!track.radioId &&
         previousRadioId !== track.radioId;
-      if (stationChanged) {
-        mutedByUserRef.current = false;
+      if (stationChanged && readRadioUserMuted()) {
+        mutedByUserRef.current = true;
       }
       if (source === 'radio' && previousTrackId && previousTrackId !== track.id) {
         recentlyAdvancedFromRef.current = { id: previousTrackId, at: Date.now() };
@@ -1589,7 +1618,8 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   // Radio "pause" = mute while staying live. The stream keeps playing and
   // advancing on the server timeline (so every device stays in sync); we only
   // silence the output. Unmuting rejoins instantly with no catch-up/DVR drift.
-  const softPause = useCallback(() => {
+  const softPause = useCallback((opts?: { remember?: boolean }) => {
+    if (opts?.remember) writeRadioUserMuted(true);
     mutedByUserRef.current = true;
     // Stop any in-flight background handoff so it can't un-silence us.
     resetHandoffState();
@@ -1615,9 +1645,16 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     setState((s) => ({ ...s, isMuted: true, isLive: true }));
   }, [resetHandoffState, getActiveAudio, playAudio]);
 
-  const softResume = useCallback(async () => {
+  const softResume = useCallback(async (opts?: { userGesture?: boolean }) => {
     // Another clip, video, or recording is still audible. Stay muted.
     if (externalHoldCountRef.current > 0) return;
+    const sticky = readRadioUserMuted();
+    // Page opens, station changes, and the next song all try to resume.
+    // Only the listener's unmute button (or a play tap after the handoff)
+    // may turn the station back up.
+    if (sticky && !opts?.userGesture) return;
+    if (sticky && Date.now() < ignoreUnmuteUntilRef.current) return;
+    if (opts?.userGesture) writeRadioUserMuted(false);
     mutedByUserRef.current = false;
     notifyUserPlaybackGesture();
     await unlockWebAudioContext(analyserCtxRef);
@@ -1667,15 +1704,15 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     if (s.source === 'radio') {
       await unlockWebAudioContext(analyserCtxRef);
       if (s.isMuted) {
-        await softResume();
+        await softResume({ userGesture: true });
         return;
       }
       const audio = getActiveAudio();
       const actuallyPlaying = !!(audio && !audio.paused && !audio.ended);
       if (s.isPlaying && actuallyPlaying) {
-        softPause();
+        softPause({ remember: true });
       } else {
-        await softResume();
+        await softResume({ userGesture: true });
       }
       return;
     }

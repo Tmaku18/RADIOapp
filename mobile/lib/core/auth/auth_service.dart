@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:flutter/widgets.dart';
 import '../services/api_service.dart';
@@ -45,6 +46,16 @@ class AuthService extends ChangeNotifier with WidgetsBindingObserver {
       '479427085382-k3nmr3f99lg4hlne6u60naephqn4pu6i.apps.googleusercontent.com';
   final ApiService _apiService = ApiService();
   bool _lifecycleObserverAttached = false;
+  bool _guest = false;
+  bool _guestReady = false;
+
+  static const guestPrefKey = 'networx_guest';
+
+  /// Signed-out visitor who chose Continue as guest.
+  bool get isGuest => _guest && currentUser == null;
+
+  /// False until the stored guest flag has been read.
+  bool get guestReady => _guestReady;
 
   AuthService({this.firebaseInitialized = true}) {
     // Only initialize FirebaseAuth if Firebase is initialized
@@ -69,6 +80,36 @@ class AuthService extends ChangeNotifier with WidgetsBindingObserver {
         _auth = null;
       }
     }
+    unawaited(_loadGuestFlag());
+  }
+
+  Future<void> _loadGuestFlag() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _guest = prefs.getBool(guestPrefKey) == true;
+    } catch (_) {}
+    _guestReady = true;
+    notifyListeners();
+  }
+
+  Future<void> continueAsGuest() async {
+    _guest = true;
+    _guestReady = true;
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(guestPrefKey, true);
+    } catch (_) {}
+  }
+
+  Future<void> clearGuest() async {
+    if (!_guest) return;
+    _guest = false;
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(guestPrefKey);
+    } catch (_) {}
   }
 
   /// Keep the API Bearer warm when returning from background.
@@ -484,6 +525,7 @@ class AuthService extends ChangeNotifier with WidgetsBindingObserver {
       }
     }
     _apiService.setAuthToken(null);
+    await clearGuest();
     notifyListeners(); // Notify listeners to trigger UI rebuild (e.g., AuthWrapper)
   }
 
@@ -551,24 +593,51 @@ class AuthService extends ChangeNotifier with WidgetsBindingObserver {
     return await _getUserProfile();
   }
 
-  Future<app_user.User?> getUserProfile() async {
+  app_user.User? _cachedProfile;
+  DateTime? _cachedProfileAt;
+  Future<app_user.User?>? _profileInFlight;
+  bool _pushEnsureStarted = false;
+
+  Future<app_user.User?> getUserProfile({bool force = false}) async {
     if (_auth == null || _auth!.currentUser == null) return null;
+    if (!force &&
+        _cachedProfile != null &&
+        _cachedProfileAt != null &&
+        DateTime.now().difference(_cachedProfileAt!) <
+            const Duration(seconds: 45)) {
+      return _cachedProfile;
+    }
+    if (!force && _profileInFlight != null) return _profileInFlight;
     final firebaseUser = _auth!.currentUser!;
+    final run = () async {
+      try {
+        final token = await firebaseUser.getIdToken();
+        _apiService.setAuthToken(token);
+        final profile =
+            await _getUserProfile().timeout(const Duration(seconds: 10));
+        if (profile != null) {
+          _cachedProfile = profile;
+          _cachedProfileAt = DateTime.now();
+        }
+        if (!_pushEnsureStarted) {
+          _pushEnsureStarted = true;
+          unawaited(PushNotificationService().ensureRegisteredAfterAuth());
+        }
+        return profile;
+      } on TimeoutException {
+        debugPrint('getUserProfile: backend timed out, using fallback user.');
+        return _buildFallbackUser(firebaseUser);
+      } catch (e) {
+        debugPrint('Error getting user profile: $e');
+        return _buildFallbackUser(firebaseUser);
+      }
+    };
+    final future = run();
+    _profileInFlight = future;
     try {
-      final token = await firebaseUser.getIdToken();
-      _apiService.setAuthToken(token);
-      // Cap the call so the UI never hangs on a slow/cold backend; fall back to
-      // a Firebase-only profile if the backend is unreachable in time.
-      final profile =
-          await _getUserProfile().timeout(const Duration(seconds: 10));
-      unawaited(PushNotificationService().ensureRegisteredAfterAuth());
-      return profile;
-    } on TimeoutException {
-      debugPrint('getUserProfile: backend timed out, using fallback user.');
-      return _buildFallbackUser(firebaseUser);
-    } catch (e) {
-      debugPrint('Error getting user profile: $e');
-      return _buildFallbackUser(firebaseUser);
+      return await future;
+    } finally {
+      if (identical(_profileInFlight, future)) _profileInFlight = null;
     }
   }
 

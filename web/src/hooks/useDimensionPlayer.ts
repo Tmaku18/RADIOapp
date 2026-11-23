@@ -204,7 +204,7 @@ export function useDimensionPlayer(): DimensionPlayerModel {
     void load();
     const interval = setInterval(() => {
       if (!cancelled) void refreshTemperature();
-    }, 7000);
+    }, 20000);
     return () => {
       cancelled = true;
       clearInterval(interval);

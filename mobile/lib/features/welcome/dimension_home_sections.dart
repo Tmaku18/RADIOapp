@@ -50,7 +50,7 @@ class _DimensionHomeSectionsState extends State<DimensionHomeSections> {
   void initState() {
     super.initState();
     _liveStats = widget.stats;
-    _livePoll = Timer.periodic(const Duration(seconds: 15), (_) => _pollLive());
+    _livePoll = Timer.periodic(const Duration(seconds: 60), (_) => _pollLive());
   }
 
   Future<void> _pollLive() async {

@@ -35,7 +35,7 @@ class RadioPresenceService {
   }
 
   void start() {
-    _timer ??= Timer.periodic(const Duration(seconds: 30), (_) {
+    _timer ??= Timer.periodic(const Duration(seconds: 60), (_) {
       unawaited(_tick());
     });
     unawaited(_tick());

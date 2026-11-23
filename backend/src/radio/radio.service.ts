@@ -215,6 +215,9 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     { items: { id: string; _stackId: string; artistId: string }[]; updatedAt: number }
   >();
   private readonly freeRotationPoolCacheTtlMs = 30 * 1000;
+  /** Approved song lists used on every station advance. Short TTL so a new upload shows up quickly. */
+  private readonly songPoolCache = new Map<string, { songs: any[]; at: number }>();
+  private readonly songPoolCacheTtlMs = 20 * 1000;
   private backgroundRotationTimer: ReturnType<typeof setInterval> | null = null;
   private backgroundTickInFlight = false;
   private readonly backgroundPollMs = parseInt(
@@ -322,6 +325,22 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     } else {
       this.freeRotationPoolCache.clear();
     }
+    this.songPoolCache.clear();
+  }
+
+  private async cachedSongPool(
+    key: string,
+    load: () => Promise<any[] | null>,
+  ): Promise<any[] | null> {
+    const hit = this.songPoolCache.get(key);
+    if (hit && Date.now() - hit.at < this.songPoolCacheTtlMs) {
+      return hit.songs;
+    }
+    const songs = await load();
+    if (songs && songs.length > 0) {
+      this.songPoolCache.set(key, { songs, at: Date.now() });
+    }
+    return songs;
   }
 
   /**
@@ -565,6 +584,8 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     playId?: string | null;
     songId: string;
     startedAtIso?: string | null;
+    /** Skip the temperature RPC when nobody is listening. */
+    refreshCache?: boolean;
   }): Promise<{
     fireVotes: number;
     shitVotes: number;
@@ -594,6 +615,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     songId: string,
     playId: string | null,
     startedAtIso: string | null,
+    refreshCache = true,
   ): Promise<{
     fireVotes: number;
     shitVotes: number;
@@ -605,7 +627,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     peerRating?: number | null;
   }> {
     return this.withTimeoutFallback(
-      this.getSongTemperature({ playId, songId, startedAtIso }),
+      this.getSongTemperature({ playId, songId, startedAtIso, refreshCache }),
       {
         fireVotes: 0,
         shitVotes: 0,
@@ -621,6 +643,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     playId?: string | null;
     songId: string;
     startedAtIso?: string | null;
+    refreshCache?: boolean;
   }): Promise<{
     fireVotes: number;
     shitVotes: number;
@@ -635,17 +658,19 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     const playId = args.playId?.trim();
     const baseline = RadioService.TEMP_BASELINE;
 
-    const refreshRes = await supabase.rpc('refresh_song_temperature', {
-      p_song_id: args.songId,
-    });
-    if (
-      refreshRes.error &&
-      !this.isMissingSongTemperatureTable(refreshRes.error) &&
-      !this.isMissingRefreshSongTemperatureFunction(refreshRes.error)
-    ) {
-      this.logger.warn(
-        `Failed to refresh song_temperature cache: ${refreshRes.error.message}`,
-      );
+    if (args.refreshCache !== false) {
+      const refreshRes = await supabase.rpc('refresh_song_temperature', {
+        p_song_id: args.songId,
+      });
+      if (
+        refreshRes.error &&
+        !this.isMissingSongTemperatureTable(refreshRes.error) &&
+        !this.isMissingRefreshSongTemperatureFunction(refreshRes.error)
+      ) {
+        this.logger.warn(
+          `Failed to refresh song_temperature cache: ${refreshRes.error.message}`,
+        );
+      }
     }
 
     let songTemperatureRes = await supabase
@@ -1586,6 +1611,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
 
     // Refresh the cached count so this listener shows up on the next read.
     this.invalidateListenerCount(songId);
+    void this.noteLiveListener(songId);
   }
 
   /**
@@ -2211,19 +2237,22 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     const supabase = getSupabaseClient();
     const stationId = normalizeSongStationId(radioId);
 
-    const creditedQuery = this.applySongStationScope(
-      supabase
-        .from('songs')
-        .select('*')
-        .eq('status', 'approved')
-        .eq('is_public', true)
-        .gt('credits_remaining', 0),
-      stationId,
-    );
-    const { data: songs } = await this.applyExplicitContentScope(
-      creditedQuery,
-      stationId,
-    );
+    const songs = await this.cachedSongPool(`credited:${stationId}`, async () => {
+      const creditedQuery = this.applySongStationScope(
+        supabase
+          .from('songs')
+          .select('*')
+          .eq('status', 'approved')
+          .eq('is_public', true)
+          .gt('credits_remaining', 0),
+        stationId,
+      );
+      const { data } = await this.applyExplicitContentScope(
+        creditedQuery,
+        stationId,
+      );
+      return data;
+    });
 
     if (!songs || songs.length === 0) return null;
 
@@ -2262,20 +2291,23 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     const supabase = getSupabaseClient();
     const stationId = normalizeSongStationId(radioId);
 
-    const trialQuery = this.applySongStationScope(
-      supabase
-        .from('songs')
-        .select('*')
-        .eq('status', 'approved')
-        .eq('is_public', true)
-        .gt('trial_plays_remaining', 0)
-        .lte('credits_remaining', 0),
-      stationId,
-    );
-    const { data: songs } = await this.applyExplicitContentScope(
-      trialQuery,
-      stationId,
-    );
+    const songs = await this.cachedSongPool(`trial:${stationId}`, async () => {
+      const trialQuery = this.applySongStationScope(
+        supabase
+          .from('songs')
+          .select('*')
+          .eq('status', 'approved')
+          .eq('is_public', true)
+          .gt('trial_plays_remaining', 0)
+          .lte('credits_remaining', 0),
+        stationId,
+      );
+      const { data } = await this.applyExplicitContentScope(
+        trialQuery,
+        stationId,
+      );
+      return data;
+    });
 
     if (!songs || songs.length === 0) return null;
     const webPlayableSongs = songs.filter((song) =>
@@ -2304,21 +2336,24 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     const supabase = getSupabaseClient();
     const stationId = normalizeSongStationId(radioId);
 
-    const optInQuery = this.applySongStationScope(
-      supabase
-        .from('songs')
-        .select('*')
-        .eq('status', 'approved')
-        .eq('is_public', true)
-        .eq('admin_free_rotation', true)
-        .lte('trial_plays_remaining', 0)
-        .lte('credits_remaining', 0),
-      stationId,
-    );
-    const { data: songs } = await this.applyExplicitContentScope(
-      optInQuery,
-      stationId,
-    );
+    const songs = await this.cachedSongPool(`optin:${stationId}`, async () => {
+      const optInQuery = this.applySongStationScope(
+        supabase
+          .from('songs')
+          .select('*')
+          .eq('status', 'approved')
+          .eq('is_public', true)
+          .eq('admin_free_rotation', true)
+          .lte('trial_plays_remaining', 0)
+          .lte('credits_remaining', 0),
+        stationId,
+      );
+      const { data } = await this.applyExplicitContentScope(
+        optInQuery,
+        stationId,
+      );
+      return data;
+    });
 
     if (!songs || songs.length === 0) return null;
     const webPlayableSongs = songs.filter((song) =>
@@ -3266,6 +3301,75 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * True when someone heartbeated the song this station is already playing.
+   * Redis listener counters are unused, so presence is the live signal.
+   * Unknown Redis state keeps metering so an outage does not drop real plays.
+   */
+  private async stationHasLiveListeners(radioId: string): Promise<boolean> {
+    const state = await this.radioStateService.peekCurrentState(radioId);
+    if (state === undefined) return true;
+    const songId = state?.songId?.trim();
+    if (!songId) return false;
+    const count = await this.getActiveListenerCountForSong(songId);
+    return count > 0;
+  }
+
+  /**
+   * First listener on a song that advanced while the station was empty.
+   * Records one play row so analytics are not blank; does not charge credits
+   * for the silent stretch before they arrived.
+   */
+  async noteLiveListener(songId: string): Promise<void> {
+    const id = songId?.trim();
+    if (!id) return;
+    let radioIds: string[] = [];
+    try {
+      radioIds = await this.getBackgroundRadioIds();
+    } catch {
+      return;
+    }
+    for (const radioId of radioIds) {
+      const state = await this.radioStateService.peekCurrentState(radioId);
+      if (!state?.songId || state.songId !== id) continue;
+      const existing = await this.radioStateService.getCurrentPlayInfo(radioId);
+      if (existing) return;
+      const supabase = getSupabaseClient();
+      const { data: song } = await supabase
+        .from('songs')
+        .select('artist_id')
+        .eq('id', id)
+        .maybeSingle();
+      const startedAt =
+        state.playedAt || new Date(state.startedAt).toISOString();
+      const { data: playRow, error } = await supabase
+        .from('plays')
+        .insert({
+          song_id: id,
+          played_at: startedAt,
+          listener_count: 1,
+        })
+        .select('id')
+        .single();
+      if (error) {
+        this.logger.warn(
+          `Silent-station play backfill failed for ${id}: ${error.message}`,
+        );
+        return;
+      }
+      const artistId = (song as { artist_id?: string | null } | null)?.artist_id;
+      if (playRow?.id && artistId) {
+        await this.radioStateService.setCurrentPlayInfo(
+          playRow.id,
+          artistId,
+          startedAt,
+          radioId,
+        );
+      }
+      return;
+    }
+  }
+
+  /**
    * Play a credited song using pre-charge model (atomic RPC).
    * Also sends "Live Now" notification to the artist and logs the decision.
    */
@@ -3279,18 +3383,23 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     const startedAt = new Date(now).toISOString();
     const durationSeconds = song.duration_seconds || DEFAULT_DURATION_SECONDS;
     const creditsToDeduct = this.calculateCreditsRequired(durationSeconds);
+    const metered = await this.stationHasLiveListeners(radioId);
 
-    // Atomic deduction via RPC (pre-charge)
-    const { data, error } = await supabase.rpc('deduct_play_credits', {
-      p_song_id: song.id,
-      p_credits_required: creditsToDeduct,
-    });
+    // Empty stations keep the clock moving without charging play credits.
+    let creditsDeducted = 0;
+    if (metered) {
+      const { data, error } = await supabase.rpc('deduct_play_credits', {
+        p_song_id: song.id,
+        p_credits_required: creditsToDeduct,
+      });
 
-    if (error || !data?.success) {
-      this.logger.warn(
-        `Failed to deduct credits for ${song.id}: ${error?.message || data?.error}`,
-      );
-      return null;
+      if (error || !data?.success) {
+        this.logger.warn(
+          `Failed to deduct credits for ${song.id}: ${error?.message || data?.error}`,
+        );
+        return null;
+      }
+      creditsDeducted = creditsToDeduct;
     }
 
     await this.setCurrentSong(
@@ -3304,68 +3413,70 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     // Update emoji service with current song for aggregation
     this.emojiService.setCurrentSong(song.id, radioId);
 
-    // Log play decision for transparency
-    const listenerCount =
-      await this.radioStateService.getListenerCount(radioId);
-    await this.radioStateService.logPlayDecision({
-      songId: song.id,
-      selectedAt: startedAt,
-      selectionReason: 'credits',
-      listenerCount,
-      competingSongs,
-    });
-
-    // Log play and set current play for finalization (per-play metrics + "song played" notification)
-    const { data: playRow } = await supabase
-      .from('plays')
-      .insert({
-        song_id: song.id,
-        played_at: startedAt,
-        listener_count: listenerCount,
-      })
-      .select('id')
-      .single();
-    if (playRow?.id && song.artist_id) {
-      await this.radioStateService.setCurrentPlayInfo(
-        playRow.id,
-        song.artist_id,
-        startedAt,
-        radioId,
-      );
-    }
-
-    // deduct_play_credits already increments play_count. Writing it again from
-    // the pre-RPC snapshot would clobber concurrent advances.
-    await supabase
-      .from('songs')
-      .update({
-        paid_play_count: (song.paid_play_count || 0) + 1,
-        last_played_at: startedAt,
-      })
-      .eq('id', song.id);
-
-    // Send "Live Now" notification to artist (Stage 2)
-    try {
-      await this.pushNotificationService.sendLiveNowNotification({
-        id: song.id,
-        title: song.title,
-        artist_id: song.artist_id,
-        artist_name: song.artist_name,
+    let playId: string | null = null;
+    if (metered) {
+      const listenerCount =
+        await this.radioStateService.getListenerCount(radioId);
+      await this.radioStateService.logPlayDecision({
+        songId: song.id,
+        selectedAt: startedAt,
+        selectionReason: 'credits',
+        listenerCount,
+        competingSongs,
       });
-    } catch (e) {
-      this.logger.warn(`Failed to send Live Now notification: ${e.message}`);
-    }
 
-    await this.maybeSendGoLiveNudge(song);
-    this.notifyFollowersSongOnAir(song, radioId);
+      const { data: playRow } = await supabase
+        .from('plays')
+        .insert({
+          song_id: song.id,
+          played_at: startedAt,
+          listener_count: listenerCount,
+        })
+        .select('id')
+        .single();
+      playId = playRow?.id ?? null;
+      if (playRow?.id && song.artist_id) {
+        await this.radioStateService.setCurrentPlayInfo(
+          playRow.id,
+          song.artist_id,
+          startedAt,
+          radioId,
+        );
+      }
+
+      // deduct_play_credits already increments play_count. Writing it again from
+      // the pre-RPC snapshot would clobber concurrent advances.
+      await supabase
+        .from('songs')
+        .update({
+          paid_play_count: (song.paid_play_count || 0) + 1,
+          last_played_at: startedAt,
+        })
+        .eq('id', song.id);
+
+      try {
+        await this.pushNotificationService.sendLiveNowNotification({
+          id: song.id,
+          title: song.title,
+          artist_id: song.artist_id,
+          artist_name: song.artist_name,
+        });
+      } catch (e) {
+        this.logger.warn(`Failed to send Live Now notification: ${e.message}`);
+      }
+
+      await this.maybeSendGoLiveNudge(song);
+      this.notifyFollowersSongOnAir(song, radioId);
+    }
 
     const durationMs = durationSeconds * 1000;
     const pinnedCatalysts = await this.getPinnedCatalystsForSong(song.id);
     const audioUrl = await this.ensurePlayableAudioUrl(song.audio_url ?? null);
     const temperature = await this.resolveStartTemperature(
       song.id,
-      playRow?.id ?? null,
+      playId,
       startedAt,
+      metered,
     );
 
     return {
@@ -3376,9 +3487,9 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       server_time: startedAt,
       time_remaining_ms: durationMs,
       position_seconds: 0,
-      credits_deducted: creditsToDeduct,
+      credits_deducted: creditsDeducted,
       pinned_catalysts: pinnedCatalysts,
-      play_id: playRow?.id ?? null,
+      play_id: playId,
       fire_votes: temperature.fireVotes,
       shit_votes: temperature.shitVotes,
       total_votes: temperature.totalVotes,
@@ -3402,6 +3513,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     const now = Date.now();
     const startedAt = new Date(now).toISOString();
     const durationSeconds = song.duration_seconds || DEFAULT_DURATION_SECONDS;
+    const metered = await this.stationHasLiveListeners(radioId);
 
     await this.setCurrentSong(
       song.id,
@@ -3411,74 +3523,80 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       false,
     );
 
-    // Update emoji service with current song for aggregation
     this.emojiService.setCurrentSong(song.id, radioId);
 
-    // Decrement trial plays, increment used counter, update last_played_at and play_count
-    const remaining = Math.max(0, (song.trial_plays_remaining || 0) - 1);
-    const used = (song.trial_plays_used || 0) + 1;
-    await supabase
-      .from('songs')
-      .update({
-        trial_plays_remaining: remaining,
-        trial_plays_used: used,
-        play_count: (song.play_count || 0) + 1,
-        last_played_at: startedAt,
-      })
-      .eq('id', song.id);
-
-    // Log play decision
-    const listenerCount =
-      await this.radioStateService.getListenerCount(radioId);
-    await this.radioStateService.logPlayDecision({
-      songId: song.id,
-      selectedAt: startedAt,
-      selectionReason: 'trial',
-      listenerCount,
-      competingSongs,
-    });
-
-    // Log play and set current play for finalization
-    const { data: playRow } = await supabase
-      .from('plays')
-      .insert({
-        song_id: song.id,
-        played_at: startedAt,
-        listener_count: listenerCount,
-      })
-      .select('id')
-      .single();
-    if (playRow?.id && song.artist_id) {
-      await this.radioStateService.setCurrentPlayInfo(
-        playRow.id,
-        song.artist_id,
-        startedAt,
-        radioId,
-      );
+    const remaining = metered
+      ? Math.max(0, (song.trial_plays_remaining || 0) - 1)
+      : song.trial_plays_remaining || 0;
+    const used = metered
+      ? (song.trial_plays_used || 0) + 1
+      : song.trial_plays_used || 0;
+    if (metered) {
+      await supabase
+        .from('songs')
+        .update({
+          trial_plays_remaining: remaining,
+          trial_plays_used: used,
+          play_count: (song.play_count || 0) + 1,
+          last_played_at: startedAt,
+        })
+        .eq('id', song.id);
     }
 
-    // Send "Live Now" notification to artist
-    try {
-      await this.pushNotificationService.sendLiveNowNotification({
-        id: song.id,
-        title: song.title,
-        artist_id: song.artist_id,
-        artist_name: song.artist_name,
+    let playId: string | null = null;
+    if (metered) {
+      const listenerCount =
+        await this.radioStateService.getListenerCount(radioId);
+      await this.radioStateService.logPlayDecision({
+        songId: song.id,
+        selectedAt: startedAt,
+        selectionReason: 'trial',
+        listenerCount,
+        competingSongs,
       });
-    } catch (e) {
-      this.logger.warn(`Failed to send Live Now notification: ${e.message}`);
-    }
 
-    await this.maybeSendGoLiveNudge(song);
-    this.notifyFollowersSongOnAir(song, radioId);
+      const { data: playRow } = await supabase
+        .from('plays')
+        .insert({
+          song_id: song.id,
+          played_at: startedAt,
+          listener_count: listenerCount,
+        })
+        .select('id')
+        .single();
+      playId = playRow?.id ?? null;
+      if (playRow?.id && song.artist_id) {
+        await this.radioStateService.setCurrentPlayInfo(
+          playRow.id,
+          song.artist_id,
+          startedAt,
+          radioId,
+        );
+      }
+
+      try {
+        await this.pushNotificationService.sendLiveNowNotification({
+          id: song.id,
+          title: song.title,
+          artist_id: song.artist_id,
+          artist_name: song.artist_name,
+        });
+      } catch (e) {
+        this.logger.warn(`Failed to send Live Now notification: ${e.message}`);
+      }
+
+      await this.maybeSendGoLiveNudge(song);
+      this.notifyFollowersSongOnAir(song, radioId);
+    }
 
     const durationMs = durationSeconds * 1000;
     const pinnedCatalysts = await this.getPinnedCatalystsForSong(song.id);
     const audioUrl = await this.ensurePlayableAudioUrl(song.audio_url ?? null);
     const temperature = await this.resolveStartTemperature(
       song.id,
-      playRow?.id ?? null,
+      playId,
       startedAt,
+      metered,
     );
 
     return {
@@ -3492,7 +3610,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       trial_plays_remaining: remaining,
       trial_plays_used: used,
       pinned_catalysts: pinnedCatalysts,
-      play_id: playRow?.id ?? null,
+      play_id: playId,
       fire_votes: temperature.fireVotes,
       shit_votes: temperature.shitVotes,
       total_votes: temperature.totalVotes,
@@ -3516,6 +3634,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     const now = Date.now();
     const startedAt = new Date(now).toISOString();
     const durationSeconds = song.duration_seconds || DEFAULT_DURATION_SECONDS;
+    const metered = await this.stationHasLiveListeners(radioId);
 
     await this.setCurrentSong(
       song.id,
@@ -3525,70 +3644,70 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       false,
     );
 
-    // Update emoji service with current song for aggregation
     this.emojiService.setCurrentSong(song.id, radioId);
 
-    // Log play decision
-    const listenerCount =
-      await this.radioStateService.getListenerCount(radioId);
-    await this.radioStateService.logPlayDecision({
-      songId: song.id,
-      selectedAt: startedAt,
-      selectionReason: 'opt_in',
-      listenerCount,
-      competingSongs,
-    });
-
-    // Log play and set current play for finalization
-    const { data: playRow } = await supabase
-      .from('plays')
-      .insert({
-        song_id: song.id,
-        played_at: startedAt,
-        listener_count: listenerCount,
-      })
-      .select('id')
-      .single();
-    if (playRow?.id && song.artist_id) {
-      await this.radioStateService.setCurrentPlayInfo(
-        playRow.id,
-        song.artist_id,
-        startedAt,
-        radioId,
-      );
-    }
-
-    // Update play_count and last_played_at
-    await supabase
-      .from('songs')
-      .update({
-        play_count: (song.play_count || 0) + 1,
-        last_played_at: startedAt,
-      })
-      .eq('id', song.id);
-
-    // Send "Live Now" notification to artist
-    try {
-      await this.pushNotificationService.sendLiveNowNotification({
-        id: song.id,
-        title: song.title,
-        artist_id: song.artist_id,
-        artist_name: song.artist_name,
+    let playId: string | null = null;
+    if (metered) {
+      const listenerCount =
+        await this.radioStateService.getListenerCount(radioId);
+      await this.radioStateService.logPlayDecision({
+        songId: song.id,
+        selectedAt: startedAt,
+        selectionReason: 'opt_in',
+        listenerCount,
+        competingSongs,
       });
-    } catch (e) {
-      this.logger.warn(`Failed to send Live Now notification: ${e.message}`);
-    }
 
-    await this.maybeSendGoLiveNudge(song);
-    this.notifyFollowersSongOnAir(song, radioId);
+      const { data: playRow } = await supabase
+        .from('plays')
+        .insert({
+          song_id: song.id,
+          played_at: startedAt,
+          listener_count: listenerCount,
+        })
+        .select('id')
+        .single();
+      playId = playRow?.id ?? null;
+      if (playRow?.id && song.artist_id) {
+        await this.radioStateService.setCurrentPlayInfo(
+          playRow.id,
+          song.artist_id,
+          startedAt,
+          radioId,
+        );
+      }
+
+      await supabase
+        .from('songs')
+        .update({
+          play_count: (song.play_count || 0) + 1,
+          last_played_at: startedAt,
+        })
+        .eq('id', song.id);
+
+      try {
+        await this.pushNotificationService.sendLiveNowNotification({
+          id: song.id,
+          title: song.title,
+          artist_id: song.artist_id,
+          artist_name: song.artist_name,
+        });
+      } catch (e) {
+        this.logger.warn(`Failed to send Live Now notification: ${e.message}`);
+      }
+
+      await this.maybeSendGoLiveNudge(song);
+      this.notifyFollowersSongOnAir(song, radioId);
+    }
 
     const durationMs = durationSeconds * 1000;
     const pinnedCatalysts = await this.getPinnedCatalystsForSong(song.id);
     const audioUrl = await this.ensurePlayableAudioUrl(song.audio_url ?? null);
     const temperature = await this.resolveStartTemperature(
       song.id,
-      playRow?.id ?? null,
+      playId,
       startedAt,
+      metered,
     );
 
     return {
@@ -3600,7 +3719,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       time_remaining_ms: durationMs,
       position_seconds: 0,
       pinned_catalysts: pinnedCatalysts,
-      play_id: playRow?.id ?? null,
+      play_id: playId,
       fire_votes: temperature.fireVotes,
       shit_votes: temperature.shitVotes,
       total_votes: temperature.totalVotes,
@@ -3634,6 +3753,8 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       return null;
     }
 
+    const metered = await this.stationHasLiveListeners(radioId);
+
     await this.radioStateService.setCurrentState(
       {
         songId: song.id,
@@ -3648,47 +3769,52 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     );
     this.onStationSongStarted(radioId, durationSeconds);
 
-    const listenerCount =
-      await this.radioStateService.getListenerCount(radioId);
-    await this.radioStateService.logPlayDecision({
-      songId: song.id,
-      selectedAt: startedAt,
-      selectionReason: 'fallback',
-      listenerCount,
-    });
+    let playId: string | null = null;
+    if (metered) {
+      const listenerCount =
+        await this.radioStateService.getListenerCount(radioId);
+      await this.radioStateService.logPlayDecision({
+        songId: song.id,
+        selectedAt: startedAt,
+        selectionReason: 'fallback',
+        listenerCount,
+      });
 
-    const { data: playRow } = await supabase
-      .from('plays')
-      .insert({
-        song_id: song.id,
-        played_at: startedAt,
-        listener_count: listenerCount,
-      })
-      .select('id')
-      .single();
-    if (playRow?.id && song.artist_id) {
-      await this.radioStateService.setCurrentPlayInfo(
-        playRow.id,
-        song.artist_id,
-        startedAt,
-        radioId,
-      );
+      const { data: playRow } = await supabase
+        .from('plays')
+        .insert({
+          song_id: song.id,
+          played_at: startedAt,
+          listener_count: listenerCount,
+        })
+        .select('id')
+        .single();
+      playId = playRow?.id ?? null;
+      if (playRow?.id && song.artist_id) {
+        await this.radioStateService.setCurrentPlayInfo(
+          playRow.id,
+          song.artist_id,
+          startedAt,
+          radioId,
+        );
+      }
+      await supabase
+        .from('songs')
+        .update({
+          play_count: (song.play_count || 0) + 1,
+          last_played_at: startedAt,
+        })
+        .eq('id', song.id);
+      this.notifyFollowersSongOnAir(song, radioId);
     }
-    await supabase
-      .from('songs')
-      .update({
-        play_count: (song.play_count || 0) + 1,
-        last_played_at: startedAt,
-      })
-      .eq('id', song.id);
-    this.notifyFollowersSongOnAir(song, radioId);
 
     const durationMs = durationSeconds * 1000;
     const pinnedCatalysts = await this.getPinnedCatalystsForSong(song.id);
     const temperature = await this.resolveStartTemperature(
       song.id,
-      playRow?.id ?? null,
+      playId,
       startedAt,
+      metered,
     );
 
     return {

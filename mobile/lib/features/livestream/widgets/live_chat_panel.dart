@@ -98,7 +98,7 @@ class _LiveChatPanelState extends State<LiveChatPanel> {
     }
 
     tick();
-    _chatPoll = Timer.periodic(const Duration(seconds: 3), (_) => tick());
+    _chatPoll = Timer.periodic(const Duration(seconds: 15), (_) => tick());
   }
 
   void _subscribeDeletes() {

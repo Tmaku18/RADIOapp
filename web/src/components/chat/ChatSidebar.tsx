@@ -251,7 +251,7 @@ export default function ChatSidebar({
     };
 
     // Keep UI fresh for users even without manual refresh.
-    const interval = setInterval(poll, 3000);
+    const interval = setInterval(poll, 30000);
     void poll();
 
     return () => {

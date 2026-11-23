@@ -76,6 +76,8 @@ export class SongsService {
   private readonly ffmpegConfigured: boolean;
   // Guards against two overlapping sample backfills running at once.
   private sampleBackfillRunning = false;
+  private trendingCache: { limit: number; at: number; value: unknown } | null =
+    null;
   // Uploads are review-gated by default: a new song lands in `pending` and an
   // admin must approve it before it goes public / into free rotation. The
   // legacy beta behavior (auto-approve every upload) can be re-enabled only by
@@ -1998,6 +2000,14 @@ export class SongsService {
   }> {
     const supabase = getSupabaseClient();
     const limit = Math.min(Math.max(1, limitInput || 10), 24);
+    const cached = this.trendingCache;
+    if (
+      cached &&
+      cached.limit === limit &&
+      Date.now() - cached.at < 60_000
+    ) {
+      return cached.value as Awaited<ReturnType<SongsService['getPublicTrending']>>;
+    }
 
     const { data: rows, error } = await supabase
       .from('songs')
@@ -2149,7 +2159,9 @@ export class SongsService {
       : 50;
     const top = temps.length ? Math.max(...temps) : 50;
 
-    return { songs, artists, temperature: { average, top } };
+    const value = { songs, artists, temperature: { average, top } };
+    this.trendingCache = { limit, at: Date.now(), value };
+    return value;
   }
 
   /**

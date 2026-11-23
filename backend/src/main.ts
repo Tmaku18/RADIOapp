@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import compression from 'compression';
 import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import { initializeFirebase } from './config/firebase.config';
@@ -20,6 +21,7 @@ async function bootstrap() {
 
   // Use custom logger for NestJS
   app.useLogger(logger);
+  app.use(compression());
 
   // Initialize Firebase Admin
   initializeFirebase(configService);

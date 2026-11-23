@@ -57,7 +57,6 @@ export default function MarketingLayout({
                       height={220}
                       className="hidden dark:block h-12 w-auto max-w-[min(200px,40vw)] object-contain object-left"
                       priority
-                      unoptimized
                       onError={() => setHeaderLogoError(true)}
                     />
                     <Image
@@ -67,7 +66,6 @@ export default function MarketingLayout({
                       height={220}
                       className="block dark:hidden h-12 w-auto max-w-[min(200px,40vw)] object-contain object-left"
                       priority
-                      unoptimized
                       onError={() => setHeaderLogoError(true)}
                     />
                   </>
@@ -150,7 +148,6 @@ export default function MarketingLayout({
                       width={200}
                       height={200}
                       className="hidden dark:block h-20 w-auto max-w-[200px] object-contain object-left shrink-0"
-                      unoptimized
                       onError={() => setFooterLogoError(true)}
                     />
                     <Image
@@ -159,7 +156,6 @@ export default function MarketingLayout({
                       width={200}
                       height={200}
                       className="block dark:hidden h-20 w-auto max-w-[200px] object-contain object-left shrink-0"
-                      unoptimized
                       onError={() => setFooterLogoError(true)}
                     />
                   </>

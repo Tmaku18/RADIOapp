@@ -93,6 +93,34 @@ export class CleanupService {
   }
 
   /**
+   * Empty-station advances used to write a decision row on every song.
+   * Keep two weeks for debugging and drop the rest.
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_4AM)
+  async prunePlayDecisionLog() {
+    const supabase = getSupabaseClient();
+    let total = 0;
+    try {
+      for (;;) {
+        const { data, error } = await supabase.rpc('prune_play_decision_log', {
+          p_older_than: '14 days',
+          p_batch: 20000,
+        });
+        if (error) {
+          this.logger.error(`Play decision prune failed: ${error.message}`);
+          return;
+        }
+        const deleted = typeof data === 'number' ? data : Number(data) || 0;
+        total += deleted;
+        if (deleted === 0) break;
+      }
+      this.logger.log(`Pruned ${total} play decision rows`);
+    } catch (error) {
+      this.logger.error(`Play decision prune error: ${error.message}`);
+    }
+  }
+
+  /**
    * Run cleanup every hour to check for expired rejected songs.
    * Songs rejected more than 48 hours ago will be permanently deleted.
    */
@@ -221,12 +249,29 @@ export class CleanupService {
 
     let quarantinedSongs = 0;
     let quarantinedFallback = 0;
+    const songPaths = songs
+      .map((song) => ({
+        song,
+        path: this.extractPublicSongsPath(song.audio_url ?? null),
+      }))
+      .filter((row): row is { song: (typeof songs)[number]; path: string } =>
+        !!row.path,
+      );
+    const fallbackPaths = fallbackSongs
+      .map((row) => ({
+        row,
+        path: this.extractPublicSongsPath(row.audio_url ?? null),
+      }))
+      .filter(
+        (entry): entry is { row: (typeof fallbackSongs)[number]; path: string } =>
+          !!entry.path,
+      );
+    const existing = await this.storageObjectsExist(
+      [...songPaths, ...fallbackPaths].map((row) => row.path),
+    );
 
-    for (const song of songs) {
-      const path = this.extractPublicSongsPath(song.audio_url ?? null);
-      if (!path) continue;
-      const exists = await this.storageObjectExists(path);
-      if (exists) continue;
+    for (const { song, path } of songPaths) {
+      if (existing.has(path)) continue;
 
       const { error } = await supabase
         .from('songs')
@@ -246,11 +291,8 @@ export class CleanupService {
       );
     }
 
-    for (const row of fallbackSongs) {
-      const path = this.extractPublicSongsPath(row.audio_url ?? null);
-      if (!path) continue;
-      const exists = await this.storageObjectExists(path);
-      if (exists) continue;
+    for (const { row, path } of fallbackPaths) {
+      if (existing.has(path)) continue;
 
       const { error } = await supabase
         .from('admin_fallback_songs')
@@ -321,6 +363,34 @@ export class CleanupService {
     const remainder = raw.slice(markerIndex + marker.length);
     const path = remainder.split('?')[0].trim();
     return path || null;
+  }
+
+  private async storageObjectsExist(paths: string[]): Promise<Set<string>> {
+    const found = new Set<string>();
+    const unique = [...new Set(paths.filter(Boolean))];
+    const supabase = getSupabaseClient();
+    const chunkSize = 80;
+    for (let i = 0; i < unique.length; i += chunkSize) {
+      const chunk = unique.slice(i, i + chunkSize);
+      const { data, error } = await supabase
+        .schema('storage')
+        .from('objects')
+        .select('name')
+        .eq('bucket_id', 'songs')
+        .in('name', chunk);
+      if (error) {
+        this.logger.warn(
+          `Storage existence batch failed: ${error.message}. Leaving those songs alone.`,
+        );
+        for (const name of chunk) found.add(name);
+        continue;
+      }
+      for (const row of data ?? []) {
+        const name = (row as { name?: string }).name;
+        if (name) found.add(name);
+      }
+    }
+    return found;
   }
 
   private async storageObjectExists(path: string): Promise<boolean> {

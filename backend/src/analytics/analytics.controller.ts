@@ -20,6 +20,21 @@ import { getSupabaseClient } from '../config/supabase.config';
 export class AnalyticsController {
   constructor(private readonly analyticsService: AnalyticsService) {}
 
+  /** Prefer the id already loaded by the auth guard. */
+  private async resolveDbUserId(user: FirebaseUser): Promise<string> {
+    if (user.dbUserId) return user.dbUserId;
+    const supabase = getSupabaseClient();
+    const { data } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
+    if (!data) {
+      throw new Error('User not found');
+    }
+    return data.id;
+  }
+
   /**
    * Get current user's artist analytics.
    * Artists can view their own stats.
@@ -33,15 +48,7 @@ export class AnalyticsController {
     @Query('songId') songId?: string,
   ) {
     const supabase = getSupabaseClient();
-    const { data: userData } = await supabase
-      .from('users')
-      .select('id')
-      .eq('firebase_uid', user.uid)
-      .single();
-
-    if (!userData) {
-      throw new Error('User not found');
-    }
+    const userData = { id: await this.resolveDbUserId(user) };
 
     const daysNum = days ? parseInt(days, 10) : 30;
     return this.analyticsService.getArtistAnalytics(
@@ -62,15 +69,7 @@ export class AnalyticsController {
     @Query('days') days?: string,
   ) {
     const supabase = getSupabaseClient();
-    const { data: userData } = await supabase
-      .from('users')
-      .select('id')
-      .eq('firebase_uid', user.uid)
-      .single();
-
-    if (!userData) {
-      throw new Error('User not found');
-    }
+    const userData = { id: await this.resolveDbUserId(user) };
 
     const daysNum = days ? parseInt(days, 10) : 30;
     return this.analyticsService.getRoiForArtist(userData.id, daysNum);
@@ -88,15 +87,7 @@ export class AnalyticsController {
     @Query('days') days?: string,
   ) {
     const supabase = getSupabaseClient();
-    const { data: userData } = await supabase
-      .from('users')
-      .select('id')
-      .eq('firebase_uid', user.uid)
-      .single();
-
-    if (!userData) {
-      throw new Error('User not found');
-    }
+    const userData = { id: await this.resolveDbUserId(user) };
 
     const daysNum = days ? parseInt(days, 10) : 30;
     return this.analyticsService.getPlaysByRegionForArtist(
@@ -113,15 +104,7 @@ export class AnalyticsController {
     @Query('days') days?: string,
   ) {
     const supabase = getSupabaseClient();
-    const { data: userData } = await supabase
-      .from('users')
-      .select('id')
-      .eq('firebase_uid', user.uid)
-      .single();
-
-    if (!userData) {
-      throw new Error('User not found');
-    }
+    const userData = { id: await this.resolveDbUserId(user) };
 
     const daysNum = days ? parseInt(days, 10) : 30;
     return this.analyticsService.getDiscoverSwipeAnalyticsForArtist(
@@ -143,17 +126,10 @@ export class AnalyticsController {
     @Query('days') days?: string,
   ) {
     const supabase = getSupabaseClient();
-
-    // Check ownership (unless admin)
-    const { data: userData } = await supabase
-      .from('users')
-      .select('id, role')
-      .eq('firebase_uid', user.uid)
-      .single();
-
-    if (!userData) {
-      throw new Error('User not found');
-    }
+    const userData = {
+      id: await this.resolveDbUserId(user),
+      role: user.dbRole ?? null,
+    };
 
     const { data: song } = await supabase
       .from('songs')
@@ -186,15 +162,7 @@ export class AnalyticsController {
     @Param('playId') playId: string,
   ) {
     const supabase = getSupabaseClient();
-    const { data: userData } = await supabase
-      .from('users')
-      .select('id')
-      .eq('firebase_uid', user.uid)
-      .single();
-
-    if (!userData) {
-      throw new Error('User not found');
-    }
+    const userData = { id: await this.resolveDbUserId(user) };
 
     // Resolve play -> song -> artist so admin can view any play
     const { data: playRow } = await supabase
@@ -213,12 +181,7 @@ export class AnalyticsController {
     if (!songRow) {
       throw new Error('Song not found');
     }
-    const { data: roleData } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', userData.id)
-      .single();
-    const isAdmin = roleData?.role === 'admin';
+    const isAdmin = user.dbRole === 'admin';
     if (!isAdmin && songRow.artist_id !== userData.id) {
       throw new Error('Access denied');
     }
@@ -247,14 +210,7 @@ export class AnalyticsController {
       throw new Error('songId is required');
     }
     const supabase = getSupabaseClient();
-    const { data: userData } = await supabase
-      .from('users')
-      .select('id')
-      .eq('firebase_uid', user.uid)
-      .single();
-    if (!userData) {
-      throw new Error('User not found');
-    }
+    const userData = { id: await this.resolveDbUserId(user) };
     const { data: song } = await supabase
       .from('songs')
       .select('artist_id')

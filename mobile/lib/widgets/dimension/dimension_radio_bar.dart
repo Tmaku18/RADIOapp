@@ -516,6 +516,8 @@ class _Artwork extends StatelessWidget {
     return CachedNetworkImage(
       imageUrl: uri.toString(),
       fit: BoxFit.cover,
+      memCacheWidth: 128,
+      memCacheHeight: 128,
       errorWidget: (context, url, error) => ColoredBox(
         color: DimensionTokens.bgSurface,
         child: Icon(

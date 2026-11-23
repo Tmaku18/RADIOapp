@@ -225,7 +225,7 @@ class _WatchLiveScreenState extends State<WatchLiveScreen> {
 
     tick();
     _chatPoll =
-        Timer.periodic(const Duration(seconds: 3), (_) => tick());
+        Timer.periodic(const Duration(seconds: 15), (_) => tick());
   }
 
   void _subscribeChatDeletes(String sessionId) {
