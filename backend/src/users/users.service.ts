@@ -12,7 +12,11 @@ import { getSupabaseClient } from '../config/supabase.config';
 import { getFirebaseAuth } from '../config/firebase.config';
 import { ACCOUNT_DELETION_GRACE_MS } from './account-deletion';
 import { signSongAudioUrl } from '../common/song-audio.util';
-import { generateUniqueUsername } from '../common/username.util';
+import {
+  nameCompact,
+  numberedCopyStem,
+  usernameFromDisplayName,
+} from '../common/username.util';
 import { UploadsService } from '../uploads/uploads.service';
 import { ImageModerationService } from '../moderation/image-moderation.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -257,18 +261,21 @@ export class UsersService {
       ? 'admin'
       : primaryRoleFromMakers(makerRoles);
     const userRoles = role === 'admin' ? [] : makerRoles;
-    const displayName = createUserDto.displayName?.trim();
-    if (!displayName) {
-      throw new BadRequestException('Display name is required');
-    }
+    const displayName = this.normalizeDisplayName(
+      createUserDto.displayName ?? '',
+    );
 
     if (existingUser) {
       // A first sign-in may have a row with no name yet. Finish that profile
       // with the name and roles they just chose.
+      await this.assertNameIsFree(displayName, 'display', existingUser.id);
+      const username = this.usernameForNewDisplayName(displayName);
+      await this.assertNameIsFree(username, 'username', existingUser.id);
       const { data: updated, error: updateError } = await supabase
         .from('users')
         .update({
           display_name: displayName,
+          username,
           role,
           user_roles: userRoles,
           terms_accepted_at: createUserDto.termsAccepted
@@ -278,6 +285,9 @@ export class UsersService {
         .eq('id', existingUser.id)
         .select()
         .single();
+      if (updateError?.code === '23505') {
+        throw new ConflictException(this.takenNameMessage(updateError.message));
+      }
       if (updateError || !updated) {
         throw new BadRequestException(
           `Failed to finish profile: ${updateError?.message ?? 'unknown error'}`,
@@ -286,14 +296,13 @@ export class UsersService {
       return transformUser(updated);
     }
 
-    // username is NOT NULL/unique; auto-generate a handle for the new account.
+    // The handle is the display name itself. Never mint name_2 when it is taken.
+    const username = this.usernameForNewDisplayName(displayName);
+    await this.assertNameIsFree(displayName, 'display');
+    await this.assertNameIsFree(username, 'username');
     let data: any = null;
     let error: { code?: string; message: string } | null = null;
     for (let attempt = 0; attempt < 3; attempt += 1) {
-      const username = await generateUniqueUsername(supabase, {
-        displayName,
-        email: createUserDto.email,
-      });
       const result = await supabase
         .from('users')
         .insert({
@@ -353,6 +362,7 @@ export class UsersService {
             'An account with this email already exists. Try signing in with your existing method.',
           );
         }
+        throw new ConflictException(this.takenNameMessage(error.message));
       }
       // Check constraint (e.g. role not in allowed list)
       if (error.code === '23514') {
@@ -728,18 +738,15 @@ export class UsersService {
       updated_at: new Date().toISOString(),
     };
     if (updateUserDto.displayName !== undefined) {
-      const trimmedDisplayName = updateUserDto.displayName.trim();
-      if (!trimmedDisplayName) {
-        throw new BadRequestException('Display name cannot be empty');
-      }
+      const trimmedDisplayName = this.normalizeDisplayName(
+        updateUserDto.displayName,
+      );
+      await this.assertNameIsFree(trimmedDisplayName, 'display', user.id);
       updatePayload.display_name = trimmedDisplayName;
     }
     if (updateUserDto.username !== undefined) {
       const normalized = this.normalizeUsername(updateUserDto.username);
-      const available = await this.isUsernameAvailable(normalized, user.id);
-      if (!available) {
-        throw new ConflictException('That username is already taken.');
-      }
+      await this.assertNameIsFree(normalized, 'username', user.id);
       updatePayload.username = normalized;
     }
     if (updateUserDto.avatarUrl !== undefined) {
@@ -937,7 +944,7 @@ export class UsersService {
 
     if (error) {
       if (error.code === '23505') {
-        throw new ConflictException('That username is already taken.');
+        throw new ConflictException(this.takenNameMessage(error.message));
       }
       throw new BadRequestException(`Failed to update user: ${error.message}`);
     }
@@ -955,6 +962,121 @@ export class UsersService {
    * Normalize and validate a requested username. Lowercases, trims, and
    * enforces the same 3-30 char [a-z0-9_.] rule as the DB constraint.
    */
+  normalizeDisplayName(raw: string): string {
+    const name = (raw ?? '').trim().replace(/\s+/g, ' ');
+    if (name.length < 2 || name.length > 40) {
+      throw new BadRequestException(
+        'Display name must be 2-40 characters.',
+      );
+    }
+    return name;
+  }
+
+  /** Username reserved by a new display name. Does not append _2, _3, and so on. */
+  private usernameForNewDisplayName(displayName: string): string {
+    const username = usernameFromDisplayName(displayName);
+    if (!username) {
+      throw new BadRequestException(
+        'Use a display name with at least 3 letters or numbers.',
+      );
+    }
+    return username;
+  }
+
+  private takenNameMessage(dbMessage?: string): string {
+    if ((dbMessage ?? '').includes('display_name')) {
+      return 'That display name is already taken.';
+    }
+    return 'That username is already taken.';
+  }
+
+  private async findNameOwner(
+    compact: string,
+    excludeUserId?: string,
+  ): Promise<string | null> {
+    if (!compact) return null;
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('users')
+      .select('id')
+      .or(`display_name_compact.eq.${compact},username_compact.eq.${compact}`)
+      .limit(5);
+    if (error) {
+      if (this.isMissingNameCompact(error)) return null;
+      throw new BadRequestException(
+        `Failed to check that name: ${error.message}`,
+      );
+    }
+    const rows = (data ?? []) as { id: string }[];
+    return rows.find((row) => row.id !== excludeUserId)?.id ?? null;
+  }
+
+  /**
+   * A name is taken when another account already uses it as a display name
+   * or a username, including different spacing, punctuation, or a trailing number.
+   */
+  async assertNameIsFree(
+    raw: string,
+    kind: 'display' | 'username',
+    excludeUserId?: string,
+  ): Promise<void> {
+    const compact = nameCompact(raw);
+    if (compact.length >= 3) {
+      const takenBy = await this.findNameOwner(compact, excludeUserId);
+      if (takenBy) {
+        throw new ConflictException(
+          kind === 'display'
+            ? 'That display name is already taken.'
+            : 'That username is already taken.',
+        );
+      }
+      // Keeping a name this account already has is fine, even if it looks
+      // like a numbered copy of someone else's older name.
+      if (excludeUserId) {
+        const supabase = getSupabaseClient();
+        const { data, error } = await supabase
+          .from('users')
+          .select('id')
+          .or(
+            `display_name_compact.eq.${compact},username_compact.eq.${compact}`,
+          )
+          .eq('id', excludeUserId)
+          .limit(1);
+        if (error) {
+          if (!this.isMissingNameCompact(error)) {
+            throw new BadRequestException(
+              `Failed to check that name: ${error.message}`,
+            );
+          }
+        } else if ((data ?? []).length > 0) {
+          return;
+        }
+      }
+      const stem = numberedCopyStem(compact);
+      if (stem) {
+        const stemOwner = await this.findNameOwner(stem, excludeUserId);
+        if (stemOwner) {
+          throw new ConflictException(
+            kind === 'display'
+              ? 'That display name is already taken.'
+              : 'That username is already taken.',
+          );
+        }
+      }
+    }
+  }
+
+  private isMissingNameCompact(error: unknown): boolean {
+    const maybeError = error as { code?: string; message?: string } | null;
+    const message = (maybeError?.message ?? '').toLowerCase();
+    return (
+      maybeError?.code === '42703' ||
+      maybeError?.code === 'PGRST204' ||
+      message.includes('display_name_compact') ||
+      message.includes('username_compact')
+    );
+  }
+
   normalizeUsername(raw: string): string {
     const normalized = (raw ?? '').trim().toLowerCase();
     if (!/^[a-z0-9_.]{3,30}$/.test(normalized)) {
@@ -973,21 +1095,13 @@ export class UsersService {
     username: string,
     excludeUserId?: string,
   ): Promise<boolean> {
-    const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('users')
-      .select('id')
-      .eq('username', username)
-      .maybeSingle();
-    if (error && error.code !== 'PGRST116') {
-      // Treat a missing column/table as "available" so degraded envs don't block.
-      if (this.isMissingUsernameColumn(error)) return true;
-      throw new BadRequestException(
-        `Failed to check username: ${error.message}`,
-      );
+    try {
+      await this.assertNameIsFree(username, 'username', excludeUserId);
+      return true;
+    } catch (error) {
+      if (error instanceof ConflictException) return false;
+      throw error;
     }
-    if (!data) return true;
-    return excludeUserId ? data.id === excludeUserId : false;
   }
 
   /** Availability check for the authenticated user (excludes their own handle). */

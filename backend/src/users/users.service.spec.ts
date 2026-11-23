@@ -12,6 +12,8 @@ const createBuilder = () => ({
   single: jest.fn(),
   // Username availability + welcome-placement lookups both use maybeSingle.
   maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+  or: jest.fn().mockReturnThis(),
+  limit: jest.fn().mockResolvedValue({ data: [], error: null }),
   insert: jest.fn().mockReturnThis(),
   update: jest.fn().mockReturnThis(),
 });

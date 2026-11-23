@@ -591,12 +591,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     return [
-      field(_nameCtrl, label: 'Display name', capitalization: TextCapitalization.words),
+      field(
+        _nameCtrl,
+        label: 'Display name',
+        capitalization: TextCapitalization.words,
+        helper: 'Unique. A taken name can’t be repeated or copied.',
+      ),
       field(
         _usernameCtrl,
         label: 'Username',
         prefix: '@',
-        helper: 'Your unique handle, separate from display name.',
+        helper: 'Unique handle. Once it is taken, it can’t be copied.',
         autocorrect: false,
       ),
       field(_headlineCtrl, label: 'Headline', capitalization: TextCapitalization.sentences),

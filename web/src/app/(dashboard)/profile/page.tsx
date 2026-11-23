@@ -578,6 +578,9 @@ export default function ProfilePage() {
                 }}
                 placeholder="Enter your display name"
               />
+              <p className="text-xs text-muted-foreground">
+                Unique. A taken display name can&apos;t be repeated or copied.
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -608,7 +611,7 @@ export default function ProfilePage() {
               )}
               {usernameStatus === 'idle' && (
                 <p className="text-xs text-muted-foreground">
-                  Your unique @handle, separate from your display name.
+                  Unique @handle. Once it is taken, it can&apos;t be used again or copied.
                 </p>
               )}
             </div>

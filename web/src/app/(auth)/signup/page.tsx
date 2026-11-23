@@ -254,6 +254,9 @@ function SignupForm() {
             onChange={(e) => setDisplayName(e.target.value)}
             placeholder="How you want to be shown"
           />
+          <p className="text-xs text-muted-foreground">
+            Display names are unique. Once someone takes a name, it can&apos;t be copied.
+          </p>
         </div>
 
         <div className="space-y-2">

@@ -81,6 +81,9 @@ export function DisplayNameGate({
               onChange={(e) => setName(e.target.value)}
               placeholder="How you want to be shown"
             />
+            <p className="text-xs text-muted-foreground">
+              This name has to be unique. A taken name can&apos;t be used again or copied.
+            </p>
             {email && (
               <p className="text-xs text-muted-foreground">Signed in as {email}</p>
             )}

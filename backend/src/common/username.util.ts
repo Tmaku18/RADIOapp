@@ -11,6 +11,30 @@ import { SupabaseClient } from '@supabase/supabase-js';
 const MAX_LEN = 30;
 const MIN_LEN = 3;
 
+/** Letters and digits only, for spotting a copied name like "DJ Nova" vs "dj_nova2". */
+export function nameCompact(value: string): string {
+  return (value ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+/**
+ * "alex2" and "alex_2" are copies of "alex". Returns the name being copied,
+ * or null when this is not a numbered copy.
+ */
+export function numberedCopyStem(compact: string): string | null {
+  const match = /^([a-z]*?)[0-9]+$/.exec(compact);
+  if (!match) return null;
+  const stem = match[1];
+  if (stem.length < MIN_LEN) return null;
+  return stem;
+}
+
+/** Handle derived from a display name. Null when the name has too few letters or digits. */
+export function usernameFromDisplayName(displayName: string): string | null {
+  const base = sanitize(displayName);
+  if (!/^[a-z0-9_.]{3,30}$/.test(base)) return null;
+  return base;
+}
+
 /** Strip to allowed chars and trim leading/trailing separators. */
 function sanitize(raw: string): string {
   const cleaned = (raw ?? '')

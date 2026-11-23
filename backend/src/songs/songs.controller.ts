@@ -110,7 +110,6 @@ export class SongsController {
     }
 
     const username = await generateUniqueUsername(supabase, {
-      email,
       userId: user.uid,
     });
     const { error: insertError } = await supabase.from('users').insert({
