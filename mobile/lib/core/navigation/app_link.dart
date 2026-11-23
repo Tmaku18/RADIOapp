@@ -18,17 +18,41 @@ class ParsedAppLink {
     final allowedHost = host == 'networxradio.com' ||
         host == 'www.networxradio.com' ||
         host.isEmpty;
+    final isCustomScheme = scheme == 'networxradio';
     if (scheme == 'https' || scheme == 'http') {
       if (!allowedHost || host.isEmpty) return null;
-    } else if (scheme != 'networxradio') {
+    } else if (!isCustomScheme) {
       return null;
     }
 
     final referral = _referralCode(uri);
-    final parts = uri.pathSegments.where((part) => part.isNotEmpty).toList();
+    // Custom scheme URLs look like networxradio://artist/<id> — the kind is the
+    // host, and the id is the first path segment.
+    final parts = <String>[
+      if (isCustomScheme &&
+          host.isNotEmpty &&
+          host != 'networxradio.com' &&
+          host != 'www.networxradio.com')
+        host,
+      ...uri.pathSegments.where((part) => part.isNotEmpty),
+    ];
     if (parts.isEmpty) {
       if (referral == null) return null;
       return ParsedAppLink(kind: AppLinkKind.referral, referralCode: referral);
+    }
+
+    // /open/artists/:id — share landing that opens in the browser first.
+    if (parts.length >= 3 &&
+        parts[0].toLowerCase() == 'open' &&
+        (parts[1].toLowerCase() == 'artists' ||
+            parts[1].toLowerCase() == 'artist')) {
+      final openArtistId = parts[2].trim();
+      if (openArtistId.isEmpty) return null;
+      return ParsedAppLink(
+        kind: AppLinkKind.artist,
+        id: openArtistId,
+        referralCode: referral,
+      );
     }
 
     final head = parts.first.toLowerCase();

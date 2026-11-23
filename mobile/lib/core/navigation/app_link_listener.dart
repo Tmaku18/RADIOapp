@@ -28,9 +28,13 @@ class AppLinkListener {
     });
   }
 
-  static Future<void> _open(GlobalKey<NavigatorState> navigatorKey, Uri uri) async {
+  static Future<void> _open(
+    GlobalKey<NavigatorState> navigatorKey,
+    Uri uri,
+  ) async {
     final parsed = ParsedAppLink.tryParse(uri);
     if (parsed == null) return;
+
     final code = parsed.referralCode;
     if (code != null) {
       try {
@@ -38,8 +42,10 @@ class AppLinkListener {
         await prefs.setString(pendingReferralCodeKey, code);
       } catch (_) {}
     }
-    final nav = navigatorKey.currentState;
+
+    final nav = await _waitForNavigator(navigatorKey);
     if (nav == null) return;
+
     switch (parsed.kind) {
       case AppLinkKind.artist:
         nav.pushNamed(AppRoutes.artistProfile, arguments: parsed.id);
@@ -56,11 +62,25 @@ class AppLinkListener {
     }
   }
 
+  /// Cold-start Universal / App Links can arrive before the navigator exists.
+  static Future<NavigatorState?> _waitForNavigator(
+    GlobalKey<NavigatorState> navigatorKey, {
+    int attempts = 40,
+  }) async {
+    for (var i = 0; i < attempts; i++) {
+      final nav = navigatorKey.currentState;
+      if (nav != null) return nav;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    return navigatorKey.currentState;
+  }
+
   static Future<void> _openSong(NavigatorState nav, String songId) async {
     try {
       final res = await ApiService().get('songs/$songId');
       if (res is Map) {
-        final artistId = (res['artist_id'] ?? res['artistId'])?.toString() ?? '';
+        final artistId =
+            (res['artist_id'] ?? res['artistId'])?.toString() ?? '';
         if (artistId.isNotEmpty) {
           nav.pushNamed(
             AppRoutes.artistProfile,

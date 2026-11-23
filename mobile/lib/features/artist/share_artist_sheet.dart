@@ -17,7 +17,11 @@ Future<void> showShareArtistSheet(
   required String artistName,
 }) async {
   final name = artistName.trim().isEmpty ? 'This artist' : artistName.trim();
-  final text = '$name is on NETWORX Radio.\nhttps://www.networxradio.com/artists/$artistId';
+  // /open/artists avoids Universal Link handoff failures in Messages ("Unable
+  // to Open Page") while still deep-linking into the installed app from web.
+  final id = Uri.encodeComponent(artistId.trim());
+  final text =
+      '$name is on NETWORX Radio.\nhttps://www.networxradio.com/open/artists/$id';
   final action = await showModalBottomSheet<String>(
     context: context,
     showDragHandle: true,

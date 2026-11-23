@@ -17,8 +17,9 @@ These are **different fingerprints**. Google Sign-In rejects the Play build if o
    - **Debug** (local dev): `2B:A4:EF:54:A5:E1:1C:4C:31:2F:4B:8D:89:59:56:9C:B2:60:43:C2`
    - **Play App Signing** (Play Store): `ED:16:9D:AB:9D:CE:88:5F:08:E5:AD:1D:EB:41:C9:ED:E4:AC:1C:88`
 4. Add **SHA-256** for the Play App Signing cert as well (Play Console → App integrity → App signing key certificate).
-5. Download **`google-services.json`** and place at `mobile/android/app/google-services.json`.
-6. Rebuild and upload a **new** AAB (build number must increase).
+5. Paste that **full** SHA-256 into Vercel as `ANDROID_APP_LINK_SHA256` (comma-separate upload-key SHA-256 too if you sideload). Without it, `/.well-known/assetlinks.json` stays empty and Android opens artist/song links in the browser instead of the app.
+6. Download **`google-services.json`** and place at `mobile/android/app/google-services.json`.
+7. Rebuild and upload a **new** AAB (build number must increase).
 
 Play Console path for SHA-1/256: **Release → Setup → App integrity → App signing key certificate**.
 

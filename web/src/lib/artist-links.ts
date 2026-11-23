@@ -3,7 +3,7 @@ export function artistProfilePath(artistId: string): string {
 }
 
 export function publicArtistProfilePath(artistId: string): string {
-  return `/artists/${artistId}`;
+  return `/open/artists/${encodeURIComponent(artistId)}`;
 }
 
 /** Login/signup entry with return path to the dashboard artist profile. */

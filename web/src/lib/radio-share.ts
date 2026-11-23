@@ -20,7 +20,10 @@ export function stationShareUrl(stationId: string): string {
 }
 
 export function artistShareUrl(artistId: string, songId?: string | null): string {
-  const base = `${origin()}/artists/${encodeURIComponent(artistId)}`;
+  // Use /open/artists so SMS/iMessage open the browser reliably, then hand off
+  // to the installed app. Direct /artists/* Universal Links can fail with
+  // "Unable to Open Page" when association isn't verified on the device.
+  const base = `${origin()}/open/artists/${encodeURIComponent(artistId)}`;
   const song = songId?.trim();
   if (!song) return base;
   return `${base}?song=${encodeURIComponent(song)}`;

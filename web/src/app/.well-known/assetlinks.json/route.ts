@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server';
+import { ANDROID_PACKAGE_NAME, resolveAndroidAppLinkFingerprints } from '@/lib/app-links';
 
 export function GET() {
-  const fingerprints = (process.env.ANDROID_APP_LINK_SHA256 ?? '')
-    .split(',')
-    .map((value) => value.trim())
-    .filter((value) => value.length > 0);
+  const fingerprints = resolveAndroidAppLinkFingerprints();
 
   return NextResponse.json(
     [
@@ -12,11 +10,16 @@ export function GET() {
         relation: ['delegate_permission/common.handle_all_urls'],
         target: {
           namespace: 'android_app',
-          package_name: 'com.tmaktechnologies.networxradio',
+          package_name: ANDROID_PACKAGE_NAME,
           sha256_cert_fingerprints: fingerprints,
         },
       },
     ],
-    { headers: { 'Cache-Control': 'public, max-age=3600' } },
+    {
+      headers: {
+        'Cache-Control': 'public, max-age=3600',
+        'Content-Type': 'application/json',
+      },
+    },
   );
 }

@@ -14,7 +14,7 @@ import { ProRadioPaywallCard } from '@/components/pro-radio/ProRadioPaywallCard'
 import { SongLikesDialog } from '@/components/songs/SongLikesDialog';
 import { FanEmailCard } from '@/components/artist/FanEmailCard';
 import { ShareArtistButton } from '@/components/artist/ShareArtistButton';
-import { AppDownloadBanner } from '@/components/marketing/AppDownloadBanner';
+import { OpenInAppBanner } from '@/components/marketing/OpenInAppBanner';
 import { SONG_SORT_OPTIONS, sortSongRows, type SongSortKey } from '@/lib/song-sort';
 
 type ArtistSong = {
@@ -653,7 +653,9 @@ export function ArtistPageView({
 
   return (
     <div className="space-y-6">
-      {variant === 'page' && mode === 'public' ? <AppDownloadBanner /> : null}
+      {variant === 'page' && mode === 'public' ? (
+        <OpenInAppBanner kind="artist" id={artistId} />
+      ) : null}
       {variant === 'page' && (
       <div className="rounded-xl overflow-hidden bg-gradient-to-b from-primary/40 to-card border border-border">
         <div className="p-6 md:p-8">

@@ -52,6 +52,7 @@
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="networxradio"/>
             </intent-filter>
+            <!-- www only: apex redirects to www and breaks App Link verification. -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
@@ -59,9 +60,6 @@
                 <data android:scheme="https" android:host="www.networxradio.com" android:pathPrefix="/song"/>
                 <data android:scheme="https" android:host="www.networxradio.com" android:pathPrefix="/artists"/>
                 <data android:scheme="https" android:host="www.networxradio.com" android:pathPrefix="/radio"/>
-                <data android:scheme="https" android:host="networxradio.com" android:pathPrefix="/song"/>
-                <data android:scheme="https" android:host="networxradio.com" android:pathPrefix="/artists"/>
-                <data android:scheme="https" android:host="networxradio.com" android:pathPrefix="/radio"/>
             </intent-filter>
         </activity>
         <!-- image_cropper (uCrop) — cover / photo crop UI -->
