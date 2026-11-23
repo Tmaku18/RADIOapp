@@ -5,6 +5,7 @@ class User {
   final String? displayName;
   final String? username;
   final String role;
+  final List<String> userRoles;
   final String? avatarUrl;
   final String? headline;
   final String? locationRegion;
@@ -32,6 +33,7 @@ class User {
     this.displayName,
     this.username,
     required this.role,
+    this.userRoles = const [],
     this.avatarUrl,
     this.headline,
     this.locationRegion,
@@ -79,6 +81,12 @@ class User {
       displayName: (json['display_name'] ?? json['displayName'])?.toString(),
       username: (json['username'])?.toString(),
       role: s(json['role']),
+      userRoles: (json['userRoles'] ?? json['user_roles'] ?? const [])
+          is List
+          ? ((json['userRoles'] ?? json['user_roles']) as List)
+              .map((role) => role.toString())
+              .toList()
+          : const [],
       avatarUrl: (json['avatar_url'] ?? json['avatarUrl'])?.toString(),
       headline: (json['headline'])?.toString(),
       locationRegion: (json['location_region'] ?? json['locationRegion'])?.toString(),
@@ -112,6 +120,7 @@ class User {
       'displayName': displayName,
       'username': username,
       'role': role,
+      'userRoles': userRoles,
       'avatarUrl': avatarUrl,
       'headline': headline,
       'locationRegion': locationRegion,

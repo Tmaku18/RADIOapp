@@ -11,31 +11,36 @@ import { generateUniqueUsername } from '../../common/username.util';
 import { ConfigService } from '@nestjs/config';
 
 /** Role hierarchy: listener ← artist ← service_provider (producer). Upload/artist gates also include dj + musician. */
-function roleSatisfies(userRole: string, requiredRole: string): boolean {
-  if (requiredRole === 'admin') return userRole === 'admin';
+function roleSatisfies(
+  userRole: string,
+  requiredRole: string,
+  extraRoles: string[] = [],
+): boolean {
+  const held = new Set([userRole, ...extraRoles]);
+  const has = (role: string) => held.has(role);
+  if (requiredRole === 'admin') return has('admin');
   if (requiredRole === 'service_provider')
-    return userRole === 'service_provider' || userRole === 'admin';
+    return has('service_provider') || has('admin');
   if (requiredRole === 'artist')
-    return [
-      'artist',
-      'service_provider',
-      'admin',
-      'dj',
-      'musician',
-    ].includes(userRole);
-  if (requiredRole === 'dj') return userRole === 'dj' || userRole === 'admin';
-  if (requiredRole === 'musician')
-    return userRole === 'musician' || userRole === 'admin';
+    return (
+      has('artist') ||
+      has('service_provider') ||
+      has('admin') ||
+      has('dj') ||
+      has('musician')
+    );
+  if (requiredRole === 'dj') return has('dj') || has('admin');
+  if (requiredRole === 'musician') return has('musician') || has('admin');
   if (requiredRole === 'listener')
-    return [
-      'listener',
-      'artist',
-      'service_provider',
-      'admin',
-      'dj',
-      'musician',
-    ].includes(userRole);
-  return userRole === requiredRole;
+    return (
+      has('listener') ||
+      has('artist') ||
+      has('service_provider') ||
+      has('admin') ||
+      has('dj') ||
+      has('musician')
+    );
+  return has(requiredRole);
 }
 
 @Injectable()
@@ -185,15 +190,27 @@ export class RolesGuard implements CanActivate {
     }
 
     let userRole: string | null = user.dbRole ?? null;
-
-    if (!userRole) {
-      const supabase = getSupabaseClient();
-      const { data, error } = await supabase
+    let extraRoles: string[] = [];
+    const supabase = getSupabaseClient();
+    let profileRes = await supabase
+      .from('users')
+      .select('role, user_roles')
+      .eq('firebase_uid', user.uid)
+      .single();
+    if (
+      profileRes.error &&
+      `${profileRes.error.message ?? ''}`.toLowerCase().includes('user_roles')
+    ) {
+      profileRes = await supabase
         .from('users')
         .select('role')
         .eq('firebase_uid', user.uid)
         .single();
+    }
+    const { data, error } = profileRes;
+    extraRoles = Array.isArray(data?.user_roles) ? data.user_roles : [];
 
+    if (!userRole) {
       userRole = data?.role ?? null;
       if (!userRole && !error) {
         userRole = await this.ensureUserProfile(user.uid, user.email);
@@ -209,7 +226,7 @@ export class RolesGuard implements CanActivate {
     }
 
     const allowed = requiredRoles.some((required) =>
-      roleSatisfies(userRole, required),
+      roleSatisfies(userRole, required, extraRoles),
     );
     if (!allowed) {
       throw new ForbiddenException(

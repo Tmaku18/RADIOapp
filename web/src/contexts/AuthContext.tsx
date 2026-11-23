@@ -25,6 +25,7 @@ interface UserProfile {
   displayName: string | null;
   username: string | null;
   role: 'listener' | 'artist' | 'admin' | 'service_provider' | 'dj' | 'musician';
+  userRoles?: string[];
   avatarUrl: string | null;
   createdAt: string;
   region?: string | null;
@@ -60,7 +61,8 @@ interface AuthContextType {
     email: string,
     password: string,
     displayName?: string,
-    role?: 'listener' | 'artist' | 'service_provider',
+    role?: 'listener' | 'artist' | 'service_provider' | 'dj' | 'musician',
+    userRoles?: string[],
   ) => Promise<void>;
   signOut: () => Promise<void>;
   getIdToken: (forceRefresh?: boolean) => Promise<string | null>;
@@ -68,7 +70,7 @@ interface AuthContextType {
   pendingProfileSetup: boolean;
   completeProfileSetup: (
     displayName: string,
-    role?: 'listener' | 'artist' | 'service_provider',
+    roles?: string[],
   ) => Promise<void>;
 }
 
@@ -135,7 +137,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const completeProfileSetup = useCallback(
     async (
       displayName: string,
-      role: 'listener' | 'artist' | 'service_provider' = 'artist',
+      roles: string[] = ['artist'],
     ) => {
       const name = displayName.trim();
       if (!name) {
@@ -146,10 +148,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error('You must be signed in to finish setting up your account.');
       }
       // Apple Hide My Email / re-auth can leave Firebase email null.
+      const makerRoles = roles.filter((role) =>
+        ['artist', 'service_provider', 'musician', 'dj'].includes(role),
+      );
+      const primary =
+        (['artist', 'service_provider', 'musician', 'dj'] as const).find((role) =>
+          makerRoles.includes(role),
+        ) ?? 'listener';
       await usersApi.create({
         email: resolveAuthEmail(current),
         displayName: name,
-        role,
+        role: primary,
+        userRoles: makerRoles,
       });
       await fetchProfile();
       setPendingProfileSetup(false);
@@ -354,7 +364,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     email: string,
     password: string,
     displayName?: string,
-    role: 'listener' | 'artist' | 'service_provider' = 'artist',
+    role: 'listener' | 'artist' | 'service_provider' | 'dj' | 'musician' = 'artist',
+    userRoles?: string[],
   ) => {
     setError(null);
     setLoading(true);
@@ -381,6 +392,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: firebaseUser.email!,
         displayName: name,
         role,
+        userRoles,
       });
 
       setPendingProfileSetup(false);

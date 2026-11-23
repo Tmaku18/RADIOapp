@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PRO_NETWORX_APP_HOME, isProNetworxAppHost } from '@/lib/site-url';
+import { MAKER_ROLE_OPTIONS, primaryMakerRole } from '@/lib/roles';
 import {
   stashOAuthRedirectPath,
   takeOAuthRedirectPath,
@@ -36,7 +37,7 @@ function SignupForm() {
 
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [role, setRole] = useState<'listener' | 'artist' | 'service_provider'>('artist');
+  const [roles, setRoles] = useState<string[]>(['artist']);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
@@ -87,7 +88,13 @@ function SignupForm() {
     setIsSubmitting(true);
 
     try {
-      await signUpWithEmail(email, password, displayName.trim(), role);
+      await signUpWithEmail(
+        email,
+        password,
+        displayName.trim(),
+        primaryMakerRole(roles),
+        roles,
+      );
       router.push(redirectTo);
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : 'Failed to sign up');
@@ -248,21 +255,33 @@ function SignupForm() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="role">Role</Label>
-          <select
-            id="role"
-            value={role}
-            onChange={(e) =>
-              setRole(e.target.value as 'listener' | 'artist' | 'service_provider')
-            }
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-          >
-            <option value="listener">Listener</option>
-            <option value="artist">Artist</option>
-            <option value="service_provider">Producer</option>
-          </select>
+          <Label>I make music as</Label>
+          <div className="grid grid-cols-2 gap-2">
+            {MAKER_ROLE_OPTIONS.map((option) => {
+              const checked = roles.includes(option.id);
+              return (
+                <label
+                  key={option.id}
+                  className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() =>
+                      setRoles((current) =>
+                        checked
+                          ? current.filter((role) => role !== option.id)
+                          : [...current, option.id],
+                      )
+                    }
+                  />
+                  {option.label}
+                </label>
+              );
+            })}
+          </div>
           <p className="text-xs text-muted-foreground">
-            Artists and Producers can upload music. You can change this later in Profile.
+            Leave these unchecked to join as a listener. You can change this later in Profile.
           </p>
         </div>
 

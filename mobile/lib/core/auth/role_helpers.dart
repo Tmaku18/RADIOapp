@@ -31,6 +31,20 @@ bool isProspectorRole(String? role) => role == 'listener';
 
 bool isAdminRole(String? role) => role == 'admin';
 
+const makerRoleOrder = ['artist', 'service_provider', 'musician', 'dj'];
+
+String primaryMakerRole(Iterable<String> roles) {
+  for (final role in makerRoleOrder) {
+    if (roles.contains(role)) return role;
+  }
+  return 'listener';
+}
+
+bool holdsMakerRole(String? role, Iterable<String> roles, String target) {
+  if (role == 'admin' || role == target) return true;
+  return roles.contains(target);
+}
+
 /// User-facing role label. DB values stay `artist` / `service_provider`.
 String roleDisplayLabel(String? role) {
   switch (role) {
@@ -43,7 +57,7 @@ String roleDisplayLabel(String? role) {
     case 'dj':
       return 'DJ';
     case 'musician':
-      return 'Musician';
+      return 'Instrumentalist';
     case 'listener':
     default:
       return 'Listener';
@@ -62,7 +76,7 @@ String roleBadgeLabel(String? role) {
     case 'dj':
       return 'DJ';
     case 'musician':
-      return 'MUSICIAN';
+      return 'INSTRUMENT';
     case 'listener':
     default:
       return 'LISTENER';

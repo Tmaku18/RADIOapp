@@ -51,7 +51,7 @@ const settingsSections = [
 
 export default function SettingsPage() {
   const { profile } = useAuth();
-  const isArtist = hasArtistCapability(profile?.role);
+  const isArtist = hasArtistCapability(profile);
   const isAdmin = profile?.role === 'admin';
 
   return (

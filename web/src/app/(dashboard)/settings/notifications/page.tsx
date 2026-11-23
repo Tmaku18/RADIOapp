@@ -23,7 +23,7 @@ const DEFAULT_SETTINGS: ArtistLikeNotificationSettings = {
 
 export default function NotificationSettingsPage() {
   const { profile, refreshProfile } = useAuth();
-  const isArtist = hasArtistCapability(profile?.role);
+  const isArtist = hasArtistCapability(profile);
 
   const [notifyFollowedArtistOnRadio, setNotifyFollowedArtistOnRadio] = useState(
     profile?.notifyFollowedArtistOnRadio !== false,

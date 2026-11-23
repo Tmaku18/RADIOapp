@@ -37,7 +37,7 @@ class SongStoriesStrip extends StatefulWidget {
 
 class _SongStoriesStripState extends State<SongStoriesStrip> {
   final SongStoriesService _stories = SongStoriesService();
-  bool _enabled = true;
+  bool _enabled = false;
   List<SongStory> _items = const [];
   bool _loadFailed = false;
 
@@ -67,7 +67,7 @@ class _SongStoriesStripState extends State<SongStoriesStrip> {
   Future<void> _boot() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
-    setState(() => _enabled = prefs.getBool(_prefKey) ?? true);
+    setState(() => _enabled = prefs.getBool(_prefKey) ?? false);
     if (_enabled) await _load();
   }
 

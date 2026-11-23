@@ -532,7 +532,7 @@ function UploadPageContent() {
     }
   };
 
-  if (profile && !hasArtistCapability(profile.role)) {
+  if (profile && !hasArtistCapability(profile)) {
     return (
       <div className="max-w-2xl mx-auto">
         <Card className="glass-panel border-border/80">

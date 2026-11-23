@@ -3361,4 +3361,53 @@ export class AdminService {
       `TestFlight beta invite finished: sent=${sent} failed=${failed} total=${recipients.length}`,
     );
   }
+
+  async getActivityFlags(limit = 30) {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('activity_flags')
+      .select('id, user_id, reason, created_at')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) {
+      const message = (error.message ?? '').toLowerCase();
+      if (
+        error.code === '42P01' ||
+        error.code === 'PGRST205' ||
+        message.includes('activity_flags')
+      ) {
+        return [];
+      }
+      throw new BadRequestException(error.message);
+    }
+    const rows = data ?? [];
+    const userIds = [...new Set(rows.map((row) => row.user_id as string))];
+    const names = new Map<
+      string,
+      { displayName: string | null; email: string | null }
+    >();
+    if (userIds.length > 0) {
+      const users = await supabase
+        .from('users')
+        .select('id, display_name, email')
+        .in('id', userIds);
+      for (const user of users.data ?? []) {
+        names.set(user.id as string, {
+          displayName: (user.display_name as string | null) ?? null,
+          email: (user.email as string | null) ?? null,
+        });
+      }
+    }
+    return rows.map((row) => {
+      const who = names.get(row.user_id as string);
+      return {
+        id: row.id as string,
+        userId: row.user_id as string,
+        displayName: who?.displayName ?? null,
+        email: who?.email ?? null,
+        reason: row.reason as string,
+        createdAt: row.created_at as string,
+      };
+    });
+  }
 }

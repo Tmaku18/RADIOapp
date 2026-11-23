@@ -69,7 +69,7 @@ function MyStudioPageInner({
   const { profile, loading: authLoading } = useAuth();
   const allowed =
     !!profile &&
-    (hasArtistCapability(profile.role) ||
+    (hasArtistCapability(profile) ||
       profile.role === 'service_provider' ||
       profile.role === 'admin');
 

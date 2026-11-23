@@ -53,6 +53,12 @@ class Track {
   /// Percentage of positive votes (0..100), where higher is hotter.
   final int temperaturePercent;
 
+  /// Popular (listener) and peer (maker) temperatures, plus rating averages.
+  final int? popularTemperature;
+  final int? peerTemperature;
+  final double? popularRating;
+  final double? peerRating;
+
   /// Catalyst deep-link credits pinned during this song's airtime.
   final List<PinnedCatalystCredit> pinnedCatalysts;
 
@@ -83,6 +89,10 @@ class Track {
     this.fireVotes = 0,
     this.shitVotes = 0,
     this.temperaturePercent = 0,
+    this.popularTemperature,
+    this.peerTemperature,
+    this.popularRating,
+    this.peerRating,
     this.pinnedCatalysts = const [],
     this.transportPaused = false,
     this.djOverlay,
@@ -188,6 +198,18 @@ class Track {
                       .toString(),
                 ) ??
                 0,
+      popularTemperature: _optionalTemp(
+        json['popular_temperature_percent'] ?? json['popularTemperature'],
+      ),
+      peerTemperature: _optionalTemp(
+        json['peer_temperature_percent'] ?? json['peerTemperature'],
+      ),
+      popularRating: _optionalRating(
+        json['popular_rating_avg'] ?? json['popularRating'],
+      ),
+      peerRating: _optionalRating(
+        json['peer_rating_avg'] ?? json['peerRating'],
+      ),
       pinnedCatalysts: pinned,
       transportPaused:
           json['transport_paused'] == true || json['transportPaused'] == true,
@@ -216,6 +238,10 @@ class Track {
     int? fireVotes,
     int? shitVotes,
     int? temperaturePercent,
+    int? popularTemperature,
+    int? peerTemperature,
+    double? popularRating,
+    double? peerRating,
     List<PinnedCatalystCredit>? pinnedCatalysts,
     bool? transportPaused,
     DjOverlay? djOverlay,
@@ -241,11 +267,27 @@ class Track {
       fireVotes: fireVotes ?? this.fireVotes,
       shitVotes: shitVotes ?? this.shitVotes,
       temperaturePercent: temperaturePercent ?? this.temperaturePercent,
+      popularTemperature: popularTemperature ?? this.popularTemperature,
+      peerTemperature: peerTemperature ?? this.peerTemperature,
+      popularRating: popularRating ?? this.popularRating,
+      peerRating: peerRating ?? this.peerRating,
       pinnedCatalysts: pinnedCatalysts ?? this.pinnedCatalysts,
       transportPaused: transportPaused ?? this.transportPaused,
       djOverlay: djOverlay ?? this.djOverlay,
     );
   }
+}
+
+int? _optionalTemp(dynamic value) {
+  if (value == null) return null;
+  if (value is int) return value;
+  return int.tryParse(value.toString());
+}
+
+double? _optionalRating(dynamic value) {
+  if (value == null) return null;
+  if (value is num) return value.toDouble();
+  return double.tryParse(value.toString());
 }
 
 class DjOverlay {

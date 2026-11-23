@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../core/auth/auth_service.dart';
+import '../core/auth/role_helpers.dart';
 import '../core/navigation/app_link.dart';
 import '../core/navigation/app_routes.dart';
 import '../core/theme/networx_tokens.dart';
@@ -28,15 +29,47 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isSignUp = false;
   bool _isSubmitting = false;
   bool _agreedToTerms = false;
-  String _selectedRole = 'artist';
+  final Set<String> _selectedRoles = {'artist'};
 
-  static const _roleItems = <DropdownMenuItem<String>>[
-    DropdownMenuItem(value: 'listener', child: Text('Listener')),
-    DropdownMenuItem(value: 'artist', child: Text('Artist')),
-    DropdownMenuItem(value: 'service_provider', child: Text('Producer')),
-    DropdownMenuItem(value: 'dj', child: Text('DJ')),
-    DropdownMenuItem(value: 'musician', child: Text('Musician')),
-  ];
+  Widget _makerChecks({
+    required Set<String> selected,
+    required void Function(VoidCallback fn) update,
+    Color? color,
+  }) {
+    const options = <(String, String)>[
+      ('artist', 'Artist'),
+      ('service_provider', 'Producer'),
+      ('musician', 'Instrumentalist'),
+      ('dj', 'DJ'),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('I make music as', style: TextStyle(color: color)),
+        for (final option in options)
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            value: selected.contains(option.$1),
+            title: Text(option.$2, style: TextStyle(color: color)),
+            controlAffinity: ListTileControlAffinity.leading,
+            onChanged: (checked) {
+              update(() {
+                if (checked == true) {
+                  selected.add(option.$1);
+                } else {
+                  selected.remove(option.$1);
+                }
+              });
+            },
+          ),
+        Text(
+          'Leave these off to join as a listener.',
+          style: TextStyle(color: color, fontSize: 12),
+        ),
+      ],
+    );
+  }
   bool _appliedRouteArgs = false;
 
   @override
@@ -124,7 +157,8 @@ class _LoginScreenState extends State<LoginScreen> {
               _emailController.text.trim(),
               _passwordController.text,
               _displayNameController.text.trim(),
-              _selectedRole,
+              primaryMakerRole(_selectedRoles),
+              userRoles: _selectedRoles.toList(),
               referralCode: _referralController.text,
             )
           : await authService.signInWithEmailAndPassword(
@@ -248,11 +282,12 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
       final name = setupResult.name;
-      final role = setupResult.role;
+      final roles = setupResult.roles;
       try {
         await authService.completeOAuthProfile(
           name,
-          role: role,
+          role: primaryMakerRole(roles),
+          userRoles: roles,
           referralCode: _referralController.text,
         );
         if (!mounted) return;
@@ -271,15 +306,15 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  /// Returns display name + role, or null if cancelled.
-  Future<({String name, String role})?> _promptForDisplayName(
+  /// Returns display name + maker roles, or null if cancelled.
+  Future<({String name, List<String> roles})?> _promptForDisplayName(
     String suggested,
   ) async {
     final controller = TextEditingController(text: suggested);
     final formKey = GlobalKey<FormState>();
-    var selectedRole = 'artist';
+    final selectedRoles = <String>{'artist'};
     var agreed = false;
-    final result = await showDialog<({String name, String role})>(
+    final result = await showDialog<({String name, List<String> roles})>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) {
@@ -293,8 +328,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const Text(
-                      "Choose how you'll appear and your role. "
-                      'You can change your role later in settings.',
+                      "Choose how you'll appear. "
+                      'You can change these roles later in settings.',
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
@@ -313,14 +348,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       },
                     ),
                     const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      initialValue: selectedRole,
-                      decoration: const InputDecoration(labelText: 'Role'),
-                      items: _roleItems,
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setDialogState(() => selectedRole = value);
-                      },
+                    _makerChecks(
+                      selected: selectedRoles,
+                      update: setDialogState,
                     ),
                     CheckboxListTile(
                       contentPadding: EdgeInsets.zero,
@@ -346,7 +376,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     if (!agreed) return;
                     Navigator.of(
                       dialogContext,
-                    ).pop((name: controller.text.trim(), role: selectedRole));
+                    ).pop((
+                      name: controller.text.trim(),
+                      roles: selectedRoles.toList(),
+                    ));
                   },
                   child: const Text('Continue'),
                 ),
@@ -504,19 +537,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               ),
                               const SizedBox(height: 14),
-                              DropdownButtonFormField<String>(
-                                initialValue: _selectedRole,
-                                decoration: themedDecoration(label: 'Role'),
-                                dropdownColor: isDark
-                                    ? NetworxTokens.charcoalMatte
-                                    : NetworxTokens.lightSurface,
-                                style: TextStyle(color: onPage),
-                                items: _roleItems,
-                                onChanged: (value) {
-                                  setState(() {
-                                    _selectedRole = value!;
-                                  });
-                                },
+                              _makerChecks(
+                                selected: _selectedRoles,
+                                update: setState,
+                                color: onPage,
                               ),
                               const SizedBox(height: 14),
                             ],

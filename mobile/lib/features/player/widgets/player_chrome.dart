@@ -32,16 +32,35 @@ class _PlayerAction extends StatelessWidget {
 /// progress bar and emoji tallies, plus two more emoji buttons in the transport
 /// row — the same information competing with itself in two places.
 class _ReactionStrip extends StatelessWidget {
-  const _ReactionStrip({required this.temperaturePercent});
+  const _ReactionStrip({
+    required this.temperaturePercent,
+    this.popularTemperature,
+    this.peerTemperature,
+    this.popularRating,
+    this.peerRating,
+  });
 
   final int temperaturePercent;
+  final int? popularTemperature;
+  final int? peerTemperature;
+  final double? popularRating;
+  final double? peerRating;
+
+  String _line(String label, int percent, double? rating) {
+    final score = rating == null ? '' : ' · ${rating.toStringAsFixed(1)}';
+    return '$label $percent%$score';
+  }
 
   @override
   Widget build(BuildContext context) {
     DimensionTokens.watch(context);
     final scheme = Theme.of(context).colorScheme;
+    final popular = popularTemperature ?? temperaturePercent;
+    final peer = peerTemperature ?? temperaturePercent;
 
-    return Row(
+    return Column(
+      children: [
+        Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             SizedBox(
@@ -50,23 +69,32 @@ class _ReactionStrip extends StatelessWidget {
                 borderRadius: BorderRadius.circular(999),
                 child: LinearProgressIndicator(
                   minHeight: 3,
-                  value: temperaturePercent.clamp(0, 100) / 100,
+                  value: popular.clamp(0, 100) / 100,
                   backgroundColor:
                       DimensionTokens.textPrimary.withValues(alpha: 0.14),
                   valueColor: AlwaysStoppedAnimation(scheme.primary),
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            Text(
-              '$temperaturePercent% hot',
-              style: TextStyle(
-                fontSize: 12,
-                color: DimensionTokens.textSecondary,
-              ),
-            ),
           ],
-        );
+        ),
+        const SizedBox(height: 6),
+        Text(
+          _line('Popular', popular, popularRating),
+          style: TextStyle(
+            fontSize: 12,
+            color: DimensionTokens.textSecondary,
+          ),
+        ),
+        Text(
+          _line('Peer', peer, peerRating),
+          style: TextStyle(
+            fontSize: 12,
+            color: DimensionTokens.textSecondary,
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -941,44 +969,6 @@ class _PlayerBody extends StatelessWidget {
                 },
               ),
               SizedBox(height: afterProgressGap),
-              SongStoriesStrip(
-                songId: track.id,
-                trailing: IconButton(
-                  tooltip: 'Record with this song',
-                  visualDensity: VisualDensity.compact,
-                  onPressed: () {
-                    final url = track.audioUrl.trim();
-                    if (url.isEmpty || url.toLowerCase().contains('.m3u8')) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'This live stream cannot be saved into a clip.',
-                          ),
-                        ),
-                      );
-                      return;
-                    }
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) => RadioCaptureScreen(
-                          audioUrl: url,
-                          title: track.title,
-                          artistName: track.artistName,
-                          artistId: track.artistId,
-                          songId: track.id,
-                          stationId: radioId,
-                          durationMs: track.durationSeconds > 0
-                              ? track.durationSeconds * 1000
-                              : null,
-                        ),
-                      ),
-                    );
-                  },
-                  icon: const Icon(Icons.videocam_outlined),
-                ),
-              ),
-              SizedBox(height: afterProgressGap),
               // Transport comes first now, and it is one big centered play
               // control flanked by the two most-used actions. It used to be
               // seven targets — play, chat, two emoji vote buttons, favourite,
@@ -1027,7 +1017,51 @@ class _PlayerBody extends StatelessWidget {
                 ],
               ),
               SizedBox(height: afterProgressGap),
-              _ReactionStrip(temperaturePercent: temperaturePercent),
+              _ReactionStrip(
+                temperaturePercent: temperaturePercent,
+                popularTemperature: track.popularTemperature,
+                peerTemperature: track.peerTemperature,
+                popularRating: track.popularRating,
+                peerRating: track.peerRating,
+              ),
+              SizedBox(height: afterProgressGap),
+              SongStoriesStrip(
+                songId: track.id,
+                trailing: IconButton(
+                  tooltip: 'Record with this song',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () {
+                    final url = track.audioUrl.trim();
+                    if (url.isEmpty || url.toLowerCase().contains('.m3u8')) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'This live stream cannot be saved into a clip.',
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => RadioCaptureScreen(
+                          audioUrl: url,
+                          title: track.title,
+                          artistName: track.artistName,
+                          artistId: track.artistId,
+                          songId: track.id,
+                          stationId: radioId,
+                          durationMs: track.durationSeconds > 0
+                              ? track.durationSeconds * 1000
+                              : null,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.videocam_outlined),
+                ),
+              ),
               SizedBox(height: afterProgressGap),
               buyAction(),
               SizedBox(height: afterProgressGap),

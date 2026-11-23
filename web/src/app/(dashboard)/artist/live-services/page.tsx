@@ -39,7 +39,7 @@ export default function ArtistLiveServicesPage() {
   const [supportNotice, setSupportNotice] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!hasArtistCapability(profile?.role)) return;
+    if (!hasArtistCapability(profile)) return;
     liveServicesApi.listMine()
       .then((res) => setList(res.data || []))
       .catch(() => setList([]))
@@ -113,7 +113,7 @@ export default function ArtistLiveServicesPage() {
     }
   };
 
-  if (!hasArtistCapability(profile?.role)) {
+  if (!hasArtistCapability(profile)) {
     return (
       <div className="space-y-4">
         <p className="text-muted-foreground">Only Gems and Catalysts can manage live services.</p>

@@ -226,7 +226,11 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
                           setState(() => _adminOpen = !_adminOpen),
                       children: [
                         _subRow('Admin Dashboard', AppRoutes.adminDashboard),
-                        _subRow('DJ Booth', AppRoutes.adminDjBooth),
+                        _subRow(
+                          'DJ Booth',
+                          AppRoutes.adminDjBooth,
+                          icon: Icons.mic,
+                        ),
                       ],
                     ),
                 ],
@@ -248,8 +252,12 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
     );
   }
 
-  Widget _subRow(String label, String route) {
-    return _NavSubRow(label: label, onTap: () => _openRoute(route));
+  Widget _subRow(String label, String route, {IconData? icon}) {
+    return _NavSubRow(
+      label: label,
+      icon: icon,
+      onTap: () => _openRoute(route),
+    );
   }
 
   /// A row that runs an action instead of navigating.
@@ -381,8 +389,9 @@ class _NavRow extends StatelessWidget {
 }
 
 class _NavSubRow extends StatelessWidget {
-  const _NavSubRow({required this.label, required this.onTap});
+  const _NavSubRow({required this.label, required this.onTap, this.icon});
   final String label;
+  final IconData? icon;
   final VoidCallback onTap;
 
   @override
@@ -392,12 +401,20 @@ class _NavSubRow extends StatelessWidget {
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(48, 10, 12, 10),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 15,
-            color: DimensionTokens.textSecondary,
-          ),
+        child: Row(
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 18, color: DimensionTokens.textSecondary),
+              const SizedBox(width: 8),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 15,
+                color: DimensionTokens.textSecondary,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -481,7 +498,7 @@ class _UserFooter extends StatelessWidget {
     final role = user?.role;
     if (role == 'service_provider') return 'Producer';
     if (role == 'dj') return 'DJ';
-    if (role == 'musician') return 'Musician';
+    if (role == 'musician') return 'Instrumentalist';
     if (isArtist || role == 'artist') return 'Artist';
     return 'Listener';
   }

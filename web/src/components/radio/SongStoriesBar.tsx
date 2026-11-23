@@ -16,13 +16,13 @@ export function SongStoriesBar({
   songId?: string | null;
   compact?: boolean;
 }) {
-  const [enabled, setEnabled] = useState(true);
+  const [enabled, setEnabled] = useState(false);
   const [stories, setStories] = useState<SongStory[]>([]);
   const [loadFailed, setLoadFailed] = useState(false);
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   useEffect(() => {
-    setEnabled(window.localStorage.getItem(PREF_KEY) !== 'off');
+    setEnabled(window.localStorage.getItem(PREF_KEY) === 'on');
   }, []);
 
   const load = useCallback(async () => {

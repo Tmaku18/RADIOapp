@@ -56,6 +56,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   int _artistLikeCooldownMinutes = 0;
   bool _savingArtistLikeSettings = false;
   bool _savingRole = false;
+  final Set<String> _makerRoles = {};
   String? _loadError;
   String? _versionLabel;
 
@@ -65,30 +66,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _loadSettings();
   }
 
-  Future<void> _changeRole(String nextRole) async {
-    if (_savingRole || nextRole == _role) return;
+  Future<void> _saveMakerRoles(Set<String> next) async {
+    if (_savingRole) return;
     setState(() => _savingRole = true);
     try {
       final auth = Provider.of<AuthService>(context, listen: false);
       await auth.refreshIdToken();
-      // Prefer dedicated upgrade endpoints so credits / service_providers rows
-      // are created reliably (especially listener/artist → producer).
-      if (nextRole == 'artist' && _role == 'listener') {
+      final previous = Set<String>.from(_makerRoles);
+      if (next.contains('artist') &&
+          !previous.contains('artist') &&
+          previous.isEmpty) {
         await auth.requestArtistUpgrade();
-      } else if (nextRole == 'service_provider' &&
-          _role != 'service_provider') {
-        await auth.requestProducerUpgrade();
-      } else {
-        await _usersService.updateMe(role: nextRole);
       }
+      if (next.contains('service_provider') &&
+          !previous.contains('service_provider')) {
+        await auth.requestProducerUpgrade();
+      }
+      await _usersService.updateMe(userRoles: next.toList());
       final me = await _usersService.getMe();
       if (!mounted) return;
+      final saved = me['userRoles'];
       setState(() {
-        _role = me['role'] as String? ?? nextRole;
+        _role = me['role'] as String? ?? primaryMakerRole(next);
+        _makerRoles
+          ..clear()
+          ..addAll(
+            saved is List
+                ? saved.map((role) => role.toString())
+                : next,
+          );
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Role updated to ${roleDisplayLabel(_role)}'),
+          content: const Text('Roles updated'),
         ),
       );
     } catch (e) {
@@ -154,6 +164,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       setState(() {
         _me = user;
         _role = role ?? user?.role;
+        _makerRoles
+          ..clear()
+          ..addAll(
+            me['userRoles'] is List
+                ? (me['userRoles'] as List).map((item) => item.toString())
+                : (role != null && makerRoleOrder.contains(role) ? [role] : []),
+          );
         _systemNotificationsEnabled = systemEnabled;
         _upNextAlerts = settings['upNextAlerts'] ?? true;
         _liveNowAlerts = settings['liveNowAlerts'] ?? true;
@@ -491,58 +508,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Role',
+                            'Roles',
                             style: Theme.of(context).textTheme.titleSmall,
                           ),
                           const SizedBox(height: 8),
-                          DropdownButtonFormField<String>(
-                            key: ValueKey('role-$role'),
-                            initialValue: const {
-                              'artist',
-                              'service_provider',
-                              'listener',
-                              'dj',
-                              'musician',
-                            }.contains(role)
-                                ? role
-                                : 'listener',
-                            decoration: const InputDecoration(
-                              border: OutlineInputBorder(),
-                              isDense: true,
+                          for (final option in const [
+                            ('artist', 'Artist'),
+                            ('service_provider', 'Producer'),
+                            ('musician', 'Instrumentalist'),
+                            ('dj', 'DJ'),
+                          ])
+                            CheckboxListTile(
+                              contentPadding: EdgeInsets.zero,
+                              dense: true,
+                              value: _makerRoles.contains(option.$1),
+                              title: Text(option.$2),
+                              controlAffinity: ListTileControlAffinity.leading,
+                              onChanged: _savingRole
+                                  ? null
+                                  : (checked) {
+                                      final next = Set<String>.from(_makerRoles);
+                                      if (checked == true) {
+                                        next.add(option.$1);
+                                      } else {
+                                        next.remove(option.$1);
+                                      }
+                                      _saveMakerRoles(next);
+                                    },
                             ),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'listener',
-                                child: Text('Listener'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'artist',
-                                child: Text('Artist'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'service_provider',
-                                child: Text('Producer'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'dj',
-                                child: Text('DJ'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'musician',
-                                child: Text('Musician'),
-                              ),
-                            ],
-                            onChanged: _savingRole
-                                ? null
-                                : (value) {
-                                    if (value != null) _changeRole(value);
-                                  },
-                          ),
                           const SizedBox(height: 6),
                           Text(
-                            'Listeners can join Trial by Fire to become Artists. '
-                            'Listeners and Artists can upgrade to Producer. '
-                            'Artists and Producers can upload music.',
+                            'Check every way you make music. Leave them off to stay a listener. '
+                            'Any of these roles can upload music.',
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                   color: Theme.of(context)
                                       .colorScheme
@@ -947,7 +944,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     _navTile(
                       context,
-                      icon: Icons.headphones,
+                      icon: Icons.mic,
                       title: 'DJ Booth',
                       subtitle: 'Radio transport, mic, and queue',
                       onTap: () => Navigator.pushNamed(context, AppRoutes.adminDjBooth),

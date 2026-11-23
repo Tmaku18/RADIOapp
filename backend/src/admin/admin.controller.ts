@@ -88,6 +88,12 @@ export class AdminController {
     return { songs, total: songs.length };
   }
 
+  @Post('songs/:id/demonetize')
+  async demonetizeSong(@Param('id') songId: string) {
+    const song = await this.adminService.demonetizeCopyrightedSong(songId);
+    return { song };
+  }
+
   @Patch('songs/:id')
   async updateSongStatus(
     @CurrentUser() admin: FirebaseUser,
@@ -187,6 +193,12 @@ export class AdminController {
       throw new BadRequestException('artistId is required');
     }
     return this.paymentsService.settlePendingPayouts(artistId.trim());
+  }
+
+  @Get('activity-flags')
+  async getActivityFlags() {
+    const flags = await this.adminService.getActivityFlags();
+    return { flags };
   }
 
   @Get('users')

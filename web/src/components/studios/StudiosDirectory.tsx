@@ -60,7 +60,7 @@ function StudiosDirectoryPageInner({
   const { profile } = useAuth();
   const searchParams = useSearchParams();
   const canCreate =
-    hasArtistCapability(profile?.role) || profile?.role === 'service_provider';
+    hasArtistCapability(profile) || profile?.role === 'service_provider';
   const [section, setSection] = useState(
     searchParams.get('tab') === 'nearby' ? 'nearby' : 'directory',
   );

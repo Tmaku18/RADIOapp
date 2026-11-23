@@ -38,7 +38,7 @@ function formatPrice(cents: number | null, currency: string, rateType: 'hourly' 
 
 export default function ProNetworxServicesPage() {
   const { profile } = useAuth();
-  const canList = hasArtistCapability(profile?.role) || profile?.role === 'service_provider';
+  const canList = hasArtistCapability(profile) || profile?.role === 'service_provider';
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [serviceType, setServiceType] = useState('');

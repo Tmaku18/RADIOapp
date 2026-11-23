@@ -18,6 +18,7 @@ import { LyricsService } from '../lyrics/lyrics.service';
 import { PushNotificationService } from '../push-notifications/push-notification.service';
 import { EmailService } from '../email/email.service';
 import { promoteListenerToArtist } from '../users/promote-listener';
+import { stampVote } from '../common/vote-integrity';
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegStatic from 'ffmpeg-static';
 import { existsSync, promises as fs } from 'node:fs';
@@ -3534,18 +3535,45 @@ export class SongsService {
     }
     if (!song) throw new NotFoundException('Song not found');
 
-    const { error } = await supabase.from('song_listener_ratings').upsert(
+    let stamp = {
+      voter_cohort: 'popular' as 'popular' | 'peer' | null,
+      counts_toward_score: true,
+    };
+    try {
+      stamp = await stampVote(supabase, userId, songId);
+    } catch {
+      // A stamp failure still saves the rating so the listener isn't stuck.
+    }
+    let { error } = await supabase.from('song_listener_ratings').upsert(
       {
         user_id: userId,
         song_id: songId,
         rating,
         updated_at: new Date().toISOString(),
+        voter_cohort: stamp.voter_cohort,
+        counts_toward_score: stamp.counts_toward_score,
       },
       { onConflict: 'user_id,song_id' },
     );
+    const cohortMissing =
+      !!error &&
+      `${error.message ?? ''}`.toLowerCase().includes('voter_cohort');
+    if (cohortMissing) {
+      const retry = await supabase.from('song_listener_ratings').upsert(
+        {
+          user_id: userId,
+          song_id: songId,
+          rating,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,song_id' },
+      );
+      error = retry.error;
+    }
     if (error) {
       throw new BadRequestException(`Could not save rating: ${error.message}`);
     }
+    await supabase.rpc('refresh_song_temperature', { p_song_id: songId });
     return { rating };
   }
 

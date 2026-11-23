@@ -49,6 +49,12 @@ export class UpdateUserDto {
   @IsOptional()
   role?: 'listener' | 'artist' | 'service_provider' | 'dj' | 'musician';
 
+  /** Maker roles. Empty means listener. Replaces the whole set. */
+  @IsArray()
+  @IsIn(['artist', 'service_provider', 'musician', 'dj'], { each: true })
+  @IsOptional()
+  userRoles?: Array<'artist' | 'service_provider' | 'musician' | 'dj'>;
+
   @ValidateIf((o) => o.avatarUrl != null && o.avatarUrl !== '')
   @IsUrl()
   @IsOptional()

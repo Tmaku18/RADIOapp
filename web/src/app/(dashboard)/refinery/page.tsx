@@ -44,7 +44,7 @@ type YieldStatus = {
 
 export default function RefineryPage() {
   const { profile } = useAuth();
-  const isArtist = hasArtistCapability(profile?.role);
+  const isArtist = hasArtistCapability(profile);
 
   const [reviewer, setReviewer] = useState<ReviewerStatus | null>(null);
   const [songs, setSongs] = useState<RefineryQueueSong[]>([]);

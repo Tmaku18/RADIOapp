@@ -21,6 +21,11 @@ import { PushNotificationService } from '../push-notifications/push-notification
 import { ProRadioSubscriptionService } from '../pro-radio-subscription/pro-radio-subscription.service';
 import { promoteListenerToArtist } from './promote-listener';
 import { ensureWelcomePlacements } from '../credits/welcome-placements';
+import {
+  normalizeMakerRoles,
+  primaryRoleFromMakers,
+  type MakerRole,
+} from '../common/vote-integrity';
 
 // Transform snake_case DB response to camelCase for frontend
 export interface UserResponse {
@@ -28,7 +33,8 @@ export interface UserResponse {
   email: string;
   displayName: string | null;
   username: string | null;
-  role: 'listener' | 'artist' | 'admin' | 'service_provider';
+  role: 'listener' | 'artist' | 'admin' | 'service_provider' | 'dj' | 'musician';
+  userRoles: string[];
   avatarUrl: string | null;
   createdAt: string;
   firebaseUid: string;
@@ -90,6 +96,7 @@ function transformUser(data: any): UserResponse {
     displayName: data.display_name,
     username: data.username ?? null,
     role: data.role,
+    userRoles: Array.isArray(data.user_roles) ? data.user_roles : [],
     avatarUrl: data.avatar_url,
     createdAt: data.created_at,
     firebaseUid: data.firebase_uid,
@@ -238,19 +245,16 @@ export class UsersService {
     const emailLower = createUserDto.email.trim().toLowerCase();
     const adminEmails = this.getAdminEmails();
     const requestedRole = createUserDto.role;
-    const allowedSelfServeRoles = new Set([
-      'listener',
-      'artist',
-      'service_provider',
-      'dj',
-      'musician',
-    ]);
-    // Honor signup role (listener / artist / producer). Admin emails always become admin.
+    const fromList = normalizeMakerRoles(createUserDto.userRoles);
+    const fromSingle = normalizeMakerRoles(
+      requestedRole ? [requestedRole] : [],
+    );
+    const makerRoles = fromList.length > 0 ? fromList : fromSingle;
+    // Admin emails always become admin. Otherwise the first maker role, or listener.
     const role = adminEmails.includes(emailLower)
       ? 'admin'
-      : requestedRole && allowedSelfServeRoles.has(requestedRole)
-        ? requestedRole
-        : 'listener';
+      : primaryRoleFromMakers(makerRoles);
+    const userRoles = role === 'admin' ? [] : makerRoles;
     const displayName = createUserDto.displayName?.trim();
     if (!displayName) {
       throw new BadRequestException('Display name is required');
@@ -272,6 +276,7 @@ export class UsersService {
           display_name: displayName,
           username,
           role,
+          user_roles: userRoles,
           terms_accepted_at: createUserDto.termsAccepted
             ? new Date().toISOString()
             : null,
@@ -621,11 +626,26 @@ export class UsersService {
   ): Promise<UserResponse> {
     const supabase = getSupabaseClient();
 
-    const { data: user } = await supabase
+    let userResult = await supabase
       .from('users')
-      .select('id, role')
+      .select('id, role, user_roles')
       .eq('firebase_uid', firebaseUid)
       .single();
+    if (
+      userResult.error &&
+      `${userResult.error.message ?? ''}`.toLowerCase().includes('user_roles')
+    ) {
+      userResult = await supabase
+        .from('users')
+        .select('id, role')
+        .eq('firebase_uid', firebaseUid)
+        .single();
+    }
+    const user = userResult.data as {
+      id: string;
+      role: string;
+      user_roles?: string[] | null;
+    } | null;
 
     if (!user) {
       throw new NotFoundException('User not found');
@@ -794,32 +814,35 @@ export class UsersService {
     // artistLat / artistLng from the client are intentionally ignored — see
     // the ZIP geocode block above. Public maps only ever see a distorted pin.
     let grantWelcomePlacements = false;
-    if (updateUserDto.role !== undefined) {
+    if (
+      updateUserDto.userRoles !== undefined ||
+      updateUserDto.role !== undefined
+    ) {
       if (user.role === 'admin') {
         throw new BadRequestException(
           'Admin users cannot change account type here.',
         );
       }
-      if (
-        updateUserDto.role !== 'listener' &&
-        updateUserDto.role !== 'artist' &&
-        updateUserDto.role !== 'service_provider' &&
-        updateUserDto.role !== 'dj' &&
-        updateUserDto.role !== 'musician'
-      ) {
-        throw new BadRequestException(
-          'Role must be listener, artist, producer, DJ, or musician.',
-        );
-      }
-      updatePayload.role = updateUserDto.role;
-      grantWelcomePlacements =
-        (updateUserDto.role === 'artist' ||
-          updateUserDto.role === 'service_provider') &&
-        user.role !== updateUserDto.role;
-      if (
-        updateUserDto.role === 'service_provider' &&
-        user.role !== 'service_provider'
-      ) {
+      const nextMakers: MakerRole[] =
+        updateUserDto.userRoles !== undefined
+          ? normalizeMakerRoles(updateUserDto.userRoles)
+          : normalizeMakerRoles(
+              updateUserDto.role ? [updateUserDto.role] : [],
+            );
+      const previousMakers = normalizeMakerRoles(
+        Array.isArray(user.user_roles) && user.user_roles.length
+          ? user.user_roles
+          : [user.role],
+      );
+      updatePayload.role = primaryRoleFromMakers(nextMakers);
+      updatePayload.user_roles = nextMakers;
+      const gainedArtist =
+        nextMakers.includes('artist') && !previousMakers.includes('artist');
+      const gainedProducer =
+        nextMakers.includes('service_provider') &&
+        !previousMakers.includes('service_provider');
+      grantWelcomePlacements = gainedArtist || gainedProducer;
+      if (gainedProducer) {
         const { error: providerError } = await supabase
           .from('service_providers')
           .insert({ user_id: user.id });

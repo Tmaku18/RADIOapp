@@ -24,7 +24,7 @@ type LiveSession = {
 
 export default function LiveDjPage() {
   const { profile } = useAuth();
-  const canHost = hasDjCapability(profile?.role);
+  const canHost = hasDjCapability(profile);
   const [sessions, setSessions] = useState<LiveSession[]>([]);
   const [loading, setLoading] = useState(true);
 

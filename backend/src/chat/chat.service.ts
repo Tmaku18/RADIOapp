@@ -6,6 +6,7 @@ import {
   OnModuleDestroy,
 } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
+import { isRepeatedComment } from '../common/vote-integrity';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 interface ChatMessage {
@@ -244,6 +245,11 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
     const messageKind: ChatKind = kind === 'comment' ? 'comment' : 'live';
     if (messageKind === 'comment' && !songId?.trim()) {
       throw new BadRequestException('Comments require a song');
+    }
+
+    if (await isRepeatedComment(supabase, userId, message)) {
+      this.logger.log(`Repeated comment from ${userId} ignored`);
+      return { success: true, id: `ignored-${Date.now()}` };
     }
 
     // Save message to database

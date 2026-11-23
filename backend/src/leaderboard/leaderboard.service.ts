@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
+import { stampVote, type VoteStamp } from '../common/vote-integrity';
 
 export interface LeaderboardSong {
   id: string;
@@ -29,6 +30,14 @@ export type LeaderboardReaction = 'fire' | 'shit';
 export class LeaderboardService {
   private readonly reactionMigrationErrorMessage =
     'Negative reactions are temporarily unavailable because the reaction migration is missing. Please apply database migration 047_leaderboard_reactions_and_temperature.';
+
+  private isMissingVoteCohortColumn(error: unknown): boolean {
+    const maybeError = error as { code?: string; message?: string } | null;
+    const message = (maybeError?.message ?? '').toLowerCase();
+    return (
+      message.includes('voter_cohort') || message.includes('counts_toward_score')
+    );
+  }
 
   private isMissingLeaderboardReactionColumn(error: unknown): boolean {
     const maybeError = error as { code?: string; message?: string } | null;
@@ -714,6 +723,23 @@ export class LeaderboardService {
     const supabase = getSupabaseClient();
     const safeReaction: LeaderboardReaction =
       reaction === 'shit' ? 'shit' : 'fire';
+    let stamp: VoteStamp = {
+      voter_cohort: 'popular',
+      counts_toward_score: true,
+    };
+    try {
+      stamp = await stampVote(supabase, userId, songId);
+    } catch (err) {
+      console.warn(
+        `Vote stamp failed, counting the vote: ${
+          err instanceof Error ? err.message : 'unknown'
+        }`,
+      );
+    }
+    const voteMeta = {
+      voter_cohort: stamp.voter_cohort,
+      counts_toward_score: stamp.counts_toward_score,
+    };
     // Fire → Liked library (`likes`) only. Never write song_favorites (⭐);
     // starring is explicit and is what drives radio alert fanout.
     const ensureSongLiked = async () => {
@@ -793,10 +819,17 @@ export class LeaderboardService {
             previousReaction: existingReaction,
           };
         }
-        const { error: updateError } = await supabase
+        let { error: updateError } = await supabase
           .from('leaderboard_likes')
-          .update({ reaction: safeReaction })
+          .update({ reaction: safeReaction, ...voteMeta })
           .eq('id', (existing as { id: string }).id);
+        if (updateError && this.isMissingVoteCohortColumn(updateError)) {
+          const retry = await supabase
+            .from('leaderboard_likes')
+            .update({ reaction: safeReaction })
+            .eq('id', (existing as { id: string }).id);
+          updateError = retry.error;
+        }
         if (
           updateError &&
           this.isMissingLeaderboardReactionColumn(updateError)
@@ -881,10 +914,17 @@ export class LeaderboardService {
             previousReaction: existingReaction,
           };
         }
-        const { error: updateError } = await supabase
+        let { error: updateError } = await supabase
           .from('leaderboard_likes')
-          .update({ reaction: safeReaction })
+          .update({ reaction: safeReaction, ...voteMeta })
           .eq('id', (existingSongVote as { id: string }).id);
+        if (updateError && this.isMissingVoteCohortColumn(updateError)) {
+          const retry = await supabase
+            .from('leaderboard_likes')
+            .update({ reaction: safeReaction })
+            .eq('id', (existingSongVote as { id: string }).id);
+          updateError = retry.error;
+        }
         if (
           updateError &&
           this.isMissingLeaderboardReactionColumn(updateError)
@@ -910,12 +950,22 @@ export class LeaderboardService {
       }
     }
 
-    const { error } = await supabase.from('leaderboard_likes').insert({
+    let { error } = await supabase.from('leaderboard_likes').insert({
       user_id: userId,
       song_id: songId,
       play_id: playId,
       reaction: safeReaction,
+      ...voteMeta,
     });
+    if (error && this.isMissingVoteCohortColumn(error)) {
+      const retry = await supabase.from('leaderboard_likes').insert({
+        user_id: userId,
+        song_id: songId,
+        play_id: playId,
+        reaction: safeReaction,
+      });
+      error = retry.error;
+    }
     if (error) {
       if (this.isMissingLeaderboardReactionColumn(error)) {
         if (safeReaction === 'shit') {

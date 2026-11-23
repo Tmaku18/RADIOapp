@@ -34,7 +34,7 @@ function formatDuration(seconds: number | null): string | null {
 
 export default function ProNetworxBeatsPage() {
   const { user, profile } = useAuth();
-  const canUpload = hasArtistCapability(profile?.role) || profile?.role === 'service_provider';
+  const canUpload = hasArtistCapability(profile) || profile?.role === 'service_provider';
   const [query, setQuery] = useState('');
   const [appliedQuery, setAppliedQuery] = useState('');
   const [items, setItems] = useState<MarketplaceBeat[]>([]);

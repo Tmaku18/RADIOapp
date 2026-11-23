@@ -52,6 +52,15 @@ export default function AdminUsersPage() {
   const [shadowBanReason, setShadowBanReason] = useState('');
   const [restoreUser, setRestoreUser] = useState<User | null>(null);
   const [deleteAccountUser, setDeleteAccountUser] = useState<User | null>(null);
+  const [flags, setFlags] = useState<
+    Array<{
+      id: string;
+      displayName: string | null;
+      email: string | null;
+      reason: string;
+      createdAt: string;
+    }>
+  >([]);
 
   // Debounce search
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -66,6 +75,13 @@ export default function AdminUsersPage() {
   useEffect(() => {
     loadUsers();
   }, [filter, debouncedSearch, sortBy, sortOrder]);
+
+  useEffect(() => {
+    adminApi
+      .getActivityFlags()
+      .then((res) => setFlags(res.data.flags ?? []))
+      .catch(() => setFlags([]));
+  }, []);
 
   const loadUsers = async () => {
     setLoading(true);
@@ -215,8 +231,31 @@ export default function AdminUsersPage() {
     }
   };
 
+  const flagLabel = (reason: string) => {
+    if (reason === 'vote_without_listen') return 'Vote with no listen';
+    if (reason === 'vote_burst') return 'Vote burst';
+    if (reason === 'comment_repeat') return 'Repeated comment';
+    return reason;
+  };
+
   return (
     <div className="space-y-6">
+      {flags.length > 0 && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4">
+          <h2 className="font-semibold text-amber-950">Flagged activity</h2>
+          <p className="mt-1 text-sm text-amber-900">
+            These accounts were flagged. Nothing here removes them from the app.
+          </p>
+          <ul className="mt-3 space-y-1 text-sm text-amber-950">
+            {flags.slice(0, 12).map((flag) => (
+              <li key={flag.id}>
+                {flag.displayName || flag.email || 'Account'} · {flagLabel(flag.reason)} ·{' '}
+                {new Date(flag.createdAt).toLocaleString()}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {/* Filters and Search */}
       <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
         <div className="flex gap-2 flex-wrap">

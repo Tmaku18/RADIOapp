@@ -12,7 +12,13 @@ import {
   type DiscoverFeedPost,
 } from '@/lib/api';
 import Image from 'next/image';
-import { hasArtistCapability } from '@/lib/roles';
+import {
+  hasArtistCapability,
+  hasServiceProviderCapability,
+  MAKER_ROLE_OPTIONS,
+  makerRolesFromProfile,
+  roleDisplayLabel,
+} from '@/lib/roles';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -60,9 +66,9 @@ export default function ProfilePage() {
   const [appleMusicUrl, setAppleMusicUrl] = useState(profile?.appleMusicUrl ?? '');
   const [facebookUrl, setFacebookUrl] = useState(profile?.facebookUrl ?? '');
   const [snapchatUrl, setSnapchatUrl] = useState(profile?.snapchatUrl ?? '');
-  const [selectedRole, setSelectedRole] = useState<
-    'listener' | 'artist' | 'service_provider'
-  >((profile?.role as 'listener' | 'artist' | 'service_provider') || 'listener');
+  const [selectedRoles, setSelectedRoles] = useState<string[]>(
+    makerRolesFromProfile(profile),
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -148,10 +154,10 @@ export default function ProfilePage() {
       if (profile?.facebookUrl !== undefined) setFacebookUrl(profile.facebookUrl ?? '');
       if (profile?.snapchatUrl !== undefined) setSnapchatUrl(profile.snapchatUrl ?? '');
       if (profile?.role && profile.role !== 'admin') {
-        setSelectedRole(profile.role as 'listener' | 'artist' | 'service_provider');
+        setSelectedRoles(makerRolesFromProfile(profile));
       }
     }
-  }, [profile?.displayName, profile?.username, profile?.region, profile?.suggestLocalArtists, profile?.bio, profile?.headline, profile?.locationRegion, profile?.instagramUrl, profile?.twitterUrl, profile?.youtubeUrl, profile?.tiktokUrl, profile?.websiteUrl, profile?.soundcloudUrl, profile?.spotifyUrl, profile?.appleMusicUrl, profile?.facebookUrl, profile?.snapchatUrl, profile?.role, isEditing]);
+  }, [profile?.displayName, profile?.username, profile?.region, profile?.suggestLocalArtists, profile?.bio, profile?.headline, profile?.locationRegion, profile?.instagramUrl, profile?.twitterUrl, profile?.youtubeUrl, profile?.tiktokUrl, profile?.websiteUrl, profile?.soundcloudUrl, profile?.spotifyUrl, profile?.appleMusicUrl, profile?.facebookUrl, profile?.snapchatUrl, profile?.role, profile?.userRoles, isEditing]);
 
   // Debounced username availability check while editing.
   useEffect(() => {
@@ -266,25 +272,23 @@ export default function ProfilePage() {
           return;
         }
       }
-      const currentAccountRole =
-        profile?.role === 'listener' ||
-        profile?.role === 'artist' ||
-        profile?.role === 'service_provider'
-          ? profile.role
-          : null;
-      const roleChanged =
+      const currentMakers = makerRolesFromProfile(profile);
+      const rolesChanged =
         !isAdmin &&
-        currentAccountRole != null &&
-        selectedRole !== currentAccountRole;
+        (currentMakers.length !== selectedRoles.length ||
+          currentMakers.some((role) => !selectedRoles.includes(role)));
 
-      // Prefer dedicated upgrade endpoints for artist/producer so side tables
-      // (credits, service_providers) stay in sync.
-      if (roleChanged) {
-        if (selectedRole === 'artist' && currentAccountRole === 'listener') {
+      if (rolesChanged) {
+        if (
+          selectedRoles.includes('artist') &&
+          !currentMakers.includes('artist') &&
+          currentMakers.length === 0
+        ) {
           await usersApi.upgradeToArtist();
-        } else if (
-          selectedRole === 'service_provider' &&
-          currentAccountRole !== 'service_provider'
+        }
+        if (
+          selectedRoles.includes('service_provider') &&
+          !currentMakers.includes('service_provider')
         ) {
           await usersApi.upgradeToCatalyst();
         }
@@ -311,15 +315,7 @@ export default function ProfilePage() {
         appleMusicUrl: appleMusicUrl.trim() || undefined,
         facebookUrl: facebookUrl.trim() || undefined,
         snapchatUrl: snapchatUrl.trim() || undefined,
-        role:
-          roleChanged &&
-          !(
-            (selectedRole === 'artist' && currentAccountRole === 'listener') ||
-            (selectedRole === 'service_provider' &&
-              currentAccountRole !== 'service_provider')
-          )
-            ? selectedRole
-            : undefined,
+        userRoles: rolesChanged ? selectedRoles : undefined,
       });
       await refreshProfile();
       setIsEditing(false);
@@ -352,7 +348,7 @@ export default function ProfilePage() {
     setFacebookUrl(profile?.facebookUrl ?? '');
     setSnapchatUrl(profile?.snapchatUrl ?? '');
     if (profile?.role && profile.role !== 'admin') {
-      setSelectedRole(profile.role as 'listener' | 'artist' | 'service_provider');
+      setSelectedRoles(makerRolesFromProfile(profile));
     }
     setIsEditing(false);
     setError(null);
@@ -417,7 +413,7 @@ export default function ProfilePage() {
     }
   };
 
-  const isCatalyst = profile?.role === 'service_provider';
+  const isCatalyst = hasServiceProviderCapability(profile);
   const isAdmin = profile?.role === 'admin';
   const socialLinks = [
     { label: 'Instagram', url: instagramUrl.trim() },
@@ -434,17 +430,11 @@ export default function ProfilePage() {
   const roleLabel =
     profile?.role === 'admin'
       ? 'Admin'
-      : profile?.role === 'service_provider'
-        ? 'Producer'
-        : profile?.role === 'artist'
-          ? 'Artist'
-          : profile?.role === 'dj'
-            ? 'DJ'
-            : profile?.role === 'musician'
-              ? 'Musician'
-              : 'Listener';
+      : makerRolesFromProfile(profile)
+          .map((role) => roleDisplayLabel(role))
+          .join(', ') || 'Listener';
   const ownPublicProfileHref =
-    profile?.id && hasArtistCapability(profile?.role)
+    profile?.id && hasArtistCapability(profile)
       ? profile.role === 'service_provider'
         ? `/pro-networx/u/${profile.id}`
         : `/artist/${profile.id}`
@@ -479,7 +469,7 @@ export default function ProfilePage() {
 
   return (
     <div className="max-w-2xl space-y-6">
-      {hasArtistCapability(profile?.role) && (
+      {hasArtistCapability(profile) && (
         <Card className="border-primary/30 bg-primary/5">
           <CardContent className="pt-6">
             <div className="flex items-start gap-4">
@@ -653,7 +643,7 @@ export default function ProfilePage() {
               )}
             </div>
 
-            {hasArtistCapability(profile?.role) && (
+            {hasArtistCapability(profile) && (
               <div className="space-y-2">
                 <Label>Bio</Label>
                 {isEditing ? (
@@ -671,7 +661,7 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {hasArtistCapability(profile?.role) && (
+            {hasArtistCapability(profile) && (
               <div className="space-y-3 rounded-lg border border-border p-4">
                 <Label>Social links</Label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -713,19 +703,30 @@ export default function ProfilePage() {
             <div className="space-y-3">
               <Label>Account</Label>
               {isEditing && !isAdmin ? (
-                <select
-                  value={selectedRole}
-                  onChange={(e) =>
-                    setSelectedRole(
-                      e.target.value as 'listener' | 'artist' | 'service_provider',
-                    )
-                  }
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                >
-                  <option value="listener">Listener</option>
-                  <option value="artist">Artist</option>
-                  <option value="service_provider">Producer</option>
-                </select>
+                <div className="grid grid-cols-2 gap-2">
+                  {MAKER_ROLE_OPTIONS.map((option) => {
+                    const checked = selectedRoles.includes(option.id);
+                    return (
+                      <label
+                        key={option.id}
+                        className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() =>
+                            setSelectedRoles((current) =>
+                              checked
+                                ? current.filter((role) => role !== option.id)
+                                : [...current, option.id],
+                            )
+                          }
+                        />
+                        {option.label}
+                      </label>
+                    );
+                  })}
+                </div>
               ) : (
                 <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-foreground font-medium">
                   {roleLabel}
@@ -733,9 +734,8 @@ export default function ProfilePage() {
               )}
               {!isAdmin && (
                 <p className="text-sm text-muted-foreground">
-                  Listeners can join Trial by Fire to become Artists. Listeners
-                  and Artists can upgrade to Producer. Artists and Producers can
-                  upload music.
+                  Check Artist, Producer, Instrumentalist, or DJ. Leave them
+                  off to stay a listener. Any of those roles can upload music.
                 </p>
               )}
               {isCatalyst && (

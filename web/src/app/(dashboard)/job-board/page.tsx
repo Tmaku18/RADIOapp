@@ -75,7 +75,7 @@ export default function JobBoardPage() {
   const [hasSubscription, setHasSubscription] = useState<boolean | null>(null);
   const [paywalled, setPaywalled] = useState(false);
 
-  const canPost = hasArtistCapability(profile?.role);
+  const canPost = hasArtistCapability(profile);
   const [createOpen, setCreateOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newServiceType, setNewServiceType] = useState<string>('none');

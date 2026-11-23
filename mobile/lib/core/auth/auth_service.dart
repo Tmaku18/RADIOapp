@@ -141,6 +141,7 @@ class AuthService extends ChangeNotifier with WidgetsBindingObserver {
     String displayName,
     String role, {
     String? referralCode,
+    List<String>? userRoles,
   }) async {
     if (_auth == null || !firebaseInitialized) {
       throw Exception('Firebase is not initialized. Please configure Firebase first.');
@@ -161,6 +162,7 @@ class AuthService extends ChangeNotifier with WidgetsBindingObserver {
           'email': email,
           'displayName': displayName,
           'role': role,
+          if (userRoles != null) 'userRoles': userRoles,
           'termsAccepted': true,
         });
         await _claimReferral(referralCode);
@@ -482,6 +484,7 @@ class AuthService extends ChangeNotifier with WidgetsBindingObserver {
     String displayName, {
     String role = 'listener',
     String? referralCode,
+    List<String>? userRoles,
   }) async {
     final name = displayName.trim();
     if (name.isEmpty) {
@@ -497,6 +500,7 @@ class AuthService extends ChangeNotifier with WidgetsBindingObserver {
       'email': user.email ?? '',
       'displayName': name,
       'role': role,
+      if (userRoles != null) 'userRoles': userRoles,
       'termsAccepted': true,
     });
     await _claimReferral(referralCode);

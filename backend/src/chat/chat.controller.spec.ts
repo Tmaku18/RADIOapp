@@ -13,7 +13,7 @@ describe('ChatController', () => {
       getHistory: jest.fn(),
       getChatStatus: jest.fn(),
     };
-    const controller = new ChatController(chatService as any);
+    const controller = new ChatController(chatService as any, {} as any);
     const supabase = createSupabaseMock();
 
     supabase.__builder.single.mockResolvedValue({
@@ -56,7 +56,7 @@ describe('ChatController', () => {
       ]),
       getChatStatus: jest.fn(),
     };
-    const controller = new ChatController(chatService as any);
+    const controller = new ChatController(chatService as any, {} as any);
 
     const result = await controller.getHistory('10', 'us-rap');
 
@@ -85,7 +85,7 @@ describe('ChatController', () => {
       getHistory: jest.fn(),
       getChatStatus: jest.fn().mockResolvedValue({ enabled: true }),
     };
-    const controller = new ChatController(chatService as any);
+    const controller = new ChatController(chatService as any, {} as any);
 
     const result = await controller.getStatus();
 

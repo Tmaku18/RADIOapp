@@ -5,13 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { MAKER_ROLE_OPTIONS } from '@/lib/roles';
 
 export type SetupRole = 'listener' | 'artist' | 'service_provider';
 
 interface DisplayNameGateProps {
   suggestedName: string;
   email: string;
-  onSubmit: (displayName: string, role: SetupRole) => Promise<void>;
+  onSubmit: (displayName: string, roles: string[]) => Promise<void>;
   onCancel: () => Promise<void> | void;
 }
 
@@ -26,7 +27,7 @@ export function DisplayNameGate({
   onCancel,
 }: DisplayNameGateProps) {
   const [name, setName] = useState(suggestedName ?? '');
-  const [role, setRole] = useState<SetupRole>('artist');
+  const [roles, setRoles] = useState<string[]>(['artist']);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,7 +41,7 @@ export function DisplayNameGate({
     }
     setSubmitting(true);
     try {
-      await onSubmit(trimmed, role);
+      await onSubmit(trimmed, roles);
     } catch (err) {
       const apiMessage = (err as { response?: { data?: { message?: string } } })
         ?.response?.data?.message;
@@ -58,7 +59,7 @@ export function DisplayNameGate({
         <div className="text-center mb-6">
           <h1 className="text-2xl font-bold text-foreground">Finish setting up</h1>
           <p className="text-muted-foreground mt-2">
-            Choose how you&apos;ll appear and your role. Artists and Producers can upload music.
+            Choose how you&apos;ll appear. Check every way you make music, or leave them off to listen.
           </p>
         </div>
 
@@ -86,17 +87,31 @@ export function DisplayNameGate({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="gate-role">Role</Label>
-            <select
-              id="gate-role"
-              value={role}
-              onChange={(e) => setRole(e.target.value as SetupRole)}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
-            >
-              <option value="listener">Listener</option>
-              <option value="artist">Artist</option>
-              <option value="service_provider">Producer</option>
-            </select>
+            <Label>I make music as</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {MAKER_ROLE_OPTIONS.map((option) => {
+                const checked = roles.includes(option.id);
+                return (
+                  <label
+                    key={option.id}
+                    className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() =>
+                        setRoles((current) =>
+                          checked
+                            ? current.filter((role) => role !== option.id)
+                            : [...current, option.id],
+                        )
+                      }
+                    />
+                    {option.label}
+                  </label>
+                );
+              })}
+            </div>
           </div>
 
           <Button type="submit" className="w-full" disabled={submitting}>

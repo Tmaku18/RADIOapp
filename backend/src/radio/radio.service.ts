@@ -315,6 +315,15 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /** Drop the eligible-song cache so a song approved moments ago can be queued. */
+  clearFreeRotationPoolCache(radioId?: string): void {
+    if (radioId) {
+      this.freeRotationPoolCache.delete(radioId);
+    } else {
+      this.freeRotationPoolCache.clear();
+    }
+  }
+
   /**
    * Drop the cached active-listener count for a song so the next read recomputes
    * it. Called when a listener heartbeats/records presence so a freshly-joined
@@ -561,6 +570,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     shitVotes: number;
     totalVotes: number;
     temperaturePercent: number;
+    popularTemperature?: number;
+    peerTemperature?: number;
+    popularRating?: number | null;
+    peerRating?: number | null;
   }> {
     const cacheKey = `${args.songId}:${args.playId ?? ''}`;
     const cached = this.temperatureCache.get(cacheKey);
@@ -586,6 +599,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     shitVotes: number;
     totalVotes: number;
     temperaturePercent: number;
+    popularTemperature?: number;
+    peerTemperature?: number;
+    popularRating?: number | null;
+    peerRating?: number | null;
   }> {
     return this.withTimeoutFallback(
       this.getSongTemperature({ playId, songId, startedAtIso }),
@@ -609,6 +626,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     shitVotes: number;
     totalVotes: number;
     temperaturePercent: number;
+    popularTemperature?: number;
+    peerTemperature?: number;
+    popularRating?: number | null;
+    peerRating?: number | null;
   }> {
     const supabase = getSupabaseClient();
     const playId = args.playId?.trim();
@@ -627,17 +648,35 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       );
     }
 
-    const songTemperatureRes = await supabase
+    let songTemperatureRes = await supabase
       .from('song_temperature')
-      .select('fire_votes, shit_votes, total_votes, temperature_percent')
+      .select(
+        'fire_votes, shit_votes, total_votes, temperature_percent, popular_temperature_percent, peer_temperature_percent, popular_rating_avg, peer_rating_avg',
+      )
       .eq('song_id', args.songId)
       .maybeSingle();
+    const splitMissing =
+      !!songTemperatureRes.error &&
+      `${songTemperatureRes.error.message ?? ''}`
+        .toLowerCase()
+        .includes('popular_temperature');
+    if (splitMissing) {
+      songTemperatureRes = await supabase
+        .from('song_temperature')
+        .select('fire_votes, shit_votes, total_votes, temperature_percent')
+        .eq('song_id', args.songId)
+        .maybeSingle();
+    }
     if (!songTemperatureRes.error && songTemperatureRes.data) {
       const row = songTemperatureRes.data as {
         fire_votes?: number | null;
         shit_votes?: number | null;
         total_votes?: number | null;
         temperature_percent?: number | null;
+        popular_temperature_percent?: number | null;
+        peer_temperature_percent?: number | null;
+        popular_rating_avg?: number | null;
+        peer_rating_avg?: number | null;
       };
       const fireVotes = Math.max(0, Number(row.fire_votes ?? 0) || 0);
       const shitVotes = Math.max(0, Number(row.shit_votes ?? 0) || 0);
@@ -652,7 +691,22 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
             Math.min(100, Math.round(Number(row.temperature_percent))),
           )
         : Math.max(0, Math.min(100, baseline + fireVotes - shitVotes));
-      return { fireVotes, shitVotes, totalVotes, temperaturePercent };
+      const clampTemp = (value: number | null | undefined) =>
+        Number.isFinite(value as number)
+          ? Math.max(0, Math.min(100, Math.round(Number(value))))
+          : undefined;
+      const ratingOrNull = (value: number | null | undefined) =>
+        Number.isFinite(value as number) ? Number(value) : null;
+      return {
+        fireVotes,
+        shitVotes,
+        totalVotes,
+        temperaturePercent,
+        popularTemperature: clampTemp(row.popular_temperature_percent),
+        peerTemperature: clampTemp(row.peer_temperature_percent),
+        popularRating: ratingOrNull(row.popular_rating_avg),
+        peerRating: ratingOrNull(row.peer_rating_avg),
+      };
     }
     if (
       songTemperatureRes.error &&
@@ -1768,6 +1822,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
           shit_votes: temperature.shitVotes,
           total_votes: temperature.totalVotes,
           temperature_percent: temperature.temperaturePercent,
+          popular_temperature_percent: temperature.popularTemperature ?? null,
+          peer_temperature_percent: temperature.peerTemperature ?? null,
+          popular_rating_avg: temperature.popularRating ?? null,
+          peer_rating_avg: temperature.peerRating ?? null,
         },
         radioId,
         startedAt,
@@ -1886,6 +1944,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         shit_votes: temperature.shitVotes,
         total_votes: temperature.totalVotes,
         temperature_percent: temperature.temperaturePercent,
+          popular_temperature_percent: temperature.popularTemperature ?? null,
+          peer_temperature_percent: temperature.peerTemperature ?? null,
+          popular_rating_avg: temperature.popularRating ?? null,
+          peer_rating_avg: temperature.peerRating ?? null,
       },
       radioId,
       startedAt,
@@ -2949,6 +3011,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
               shit_votes: temperature.shitVotes,
               total_votes: temperature.totalVotes,
               temperature_percent: temperature.temperaturePercent,
+          popular_temperature_percent: temperature.popularTemperature ?? null,
+          peer_temperature_percent: temperature.peerTemperature ?? null,
+          popular_rating_avg: temperature.popularRating ?? null,
+          peer_rating_avg: temperature.peerRating ?? null,
             },
             radioId,
             startedAt,
@@ -3317,6 +3383,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       shit_votes: temperature.shitVotes,
       total_votes: temperature.totalVotes,
       temperature_percent: temperature.temperaturePercent,
+          popular_temperature_percent: temperature.popularTemperature ?? null,
+          peer_temperature_percent: temperature.peerTemperature ?? null,
+          popular_rating_avg: temperature.popularRating ?? null,
+          peer_rating_avg: temperature.peerRating ?? null,
     };
   }
 
@@ -3427,6 +3497,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       shit_votes: temperature.shitVotes,
       total_votes: temperature.totalVotes,
       temperature_percent: temperature.temperaturePercent,
+          popular_temperature_percent: temperature.popularTemperature ?? null,
+          peer_temperature_percent: temperature.peerTemperature ?? null,
+          popular_rating_avg: temperature.popularRating ?? null,
+          peer_rating_avg: temperature.peerRating ?? null,
     };
   }
 
@@ -3531,6 +3605,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       shit_votes: temperature.shitVotes,
       total_votes: temperature.totalVotes,
       temperature_percent: temperature.temperaturePercent,
+          popular_temperature_percent: temperature.popularTemperature ?? null,
+          peer_temperature_percent: temperature.peerTemperature ?? null,
+          popular_rating_avg: temperature.popularRating ?? null,
+          peer_rating_avg: temperature.peerRating ?? null,
     };
   }
 
@@ -3636,6 +3714,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       shit_votes: temperature.shitVotes,
       total_votes: temperature.totalVotes,
       temperature_percent: temperature.temperaturePercent,
+          popular_temperature_percent: temperature.popularTemperature ?? null,
+          peer_temperature_percent: temperature.peerTemperature ?? null,
+          popular_rating_avg: temperature.popularRating ?? null,
+          peer_rating_avg: temperature.peerRating ?? null,
     };
   }
 

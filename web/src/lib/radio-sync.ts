@@ -33,6 +33,10 @@ export type RadioTrackApiPayload = {
   fire_votes?: number;
   shit_votes?: number;
   temperature_percent?: number;
+  popular_temperature_percent?: number | null;
+  peer_temperature_percent?: number | null;
+  popular_rating_avg?: number | null;
+  peer_rating_avg?: number | null;
   no_content?: boolean;
   message?: string;
   is_live?: boolean;

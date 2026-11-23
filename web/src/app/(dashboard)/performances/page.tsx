@@ -24,7 +24,7 @@ type LiveSession = {
 
 export default function LivePerformancesPage() {
   const { profile } = useAuth();
-  const canHost = hasMusicianCapability(profile?.role);
+  const canHost = hasMusicianCapability(profile);
   const [sessions, setSessions] = useState<LiveSession[]>([]);
   const [loading, setLoading] = useState(true);
 

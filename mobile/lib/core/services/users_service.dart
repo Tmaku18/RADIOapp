@@ -40,6 +40,7 @@ class UsersService {
     String? facebookUrl,
     String? snapchatUrl,
     String? role,
+    List<String>? userRoles,
   }) async {
     final res = await _api.put('users/me', {
       if (discoverable != null) 'discoverable': discoverable,
@@ -70,6 +71,7 @@ class UsersService {
       if (facebookUrl != null) 'facebookUrl': facebookUrl,
       if (snapchatUrl != null) 'snapchatUrl': snapchatUrl,
       if (role != null) 'role': role,
+      if (userRoles != null) 'userRoles': userRoles,
     });
     if (res is Map<String, dynamic>) return res;
     throw Exception('Failed to update user profile');

@@ -24,7 +24,7 @@ export default function StreamSettingsPage() {
   const [applying, setApplying] = useState(false);
 
   const canApply =
-    hasArtistCapability(profile?.role) || hasDjCapability(profile?.role);
+    hasArtistCapability(profile) || hasDjCapability(profile);
 
   useEffect(() => {
     let cancelled = false;

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../core/services/api_service.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/auth/auth_service.dart';
+import '../../core/auth/role_helpers.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 
 class LiveSession {
@@ -95,9 +96,10 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
       final user = await authService.getUserProfile();
       if (!mounted) return;
       final role = user?.role;
+      final roles = user?.userRoles ?? const <String>[];
       final canHost = widget.djMode
-          ? (role == 'dj' || role == 'admin')
-          : (role == 'musician' || role == 'admin');
+          ? holdsMakerRole(role, roles, 'dj')
+          : holdsMakerRole(role, roles, 'musician');
       setState(() => _canHost = canHost);
     } catch (_) {
       // Leave hosting controls hidden if the profile can't be loaded.

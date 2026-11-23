@@ -134,6 +134,29 @@ export function RadioPlayer({
   const [shitVotes, setShitVotes] = useState(0);
   const TEMP_BASELINE = 50;
   const [temperaturePercent, setTemperaturePercent] = useState(TEMP_BASELINE);
+  const [popularTemperature, setPopularTemperature] = useState<number | null>(null);
+  const [peerTemperature, setPeerTemperature] = useState<number | null>(null);
+  const [popularRating, setPopularRating] = useState<number | null>(null);
+  const [peerRating, setPeerRating] = useState<number | null>(null);
+  const applySplitScores = (trackData?: {
+    popular_temperature_percent?: unknown;
+    peer_temperature_percent?: unknown;
+    popular_rating_avg?: unknown;
+    peer_rating_avg?: unknown;
+  } | null) => {
+    const temp = (value: unknown) => {
+      const n = Number(value);
+      return Number.isFinite(n) ? Math.max(0, Math.min(100, Math.round(n))) : null;
+    };
+    const rating = (value: unknown) => {
+      const n = Number(value);
+      return Number.isFinite(n) ? Math.round(n * 10) / 10 : null;
+    };
+    setPopularTemperature(temp(trackData?.popular_temperature_percent));
+    setPeerTemperature(temp(trackData?.peer_temperature_percent));
+    setPopularRating(rating(trackData?.popular_rating_avg));
+    setPeerRating(rating(trackData?.peer_rating_avg));
+  };
   const [hasUserInteracted, setHasUserInteracted] = useState(autoplay);
   const [noContent, setNoContent] = useState(false);
   const [noContentMessage, setNoContentMessage] = useState<string | null>(null);
@@ -321,6 +344,7 @@ export function RadioPlayer({
       if (Number.isFinite(nextTemperatureRaw)) {
         setTemperaturePercent(Math.max(0, Math.min(100, Math.round(nextTemperatureRaw))));
       }
+      applySplitScores(trackData);
       
       // Check for no_content flag
       if (trackData?.no_content) {
@@ -682,6 +706,7 @@ export function RadioPlayer({
       if (Number.isFinite(nextTemperatureRaw)) {
         setTemperaturePercent(Math.max(0, Math.min(100, Math.round(nextTemperatureRaw))));
       }
+      applySplitScores(trackData);
       
       // Check for no_content flag (or backend returned it on error)
       if (trackData?.no_content) {
@@ -1067,6 +1092,7 @@ export function RadioPlayer({
         if (Number.isFinite(t)) {
           setTemperaturePercent(Math.max(0, Math.min(100, Math.round(t))));
         }
+        applySplitScores(data);
       } catch {
         // Count refresh failures should not affect playback.
       }
@@ -1156,6 +1182,7 @@ export function RadioPlayer({
           Math.max(0, Math.min(100, Math.round(nextTemperatureRaw))),
         );
       }
+      applySplitScores(latestTrack);
     } catch (error) {
       console.error('Failed to submit reaction:', error);
       const maybeMessage = (
@@ -1654,7 +1681,6 @@ export function RadioPlayer({
                   />
                 </div>
               </div>
-              <SongStoriesBar songId={state.track?.id} />
 
               <div className="mt-5 flex items-center gap-3">
                 <span className="font-dim-mono text-[10px] text-white/40 w-10 text-right">
@@ -1913,14 +1939,26 @@ export function RadioPlayer({
 
         {/* Song temperature meter */}
         <div className="mb-3 rounded-lg border border-border/70 bg-muted/30 p-2.5">
-          <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
-            <span>Song Temperature</span>
-            <span>{temperaturePercent}%</span>
+          <div className="mb-2 space-y-1 text-xs text-muted-foreground">
+            <div className="flex items-center justify-between">
+              <span>Popular</span>
+              <span>
+                {popularTemperature ?? temperaturePercent}%
+                {popularRating != null ? ` · ${popularRating.toFixed(1)}` : ''}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Peer</span>
+              <span>
+                {peerTemperature ?? temperaturePercent}%
+                {peerRating != null ? ` · ${peerRating.toFixed(1)}` : ''}
+              </span>
+            </div>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-zinc-800/70">
             <div
               className="h-full transition-all duration-300 bg-gradient-to-r from-red-600 to-orange-400"
-              style={{ width: `${temperaturePercent}%` }}
+              style={{ width: `${popularTemperature ?? temperaturePercent}%` }}
             />
           </div>
           <div className="mt-2 flex items-center justify-between text-xs">
@@ -1930,6 +1968,7 @@ export function RadioPlayer({
           {reactionError && (
             <p className="mt-2 text-xs text-red-300">{reactionError}</p>
           )}
+          <SongStoriesBar songId={state.track?.id} />
         </div>
 
         {/* Library actions */}
@@ -2040,7 +2079,6 @@ export function RadioPlayer({
             {listenerRating ?? 'Rate'}
           </button>
         </div>
-        <SongStoriesBar songId={state.track?.id} />
 
         {/* Volume Control */}
         <div className="mt-3 flex items-center justify-center space-x-3">
