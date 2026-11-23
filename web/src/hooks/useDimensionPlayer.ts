@@ -136,6 +136,8 @@ export function useDimensionPlayer(): DimensionPlayerModel {
     async (reaction: 'fire' | 'shit') => {
       if (!track?.id || isVoting || state?.source !== 'radio') return;
 
+      const previousReaction = selectedReaction;
+      setSelectedReaction(reaction);
       setIsVoting(true);
       try {
         const voteRes = await leaderboardApi.addLeaderboardReaction(
@@ -161,6 +163,7 @@ export function useDimensionPlayer(): DimensionPlayerModel {
         await refreshTemperature();
       } catch (error) {
         console.error('Failed to submit reaction:', error);
+        setSelectedReaction(previousReaction);
       } finally {
         setIsVoting(false);
       }
@@ -168,6 +171,7 @@ export function useDimensionPlayer(): DimensionPlayerModel {
     [
       track,
       isVoting,
+      selectedReaction,
       state?.source,
       getVoteKey,
       persistReaction,

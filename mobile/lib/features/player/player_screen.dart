@@ -1219,6 +1219,8 @@ class _PlayerScreenState extends State<PlayerScreen>
           final playId = serverTrack.playId;
           final alreadyVoted =
               playId != null && playId.isNotEmpty && playId == _lastVotedPlayId;
+          final keepReaction =
+              _currentTrack?.id == serverTrack.id && _selectedReaction != null;
           setState(() {
             _currentTrack = serverTrack;
             _isPlaying =
@@ -1226,8 +1228,8 @@ class _PlayerScreenState extends State<PlayerScreen>
             _isLoading = false;
             _noContent = false;
             _noContentMessage = null;
-            _hasVoted = alreadyVoted;
-            if (!alreadyVoted) _selectedReaction = null;
+            _hasVoted = alreadyVoted || keepReaction;
+            if (!alreadyVoted && !keepReaction) _selectedReaction = null;
             _isVoting = false;
             _songAccess = null;
             _isFavorite = false;
@@ -1440,20 +1442,36 @@ class _PlayerScreenState extends State<PlayerScreen>
       return;
     }
 
-    final playId = track.playId;
-    if (playId == null || playId.isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Voting is unavailable for this play.')),
-      );
-      return;
-    }
-
     setState(() {
       _isVoting = true;
       _albumBurstSerial += 1;
       _albumBurstKind = reaction;
     });
+
+    // The live play id arrives a moment after the song itself. A missing id
+    // used to disable the emoji so the tap did nothing, while Rate still opened.
+    var playId = track.playId;
+    if (playId == null || playId.isEmpty) {
+      try {
+        final latest = await _radioService.getCurrentTrack(radioId: _radioId);
+        final latestTrack = latest.track;
+        if (latestTrack != null && latestTrack.id == track.id) {
+          final resolved = latestTrack.playId?.trim();
+          if (resolved != null && resolved.isNotEmpty) {
+            playId = resolved;
+            if (mounted) {
+              setState(() {
+                _currentTrack = (_currentTrack ?? track).copyWith(
+                  playId: resolved,
+                );
+              });
+            }
+          }
+        }
+      } catch (_) {
+        // Vote against the song if the play id is still unknown.
+      }
+    }
 
     try {
       HapticFeedback.lightImpact();
@@ -1506,6 +1524,7 @@ class _PlayerScreenState extends State<PlayerScreen>
           fireVotes: fireVotes,
           shitVotes: shitVotes,
           temperaturePercent: temperaturePercent,
+          playId: (playId != null && playId.isNotEmpty) ? playId : track.playId,
         );
         _hasVoted = serverReaction != null;
         _selectedReaction = serverReaction;
@@ -1817,7 +1836,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                       isFavorite: _isFavorite,
                       favoriteBusy: _favoriteBusy,
                       listenerRating: _listenerRating,
-                      canVote: (_currentTrack?.playId ?? '').isNotEmpty,
+                      canVote: true,
                       fireVotes: _currentTrack?.fireVotes ?? 0,
                       shitVotes: _currentTrack?.shitVotes ?? 0,
                       temperaturePercent:

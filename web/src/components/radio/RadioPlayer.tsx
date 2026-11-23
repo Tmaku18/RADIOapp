@@ -175,6 +175,9 @@ export function RadioPlayer({
   } | null>(null);
   const [pinnedCatalysts, setPinnedCatalysts] = useState<PinnedCatalyst[]>([]);
   const lastVoteKeyRef = useRef<string | null>(null);
+  const lastVoteSongIdRef = useRef<string | null>(null);
+  const selectedReactionRef = useRef<'fire' | 'shit' | null>(null);
+  selectedReactionRef.current = selectedReaction;
   const audibleResumeKeyRef = useRef<string | null>(null);
   const lastServerPosition = useRef(0);
   const playingTrackIdRef = useRef<string | null>(null);
@@ -1027,26 +1030,40 @@ export function RadioPlayer({
     state.source,
   ]);
 
-  // Reset vote state when the current vote key changes.
+  // Reset vote state when the song changes. A play id that arrives after the
+  // song must not wipe a vote the listener just cast — that made the next tap
+  // look like it did nothing, because it toggled the unseen vote back off.
   useEffect(() => {
-    const voteKey = getVoteKey(state.track ?? null);
-    if (!voteKey) {
+    const track = state.track ?? null;
+    const voteKey = getVoteKey(track);
+    const songId = track?.id ?? null;
+    if (!voteKey || !songId) {
+      lastVoteKeyRef.current = null;
+      lastVoteSongIdRef.current = null;
       setHasVoted(false);
       setSelectedReaction(null);
       return;
     }
-    if (voteKey !== lastVoteKeyRef.current) {
-      const storedReaction = readStoredReaction(voteKey);
-      if (storedReaction) {
-        setHasVoted(true);
-        setSelectedReaction(storedReaction);
-        lastVoteKeyRef.current = voteKey;
-      } else {
-        setHasVoted(false);
-        setSelectedReaction(null);
-      }
+    if (
+      voteKey === lastVoteKeyRef.current &&
+      songId === lastVoteSongIdRef.current
+    ) {
+      return;
     }
-  }, [state.track, getVoteKey, readStoredReaction]);
+    const sameSong = songId === lastVoteSongIdRef.current;
+    const carried = sameSong ? selectedReactionRef.current : null;
+    lastVoteKeyRef.current = voteKey;
+    lastVoteSongIdRef.current = songId;
+    const stored = readStoredReaction(voteKey) ?? carried;
+    if (stored) {
+      setHasVoted(true);
+      setSelectedReaction(stored);
+      if (!readStoredReaction(voteKey)) persistReaction(voteKey, stored);
+    } else {
+      setHasVoted(false);
+      setSelectedReaction(null);
+    }
+  }, [state.track, getVoteKey, readStoredReaction, persistReaction]);
 
   // Initial fetch and periodic polling.
   // Use hasUserInteracted for autoPlay on every call (including re-runs triggered
@@ -1145,7 +1162,10 @@ export function RadioPlayer({
     if (!state.track) return;
     if (isVoting) return;
 
+    const previousReactionUi = selectedReaction;
     setAlbumBurst(nextAlbumBurst(reaction));
+    setSelectedReaction(reaction);
+    setHasVoted(true);
     setIsVoting(true);
     setReactionError(null);
     try {
@@ -1198,6 +1218,8 @@ export function RadioPlayer({
       applySplitScores(latestTrack);
     } catch (error) {
       console.error('Failed to submit reaction:', error);
+      setSelectedReaction(previousReactionUi);
+      setHasVoted(previousReactionUi != null);
       const maybeMessage = (
         error as { response?: { data?: { message?: string } }; message?: string }
       )?.response?.data?.message;
@@ -1720,7 +1742,7 @@ export function RadioPlayer({
                 <button
                   type="button"
                   onClick={() => void handleReaction('shit')}
-                  disabled={!state.track || isVoting || state.source !== 'radio'}
+                  disabled={!state.track || isVoting}
                   className={`h-10 w-10 rounded-full text-xl transition ${
                     selectedReaction === 'shit'
                       ? 'bg-emerald-600/20 ring-2 ring-emerald-400'
@@ -1732,7 +1754,7 @@ export function RadioPlayer({
                 <button
                   type="button"
                   onClick={() => void handleReaction('fire')}
-                  disabled={!state.track || isVoting || state.source !== 'radio'}
+                  disabled={!state.track || isVoting}
                   className={`h-10 w-10 rounded-full text-xl transition ${
                     selectedReaction === 'fire'
                       ? 'bg-orange-500/20 ring-2 ring-orange-400'
@@ -1763,6 +1785,9 @@ export function RadioPlayer({
                   {listenerRating ?? 'Rate'}
                 </button>
               </div>
+              {reactionError && (
+                <p className="mt-2 text-center text-xs text-red-300">{reactionError}</p>
+              )}
             </div>
           </div>
         </div>
@@ -2025,7 +2050,7 @@ export function RadioPlayer({
         <div className="flex items-center justify-center space-x-6">
           <button
             onClick={() => void handleReaction('shit')}
-            disabled={!state.track || isVoting || state.source !== 'radio'}
+            disabled={!state.track || isVoting}
             className={`h-12 w-12 rounded-full text-2xl transition ${
               selectedReaction === 'shit'
                 ? 'bg-emerald-600/20 ring-2 ring-emerald-400'
@@ -2062,7 +2087,7 @@ export function RadioPlayer({
 
           <button
             onClick={() => void handleReaction('fire')}
-            disabled={!state.track || isVoting || state.source !== 'radio'}
+            disabled={!state.track || isVoting}
             className={`h-12 w-12 rounded-full text-2xl transition ${
               selectedReaction === 'fire'
                 ? 'bg-orange-500/20 ring-2 ring-orange-400'
