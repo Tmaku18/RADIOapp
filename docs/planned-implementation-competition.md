@@ -1,6 +1,6 @@
 # Planned Implementation: Competition, Spotlight, and Platform Extensions
 
-**Status:** In implementation (planned features being built).
+**Status:** Mostly implemented (Nov 2026). Competition, leaderboards, spotlight, voting, live services, and the service marketplace ship on web and mobile. Still open: spotlight unlimited-listening UI, monthly/yearly winner screens, and service orders with payments. See [Implementation Status](#implementation-status).
 
 This document summarizes the planned **competition/spotlight** experience and **platform extensions** (admin live broadcast, artist bios, live services, Catalysts (service providers) marketplace). Full detail is in the plan files under `.cursor/plans/`.
 
@@ -12,9 +12,9 @@ The platform is shifting from competing with Spotify to an **online music popula
 
 ---
 
-## Competition & Spotlight (First Page After Login)
+## Competition & Spotlight
 
-- **First screen on login:** Competition/spotlight page showing:
+- **Competition page** (shipped as **Vote** in the sidebar; Networx Home is the first screen after sign-in on web and mobile) showing:
   - **Leaderboards** — by **likes** (one like per radio play) and by **listens** (spotlight/artist-of-week/month replays).
   - **Featured artists** — today’s spotlight and this week’s lineup; click through to artist pages.
   - **Voting** — “Vote for Top 7” (rank 1–7) on the same screen; voting week = Monday–Sunday (ISO).
@@ -36,7 +36,7 @@ The platform is shifting from competing with Spotify to an **online music popula
 - **Live services:** Artists can **promote live services** (performances, sessions); listeners can **follow** artists and see upcoming live services and connect.
 - **Service provider (distinct user type):**
   - New role `service_provider` with **own dashboard** (radio still available).
-  - Providers select **service types** (content creation, videography, music production, design, etc.); have **bio** and **portfolio** (audio and visual only; no video for now).
+  - Providers select **service types** (content creation, videography, music production, design, etc.); have **bio** and **portfolio** (image, audio, and video).
   - **Artists** get a **Services** tab: search/filter by service type, provider, and location/distance; **send messages** and **post requests**; view provider bio and portfolio.
   - Marketplace: listings, requests, orders; payments via Stripe (later).
 
@@ -66,7 +66,7 @@ The platform is shifting from competing with Spotify to an **online music popula
 
 ## UI Flows
 
-- **Post-login:** Redirect to competition/spotlight page (first screen).
+- **Post-login:** Networx Home (`/dashboard` on web, Networx Home on mobile). Competition is one tap away under **Vote**.
 - **Competition page:** Leaderboards (likes + listens), featured artists, voting, news/promotions; dynamic, moving elements.
 - **Artist page:** Bio, featured song (unlimited replays), or Artist of Week/Month unlimited catalog; live services and follow.
 - **Profile/settings:** Region, “Suggest artists in my area,” bio (artist/provider).
@@ -79,8 +79,26 @@ The platform is shifting from competing with Spotify to an **online music popula
 
 ## Implementation Status
 
-- **Step 1:** Docs and README — done (this doc and README section).
-- **Steps 2–11:** Data model, APIs, scheduled jobs, Web UI, Mobile UI — in progress.
-- **Platform extensions:** Data model and APIs integrated; Web UI for admin live, artist bio, live services, provider dashboard, Services tab — in progress.
+Checked against `backend/src` (competition, leaderboard, spotlight, suggestions, tasks, live-services, service-providers, service-messages, job-board, admin), `web/src/app/(dashboard)/competition`, and `mobile/lib/features/competition` on 2026-11-23.
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Data model (competition + extensions) | Done | Migrations `006`–`008`; `daily_diamonds` in `020` |
+| Leaderboards | Done | `GET /api/leaderboard/songs` by likes, listens, positive votes, ratio, saves; upvotes per minute. Web and mobile. |
+| Top 7 weekly voting | Done | `POST /api/competition/vote`; web vote card, mobile `top7_vote_picker.dart` |
+| Today's spotlight and week lineup | Done | `GET /api/spotlight/today`, `/week`; shown on web and mobile |
+| Weekly close and Artist of the Week | Done | Cron daily 00:05 UTC; on Monday closes voting and fills the next 7 spotlight days |
+| Artist of the Month / Year | Backend only | Cron assigns from weekly / monthly winners (no separate month or year vote). APIs exist; no winner screen. |
+| Trial by Fire / Daily Diamond | Done | Cron every 5 minutes snapshots the window set by `TRIAL_BY_FIRE_START_UTC` / `TRIAL_BY_FIRE_DURATION_MIN` |
+| News and promotions | Done | `GET /api/feed/news-promotions` on the web competition page |
+| Unlimited spotlight listening | Backend only | `/api/spotlight/listen` and `/can-listen-unlimited` exist; web and mobile do not call them from a screen |
+| Artists in your area | Done | `GET /api/suggestions/local-artists`; profile toggle; web competition card |
+| Artist bios | Done | `users.bio`, edited from profile |
+| Admin live broadcast | Done | `/api/admin/live/start`, `/stop`, `/status`; DJ Booth on web and mobile |
+| Live services and artist follow | Done | `live-services` API; web `/artist/live-services`, mobile Live Services screen |
+| Service providers (Producer role) | Done | Profiles, listings, portfolio, cover, Pro-Networx services and directory |
+| Services messaging | Done | `service-messages` with message requests; Pro-Networx DMs |
+| Service requests | Done | Job board on `service_requests` with applications |
+| Service orders and payments | Not built | `service_orders` table exists; no API or UI |
 
 See `.cursor/plans/competition_and_spotlight_features_9428ea2f.plan.md` and `.cursor/plans/competition_spotlight_and_platform_extensions_504f7fde.plan.md` for full detail.

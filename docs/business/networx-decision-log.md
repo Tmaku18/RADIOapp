@@ -20,6 +20,19 @@ Structured ADR-style record. Each entry: **Context → Decision → Rationale �
 | 14 | Placement pack bonuses | Monetization | 2026-11-19 | Accepted |
 | 15 | Badge catalog, permanent beta badge | Product | 2026-11-20 | Accepted |
 | 16 | Invite-only Refinery, raffle or referral | Product | 2026-11-20 | Accepted |
+| 17 | Bundle and package id `com.tmaktechnologies.networxradio` | Infra | by 2026-07-18 | Accepted |
+| 18 | Role labels Artist and Producer in place of Gem and Catalyst | Product | 2026-07-22 | Accepted |
+| 19 | Mobile digital goods through App Store and Google Play billing | Monetization | 2026-07-23 | Accepted |
+| 20 | Song and beat prices on a fixed tier ladder | Monetization | 2026-07-31 | Accepted |
+| 21 | Pro-Radio and Pro Bundle subscriptions | Monetization | 2026-08-06 | Accepted |
+| 22 | Beta access switches for subscriptions and DMs | Monetization | 2026-08-06 | Accepted |
+| 23 | Placements bought per song; credit bank removed | Monetization | 2026-08-18 | Accepted |
+| 24 | Mobile API calls go to Railway first | Tech | 2026-08-29 | Accepted |
+| 25 | Radio state shared through Redis; pushes queued | Tech | 2026-11-01 | Accepted |
+| 26 | Popular and peer scores; several maker roles per account | Product | 2026-11-23 | Accepted |
+| 27 | Idle stations do not charge placements | Monetization | 2026-11-23 | Accepted |
+| 28 | Guest browsing, sign in on action | Product | 2026-11-23 | Accepted |
+| 29 | Account identity: unique phone, text code, unique names, 48-hour deletion grace | Security | 2026-11-23 | Accepted |
 
 ---
 
@@ -166,3 +179,120 @@ Structured ADR-style record. Each entry: **Context → Decision → Rationale �
 **Decision:** The Refinery is invite-only. Open “sign up and review” is retired. Two ways in: enter the raffle, or be referred by someone already inside. Both still pass a capacity check. Seats open in batches. A paid Refinery submission is staffed toward a floor of at least 100 reviewers. The first campaign recruits those 100 from people artists already respect (producers, respected listeners, scene voices). They are the founding review bench. Later reviewers still enter by raffle or referral. The merch **Founding 100** cohort is a different thing and stays named as it is.  
 **Rationale:** Capacity is how Yield stays payable. The first 100 are how the paid-review promise is staffed before the room grows. Scarcity is the public hook; credibility is who gets the first seats.  
 **Impact:** Strategy in [`badges-and-refinery-access.md`](badges-and-refinery-access.md). Planned `refinery_membership` with source `raffle`, `referral`, or `founding_reviewer`. Public copy stays truth-safe: Yield for verified Refinery work, seats limited. No “get paid to listen” as a shipped slogan. Not built yet.
+
+---
+
+## 17. Bundle and package identity
+
+**Context:** Entry 12 recorded `com.discovermeradio.networxradio`. The code imported on 2026-07-18 already used a TMAK Technologies identifier.  
+**Decision:** iOS bundle id and Android `applicationId` are `com.tmaktechnologies.networxradio`. The iOS Now Playing widget uses `com.tmaktechnologies.networxradio.NowPlayingWidget`. Supersedes entry 12.  
+**Rationale:** One identifier across both stores, owned by the publishing company.  
+**Impact:** `mobile/android/app/build.gradle.kts`, `mobile/ios/Runner.xcodeproj`, Firebase config, App Links and Universal Links.
+
+---
+
+## 18. Role labels: Artist and Producer
+
+**Context:** Signup and Settings showed Gem and Catalyst as role names.  
+**Decision:** Role labels read Listener, Artist, Producer, Instrumentalist, and DJ. Database values stay `listener`, `artist`, `service_provider`, `musician`, and `dj`. Catalyst stays in Pro-Networx marketing copy for service providers.  
+**Rationale:** Plain labels at the point where people pick what they do.  
+**Impact:** `web/src/lib/roles.ts`, `mobile/lib/core/auth/role_helpers.dart`, signup, admin users, glossary (`a903dec0`).
+
+---
+
+## 19. Mobile digital goods through store billing
+
+**Context:** Apple allows external purchase links only on the US storefront, and Google Play requires enrollment in its external links program. The app ships worldwide.  
+**Decision:** On iOS and Android every digital good uses App Store or Google Play billing: subscriptions, discovery placements, song and beat purchases, livestream tips, and Refinery submissions. Stripe stays web-only for these goods, and the backend rejects Stripe calls tagged `ios` or `android`.  
+**Rationale:** Store policy compliance without a US-only build.  
+**Impact:** `store-billing-policy.ts`, `iap-product-catalog.ts`, `app-store-billing.service.ts`, `google-play-billing.service.ts`, mobile paywalls (`b8079faa`, `126821ec`). Store console prices must match the catalog.
+
+---
+
+## 20. Song and beat price ladder
+
+**Context:** Stores can only sell pre-registered products at fixed prices, and artists set their own prices.  
+**Decision:** Artist prices snap to $0.99, $1.99, $2.99, $4.99, $9.99, $19.99, $29.99, or $49.99. Each tier is one consumable store product reused across songs. Defaults are $0.99 for a song and $9.99 for a beat. Ownership lives in `song_purchases`.  
+**Rationale:** One SKU per price tier keeps the store catalog small and lets a buyer purchase many songs at the same price.  
+**Impact:** `song-price-tiers.ts` and the mobile mirror, upload and edit price pickers.
+
+---
+
+## 21. Pro-Radio and Pro Bundle
+
+**Context:** The live radio has no skip. Listeners asked for on-demand listening and playlists.  
+**Decision:** Pro-Radio adds on-demand full songs, personal playlists, and a controllable player for $4.99/mo ($1.99 first month on web). Pro Bundle combines Pro-Radio and Pro-Networx for $12.99/mo, against $14.98 for both alone. The free live radio stays synchronized with no skip.  
+**Rationale:** Monetize on-demand listening without changing the shared radio moment (entry 1).  
+**Impact:** `pro-radio-subscription`, `pro-bundle-subscription`, `/pro-radio` on web, mobile Pro-Radio hub (`1d1e1f06`).
+
+---
+
+## 22. Beta access switches
+
+**Context:** Testers needed to use paid features while pricing stayed visible.  
+**Decision:** `PRO_NETWORX_MESSAGING_BETA_FREE` keeps Pro-Networx DMs and job applications free and defaults to on; resumes and contact info stay gated. `BETA_ALL_FREE` unlocks Pro-Radio, Pro-Networx, Creator Network, and free Refinery submissions. Song sales and paid placements stay paid, and the 10 welcome placements stay locked until the switch is off. Since 2026-11-01 it defaults to off (paid).  
+**Rationale:** Free testing without distorting artist revenue or rotation thresholds.  
+**Impact:** `common/beta-access.ts`, `pro-network-subscription.constants.ts`, Railway env (`42e0f941`, `a92a50d6`, `fce2dc3e`).
+
+---
+
+## 23. Placements bought per song
+
+**Context:** Artists bought a credit bank and then allocated plays to songs in a second step.  
+**Decision:** The credit bank and Allocate screens are removed. Artists buy discovery placements for a specific song, and the 10 signup welcome placements can be split across songs. Updates entry 11.  
+**Rationale:** One step from “promote this song” to a paid placement.  
+**Impact:** Buy placements on web and mobile, `credits.service.ts`, `welcome-placements.ts` (`4574955f`, `e43f9579`).
+
+---
+
+## 24. Mobile API calls go to Railway first
+
+**Context:** The app reached the backend through the web host. When that host was disabled, the app went down with it.  
+**Decision:** Mobile calls the Railway backend first and fails over to the next host on a 402. 502, 503, and 504 retry only on GET so a write is never applied twice.  
+**Rationale:** The app should not depend on the website being up.  
+**Impact:** Mobile API client (`e364f665`).
+
+---
+
+## 25. Radio state shared through Redis
+
+**Context:** Current-track state lived in one process, so a second backend replica would diverge.  
+**Decision:** Station lock and last-good song live in Redis, with database fallback when Redis is down. Push notifications go through a BullMQ queue and send immediately when Redis is unavailable.  
+**Rationale:** Safe horizontal scaling and steadier rotation.  
+**Impact:** `radio-state.service.ts`, `push-queue.service.ts`, Railway Redis (`ccef9477`, `0bab9ad8`).
+
+---
+
+## 26. Popular and peer scores; several maker roles
+
+**Context:** One temperature mixed listener votes with votes from other creators, and each account held a single role.  
+**Decision:** Votes from listeners form the popular score; votes from makers (Artist, Producer, Instrumentalist, DJ) form the peer score. Listener 1–10 ratings are stored separately from temperature votes. One account can hold several maker roles. Votes with no listen and burst spam are left out of both scores, and the account is flagged for admin review without a ban.  
+**Rationale:** Artists learn whether fans and peers agree. Spam does not move scores, and real people are not banned by a heuristic.  
+**Impact:** `common/vote-integrity.ts`, migration `145_user_roles_vote_cohorts.sql`, player chrome, admin users (`618aae6a`, `1875f2ac`, `126597c3`).
+
+---
+
+## 27. Idle stations do not charge placements
+
+**Context:** Stations advanced and spent placement budget even with nobody listening.  
+**Decision:** Idle stations still advance but skip plays, decision logs, temperature refresh, and placement charges until someone is listening.  
+**Rationale:** Artists pay for exposures, and an empty station delivers none.  
+**Impact:** Radio rotation and charging (`8652e107`).
+
+---
+
+## 28. Guest browsing
+
+**Context:** Signed-out visitors met sign-in before they could look around the app.  
+**Decision:** Continue as guest opens the same home on web and mobile. Likes, follows, saves, messages, comments, and votes ask the guest to sign in. Public read APIs stay available.  
+**Rationale:** Let people hear the product first.  
+**Impact:** Web and mobile auth gating, public endpoints (`6f95638c`, `f312728c`).
+
+---
+
+## 29. Account identity and deletion
+
+**Context:** Accounts could share display names and phone numbers, and a deleted account had no undo window.  
+**Decision:** Each account claims one unique mobile number and confirms a text code on sign-in; production enforces this once Twilio is configured. Display names and usernames are unique, including spacing, punctuation, or a trailing-number variant. Deleting an account schedules removal after 48 hours, and signing in again within that window restores it.  
+**Rationale:** One person, one identity, with a safe undo for deletion.  
+**Impact:** Migration `146_phone_mfa.sql`, `149_unique_display_names.sql`, sign-in flows, Help and profile deletion (`22c651ed`, `4133958e`, `cbb88f31`).

@@ -1,6 +1,6 @@
 # Planned Implementation: Badges and Invite-only Refinery
 
-**Status:** Planned. Not in implementation. No migration in this document.
+**Status:** Planned. Not in implementation as of 2026-11-23. No badge or membership tables exist in `backend/supabase/migrations`, and no code references `badge_definitions`, `user_badges`, or `refinery_membership`.
 
 Product rules live in [`docs/business/badges-and-refinery-access.md`](business/badges-and-refinery-access.md). Decisions 15 and 16 in [`docs/business/networx-decision-log.md`](business/networx-decision-log.md). This file is the build sketch: tables, surfaces, membership, and campaign phases.
 
@@ -81,7 +81,17 @@ A paid Refinery submission is staffed toward **at least 100 reviewers**. The fou
 
 ### Existing Refinery behavior
 
-Song flags (`songs.in_refinery`), comments (`refinery_comments`), rank, survey, and Yield accrual stay. Membership is a gate in front of them. This plan does not change payout amounts.
+Built today in `backend/src/refinery`, the web `/refinery` pages, and `mobile/lib/features/refinery`:
+
+- Artists submit an approved song for $4.99 (Stripe on web, store product `nwx_refinery_submission` on mobile), or add it free while `BETA_ALL_FREE` or `REFINERY_FREE_SUBMISSIONS` is on. Up to 10 custom questions per song (`refinery_custom_questions`).
+- `songs.in_refinery`, `refinery_submitted_at`, `refinery_review_count`, and `refinery_min_reviews` (default 100).
+- Reviewers sign up through `POST /refinery/reviewer/signup`, which upserts an active `reviewers` row for any signed-in user.
+- Structured reviews (`refinery_reviews`): ratings, survey, and custom answers. Each review credits $0.10 to `prospector_yield`.
+- Artist analytics per song, plus favorite and 1–5 quality rating on each review.
+- Free-text comments (`refinery_comments`).
+- The live radio mutes while a Refinery song plays.
+
+These stay. Membership becomes the gate in front of the reviewer queue, review form, and comments, replacing the open `reviewers` signup. This plan does not change payout amounts.
 
 ---
 

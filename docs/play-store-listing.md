@@ -1,8 +1,8 @@
 # Google Play Store Listing — Networx Radio (Android)
 
-**Last updated:** 2026-11-01  
-**Replaces:** `play-store-listing.pdf` (generated listing for “RADIOapp” — outdated)  
-**App version this copy matches:** 1.0.87 (115)
+**Last updated:** 2026-11-23  
+**Replaces:** `play-store-listing.pdf` (generated listing for “RADIOapp” — outdated, no longer in the repo)  
+**App version this copy matches:** 1.0.99 (133)
 
 Use this document as the canonical Play Console copy. It is aligned with the current mobile app (`mobile/`), backend (`backend/`), and product terminology (`docs/branding-terminology.md`, `docs/features-summary.md`).
 
@@ -15,9 +15,9 @@ Use this document as the canonical Play Console copy. It is aligned with the cur
 | App name **RADIOapp** | Product is **Networx Radio** (`NETWORX Radio: The Butterfly Effect`) | **Updated** title and copy |
 | **Spotify login** | Not implemented — Google, Apple, and email auth only | **Removed** |
 | Main radio = artists “broadcasting live” | Always-on **synchronized democratic radio**; separate **artist livestreams** (DJ / performances) | **Clarified** |
-| Generic **credits** boosts | **Discovery placements**: **$1.99** for 1, **$4.99** for 3, **$9.99** for 5, **$17.99** for 10, **$39.99** for 25, **$75.99** for 50, **$150** for 100 (~100 verified exposures each) | **Clarified** |
-| No **ProNetworx** | Full Pro-Networx shell: profiles, feed, services, directory, messaging (subscription) | **Added** |
-| No **The Refinery** / **The Yield** | Both shipped on mobile | **Added** |
+| Generic **credits** boosts | **Discovery placements** per song: **$1.99** for 1, **$4.99** for 3, **$9.99** for 5, **$17.99** for 10, **$39.99** for 25, **$75.99** for 50, **$150** for 100 (~100 verified exposures each, bonus placements on packs). Credit packs are no longer sold. | **Clarified** |
+| No **ProNetworx** | Full Pro-Networx shell: profiles, feed, services, directory, studios, job board, messaging (subscription) | **Added** |
+| No **The Refinery** / **The Yield** | Both shipped on mobile (The Yield appears as **Rewards**) | **Added** |
 | No direct **song sales** | 30-second preview + purchase full track | **Added** |
 | “Thousands of artists / millions of reactions” | Unverified marketing claims | **Removed** — use honest launch language |
 | Android label `radio_app` | Manifest still used internal slug | **Fixed** → `Networx Radio` |
@@ -33,11 +33,12 @@ Use this document as the canonical Play Console copy. It is aligned with the cur
 | Company | DISCOVERMERADIO GROUP LLC |
 | Privacy policy | `https://www.networxradio.com/privacy` |
 | Terms | `https://www.networxradio.com/terms` |
+| Account deletion | `https://www.networxradio.com/delete-account` |
 | Support email | `support@networxradio.com` |
 | Category | Music & Audio (primary), Entertainment (secondary) |
 | Price | Free |
 | Contains ads | No. The app does not show ads and the Android manifest removes `AD_ID`. |
-| In-app purchases | Yes — discovery placements, credit packs, Pro Radio, and Pro-Networx (Google Play Billing). Song sales on Android use Play Billing, not a browser checkout. |
+| In-app purchases | Yes — discovery placements, song and beat purchases, livestream tips, Refinery submissions, and the Pro-Radio, Pro-Networx, and Pro Bundle subscriptions, all through Google Play Billing. |
 
 See also: `docs/google-play-app-content-packet.md`, `docs/legal/mobile-store-compliance-packet.md`
 
@@ -68,82 +69,80 @@ Discover indie gems on live radio. Vote, chat, leaderboards, and ProNetworx.
 ```
 The Pulse of Independent Music — By Artists, For Artists
 
-Networx Radio is the live democratic radio platform built for the next generation of music. Everyone hears the same always-on stream at the same time — no lonely algorithms, no gatekeepers. Discover hidden gems, send Ripples, vote fire or pass on what is playing, and help decide what rises on the leaderboards.
+Networx Radio is the live democratic radio platform for the next generation of music. Everyone on a station hears the same always-on stream at the same time — no lonely algorithms, no gatekeepers. Discover hidden gems, send Ripples, vote fire or pass on what is playing, and help decide what rises on the leaderboards.
 
-Whether you are a Prospector tuning in or a Gem ready to be heard, Networx turns passive listening into an interactive music community. One account also unlocks ProNetworx — the professional networking hub for creatives.
+Whether you are a Prospector tuning in or a Gem ready to be heard, Networx turns listening into an interactive music community. One account also unlocks ProNetworx — the professional networking hub for creatives.
 
 KEY FEATURES
 
-• Always-On Democratic Radio — Tune into the shared Networx stream. Real-time synchronized playback so the whole community discovers together.
+• Always-On Democratic Radio — Genre stations from rap, hip hop, and R&B to country, rock, gospel, and more, including Clean Rap Radio.
 
-• Fire or Pass Voting — React to tracks with a fire vote (if it hits) or a pass (if it does not). Your vote shapes temperature scores and competition rankings.
+• Fire or Pass Voting — Vote on every track, rate songs 1–10, and comment on each song. Votes drive a live temperature score and the rankings.
 
-• Temperature Scoring (0–100) — Every song gets a live temperature score. The hotter the track, the higher it ranks.
+• Clips and Song Stories — Record a clip with the song that is on, add the artist credit and your own words, and share it as a story, in a DM, or to Instagram.
 
-• Ripples — Send Ripples (likes) on artist profiles and saved songs. Every Ripple carries an artist a little further.
+• Discover — Swipe through song clips and find artists by popularity, song count, or what is new.
 
-• Weekly Leaderboards & Competition — Climb ranks by Ripples, listens, positive votes, fire/pass ratio, saves, and Trial by Fire. Spotlight and Top 7 surfaces highlight breakout tracks.
+• Pro-Radio — Play full songs on demand, build playlists, and record any moment of a song.
 
-• Trending Discovery — Explore what is heating up: underground hits, new genres, and gems before they go mainstream.
+• Leaderboards & Competition — Climb weekly ranks by Ripples, listens, votes, saves, and Trial by Fire.
 
-• Live Chat — Join the conversation while the music plays. Chat with artists and fellow Prospectors during radio and live sessions.
+• Live Chat and DMs — Chat on every station, join The Chat Room, and message artists and fellow Prospectors.
 
-• Artist Livestreams — Approved artists and DJs can go live with real-time chat. Watch performances and connect face-to-face with creators.
+• Livestreams — Watch Live Performances and Live DJ sets with real-time chat.
 
-• The Wake (Artist Analytics) — Track plays, votes, Ripples, temperature, engagement, and campaign results in one dashboard.
+• The Wake (Artist Analytics) — Plays, ears reached, likes, and new followers for each song.
 
-• Discovery Placements — Artists can purchase verified-exposure placements (one for $1.99, or packs of 3 for $4.99, 5 for $9.99, 10 for $17.99, 25 for $39.99, 50 for $75.99, and 100 for $150, each targeting ~100 listener exposures) to seed tracks into the discovery pipeline. Tracked delivery — not vanity numbers.
+• Discovery Placements — Artists buy placements for a song: one for $1.99, or packs of 3 for $4.99, 5 for $9.99, 10 for $17.99, 25 for $39.99, 50 for $75.99, and 100 for $150, with bonus placements on packs. Each targets ~100 verified listener exposures.
 
-• Direct-to-Fan Song Sales — Free 30-second previews; fans purchase full tracks for complete playback and downloads.
+• Direct-to-Fan Sales — Free 30-second previews; fans buy full tracks and beats to play and download.
 
-• The Refinery — Prospectors refine songs through surveys, rankings, and feedback. Artists submit tracks for structured community review.
+• The Refinery — Prospectors refine songs through surveys, rankings, and feedback.
 
-• The Yield — Prospectors earn rewards from verified engagement (refinement, surveys, feedback). Redeem balance for real rewards.
+• Rewards (The Yield) — Prospectors earn rewards from verified engagement.
 
-• ProNetworx — LinkedIn-style profiles, Instagram-style feed, services marketplace, directory, and messaging for every kind of creative (designers, photographers, producers, mentors, and more). One login for Networx Radio and ProNetworx.
+• ProNetworx — Profiles, a feed for photos, video, and audio, services, a directory, job board, studios, and messaging for every kind of creative. Find studios and creatives on the Nearby map.
 
-• Push Notifications — Get alerted when your track is up next, when you go live, when artists you follow broadcast, and for account activity.
+• Listen Anywhere — Background playback, a Now Playing home screen widget, and stations in Android Auto. Song, artist, and station links open in the app.
 
-• Sign In Your Way — Continue with Google, Apple, or email. No Spotify login required.
+• Sign In Your Way — Google, Apple, or email, or browse as a guest and sign in when you want to vote, follow, or chat.
 
 FOR GEMS (ARTISTS)
 
-Upload original music, promote with discovery placements, track The Wake analytics, go live to your fans, sell full tracks direct, and compete on leaderboards. Add songs to The Refinery for structured feedback. Connect with Catalysts on ProNetworx for production, visuals, and mentorship.
+Upload music, group songs into albums, promote with discovery placements, track The Wake, go live, sell tracks and beats direct, and compete on leaderboards. Connect with Catalysts on ProNetworx for production, visuals, and mentorship.
 
 FOR PROSPECTORS (LISTENERS)
 
-Listening is free — always. Stop letting algorithms decide your playlist. Vote fire or pass in real time, send Ripples, chat live, follow favorites, earn through The Yield, and crown the next breakout gem on the leaderboard.
+Listening is free — always. Vote in real time, send Ripples, chat, share clips, follow favorites, earn Rewards, and crown the next breakout gem.
 
-COMMUNITY & COMPETITION
+COMMUNITY
 
-Music is better when it is shared. Networx is built around real-time community interaction and friendly competition. The temperature system makes every vote visible and every broadcast an event.
-
-JOIN THE MOVEMENT
+Report or block anyone from a profile, post, song, chat, or live room.
 
 Download Networx Radio and feel the Butterfly Effect — where one connection can change everything.
 
-Networx Radio is free to download and use. There are no ads. Artist discovery placements, credit packs, Pro Radio, and the ProNetworx subscription are in-app purchases. Prices are shown in the app. ProNetworx unlocks messaging and contact info.
+Networx Radio is free to download and use, with no ads. Discovery placements, song and beat purchases, livestream tips, Refinery submissions, Pro-Radio, ProNetworx, and the Pro Bundle are in-app purchases. Prices are shown in the app. Subscriptions renew automatically until you cancel in your Google Play account.
 ```
 
-**Approx. character count:** ~3,200 (within 4,000 limit)
+**Character count:** 3544
 
 ---
 
-## What's New — Initial release (500 characters max)
+## What's New — 1.0.99 (500 characters max)
 
 ```
-Version 1.0.87
+Version 1.0.99
 
-• Report or block from a profile, post, chat, or live room
-• Now playing on your home screen, and stations in Android Auto
-• Song and station links open in the app
-• Join an artist email list from their page
-• Song-sale payouts after the artist finishes payout setup
-• Terms at sign-up, password reset, and account deletion in Settings
-• Subscription terms, privacy links, and restore purchases
+• Browse as a guest and sign in only when you act
+• Record a clip of the song on air and share it as a story, in a DM, or to Instagram
+• Comments, 1–10 ratings, and report reasons on every radio song
+• Share artist and Pro profiles; links open in the app
+• Search as you type, with artist cards sorted by popularity, songs, or recent
+• Swipe down to close the player; fire and pass on the mini player
+• Text-code sign-in check, and 48 hours to undo account deletion
 ```
 
-**Character count:** 410
+**Character count:** 481
 
 ---
 
@@ -153,7 +152,7 @@ Version 1.0.87
 networx, networx radio, indie music, independent artists, live radio, music streaming, discover new music, underground music, emerging artists, music app, radio app, music discovery, artist platform, music community, vote music, music charts, indie radio, unsigned artists, music competition, listener voting, live music, streaming app, temperature score, music leaderboard, chat music, free music app, music analytics, radio streaming, pronetworx, creative network, the refinery, the yield, butterfly effect, ripples, prospectors, gems, catalysts
 ```
 
-**Total:** 30 keywords
+**Total:** 37 keywords
 
 ### Keyword strategy
 
@@ -171,11 +170,11 @@ networx, networx radio, indie music, independent artists, live radio, music stre
 
 **Suggested rating:** Teen (13+)
 
-- User-generated content (uploads, livestreams, chat)
+- User-generated content (uploads, clips, stories, feed posts, livestreams, chat, DMs)
 - Social features including public chat
 - Voting terminology includes mild slang (fire / pass reactions)
-- In-app purchases (discovery placements, credits)
-- Music may include explicit content; explicit labeling supported in product
+- In-app purchases (discovery placements, song purchases, tips, subscriptions)
+- Music may include explicit content; explicit labeling supported in product, plus Clean Rap Radio
 - Not directed at children
 
 ---
@@ -186,8 +185,8 @@ networx, networx radio, indie music, independent artists, live radio, music stre
 |-------|-------|------|--------|
 | App Title | 30 | 29 | OK |
 | Short Description | 80 | 76 | OK |
-| Full Description | 4000 | ~3200 | OK |
-| What's New | 500 | 410 | OK |
+| Full Description | 4000 | 3544 | OK |
+| What's New | 500 | 481 | OK |
 
 ---
 
@@ -196,9 +195,9 @@ networx, networx radio, indie music, independent artists, live radio, music stre
 - [ ] Paste copy from this file into Play Console → Main store listing
 - [x] `android:label` is **Networx Radio** (`mobile/android/app/src/main/AndroidManifest.xml`)
 - [x] Package is `com.tmaktechnologies.networxradio`
-- [x] Privacy, terms, legal, and child-safety pages returned HTTP 200 on `www.networxradio.com` (2026-11-01). In-app links open `https://pro-networx.com/privacy` and `https://pro-networx.com/terms`, which redirect to `www.pro-networx.com` and also return 200.
+- [x] Privacy, terms, legal, child-safety, and delete-account pages returned HTTP 200 on `www.networxradio.com` (2026-11-23). In-app links open `https://pro-networx.com/privacy` and `https://pro-networx.com/terms`, which redirect to `www.pro-networx.com` and also return 200.
 - [ ] Upload screenshots that show **Networx** branding (not RADIOapp). Draft frames are in `store-assets/`; recapture from a device before upload.
 - [ ] Feature graphic uses the official NETWORX butterfly wordmark (`store-assets/play-feature-graphic.jpg`)
-- [ ] Data Safety: no ads, advertising ID not collected, account deletion is inside Settings. Details in `docs/google-play-app-content-packet.md`.
-- [ ] Play Billing product IDs match `GOOGLE_PLAY_PRODUCT_CATALOG_JSON` and mobile env
+- [ ] Data Safety: no ads, advertising ID not collected, account deletion is inside the app. Details in `docs/google-play-app-content-packet.md`.
+- [ ] Play Billing product IDs match `backend/src/payments/iap-product-catalog.ts` (plus any `GOOGLE_PLAY_PRODUCT_CATALOG_JSON` overrides) and `mobile/lib/core/services/play_billing_service.dart`
 - [x] Listing copy does not mention Spotify login or “RADIOapp”

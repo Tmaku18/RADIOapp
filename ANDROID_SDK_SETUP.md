@@ -50,8 +50,9 @@ Flutter can't find your Android SDK, which is required to build Android apps.
 3. **Install SDK Components:**
    ```powershell
    cd "$env:LOCALAPPDATA\Android\Sdk\cmdline-tools\latest\bin"
-   .\sdkmanager.bat "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+   .\sdkmanager.bat "platform-tools" "platforms;android-35" "build-tools;35.0.0"
    ```
+   The app compiles against API 35 or newer (`compileSdk = maxOf(flutter.compileSdkVersion, 35)`); install the platform `flutter doctor` asks for if it is higher.
 
 4. **Set Environment Variables:**
    ```powershell
@@ -101,10 +102,12 @@ You should see:
 ```
 [√] Android toolchain - develop for Android devices
     • Android SDK at C:\Users\tmaku\AppData\Local\Android\Sdk
-    • Platform android-34, build-tools 34.0.0
+    • Platform android-35, build-tools 35.0.0
     • Java binary at: ...
-    • Java version: ...
+    • Java version: ... (JDK 17 or newer)
 ```
+
+The Android build targets Java 17. Android Studio's bundled JDK works; otherwise point Flutter at a JDK 17+ with `flutter config --jdk-dir "<path>"`.
 
 ## Build the App Bundle
 
@@ -112,8 +115,10 @@ Once Android SDK is configured:
 
 ```bash
 cd mobile
-flutter build appbundle
+flutter build appbundle --release
 ```
+
+Release builds also need `mobile/android/key.properties` (copy `key.properties.example`) and a `google-services.json` for `com.tmaktechnologies.networxradio` that includes the Play App Signing SHA-1. For a quick local check without signing, use `flutter build apk --debug`.
 
 ## Troubleshooting
 
@@ -145,5 +150,5 @@ flutter doctor --android-licenses
 
 # Build app bundle
 cd mobile
-flutter build appbundle
+flutter build appbundle --release
 ```

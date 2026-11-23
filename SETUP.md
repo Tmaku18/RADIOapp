@@ -1,89 +1,107 @@
 # Quick Setup Guide
 
-## Running with Docker (WSL)
+For the full picture see [README.md](README.md). This page is the short checklist.
 
-To run **backend + Redis** in Docker (for mobile testing and local API):
+## Prerequisites
 
-1. **Install Docker in WSL** — see README “[Running with Docker (WSL)](README.md#running-with-docker-wsl)” for the full `apt-get` and Docker repo steps, or use Docker Desktop for Windows with WSL 2.
-2. **From repo root (WSL):**  
-   `docker compose up -d redis backend`  
-   (Ensure `backend/.env` exists with Supabase, Firebase, Stripe, etc.)
-3. **Backend:** http://localhost:3000  
-   **Android emulator:** In `mobile/.env` set `API_BASE_URL=http://10.0.2.2:3000`.  
-   **Physical device:** Use your machine’s LAN IP (e.g. `http://192.168.1.x:3000`).
-4. Run the Flutter app on the host: `cd mobile && flutter pub get && flutter run` (select Android). iOS requires macOS or a device cloud.
+- Node.js 22+ and npm
+- Flutter 3.38+ (Dart 3.10+), plus Xcode + CocoaPods (iOS) and/or Android Studio with SDK 35 and JDK 17 (Android)
+- Docker (optional, for backend + Redis)
 
-## Prerequisites Setup
+## 1. Accounts and keys
 
-### 1. Firebase Setup
-1. Create a Firebase project at https://console.firebase.google.com
-2. Enable Authentication with Email/Password, Google, and Apple providers
-3. Download service account key (Settings > Service Accounts > Generate New Private Key)
-4. Add Firebase config to mobile app (google-services.json for Android, GoogleService-Info.plist for iOS)
+### Firebase
+1. Use the Firebase project `radioapp-4c14a` (or create your own at https://console.firebase.google.com).
+2. Enable Authentication providers: Email/Password, Google, and Apple.
+3. Generate a service account key (Project settings → Service accounts → Generate new private key). Keep the JSON outside git.
+4. Download the app configs for `com.tmaktechnologies.networxradio`: `google-services.json` → `mobile/android/app/`, `GoogleService-Info.plist` → `mobile/ios/Runner/`.
 
-### 2. Supabase Setup
-1. Create a Supabase project at https://supabase.com
-2. Run the SQL from `docs/database-schema.md` in the SQL Editor
-3. Create storage buckets:
-   - Go to Storage > Create Bucket
-   - Create bucket named `songs` (public)
-   - Create bucket named `artwork` (public)
-4. Note your project URL and service role key
+Details: [FIREBASE_QUICK_START.md](FIREBASE_QUICK_START.md).
 
-### 3. Stripe Setup
-1. Create a Stripe account at https://stripe.com
-2. Get your API keys from Dashboard > Developers > API keys
-3. Set up webhook endpoint: `https://your-domain.com/api/payments/webhook`
-4. Select event: `payment_intent.succeeded`
-5. Copy webhook signing secret
+### Supabase
+1. Create a project at https://supabase.com and note the project URL, service role key, and anon key.
+2. Apply the SQL files in `backend/supabase/migrations/` in order (SQL editor, Supabase MCP, or `npx ts-node backend/scripts/apply-supabase-migrations.ts` from the repo root with `DATABASE_URL` set). Migrations also create the storage buckets.
 
-## Backend Setup
+### Stripe (web payments)
+1. Get API keys from Dashboard → Developers → API keys.
+2. Add a webhook endpoint at `https://<backend-host>/api/payments/webhook` with these events: `payment_intent.succeeded`, `payment_intent.payment_failed`, `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`, `customer.subscription.updated`, `customer.subscription.deleted`, `account.updated`, `setup_intent.succeeded`.
+3. Copy the signing secret into `STRIPE_WEBHOOK_SECRET`.
+4. Subscription prices: see `docs/runbooks/` (Pro-Radio, Pro-Networx, Pro bundle).
+
+Mobile purchases use App Store and Google Play billing; see [backend/ENV_REQUIREMENTS.md](backend/ENV_REQUIREMENTS.md).
+
+## 2. Backend
 
 ```bash
 cd backend
 npm install
-# Create .env file with your credentials
+cp .env.example .env   # fill in Firebase, Supabase, Stripe
 npm run start:dev
 ```
 
-Backend runs on http://localhost:3000
+Backend runs on http://localhost:3000 (routes under `/api`, health at `/api/health`).
 
-## Mobile App Setup
+### Or with Docker (backend + Redis)
+
+```bash
+cp .env.example .env   # repo root; Compose reads this file
+docker compose up -d redis backend
+```
+
+Place the Firebase service-account JSON at the path mounted in `docker-compose.yml` (`docs/radioapp-4c14a-firebase-adminsdk-*.json`, gitignored). On Windows, run this from WSL or Docker Desktop.
+
+## 3. Web
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+Web runs on http://localhost:3001. Set env in `web/.env.local` (see [web/README.md](web/README.md)).
+
+## 4. Mobile
 
 ```bash
 cd mobile
 flutter pub get
-# Add Firebase config files
-# Create .env file
+cp .env.example .env
 flutter run
 ```
 
-## Admin Dashboard Setup
+To hit a local backend, set both `API_DIRECT_URL` and `API_BASE_URL` in `mobile/.env`:
+- Android emulator: `http://10.0.2.2:3000`
+- Physical device: your machine's LAN IP, e.g. `http://192.168.1.x:3000`
+
+Without `API_DIRECT_URL`, the app goes to the production Railway backend first.
+
+## 5. Admin dashboard (standalone, optional)
 
 ```bash
 cd admin
 npm install
-# Create .env.local file
-npm run dev
+# create .env.local (see admin/README.md)
+npm run dev -- -p 3002
 ```
 
-Admin dashboard runs on http://localhost:3001
+Most admin tools live in the web app at http://localhost:3001/admin.
 
-## Testing the Application
+## Testing the application
 
-1. **Sign Up**: Create an account as an artist
-2. **Upload Song**: Go to Upload screen and upload a song
-3. **Purchase Credits**: Go to Payment screen and purchase credits (use Stripe test card: 4242 4242 4242 4242)
-4. **Listen**: Go to Player screen to listen to the radio stream
-5. **Admin**: Approve songs in Supabase dashboard (set status to 'approved')
+1. **Sign up** as an artist (web or mobile), then verify your phone with the text code. Without Twilio configured locally, the code is printed in the backend log.
+2. **Upload a song** from My Songs / Upload.
+3. **Approve it**: as an admin, open `/admin/songs` on the web (or set `status = 'approved'` in Supabase).
+4. **Buy placements** for the song (web uses Stripe test card `4242 4242 4242 4242`), or set `BETA_ALL_FREE=true` in the backend to skip payment.
+5. **Listen**: open the Radio player and vote with fire / poop.
+
+To make yourself an admin, set `role = 'admin'` on your row in the `users` table or add your email to `ADMIN_EMAILS`.
 
 ## Notion (NetworX OS)
 
-Business and engineering planning live in the **NetworX Notion OS** (8 linked databases, Executive + Engineering dashboards). See [`docs/notion/networx-workspace.md`](docs/notion/networx-workspace.md). Legacy RadioApp workspace: [`docs/notion/notion-workspace-created.md`](docs/notion/notion-workspace-created.md).
+Business and engineering planning live in the **NetworX Notion OS**. See [`docs/notion/networx-workspace.md`](docs/notion/networx-workspace.md). Legacy RadioApp workspace: [`docs/notion/notion-workspace-created.md`](docs/notion/notion-workspace-created.md).
 
-## Important Notes
+## Important notes
 
-- Songs need to be approved (status='approved') before they appear in rotation
-- Credits must be assigned to songs (update credits_remaining in songs table)
-- Webhook URL must be publicly accessible for Stripe payments to work
-- For local development, use ngrok or similar to expose webhook endpoint
+- Songs must be approved (`status = 'approved'`) before they enter rotation.
+- Placement budget is stored per song (`songs.credits_remaining`); artists buy placements per song.
+- The Stripe webhook URL must be publicly reachable; for local testing use the Stripe CLI (`stripe listen --forward-to localhost:3000/api/payments/webhook`) or a tunnel such as ngrok.

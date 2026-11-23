@@ -34,7 +34,7 @@ This error occurs when Firebase isn't properly configured. Here's how to fix it:
    - Select your project
    - Go to Project Settings (gear icon)
    - Scroll to "Your apps"
-   - Click on Android app or "Add app" if none exists
+   - Click on the Android app `com.tmaktechnologies.networxradio`
    - Download `google-services.json`
 
 2. **Place the file:**
@@ -57,7 +57,7 @@ This error occurs when Firebase isn't properly configured. Here's how to fix it:
 
 1. **Get GoogleService-Info.plist:**
    - Same Firebase Console
-   - Select iOS app
+   - Select the iOS app `com.tmaktechnologies.networxradio`
    - Download `GoogleService-Info.plist`
 
 2. **Place the file:**
@@ -72,8 +72,8 @@ This error occurs when Firebase isn't properly configured. Here's how to fix it:
 
 If you just want to test the app UI without Firebase:
 
-1. The app will now handle missing Firebase gracefully
-2. You'll see the login screen but authentication won't work
+1. The app handles missing Firebase gracefully (initialization also times out on slow emulators)
+2. You'll see the welcome screen, but sign-in and push notifications won't work
 3. This is useful for UI testing only
 
 ## Verify Setup
@@ -100,10 +100,12 @@ After setting up Firebase:
 
 1. **Check files exist:**
    ```bash
-   # Android
+   # macOS / Linux
+   ls mobile/android/app/google-services.json mobile/ios/Runner/GoogleService-Info.plist
+   ```
+   ```powershell
+   # Windows
    Test-Path mobile/android/app/google-services.json
-   
-   # iOS
    Test-Path mobile/ios/Runner/GoogleService-Info.plist
    ```
 
@@ -125,6 +127,6 @@ After setting up Firebase:
 ## Next Steps
 
 Once Firebase is configured:
-1. Enable Authentication methods in Firebase Console (Email/Password, Google, etc.)
+1. Enable Authentication methods in Firebase Console (Email/Password, Google, Apple)
 2. Set up your backend with Firebase Admin SDK
 3. Test the authentication flow

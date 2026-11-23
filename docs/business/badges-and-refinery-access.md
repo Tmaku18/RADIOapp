@@ -1,8 +1,23 @@
 # Badges and Refinery Access
 
-**Status:** Accepted strategy (Nov 2026). Not built.  
+**Status:** Accepted strategy (Nov 2026). Badges and invite-only access are not built.  
 **Source of truth** for the badge catalog and for who may enter The Refinery.  
 **Related:** [decision log](networx-decision-log.md) entries 15 and 16, [planned implementation](../planned-implementation-badges-refinery.md), [branding terminology](../branding-terminology.md).
+
+---
+
+## What runs today (Nov 23, 2026)
+
+| Area | Built | Notes |
+|------|-------|-------|
+| Refinery submissions | Yes | Artist submits an approved song for $4.99 (Stripe on web, store purchase on mobile), with up to 10 custom questions. Free while `BETA_ALL_FREE` or `REFINERY_FREE_SUBMISSIONS` is on. |
+| Review floor | Yes | Each submission targets 100 reviews by default (`refinery_min_reviews`). |
+| Structured reviews | Yes | Ratings, survey, and custom answers in `refinery_reviews`. Artists see analytics, favorite reviews, and rate review quality. |
+| Reviewer Yield | Yes | $0.10 per completed review into `prospector_yield`. Redemption at $5, $10, or $25. |
+| Reviewer access | Open | Any signed-in user can sign up as a reviewer (`reviewers`, auto-accepted). |
+| Raffle, referral, seat caps | No | Planned `refinery_membership`. |
+| First 100 reviewers bench | No | Recruitment campaign not started in product. |
+| Badge catalog, trophy case, name chip | No | Planned `badge_definitions`, `user_badges`. |
 
 ---
 
@@ -47,7 +62,7 @@ Named here so later badges follow the same shape. Not a build list.
 
 ## Refinery access
 
-The Refinery is invite-only. Open “sign up and review” is retired.
+The Refinery becomes invite-only. Open “sign up and review” is retired once membership ships; until then reviewer signup stays open.
 
 Two ways in. Both still pass a capacity check:
 

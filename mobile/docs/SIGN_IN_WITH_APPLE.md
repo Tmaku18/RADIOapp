@@ -5,7 +5,9 @@
 - **Web:** Continue with Apple on `/login` and `/signup` via Firebase `OAuthProvider('apple.com')`.
   - Tries `signInWithPopup` first; falls back to `signInWithRedirect` when the popup is blocked or closed (Safari / iOS).
   - Resume via `getRedirectResult` in `AuthContext`.
-- **Mobile iOS:** Apple button (when available), nonce + `rawNonce` Firebase credential, `Runner.entitlements` with Sign in with Apple.
+- **Mobile iOS:** **Continue with Apple** shows on iOS/macOS when `SignInWithApple.isAvailable()` is true. It uses a nonce + `rawNonce` Firebase credential and requests email and full name. `Runner.entitlements` includes Sign in with Apple.
+- **First sign-in:** new Google/Apple users go to profile setup (display name and role) before the account is created. When text-code phone verification is active, every new sign-in also asks for a code.
+- **Account deletion:** the app sends the Apple authorization code to `POST /api/users/me/apple-authorization`. When the account is permanently deleted (48 hours after the request), the backend revokes it at `https://appleid.apple.com/auth/revoke`. This needs `APPLE_TEAM_ID`, `APPLE_IAP_KEY_ID`, and `APPLE_IAP_PRIVATE_KEY` on the backend; without them revocation is skipped and logged.
 
 ## Firebase Console (required once)
 
@@ -39,11 +41,12 @@
 
 ## Apple Developer App ID
 
-App ID `com.tmaktechnologies.networxradio` must have **Sign In with Apple** enabled (you already planned this for App Store).
+App ID `com.tmaktechnologies.networxradio` has **Sign In with Apple** enabled (`com.apple.developer.applesignin` in `mobile/ios/Runner/Runner.entitlements`).
 
 ## Verify
 
-1. Web (Chrome): open `/login` → **Continue with Apple** → Apple popup → session + dashboard (or display-name gate for new users).
-2. Web (Safari): same flow may use a full-page redirect instead of a popup — still lands on dashboard / display-name gate.
+1. Web (Chrome): open `/login` → **Continue with Apple** → Apple popup → session + `/dashboard` (or profile setup for new users).
+2. Web (Safari): same flow may use a full-page redirect instead of a popup — still lands on `/dashboard` / profile setup.
 3. Second Apple sign-in with “Hide My Email”: profile setup still completes (relay email placeholder).
-4. iOS: run on a real device/simulator with Apple ID → **Continue with Apple**.
+4. iOS: run on a real device/simulator with Apple ID → **Continue with Apple** → profile setup for a new account, then the text code if verification is active.
+5. iOS: delete a test account that signed in with Apple, wait out the 48 hours, and confirm the backend log shows no "Skipping Apple token revoke" warning.

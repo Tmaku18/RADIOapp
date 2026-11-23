@@ -149,3 +149,35 @@ To review purchases: open the menu, Pro Radio (or Buy plays). Purchases use Stor
 To review user content safety: open a profile or a message, use Report or Block. Settings → Blocked accounts lists blocks. Sign-up requires agreeing to the Terms and Community Guidelines.
 Account deletion: Settings → Delete account.
 ```
+
+---
+
+## Status check (2026-11-23)
+
+Re-checked against the code on `main` (app version 1.0.99+133).
+
+### Fixed
+
+- **Report and block:** `mobile/lib/widgets/safety/report_block_sheet.dart` and `song_report_sheet.dart` on profiles, DMs, Pro feed posts, radio and live chat, and song stories; **Settings → Blocked accounts** (`blocked_accounts_screen.dart`).
+- **Sign-up terms:** required "Agree to the Terms and Community Guidelines" checkbox in `login_screen.dart`; `terms_accepted_at` stored (migration `133_terms_accepted_at.sql`).
+- **Forgot password:** link on the sign-in form (`sendPasswordResetEmail` in `auth_service.dart`).
+- **Paywall disclosures:** `widgets/safety/subscription_legal.dart` on both paywall sheets; store checkouts show the store's price and offer **Restore purchases**.
+- **Stripe pricing link on iOS:** hidden when `isAppStorePlatform` in Help & Legal and About.
+- **`BETA_ALL_FREE`:** defaults to `false` in `backend/src/common/beta-access.ts`.
+- **Sign in with Apple revoke + subscriptions on delete:** account delete cancels Stripe subscriptions and calls `appleid.apple.com/auth/revoke` (`backend/src/users/apple-token-revoke.ts`, migration `134_apple_authorization_code.sql`).
+- **iOS privacy manifest:** `mobile/ios/Runner/PrivacyInfo.xcprivacy`.
+- **Crash reporting:** Sentry with `FlutterError.onError` and `runZonedGuarded` in `mobile/lib/main.dart`.
+- **Health check:** `GET /api/health` returns 503 with `status: "degraded"` when Supabase is down.
+- **iOS invites:** default to the App Store listing (`invite_service.dart`).
+- **Rate limiting:** global `ThrottlerGuard` (120 requests per minute) in `backend/src/app.module.ts`.
+- **Bottom navigation:** Home, Radio, Feed, Discover, and Pro (or Vote) in `mobile/lib/widgets/home_screen.dart`.
+- **LOW items:** app version in Settings; "Send test notification" is debug-only; `pubspec.yaml` description and `CFBundleName` ("Networx Radio") updated.
+- **CI:** `.github/workflows/test.yml` builds a debug APK, an unsigned iOS build, and runs a web Playwright smoke.
+- **Shipped from Phase 2/3:** Universal Links / App Links, Android Auto station list, Now Playing home-screen widget (Android and iOS), lock-screen Live Activity, trigram search, referral codes, radio state shared through Redis, and the BullMQ push queue.
+
+### Still open
+
+- `backend/.env`, `web/.env.local`, and `web/.env.vercel.production` are still tracked in git. Key rotation remains an account action.
+- `app_tutorial.dart` still hardcodes "$1.99 first month" Pro-Radio copy.
+- `Semantics` labels exist only in `player_chrome.dart`.
+- Production `/.well-known/assetlinks.json` serves an empty `sha256_cert_fingerprints` list. Set `ANDROID_APP_LINK_SHA256` on Vercel so Android App Links verify.

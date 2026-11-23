@@ -23,9 +23,9 @@ This guide will walk you through setting up Firebase for both the mobile app and
 ### 2.1 Register Android App
 
 1. In Firebase Console, click the **Android icon** (or "Add app")
-2. Enter package name: `com.radioapp.radio_app`
-   - This should match `mobile/android/app/build.gradle` → `applicationId`
-3. Enter app nickname (optional): "Radio App Android"
+2. Enter package name: `com.tmaktechnologies.networxradio`
+   - This should match `mobile/android/app/build.gradle.kts` → `applicationId`
+3. Enter app nickname (optional): "NETWORX Android"
 4. Enter SHA-1 (optional for now, needed for Google Sign-In later)
 5. Click **"Register app"**
 
@@ -33,34 +33,36 @@ This guide will walk you through setting up Firebase for both the mobile app and
 
 1. Download the `google-services.json` file
 2. Place it in: `mobile/android/app/google-services.json`
-   - **Important:** Replace the existing empty file
+   - **Important:** Replace the existing file
 
 ### 2.3 Configure Android Build
 
-The `build.gradle` files should already be configured, but verify:
+The Gradle Kotlin DSL files are already configured, but verify:
 
-**`mobile/android/build.gradle`** should have:
-```gradle
-buildscript {
-    dependencies {
-        classpath 'com.google.gms:google-services:4.4.0'
-    }
+**`mobile/android/settings.gradle.kts`** should declare the plugin:
+```kotlin
+plugins {
+    id("com.google.gms.google-services") version("4.3.15") apply false
 }
 ```
 
-**`mobile/android/app/build.gradle`** should have at the bottom:
-```gradle
-apply plugin: 'com.google.gms.google-services'
+**`mobile/android/app/build.gradle.kts`** should apply it:
+```kotlin
+plugins {
+    id("com.google.gms.google-services")
+}
 ```
+
+Release builds fail unless `google-services.json` includes the Play App Signing SHA-1 (see Step 7).
 
 ## Step 3: Set Up iOS App
 
 ### 3.1 Register iOS App
 
 1. In Firebase Console, click the **iOS icon** (or "Add app")
-2. Enter bundle ID: `com.radioapp.radioApp`
-   - This should match `mobile/ios/Runner/Info.plist` → `CFBundleIdentifier`
-3. Enter app nickname (optional): "Radio App iOS"
+2. Enter bundle ID: `com.tmaktechnologies.networxradio`
+   - This should match `PRODUCT_BUNDLE_IDENTIFIER` for the Runner target in Xcode
+3. Enter app nickname (optional): "NETWORX iOS"
 4. Enter App Store ID (optional)
 5. Click **"Register app"**
 
@@ -68,7 +70,7 @@ apply plugin: 'com.google.gms.google-services'
 
 1. Download the `GoogleService-Info.plist` file
 2. Place it in: `mobile/ios/Runner/GoogleService-Info.plist`
-   - **Important:** Replace the existing empty file
+   - **Important:** Replace the existing file
 3. In Xcode, add it to the project (drag and drop into Runner folder)
 
 ## Step 4: Enable Authentication Methods
@@ -87,10 +89,16 @@ apply plugin: 'com.google.gms.google-services'
 - Enter support email
 - Click **Save**
 
-### Apple Sign-In (iOS only)
+### Apple Sign-In (iOS and web)
 - Click **Apple**
 - Toggle **Enable**
+- Fill in the Services ID, team ID, key ID, and private key for web sign-in (see `mobile/docs/SIGN_IN_WITH_APPLE.md`)
 - Click **Save**
+
+### Authorized domains
+Under **Authentication → Settings → Authorized domains**, add `networxradio.com`, `www.networxradio.com`, `pro-networx.com`, and `www.pro-networx.com` (see `docs/firebase-authorized-domains.md`).
+
+Phone verification at sign-in is handled by the backend (Twilio), so Firebase phone auth stays off.
 
 ## Step 5: Generate Service Account Key (for Backend)
 
@@ -98,9 +106,11 @@ apply plugin: 'com.google.gms.google-services'
 2. Go to **Service Accounts** tab
 3. Click **"Generate new private key"**
 4. Click **"Generate key"** in the dialog
-5. Save the downloaded JSON file
-6. **For Backend:** Copy the values to your `backend/.env` file:
+5. Save the downloaded JSON file outside git
+6. **For Backend:** Point `FIREBASE_SERVICE_ACCOUNT_PATH` at the file, or copy the values to your `backend/.env` file:
    ```env
+   FIREBASE_SERVICE_ACCOUNT_PATH=/absolute/path/to/service-account.json
+   # or
    FIREBASE_PROJECT_ID=your-project-id
    FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
    FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@your-project.iam.gserviceaccount.com
@@ -144,7 +154,7 @@ If you prefer manual setup:
        {
          "client_info": {
            "android_client_info": {
-             "package_name": "com.radioapp.radio_app"
+             "package_name": "com.tmaktechnologies.networxradio"
            }
          },
          "oauth_client": [
@@ -188,7 +198,7 @@ For Google Sign-In to work on Android, you need to add your SHA-1 fingerprint:
    gradlew.bat signingReport
    ```
 
-2. **Copy the SHA-1** from the output (look for "Variant: debug")
+2. **Copy the SHA-1** from the output (look for "Variant: debug", and "release" once `android/key.properties` points at the upload keystore)
 
 3. **Add to Firebase:**
    - Go to Firebase Console → Project Settings
@@ -196,6 +206,8 @@ For Google Sign-In to work on Android, you need to add your SHA-1 fingerprint:
    - Click "Add fingerprint"
    - Paste SHA-1
    - Click "Save"
+
+4. **Add the Play App Signing SHA-1** from Play Console → App integrity → App signing, then re-download `google-services.json`. Release builds stop with an error if that fingerprint is missing.
 
 ## Step 8: Test Firebase Setup
 
@@ -209,8 +221,8 @@ flutter run
 
 **Expected:**
 - App starts without Firebase errors
-- Login screen appears
-- You can see Firebase initialization message in console
+- Welcome screen appears (Sign up / Log in / Continue as guest)
+- Console shows "Firebase initialized successfully"
 
 ### 8.2 Test Authentication
 1. Try signing up with email/password
@@ -225,21 +237,35 @@ npm run start:dev
 
 **Expected:**
 - Server starts without Firebase errors
-- Console shows "Firebase initialized successfully"
+- Console shows "Application is running on: http://localhost:3000"
 
 ## Step 9: Environment Variables Summary
 
 ### Mobile App (`mobile/.env`)
+Firebase config comes from `google-services.json`, `GoogleService-Info.plist`, and `firebase_options.dart`; `.env` holds the API and Supabase settings:
 ```env
-# Optional - Firebase config is in google-services.json
-FIREBASE_API_KEY=your-api-key
-FIREBASE_PROJECT_ID=your-project-id
-API_BASE_URL=http://localhost:3000
+API_BASE_URL=https://www.networxradio.com
+API_DIRECT_URL=http://10.0.2.2:3000   # local backend from the Android emulator
+SUPABASE_URL=https://xxxxx.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
 STRIPE_PUBLISHABLE_KEY=pk_test_xxxxx
+```
+
+### Web App (`web/.env.local`)
+```env
+NEXT_PUBLIC_FIREBASE_API_KEY=...
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=...
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
+NEXT_PUBLIC_FIREBASE_APP_ID=...
+FIREBASE_SERVICE_ACCOUNT_KEY={"type":"service_account",...}
 ```
 
 ### Backend (`backend/.env`)
 ```env
+FIREBASE_SERVICE_ACCOUNT_PATH=/absolute/path/to/service-account.json
+# or the three fields:
 FIREBASE_PROJECT_ID=your-project-id
 FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@your-project.iam.gserviceaccount.com
@@ -248,7 +274,7 @@ SUPABASE_SERVICE_KEY=your-service-role-key
 STRIPE_SECRET_KEY=sk_test_xxxxx
 STRIPE_WEBHOOK_SECRET=whsec_xxxxx
 PORT=3000
-CORS_ORIGIN=http://localhost:3000,http://localhost:3001
+WEB_URL=http://localhost:3001
 ```
 
 ## Troubleshooting

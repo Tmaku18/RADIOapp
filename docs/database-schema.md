@@ -1,5 +1,9 @@
 # Database Schema (Supabase PostgreSQL)
 
+The core tables below (`users`, `songs`, `plays`, `likes`, …) were created in the Supabase project before the migration folder existed; later changes live in `backend/supabase/migrations/` (001–149, applied in numeric order). The backend connects with the service-role key (and a direct `pg` pool via `DATABASE_URL`), so RLS policies matter only for clients that use Supabase directly (realtime and storage).
+
+Schemas: **`public`** for app data, **`pro_networx`** for Pro-Networx profile extensions, and **`storage`** for buckets.
+
 ## Tables
 
 ### users
@@ -11,7 +15,8 @@ CREATE TABLE users (
   firebase_uid TEXT UNIQUE NOT NULL,
   email TEXT UNIQUE NOT NULL,
   display_name TEXT,
-  role TEXT NOT NULL DEFAULT 'listener' CHECK (role IN ('listener', 'artist', 'admin')),
+  role TEXT NOT NULL DEFAULT 'listener', -- listener | artist | service_provider | dj | musician | admin
+  user_roles TEXT[] NOT NULL DEFAULT '{}', -- extra maker roles: artist, service_provider, musician, dj (145)
   avatar_url TEXT,
   is_banned BOOLEAN DEFAULT FALSE,
   banned_at TIMESTAMPTZ,
@@ -24,7 +29,24 @@ CREATE TABLE users (
   shadow_banned_until TIMESTAMPTZ,
   city TEXT,           -- Nearby People (migration 106)
   zip_code TEXT,       -- Nearby People (migration 106)
-  -- Also: artist_lat, artist_lng, location_region, discoverable, username, …
+  username TEXT,                       -- 082
+  display_name_compact TEXT,           -- 149, generated; unique (case/space-insensitive names)
+  username_compact TEXT,               -- 149, generated; unique
+  auth_user_id UUID,                   -- 087
+  phone_e164 TEXT UNIQUE,              -- 146, phone sign-in code
+  phone_verified_at TIMESTAMPTZ,       -- 146
+  terms_accepted_at TIMESTAMPTZ,       -- 133
+  apple_authorization_code TEXT,       -- 134, used to revoke Sign in with Apple on deletion
+  deletion_requested_at TIMESTAMPTZ,   -- 148, 48-hour grace period
+  deletion_scheduled_for TIMESTAMPTZ,  -- 148
+  referral_code TEXT,                  -- 135
+  referred_by_user_id UUID,            -- 011
+  notifications_enabled BOOLEAN,       -- 110; also notify_new_follower, notify_feed_post_like
+  -- 135: notify_messages, notify_live, notify_weekly_digest, quiet_hours_start, quiet_hours_end
+  -- 093: notify_followed_artist_on_radio
+  -- Profile: bio, region (006), headline, location_region (013), discoverable (019),
+  --   social URLs (031/052), artist_lat, artist_lng (042), resume (066), favorite_genres (092)
+  -- Payouts: stripe_connect_* (071)
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -68,8 +90,21 @@ CREATE TABLE songs (
   status_changed_by UUID REFERENCES users(id),
   status_changed_at TIMESTAMPTZ,
   status_change_reason TEXT,
-  admin_free_rotation BOOLEAN DEFAULT FALSE,
+  admin_free_rotation BOOLEAN DEFAULT FALSE, -- set with is_public when an admin approves
   paid_play_count INTEGER DEFAULT 0,
+  station_id TEXT,                -- 032, primary station
+  station_ids TEXT[],             -- 046, extra stations
+  is_public BOOLEAN,              -- 057
+  in_refinery BOOLEAN,            -- 057, plus refinery_* fields
+  copyright_status TEXT,          -- 070, ACRCloud scan result; also copyright_checked_at, copyright_match
+  price_cents INTEGER,            -- 071; 117 limits it to 99, 199, 299, 499, 999, 1999, 2999, 4999
+  is_for_sale BOOLEAN,            -- 071; also sample_start, sample_end, sample_url
+  product_kind TEXT DEFAULT 'song', -- 114, 'song' | 'beat'
+  opt_in_pro_radio BOOLEAN,       -- 120/122, on-demand in Pro-Radio
+  album_id UUID,                  -- 123, references albums
+  track_number INTEGER,           -- 123
+  -- Also: artist_origin_city/state (039), discover_* clip fields (035/045),
+  --   spotlight_listen_count (006), profile_play_count (017)
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -135,7 +170,9 @@ CREATE TABLE leaderboard_likes (
   song_id UUID NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
   play_id UUID REFERENCES plays(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  reaction TEXT NOT NULL DEFAULT 'fire' CHECK (reaction IN ('fire', 'shit'))
+  reaction TEXT NOT NULL DEFAULT 'fire' CHECK (reaction IN ('fire', 'shit')),
+  voter_cohort TEXT,                                -- 145: 'popular' | 'peer' (NULL for admins)
+  counts_toward_score BOOLEAN NOT NULL DEFAULT TRUE -- 145
 );
 
 CREATE UNIQUE INDEX idx_leaderboard_likes_user_play
@@ -144,8 +181,30 @@ CREATE INDEX idx_leaderboard_likes_song ON leaderboard_likes(song_id);
 CREATE INDEX idx_leaderboard_likes_play_reaction ON leaderboard_likes(play_id, reaction);
 ```
 
+- **`voter_cohort`:** `peer` when the voter holds a maker role (artist, service_provider, musician, dj); `popular` otherwise.
+- **`counts_toward_score`:** false for admin votes, votes with no recorded listen, and bursts (8+ votes within 60 s). Such votes are kept but excluded from temperature.
+
+### song_listener_ratings (143, 145)
+Listener 1–10 score per song, stored apart from fire/poop votes.
+
+```sql
+CREATE TABLE song_listener_ratings (
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  song_id UUID NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
+  rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 10),
+  voter_cohort TEXT,
+  counts_toward_score BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ,
+  PRIMARY KEY (user_id, song_id)
+);
+```
+
+### activity_flags (145, 146)
+Integrity log for vote bursts, votes without a listen, and repeated comments (`reason`, optional `detail`). Reviewed from Admin; never bans automatically.
+
 ### song_temperature
-Global, read-optimized cache of reaction totals and **decayed** temperature per song (`song_id` is **`UUID`**, matching `songs.id`). Created in **048**; decay columns and zero-baseline temperature in **049**.
+Global, read-optimized cache of reaction totals and temperature per song (`song_id` is **`UUID`**, matching `songs.id`). Created in **048**; 50 baseline in **053**; cohort split and ratings in **145**.
 
 ```sql
 CREATE TABLE song_temperature (
@@ -153,18 +212,29 @@ CREATE TABLE song_temperature (
   fire_votes INTEGER NOT NULL DEFAULT 0,
   shit_votes INTEGER NOT NULL DEFAULT 0,
   total_votes INTEGER NOT NULL DEFAULT 0,
-  decayed_fire_votes NUMERIC(14, 4) NOT NULL DEFAULT 0,
-  decayed_shit_votes NUMERIC(14, 4) NOT NULL DEFAULT 0,
-  temperature_percent INTEGER NOT NULL DEFAULT 0,
+  decayed_fire_votes NUMERIC(14, 4) NOT NULL DEFAULT 0, -- plain fire count since 053
+  decayed_shit_votes NUMERIC(14, 4) NOT NULL DEFAULT 0, -- plain poop count since 053
+  temperature_percent INTEGER NOT NULL DEFAULT 50,
+  popular_fire_votes INTEGER NOT NULL DEFAULT 0,
+  popular_shit_votes INTEGER NOT NULL DEFAULT 0,
+  popular_temperature_percent INTEGER NOT NULL DEFAULT 50,
+  peer_fire_votes INTEGER NOT NULL DEFAULT 0,
+  peer_shit_votes INTEGER NOT NULL DEFAULT 0,
+  peer_temperature_percent INTEGER NOT NULL DEFAULT 50,
+  popular_rating_avg NUMERIC,
+  popular_rating_count INTEGER NOT NULL DEFAULT 0,
+  peer_rating_avg NUMERIC,
+  peer_rating_count INTEGER NOT NULL DEFAULT 0,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_song_temperature_updated_at ON song_temperature(updated_at DESC);
 ```
 
-- **`fire_votes` / `shit_votes` / `total_votes`:** raw counts from all `leaderboard_likes` for that `song_id`.
-- **`temperature_percent`:** after **049**, `GREATEST(0, LEAST(100, ROUND(decayed_fire_votes - decayed_shit_votes)))` where decayed values sum `0.5 ** (age_seconds / half_life_seconds)` per vote (half-life **24 hours** in SQL).
-- **`refresh_song_temperature(p_song_id uuid)`:** recomputes and upserts the row for one song.
+- **Counts:** only `leaderboard_likes` rows with `counts_toward_score = true`.
+- **`temperature_percent`:** `GREATEST(0, LEAST(100, 50 + fire - shit))`; `popular_` and `peer_` use the same formula per cohort.
+- **Rating columns:** averages and counts from `song_listener_ratings` per cohort.
+- **`refresh_song_temperature(p_song_id uuid)`:** recomputes and upserts the row for one song (the backend also calls it before reading).
 - **Trigger `trg_refresh_song_temperature`:** `AFTER INSERT OR UPDATE OR DELETE ON leaderboard_likes` → `refresh_song_temperature` for affected `song_id` (and old `song_id` on update).
 
 ### subscriptions
@@ -189,10 +259,11 @@ CREATE INDEX idx_subscriptions_status ON subscriptions(status);
 ```
 
 ### transactions
-Stripe payment records. Two flows:
+Payment records (Stripe on web; App Store and Google Play purchases are recorded too, see `payment_method`). Flows:
 
 - **Credit bank (legacy):** `credits_purchased` set; on success, `increment_credits` RPC adds to artist balance.
-- **Per-song plays:** `song_id` and `plays_purchased` set; pricing is **$1 per minute per play** (rounded up to nearest cent). On success, `songs.credits_remaining` is increased by `plays_purchased` for that song. Purchase options: 1, 3, 5, 10, 25, 50, 100 plays.
+- **Per-song placements:** `song_id` and `plays_purchased` (number of placements) set. Packs of 1, 3, 5, 10, 25, 50, or 100 placements; one placement is $1.99, larger packs are discounted and include bonus placements (`payments.service.ts`). Each placement adds 100 plays to `songs.credits_remaining`.
+- **Purpose tag (057):** `purpose` routes Refinery and other checkouts in the webhook. Also `payment_method` (045). `stripe_charge_id` is unique (131).
 
 ```sql
 CREATE TABLE transactions (
@@ -228,6 +299,8 @@ CREATE TABLE credits (
   balance INTEGER DEFAULT 0 CHECK (balance >= 0),
   total_purchased INTEGER DEFAULT 0,
   total_used INTEGER DEFAULT 0,
+  welcome_placements_remaining INTEGER, -- 127; 10 backfilled for makers (128, 132)
+  welcome_bonus_granted_at TIMESTAMPTZ,  -- 127
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -235,8 +308,10 @@ CREATE INDEX idx_credits_artist_id ON credits(artist_id);
 CREATE INDEX idx_credits_balance ON credits(balance) WHERE balance > 0;
 ```
 
+Allocating the credit bank to songs is retired; welcome placements are applied to a song directly.
+
 ### rotation_queue
-Current rotation state (can be replaced with Redis in production).
+Database copy of each station's current song (`position = 0`). Redis holds the live queue state.
 
 ```sql
 CREATE TABLE rotation_queue (
@@ -290,7 +365,7 @@ CREATE TABLE play_decision_log (
 ```
 
 ### admin_fallback_songs
-Admin-curated free rotation (fallback) playlist. Each radio has its own list via `radio_id`.
+Admin-curated fallback list per `radio_id`. Admin endpoints still manage it, but free rotation now draws from `songs` (`admin_free_rotation = true`) and does not read this table.
 
 ```sql
 CREATE TABLE admin_fallback_songs (
@@ -331,7 +406,7 @@ CREATE TABLE radio_playlist_state (
 CREATE UNIQUE INDEX idx_radio_playlist_state_radio_id ON radio_playlist_state(radio_id);
 ```
 
-**Per-radio playlists:** Each radio has its own free and paid playlist state. The API accepts an optional `?radio=<id>` query (e.g. `/radio/current?radio=default`). When omitted, `radio_id = 'default'` is used. Admin fallback endpoints also accept `?radio=` to list/add/update/delete fallback songs per radio.
+**Per-radio playlists:** Each station has its own free and paid playlist state, keyed by station id (e.g. `us-ready-now-rap`; see `backend/src/radio/station.constants.ts`). The API accepts `?radio=<id>`; when omitted, or set to the legacy `default`/`global`, it resolves to `us-ready-now-rap`. The backend checkpoints the stack here every 5 songs.
 
 ### credit_allocations
 Ledger for credit allocation/withdrawal events.
@@ -361,13 +436,15 @@ CREATE TABLE artist_notification_cooldowns (
 ```
 
 ### chat_messages
-Live chat messages (hot storage).
+Station Live Chat and per-song Comments (hot storage).
 
 ```sql
 CREATE TABLE chat_messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   song_id UUID REFERENCES songs(id) ON DELETE SET NULL,
+  radio_id TEXT,  -- 050, station channel
+  kind TEXT,      -- 144, 'live' | 'comment'
   display_name TEXT NOT NULL,
   avatar_url TEXT,
   message TEXT NOT NULL CHECK (char_length(message) <= 280),
@@ -505,6 +582,9 @@ CREATE TABLE provider_portfolio_items (
   title TEXT,
   description TEXT,
   sort_order INTEGER DEFAULT 0,
+  opt_in_feed BOOLEAN,         -- 104, also show in the social feed
+  feed_removed_at TIMESTAMPTZ, -- 104, moderation
+  feed_removed_by UUID,        -- 104
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -566,7 +646,103 @@ CREATE UNIQUE INDEX uniq_station_events_type_play ON station_events(type, play_i
 CREATE INDEX idx_station_events_station_created_at ON station_events(station_id, created_at DESC);
 ```
 
+Added to the `supabase_realtime` publication in **130**; public read policy in **129**.
+
+## Other tables (by area)
+
+Column lists are abbreviated; see the numbered migration for full definitions.
+
+**Radio, listening, and votes**
+
+| Table | Migration | Purpose / key columns |
+|---|---|---|
+| `radio_listener_presence` | 037 | Guest and signed-in presence: `stream_token`, `song_id`, last seen |
+| `song_listen_events` | 139 | `song_id`, `stream_token`, `started_at`; unique-listener reach |
+| `radio_ears_archive` | 080 | Archived "ears reached" counts |
+| `listening_history` | 135 | Per-user recently played (`song_id`, title, artist, artwork, `played_at`) |
+| `song_profile_listens` | 017 | Listens from artist profiles |
+| `prospector_sessions`, `prospector_yield`, `prospector_check_ins`, `prospector_refinements`, `prospector_surveys` | 014 | Listening heartbeats and The Yield |
+| `weekly_votes`, `weekly_winners`, `monthly_winners`, `yearly_winners`, `artist_spotlight`, `spotlight_listens`, `news_promotions` | 007 | Competition and spotlight |
+| `daily_diamonds` | 020 | Daily diamond rewards |
+| `dj_booth_sessions`, `dj_soundboard_clips` | 094 | DJ Booth sessions and soundboard |
+
+**Songs and catalog**
+
+| Table | Migration | Purpose / key columns |
+|---|---|---|
+| `song_featured_artists` | 044 | Featured artist credits |
+| `song_favorites` | 111, 113 | Star / save, separate from `likes` |
+| `artist_favorites` | 108 | Starred artists |
+| `albums` | 123 | `artist_id`, `title`, `release_type` (single, ep, album, mixtape), `artwork_url`, `release_date` |
+| `user_playlists`, `user_playlist_tracks` | 121 | Pro-Radio playlists (`title`, `is_public`; tracks with `position`) |
+| `song_stories` | 137 | 24-hour clips on a song: `media_url`, `media_mime`, `caption` (≤ 280), `visibility` (public, private, hidden), `expires_at` |
+| `song_purchases` | 071, 118 | Song/beat sales; `store`, `store_transaction_id` for App Store / Google Play |
+| `refinery_reviews`, `refinery_custom_questions`, `reviewers`, `refinery_comments` | 015, 057 | The Refinery |
+| `discover_song_likes`, `discover_swipes` | 035, 083 | Discover swipe deck |
+
+**Subscriptions**
+
+| Table | Migration | Purpose / key columns |
+|---|---|---|
+| `creator_network_subscriptions` | 045 | Creator Network plan |
+| `pro_network_subscriptions` | 063, 109 | Pro-Networx messaging; Stripe plus store columns |
+| `pro_radio_subscriptions` | 119 | Pro-Radio: `status`, `current_period_end`, Stripe ids, `store`, `apple_original_transaction_id`, `google_purchase_token`, `store_product_id`. `has_active_pro_radio_sub()` |
+
+**Social, feed, and messaging**
+
+| Table | Migration | Purpose / key columns |
+|---|---|---|
+| `user_follows` | 034 | Follows between any users |
+| `discover_feed_posts` (+ `_comments`, `_likes`, `_bookmarks`, `_reports`) | 024, 062, 083, 096, 115 | Social feed; `audio_url` added in 115 |
+| `service_messages`, `message_reactions`, `message_reads` | 008, 033 | Direct messages |
+| `dm_conversation_accepts` | 124 | Message-request acceptance (`user_id`, `other_user_id`) |
+| `user_blocks`, `user_reports` | 096 | Blocking and user reports |
+| `content_reports` | 138 | Reports on stories, posts, comments, room/live chat, messages; `status` open, removed, dismissed |
+| `artist_fans` | 136 | Artist email list (`artist_id`, `email`) |
+| `artist_like_notification_settings` | 043 | Per-artist like notification prefs |
+
+**Live and Pro-Networx**
+
+| Table | Migration | Purpose / key columns |
+|---|---|---|
+| `artist_live_profiles`, `artist_live_sessions`, `artist_live_viewers`, `stream_donations`, `stream_ad_*` | 021 | Artist livestreams (Cloudflare Stream) |
+| `stream_chat_messages` | 077, 112 | Livestream chat (`deleted_at` in 112) |
+| `artist_live_services`, `live_broadcast`, `service_orders`, `service_requests` | 008 | Live services and requests |
+| `studios` | 125, 126 | Studio listings: name, about, photos, amenities, address, `lat`/`lng`, `location_precision` (exact, approximate), contact, `booking_link`, `is_published`, `hours` |
+| `studio_rates`, `studio_members` | 125, 126 | Rate cards (`price_cents`, `unit` hour, half_day, day, session) and team |
+
+### `pro_networx` schema
+
+Pro-Networx profile extensions keyed by `public.users.id` (016, 023, 061; exposed to PostgREST in 067):
+
+- **`pro_networx.profiles`** — `user_id`, `available_for_work`, `skills_headline`, `current_title`, `about`, `website_url`, `experience`, `education`, `featured`, `resume_url`, `resume_filename`.
+- **`pro_networx.skills`** and **`pro_networx.profile_skills`** — skill catalog and per-profile tags.
+- **`pro_networx.handle_user_inserted()` / `seed_profile_from_user()`** — create a profile row for new users (064).
+
+### Phone sign-in codes (146)
+
+- **`phone_mfa_challenges`** — `user_id`, `phone_e164`, `code_hash`, `expires_at`, `attempts`, `consumed_at`.
+- **`phone_mfa_sessions`** — `(user_id, auth_time)` marks a Firebase sign-in that passed the code. Both tables are closed to `anon` and `authenticated`.
+
 ## Functions and Triggers
+
+### Notable RPCs
+
+| Function | Migration | Purpose |
+|---|---|---|
+| `refresh_song_temperature(uuid)` | 048, 053, 145 | Recompute `song_temperature` (trigger on `leaderboard_likes`) |
+| `get_song_recommendation_signals` | 139 | Approval, listen-time, and reach signals for rotation weighting |
+| `get_unique_listener_count`, `get_daily_unique_listeners`, `get_ears_reached_for_songs_since` | 139 | Unique listener analytics |
+| `get_radio_live_listeners` | 088 | Live listener count |
+| `get_radio_ears_reached`, `get_song_ears_reached`, `get_artist_ears_reached`, `archive_*` | 079–085 | Ears reached and archiving |
+| `get_artist_song_stats`, `get_artist_daily_stats`, `get_artist_daily_likes` | 058–060, 102 | The Wake analytics |
+| `search_catalog(p_query, p_limit)` | 135 | Trigram search over songs and users |
+| `has_active_pro_network_sub`, `has_active_pro_radio_sub` | 063, 119 | Subscription checks |
+| `redeem_prospector_yield` | 018 | Yield redemption |
+| `prune_automated_notifications`, `prune_play_decision_log` | 142, 147 | Housekeeping |
+| `deduct_play_credits` | (project SQL, not in migrations) | Atomic per-play credit charge called by the radio service |
+
+`allocate_credits_for_user`, `allocate_credits`, and `increment_credits` are revoked from `anon` and `authenticated` (129).
 
 ### Update updated_at timestamp
 ```sql
@@ -660,7 +836,7 @@ Timed captions for radio / player UI. `plain_text` from the artist (or STT); `ti
 
 ### user_device_tokens & app_releases (105)
 
-FCM registration tokens and published app versions for soft/force update prompts.
+FCM registration tokens (`device_type` ios, android, web) and published app versions (`min_version`, `force_update`, optional broadcast push) for update prompts.
 
 ### users.city / users.zip_code (106)
 
@@ -670,30 +846,23 @@ Nearby People directory and map pins (coords remain on `artist_lat` / `artist_ln
 
 Discover feed media: **1GB** limit; image, video and audio MIME types (`video/mp4`, `video/webm`, `video/quicktime`, `audio/mpeg`, `audio/mp4`, …). Raised from 75MB → 200MB → 1GB so a few minutes of 4K phone video fits.
 
-## Migration notes: leaderboard reactions & temperature (047 → 049)
+## Migration notes: leaderboard reactions & temperature (047 → 145)
 
 | Migration | Purpose |
 |-----------|---------|
 | **047** | Adds `leaderboard_likes.reaction` (`fire` \| `shit`), backfill, `CHECK`, index on `(play_id, reaction)`. |
 | **048** | Introduces `song_temperature`, `refresh_song_temperature(uuid)`, trigger on `leaderboard_likes`, backfill from existing votes. Initial `temperature_percent` used a ratio-style default when no votes. |
 | **049** | Adds `decayed_fire_votes` / `decayed_shit_votes`, sets default `temperature_percent` to **0**, replaces `refresh_song_temperature` with **time-decay** aggregation, backfills all songs with votes. |
+| **053** | Sets a **50** baseline (+1 per fire, −1 per poop, clamped 0–100), removes decay, and resets cached rows. |
+| **145** | Adds `voter_cohort` / `counts_toward_score` to `leaderboard_likes` and `song_listener_ratings`, `popular_*` / `peer_*` columns to `song_temperature`, and `activity_flags`. `refresh_song_temperature` keeps the 053 formula but counts only votes with `counts_toward_score`. |
 
 Apply in numeric order with other Supabase migrations under `backend/supabase/migrations/`.
 
 ## Row Level Security (RLS)
 
-Enable RLS on all tables and create policies as needed for Supabase.
+Migration **129** enables RLS on every `public` table that was reachable through PostgREST (subscriptions, donations, orders, chat, moderation, votes, and more) and revokes the credit allocation RPCs from client roles. The backend uses the service role, which bypasses RLS, so this does not change the API. Clients reach Supabase directly only for:
 
-```sql
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE songs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE plays ENABLE ROW LEVEL SECURITY;
-ALTER TABLE likes ENABLE ROW LEVEL SECURITY;
--- Also enable RLS for competition/temperature tables in production Supabase projects:
--- ALTER TABLE leaderboard_likes ENABLE ROW LEVEL SECURITY;
--- ALTER TABLE song_temperature ENABLE ROW LEVEL SECURITY;
-ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE credits ENABLE ROW LEVEL SECURITY;
-ALTER TABLE rotation_queue ENABLE ROW LEVEL SECURITY;
-```
+- **Realtime:** `postgres_changes` on `station_events` (public read policy), `likes`, and `service_messages`, plus broadcast channels (`dj-booth:{stationId}`, `radio-chat:{stationId}`).
+- **Storage:** signed upload URLs issued by the backend.
+
+New tables (e.g. `song_listener_ratings`, `activity_flags`, `phone_mfa_*`) enable RLS with no client policies.

@@ -1,86 +1,62 @@
-# NETWORX Privacy Policy
+# Privacy Policy
 
-Effective date: 2026-03-29
+Effective date: June 14, 2026
 
-This Privacy Policy explains how DISCOVERMERADIO GROUP LLC ("NETWORX," "we," "us," "our") collects, uses, discloses, and protects information when you use NETWORX applications, websites, and related services (collectively, the "Services").
+This Privacy Policy explains how DISCOVERMERADIO GROUP LLC / NETWORX collects, uses, shares, and protects information when users access NETWORX, PRO-NETWORX, the website, mobile apps, marketplace, beta features, or related services.
 
-## 1) Information we collect
+> This file mirrors the published page at `https://www.networxradio.com/privacy` (source: `web/src/app/(marketing)/privacy/page.tsx`). Change the page first, then copy its text here.
 
-We may collect:
+## 1. Information We Collect
 
-- Account data (email, display name, role, authentication identifiers).
-- Content and activity data (uploads, messages, reactions, comments, profile fields).
-- Payment and purchase metadata used for transaction processing and verification.
-- Device and usage data (logs, crash diagnostics, performance signals, app interactions).
-- Location data (approximate/precise) when nearby features are used and permission is granted.
-- Push token and notification interaction data.
+- Account information such as name, username, email, profile photo, artist name, service provider name, and login details.
+- Creator profile information such as bio, links, portfolio items, service listings, music metadata, artwork, pricing, and social links.
+- Marketplace information such as purchases, transaction IDs, order history, payout status, refunds, and chargebacks. Payment card details are processed by third-party payment providers and are not intended to be stored directly by NETWORX.
+- Content and communications such as posts, comments, messages, reports, livestream materials, feedback, and support requests.
+- Usage and technical data such as device information, IP address, browser, app version, logs, crash data, Sentry events, analytics, and approximate location based on technical data.
+- Legal and safety data such as copyright complaints, dispute records, counter-notices, verification information, policy violations, and moderation history.
 
-## 2) How we use information
+## 2. How We Use Information
 
-We use collected data to:
+- To create and manage accounts and profiles.
+- To operate music previews, purchases, libraries, downloads, and creative listings.
+- To process transactions, refunds, payouts, and marketplace records.
+- To provide customer support, safety reviews, fraud prevention, copyright enforcement, and moderation.
+- To improve product features, debug errors, analyze usage, and understand creator/listener engagement.
+- To send transactional emails, beta notices, product updates, support messages, and marketing messages where allowed.
+- To comply with legal obligations and enforce our policies.
 
-- Provide, maintain, and secure the Services.
-- Enable radio playback, creator tools, messaging, discovery, and analytics features.
-- Process purchases and detect fraud, abuse, and policy violations.
-- Send transactional and product notifications.
-- Comply with legal obligations and enforce terms/policies.
+## 3. How We Share Information
 
-## 3) Legal bases and consent
+NETWORX may share information with service providers that help operate the platform, including hosting, database, storage, analytics, payments, email, monitoring, and customer support providers. NETWORX may share transaction or payout information with payment processors, tax or compliance providers, and marketplace participants as needed to complete transactions.
 
-Depending on your location, we process personal data under one or more legal bases:
+NETWORX may disclose information if required by law, legal process, safety concerns, rights enforcement, fraud prevention, or business transfers.
 
-- Consent.
-- Performance of a contract.
-- Legitimate interests.
-- Legal obligations.
+## 4. Public Content
 
-You can withdraw consent for optional processing at any time by changing app/device settings where available.
+Profiles, artist pages, service listings, posts, portfolios, music previews, links, comments, and other public-facing content may be visible to other users or the public. Users should not post private or sensitive information they do not want others to see.
 
-## 4) Sharing of information
+## 5. Children and Teens
 
-We may share data with service providers that support authentication, infrastructure, analytics, notifications, and payments. We may also disclose data:
+NETWORX is not directed to children under 13. We do not knowingly collect personal information from children under 13. If we learn that a child under 13 has provided personal information, we may delete the account and information. Users under the age of majority should use NETWORX with permission from a parent or guardian.
 
-- When required by law.
-- To enforce rights and policies.
-- In connection with a merger, acquisition, financing, or other business transfer.
+## 6. Cookies and Similar Technologies
 
-## 5) International transfers
+NETWORX may use cookies, pixels, local storage, device identifiers, and similar technologies for login, security, analytics, preferences, advertising measurement, and product improvement.
 
-We and our service providers may process data in the United States and other countries that may have different data protection laws than your country. Where required, we use appropriate safeguards for cross-border data transfers.
+## 7. Data Retention
 
-## 6) Data retention
+We keep information for as long as needed to operate the platform, comply with legal obligations, resolve disputes, prevent fraud, enforce agreements, and maintain business records. Copyright and transaction records may be retained after account closure where needed for compliance, safety, or dispute purposes.
 
-We retain personal data only as long as needed for business, legal, and security purposes. Some records may be retained after account closure where required by law or for fraud/security prevention.
+## 8. Security
 
-## 7) Your rights and choices
+NETWORX uses reasonable administrative, technical, and organizational safeguards designed to protect information. No system is completely secure, and users are responsible for protecting their account credentials.
 
-Depending on your jurisdiction, you may have rights to:
+## 9. User Choices
 
-- Access, correct, or delete personal data.
-- Object to or restrict certain processing.
-- Data portability, where applicable.
-- Control push notifications and location permissions at the device level.
+- Users may update certain account/profile information in the app.
+- Users may request account deletion or data access by contacting support, subject to legal, safety, and transaction record limitations.
+- Users may opt out of non-essential marketing emails using available unsubscribe options.
 
-For requests, contact: support@networxradio.com
+## 10. Contact
 
-## 8) Account deletion
-
-You may request account deletion by contacting support@networxradio.com. We may retain limited information as required by law, to resolve disputes, or for fraud and security prevention.
-
-## 9) Children's privacy
-
-NETWORX is not directed to children under 13, and we do not knowingly collect personal data from children under 13.
-
-## 10) Security
-
-We use reasonable administrative, technical, and organizational measures to protect personal data. No system is perfectly secure, and absolute security cannot be guaranteed.
-
-## 11) Changes to this policy
-
-We may update this Privacy Policy from time to time. If we make material changes, we will update the effective date and provide notice where required by law.
-
-## 12) Contact
-
-DISCOVERMERADIO GROUP LLC  
-legal@networxradio.com  
-support@networxradio.com
+Privacy questions may be sent to legal@networxradio.com or support@networxradio.com.

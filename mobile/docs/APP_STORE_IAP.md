@@ -4,8 +4,7 @@ On **iOS** and **Android**, every digital purchase goes through the platform sto
 
 | Purchase | iOS | Android | Web |
 |----------|-----|---------|-----|
-| Artist credits | App Store consumable | Play consumable | Stripe |
-| Song plays / placements | App Store consumable | Play consumable | Stripe |
+| Discovery placements (per song) | App Store consumable | Play consumable | Stripe |
 | Pro-Networx subscription | App Store auto-renewable | Play subscription | Stripe |
 | Pro-Radio subscription | App Store auto-renewable | Play subscription | Stripe |
 | Pro Bundle subscription | App Store auto-renewable | Play subscription | Stripe |
@@ -23,20 +22,34 @@ worldwide release.
 Creator Network subscription has **no store SKU**, so its Stripe route stays
 web-only and is rejected on mobile.
 
+**Beta switch:** with `BETA_ALL_FREE=true` on the backend, Pro-Radio,
+Pro-Networx, and Creator Network unlock without a purchase while the paywalls
+keep showing prices. It defaults to paid. Refinery submissions follow the same
+switch unless `REFINERY_FREE_SUBMISSIONS` is set. One-off purchases
+(placements, songs, tips) always charge.
+
 ## Product IDs (create in both consoles)
 
-### Credits (consumable)
-- `nwx_credits_10` / `25` / `50` / `100`
+### Credits (retired)
+- `nwx_credits_10` / `25` / `50` / `100` are still listed in the catalog and
+  `Configuration.storekit`, but credit packs are no longer sold. No mobile
+  screen offers them, and the backend rejects them with "Credit packages are
+  no longer sold." Do not create them; remove them from sale if they exist.
 
 ### Discovery placements (consumable)
 - `nwx_song_plays_1` — $1.99
-- `nwx_song_plays_3` — $4.99
-- `nwx_song_plays_5` — $9.99
-- `nwx_song_plays_10` — $17.99
-- `nwx_song_plays_25` — $39.99
-- `nwx_song_plays_50` — $75.99
-- `nwx_song_plays_100` — $150.00
-- The server checks the store price against these amounts. Change the price on each SKU in App Store Connect and Google Play Console to match.
+- `nwx_song_plays_3` — $4.99 (+1 bonus placement)
+- `nwx_song_plays_5` — $9.99 (+2)
+- `nwx_song_plays_10` — $17.99 (+4)
+- `nwx_song_plays_25` — $39.99 (+10)
+- `nwx_song_plays_50` — $75.99 (+20)
+- `nwx_song_plays_100` — $150.00 (+40)
+- Each placement (paid or bonus) adds 100 verified exposures to the song's
+  `songs.credits_remaining`. Bought per song from My Songs → Buy placements
+  (`buy_plays_screen.dart`).
+- The server checks the store price against these amounts (`packPriceCents()`
+  in `backend/src/payments/payments.service.ts`). Change the price on each SKU
+  in App Store Connect and Google Play Console to match.
 
 ### Pro-Networx (subscription)
 - Product ID: `nwx_pro_networx_monthly`
@@ -49,7 +62,7 @@ web-only and is rejected on mobile.
 - Price: **$4.99/mo**, introductory first month **$1.99**
 - App Store Connect: subscription group “Pro-Radio”, auto-renewable
 - Play Console: subscription + base plan $4.99/mo + intro/offer $1.99 first period
-- Unlocks on-demand full streams for opted-in songs (separate from live Networks Radio)
+- Unlocks on-demand full streams for opted-in songs (separate from live Networx Radio)
 
 ### Pro Bundle (subscription) — recommended if you want both
 - Product ID: `nwx_pro_bundle_monthly`
@@ -65,6 +78,7 @@ web-only and is rejected on mobile.
 - One purchase per song submission; must be a **consumable** so artists can submit multiple songs
 - Completing the purchase enrolls that song in The Refinery (server-side)
 - Studio → Add to Refinery uses this SKU on iOS/Android; web still uses Stripe Checkout
+- While submissions are free (see the beta switch above), the app adds the song without a purchase
 
 ### Livestream tips (consumable)
 - `nwx_tip_199` ($1.99)
@@ -105,19 +119,21 @@ console products and a migration — `songs.price_cents` has a CHECK constraint
 pinned to these values.
 
 **Payouts:** store purchases carry no Stripe Connect destination charge, so the
-platform collects and the artist is owed a manual payout. These rows land as
-`song_purchases.payout_status = 'pending'`, which the existing admin payout
-queue already lists.
+platform collects and owes the artist. These rows land as
+`song_purchases.payout_status = 'pending'` and show in the admin payout queue.
+An admin settles them with `POST /api/admin/payouts/:artistId/settle`, which
+sends one Stripe Connect transfer once the artist's account can receive
+payouts and marks the rows `paid`.
 
 ## App Store Connect checklist
 
 1. Enable **In-App Purchase** on App ID `com.tmaktechnologies.networxradio`.
-2. Create consumables above (credits, song plays, tips, song/beat tiers, **refinery submission**).
+2. Create consumables above (placements, tips, song/beat tiers, **refinery submission**).
 3. Create subscription group + `nwx_pro_networx_monthly` with intro offer.
 4. Create subscription group + `nwx_pro_radio_monthly` with intro offer ($1.99 first month).
 5. Create subscription + `nwx_pro_bundle_monthly` at **$12.99/mo** (both Pros).
 6. App Store Server Notifications V2 →  
-   `POST https://<API_HOST>/payments/app-store/notifications`
+   `POST https://<API_HOST>/api/payments/app-store/notifications`
 7. In-App Purchase API key (Issuer ID, Key ID, `.p8`) for backend verification.
 
 For the eight `nwx_song_*` tiers: type **Consumable**, price point matching the
@@ -127,7 +143,7 @@ the SKU is shared across every song at that price.
 
 ## Google Play Console checklist
 
-1. Confirm credit/play product IDs match App Store.
+1. Create the seven `nwx_song_plays_*` placement products with the same IDs and prices as App Store.
 2. Create subscription `nwx_pro_networx_monthly` + tip consumables.
 3. Create subscription `nwx_pro_radio_monthly` with matching intro pricing.
 4. Create subscription `nwx_pro_bundle_monthly` at $12.99/mo.
@@ -135,7 +151,7 @@ the SKU is shared across every song at that price.
 6. Create the eight `nwx_song_*` tiers as **in-app products** (consumable) at the
    same prices as App Store Connect.
 7. Real-time developer notifications (RTDN) → Pub/Sub push to  
-   `POST https://<API_HOST>/payments/google-play/rtdn`
+   `POST https://<API_HOST>/api/payments/google-play/rtdn`
 8. Service account with Android Publisher access for backend verify/acknowledge.
 
 ## Code (repo)
@@ -146,10 +162,11 @@ the SKU is shared across every song at that price.
 - Mobile tips: `watch_live_screen.dart` store consumables on iOS/Android.
 - Mobile song/beat buys: `SongPurchaseFlow` — shared by the player, artist
   profile, and beat marketplace. Store consumable on iOS/Android, Stripe on web.
-- Credits / plays: store-only on mobile; missing SKU → clear error (no Stripe fallback).
+- Placements: `buy_plays_screen.dart`, store-only on mobile; missing SKU → clear error (no Stripe fallback).
+- Refinery: `RefinerySubmissionFlow` → free add, store consumable, or web Stripe.
 - API header: `x-client-platform: ios|android|web` — backend rejects Stripe intents for digital goods on mobile via `assertStripeAllowedForDigitalGoods` (`backend/src/payments/store-billing-policy.ts`).
-- Backend:  
-  - `POST /payments/app-store/complete` (+ tips via `sessionId`, song buys via `songId`)  
+- Backend (all under `/api`):  
+  - `POST /payments/app-store/complete` (+ tips via `sessionId`, song buys, placements, and Refinery via `songId`)  
   - `POST /payments/google-play/complete`  
   - `POST /payments/app-store/complete-subscription`  
   - `POST /payments/google-play/complete-subscription`  
@@ -175,11 +192,20 @@ GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=...
 # Optional overrides (merged on top of defaults):
 # APPLE_IAP_PRODUCT_CATALOG_JSON=
 # GOOGLE_PLAY_PRODUCT_CATALOG_JSON=
+# Beta switches (default paid):
+# BETA_ALL_FREE=false
+# REFINERY_FREE_SUBMISSIONS=
 ```
+
+`APPLE_TEAM_ID` plus the `APPLE_IAP_KEY_ID` / `APPLE_IAP_PRIVATE_KEY` key also
+let account deletion revoke Sign in with Apple tokens.
 
 ## Mobile env (optional product ID overrides)
 
 ```env
+IOS_APP_STORE_SONG_PLAYS_1_PRODUCT_ID=nwx_song_plays_1
+ANDROID_PLAY_SONG_PLAYS_1_PRODUCT_ID=nwx_song_plays_1
+# ... same pattern for 3 / 5 / 10 / 25 / 50 / 100
 IOS_APP_STORE_PRO_NETWORX_MONTHLY_PRODUCT_ID=nwx_pro_networx_monthly
 ANDROID_PLAY_PRO_NETWORX_MONTHLY_PRODUCT_ID=nwx_pro_networx_monthly
 IOS_APP_STORE_PRO_RADIO_MONTHLY_PRODUCT_ID=nwx_pro_radio_monthly
@@ -197,7 +223,7 @@ ANDROID_PLAY_SONG_PURCHASE_499_PRODUCT_ID=nwx_song_499
 
 ## Verify
 
-1. iOS Sandbox + Android license tester: credits, plays, tips — store UI only; grants land.
+1. iOS Sandbox + Android license tester: placements (with bonus), tips, Refinery submission — store UI only; grants land.
 2. Subscribe Pro-Networx on each store → `getAccess()` true; Restore works; expire/revoke clears access.
 3. No Stripe PaymentSheet on iOS/Android for those flows.
 4. Buy a song from the player, an artist profile, and the beat marketplace →
@@ -205,8 +231,9 @@ ANDROID_PLAY_SONG_PURCHASE_499_PRODUCT_ID=nwx_song_499
    `store = app_store|google_play` with `payout_status = 'pending'`.
 5. Re-send the same store receipt → second call returns `alreadyProcessed`, no
    duplicate row.
-6. No "Open web checkout instead" button in Buy Plays on device.
-7. Web Stripe checkout / tips / song buys still work.
+6. No "Open web checkout instead" button in Buy placements on device.
+7. Run subscription checks with `BETA_ALL_FREE=false`; with it on, access is granted without a purchase.
+8. Web Stripe checkout / tips / song buys still work.
 
 ## Troubleshooting: `StoreKit: Failed to get response from platform`
 

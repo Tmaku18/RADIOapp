@@ -4,33 +4,48 @@
 
 **Symptoms:** "Google sign in failed: PlatformException(sign_in_failed, ApiException: 10:, ...)"
 
-**Cause:** Your app’s **SHA-1 fingerprint** is not registered in Firebase, so Google rejects sign-in.
+**Cause:** Your app's **SHA-1 fingerprint** is not registered in Firebase, so Google rejects sign-in.
 
 **Fix:**
 
-1. **Get your debug SHA-1** (you can run this again to confirm):
+1. **Get your SHA-1** (debug keystore):
+   ```bash
+   # macOS / Linux
+   keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android
+   ```
    ```powershell
+   # Windows
    keytool -list -v -keystore "$env:USERPROFILE\.android\debug.keystore" -alias androiddebugkey -storepass android
    ```
-   Copy the **SHA1** line (e.g. `2B:A4:EF:54:A5:E1:1C:4C:31:2F:4B:8D:89:59:56:9C:B2:60:43:C2`).
+   Or run `./gradlew signingReport` in `mobile/android`. Copy the **SHA1** line.
 
 2. **Add it in Firebase:**
    - Open [Firebase Console](https://console.firebase.google.com) → your project (**radioapp-4c14a**).
    - **Project settings** (gear) → **Your apps**.
-   - Select the **Android** app with package name `com.radioapp.radio_app` (or add an Android app if missing).
-   - Under **App fingerprint**, click **Add fingerprint** and paste your **SHA-1** (debug one above; add release SHA-1 later for release builds).
+   - Select the **Android** app with package name `com.tmaktechnologies.networxradio`.
+   - Under **SHA certificate fingerprints**, click **Add fingerprint** and paste your **SHA-1**.
    - Save.
 
-3. **Download updated config (optional but recommended):**
+3. **Download updated config:**
    - In the same Android app card, click **Download google-services.json**.
    - Replace `mobile/android/app/google-services.json` with the new file.
 
 4. **Rebuild and run:**
-   ```powershell
-   cd mobile; flutter clean; flutter pub get; flutter run -d <device>
+   ```bash
+   cd mobile && flutter clean && flutter pub get && flutter run -d <device>
    ```
 
-If you use a **release** or **upload** keystore, add that SHA-1 in Firebase as well.
+Add the **upload** keystore SHA-1 and the **Play App Signing** SHA-1 (Play Console → App integrity) as well; release builds stop with an error if the Play App Signing SHA-1 is missing from `google-services.json`.
+
+---
+
+## App talks to production instead of my local backend
+
+The API client tries `API_DIRECT_URL` first, then the Railway backend, then `API_BASE_URL`. Set both `API_DIRECT_URL` and `API_BASE_URL` in `mobile/.env` to your local backend (Android emulator: `http://10.0.2.2:3000`; device: your LAN IP), then fully restart the app (`.env` is bundled at build time, so hot reload does not pick it up).
+
+## Stuck on the phone code screen
+
+Signed-in users must verify a mobile number. With a local backend and no Twilio credentials, the code is printed in the backend log. Each account needs its own number.
 
 ---
 
@@ -41,12 +56,12 @@ If you're seeing a blank screen when running the app, check the following:
 ## Common Causes
 
 ### 1. Firebase Not Initialized
-**Symptoms:** Blank screen, no errors in console
+**Symptoms:** Blank screen or the welcome page with sign-in not working
 
 **Fix:**
 - Make sure `google-services.json` is in `android/app/`
 - Make sure `GoogleService-Info.plist` is in `ios/Runner/`
-- Check that Firebase project is set up correctly
+- Check that `lib/firebase_options.dart` matches the Firebase project
 
 **Test:**
 ```bash
@@ -56,28 +71,26 @@ flutter run
 ```
 
 ### 2. .env File Missing or Incorrect
-**Symptoms:** App starts but shows blank screen
+**Symptoms:** App starts but cannot load data
 
 **Fix:**
-- Create `.env` file in `mobile/` directory
-- Add required variables (see SETUP.md)
-- Make sure file is not corrupted
+- Create `.env` in `mobile/` from `.env.example`
+- It must exist at build time because `pubspec.yaml` bundles it as an asset
 
 ### 3. Firebase Initialization Error
-**Symptoms:** Blank screen, errors in console
+**Symptoms:** Errors in console
 
 **Check console for:**
-- Firebase initialization errors
+- Firebase initialization errors or "Firebase init timed out" (slow emulator network)
 - Missing Firebase configuration
 - Network errors
 
-### 4. StreamBuilder Not Emitting
-**Symptoms:** Stuck on loading spinner
+### 4. Stuck on the splash screen
+**Symptoms:** Branded loading screen never goes away
 
 **Fix:**
 - Check Firebase Auth is enabled in Firebase Console
 - Verify internet connection
-- Check Firebase rules
 
 ## Debug Steps
 
@@ -85,7 +98,7 @@ flutter run
    ```bash
    flutter run -v
    ```
-   Look for errors related to Firebase or initialization
+   Look for "Firebase initialized successfully" or errors related to Firebase or initialization
 
 2. **Test Firebase Connection:**
    - Open Firebase Console
@@ -94,31 +107,21 @@ flutter run
 
 3. **Verify Files Exist:**
    ```bash
-   # Check .env file
-   Test-Path mobile/.env
-   
-   # Check Firebase config
-   Test-Path mobile/android/app/google-services.json
-   Test-Path mobile/ios/Runner/GoogleService-Info.plist
+   ls mobile/.env mobile/android/app/google-services.json mobile/ios/Runner/GoogleService-Info.plist
    ```
 
-4. **Try Minimal Test:**
-   Temporarily replace `AuthWrapper` with a simple widget to see if the issue is with Firebase:
-   ```dart
-   // In main.dart, temporarily replace AuthWrapper with:
-   home: Scaffold(
-     body: Center(child: Text('App is working!')),
-   ),
+4. **iOS build issues:**
+   ```bash
+   cd mobile/ios && pod install --repo-update
    ```
 
 ## Expected Behavior
 
-When app starts, you should see:
-1. **Brief loading spinner** (while checking auth)
-2. **Login screen** (if not logged in)
-3. **Player screen** (if logged in)
-
-If you see a blank screen, there's likely an initialization error that's being silently caught.
+When the app starts, you should see:
+1. **Branded splash screen** (while checking auth)
+2. **Welcome landing page** (if not signed in), with Sign up / Log in and Continue as guest
+3. **Phone code screen** (if signed in without a verified number)
+4. **Networx Home** (signed in or guest)
 
 ## Quick Fix
 

@@ -35,3 +35,5 @@ Add these in **Authentication → Settings → Authorized domains**:
 - `radi-oapp-discover-me-radio-group-llc.vercel.app`
 
 If you use other Vercel URLs (e.g. a custom branch URL), add the full hostname (e.g. `radi-oapp-git-main-discover-me-radio-group-llc.vercel.app`).
+
+The sign-in text code is sent by the backend through Twilio (`TWILIO_*` on Railway), so it needs no extra Firebase domain or Phone Auth setup.

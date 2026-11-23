@@ -28,7 +28,7 @@ The creator operating system, live discovery network, and music marketplace for 
 ### Three metaphor systems (shipped in product copy)
 
 1. **The Butterfly Effect** — Ripples, The Wake  
-2. **Metamorphosis** — Gems, Diamonds, Catalysts  
+2. **Metamorphosis** — Artists, Diamonds, Producers (Catalysts in Pro-Networx copy)  
 3. **Mining the Frequency** — Prospectors, The Refinery, The Yield  
 
 ---
@@ -48,14 +48,14 @@ NETWORX promises independent creators the infrastructure to be heard, paid, and 
 A people-powered label means NETWORX gives independent creators tools labels usually control:
 
 - Live discovery (always-on democratic radio)
-- Audience feedback (fire/pass votes, Ripples, temperature)
+- Audience feedback (🔥/💩 votes, 1–10 ratings, Ripples, Popular and Peer temperature, per-song Comments)
 - Fan engagement data (The Wake, Prospector heatmap)
 - Track sales (30-second preview → full purchase)
 - Earnings visibility (analytics, transactions, Yield for Prospectors)
 - Discovery placements ($1.99 each, or packs at $4.99 / $9.99 / $17.99 / $39.99 / $75.99 / $150)
 - Creator analytics (The Wake)
 - Pro-Networx profiles, services marketplace, and messaging
-- Direct relationship ownership (artist profiles, DMs with subscription)
+- Direct relationship ownership (artist profiles, artist email list, DMs)
 
 The creator keeps ownership. The audience creates the signal. NETWORX provides the infrastructure.
 
@@ -78,7 +78,8 @@ Independent audio creators — hip-hop producers, artists, and audio creators wh
 ### Secondary users (shipped)
 
 - **Prospectors** (listeners) — mine the Frequency, send Ripples, vote, earn Yield  
-- **Catalysts** (service providers) — accelerate metamorphosis via Pro-Networx  
+- **Producers** (service providers; called Catalysts in Pro-Networx copy) — accelerate metamorphosis via Pro-Networx  
+- **Instrumentalists and DJs** — maker roles that can upload and go live; one account can hold several  
 
 ### Founding 100 vs first 100 reviewers
 
@@ -89,7 +90,7 @@ These are different cohorts. Do not merge the names.
 | **Founding 100** | Creator and merch cohort. Samurai Signal posters, limited merch run. Unchanged. |
 | **First 100 reviewers** | The Refinery review bench. People artists already respect (producers, respected listeners, scene voices). A paid Refinery submission is staffed toward at least 100 of them. |
 
-The Refinery is invite-only. Entry is by raffle or by referral, and seats open in batches so Yield stays payable. Strategy: [`docs/business/badges-and-refinery-access.md`](business/badges-and-refinery-access.md).
+The Refinery is planned to become invite-only: entry by raffle or by referral, with seats opening in batches so Yield stays payable. Today reviewer signup is open to any signed-in user. Strategy: [`docs/business/badges-and-refinery-access.md`](business/badges-and-refinery-access.md).
 
 ### The Magnet
 
@@ -99,7 +100,7 @@ Creators bring fans to NETWORX for owned relationships: artist pages, track purc
 
 Realization, not frustration: *I have been treating my music like content when I should have been treating it like a business.*
 
-Paywalls today: Pro-Networx subscription (DMs + contact info), deeper analytics, discovery placements.
+Paywalls today: Pro-Radio ($4.99/mo), Pro-Networx ($9.99/mo; resumes and contact info, DMs free during beta), Pro Bundle ($12.99/mo), discovery placements, Refinery submissions ($4.99), and song and beat purchases.
 
 ---
 
@@ -141,7 +142,7 @@ Sophisticated, direct, empowering — treats the independent artist like a CEO. 
 
 ### Use (shipped vocabulary)
 
-Creator Operating System, Live Discovery Network, Trial by Fire, Ripples, The Wake, The Refinery, The Yield, Gems, Prospectors, Catalysts, Pro-Networx, Discovery Placements, Temperature Score, Business Infrastructure.
+Creator Operating System, Live Discovery Network, Trial by Fire, Ripples, The Wake, The Refinery, The Yield, Artists, Prospectors, Producers, Catalysts (Pro-Networx), Pro-Radio, Pro-Networx, Pro Bundle, Discovery Placements, Temperature (Popular / Peer), Business Infrastructure.
 
 ### Push notification voice (aligned to shipped events)
 
@@ -167,7 +168,7 @@ Celebrate business progress and cultural momentum:
 - Refinery completion  
 - Yield redemption  
 - Pro-Networx profile published  
-- First Catalyst booking  
+- First Producer (Catalyst) booking  
 - **Beta badge** — every account created while beta is open; kept after beta ends  
 - Later earned badges — each catalog entry has its own earn rule and an optional perk  
 
@@ -178,6 +179,8 @@ Badges are trophies: a full set on the profile, and a chip next to the display n
 ## 7. Visual Identity & Aesthetic (shipped tokens)
 
 **Theme strategy:** **Dimension Cyber** (origin/3d, shipped on web `integrate`) for marketing, dashboard shell, Live Radio, and Pro pages — layered on **Neo-Minimalist Noir** core tokens in `web/src/app/globals.css`. Dimension tokens live in `web/src/styles/dimension.css` under `[data-dimension]`.
+
+**Mobile (since Aug 2026):** the Flutter app is artwork-first. Near-black or white surfaces, greys for structure, and electric cyan (`#00F5FF` dark, `#0E9AA7` light) as the single accent. The player background is the blurred album cover under one scrim; there is no cyber grid or glow orbs behind screens. Tokens: `mobile/lib/core/theme/dimension_tokens.dart`, `networx_tokens.dart`.
 
 **Source of truth (code):** `web/src/styles/dimension.css` · `web/src/components/dimension/MetamorphosisScene.tsx` (3D accent constants)
 
@@ -256,6 +259,8 @@ Badges are trophies: a full set on the profile, and a chip next to the display n
 
 **Code:** `--font-unbounded`, `--font-jetbrains-mono`, `--font-outfit` in `web/src/app/layout.tsx`
 
+**Mobile typefaces (since Nov 2026):** Satoshi, DM Sans, and Space Grotesk, bundled in `mobile/pubspec.yaml`. The website keeps the fonts above.
+
 ---
 
 ## 8. Campaign Worlds
@@ -270,17 +275,17 @@ Badges are trophies: a full set on the profile, and a chip next to the display n
 
 ---
 
-## 9. Product Pillars — Implementation Status (June 2026)
+## 9. Product Pillars — Implementation Status (Nov 2026)
 
 | Pillar | Shipped | Notes |
 |--------|---------|-------|
-| **Live Discovery** | ✅ | Always-on synchronized radio, fire/pass voting, temperature (0–100), Ripples, Trial by Fire, competition leaderboards, live chat, artist livestreams (DJ + performances) |
-| **Direct Monetization** | ✅ | 30s preview → full track purchase (Stripe), discovery placements ($1.99, packs $4.99–$150, ~100 exposures each), credits allocation, Google Play Billing on Android |
-| **Creator Intelligence** | ✅ | The Wake analytics, ROI, Prospector heatmap, platform live stats (ears reached, live listeners) |
-| **Prospector Rewards** | ✅ | The Refinery (rank, survey, comment), The Yield (balance + redemption) |
-| **Pro-Networx Network** | ✅ | Profiles, feed, services marketplace, directory, search, messaging (subscription), jobs — web + mobile |
-| **Fan Ownership** | 🟡 Partial | Artist profiles, follows, library, DMs (Pro-Networx); **not yet** standalone creator storefront + fan email CRM as in original 30-day MVP doc |
-| **Independent Infrastructure** | 🟡 Partial | Dashboard, admin, Stripe payments, mobile apps (Flutter); **roadmap:** full Stripe Connect payouts, DSP integrations, sync licensing |
+| **Live Discovery** | ✅ | Always-on synchronized radio, 🔥/💩 voting, Popular and Peer temperature (0–100), 1–10 ratings, Ripples, Trial by Fire, competition leaderboards, Live Chat plus per-song Comments, song clips and stories, artist livestreams (Live DJ + Live Performances) |
+| **Direct Monetization** | ✅ | Song and beat sales on a $0.99–$49.99 price ladder, discovery placements per song ($1.99, packs $4.99–$150, ~100 exposures each), Pro-Radio, Pro-Networx, Pro Bundle, Refinery submissions, livestream tips. Stripe on web; App Store and Google Play billing on mobile |
+| **Creator Intelligence** | ✅ | The Wake analytics (Listens, Ears Reached, Unique Listeners, new followers, Prospector heatmap), platform live stats |
+| **Prospector Rewards** | ✅ | The Refinery (ratings, survey, comments; open reviewer signup, invite-only planned), The Yield (balance + redemption) |
+| **Pro-Networx Network** | ✅ | Profiles with radio catalog, feed, services, directory, Studios with map, search, DMs with message requests (free during beta), job board — web + mobile |
+| **Fan Ownership** | 🟡 Partial | Artist profiles, follows, favorites, library, artist email list, DMs; **not yet** standalone creator storefront or fan CRM |
+| **Independent Infrastructure** | 🟡 Partial | Dashboard, admin, Stripe payments, Stripe Connect payouts for song sales, mobile apps (Flutter); **roadmap:** DSP integrations, sync licensing |
 
 ---
 
@@ -291,40 +296,44 @@ The original PDF framed a 30-day storefront-first MVP. **What actually shipped**
 ### Shipped (web + mobile + backend)
 
 1. ✅ Democratic always-on radio with synchronized playback  
-2. ✅ Song upload, moderation, rotation, credits  
-3. ✅ Fire/pass voting + temperature + Ripples  
+2. ✅ Song upload, albums, moderation, ACRCloud copyright matching, rotation  
+3. ✅ 🔥/💩 voting + Popular and Peer temperature + Ripples  
 4. ✅ Competition, leaderboards, Trial by Fire, spotlight  
 5. ✅ Live chat (radio + livestreams)  
 6. ✅ Artist livestreaming (approved streamers)  
 7. ✅ The Wake analytics  
 8. ✅ The Refinery + The Yield  
-9. ✅ Discovery placements ($1.99 and packs through $150) + credit packs  
+9. ✅ Discovery placements per song ($1.99 and packs through $150)  
 10. ✅ Direct-to-fan track preview + purchase + library  
-11. ✅ Pro-Networx (profiles, feed, services, directory, messaging)  
+11. ✅ Pro-Networx (profiles, feed, services, directory, Studios, job board, messaging)  
 12. ✅ Push notifications (FCM mobile)  
-13. ✅ Auth: Google, Apple, email (**no Spotify OAuth**)  
+13. ✅ Auth: Google, Apple, email, phone text-code verification (**no Spotify OAuth**); guest browsing  
 14. ✅ Flutter mobile app + Next.js web (`networxradio.com`, `pro-networx.com`)  
 15. ✅ Light + dark theme across web  
 16. ✅ Sentry error tracking  
+17. ✅ Pro-Radio (on-demand full songs, playlists) and Pro Bundle  
+18. ✅ App Store and Google Play billing for every digital good on mobile  
+19. ✅ iPhone Now Playing widget, lock-screen and Dynamic Island votes; Android Auto stations  
+20. ✅ Artist email list and Stripe Connect payouts for song sales  
 
 ### Original 30-day MVP items — status
 
 | Original MVP goal | Status |
 |-------------------|--------|
-| Creator profile | ✅ Shipped (artist + Catalyst + Pro-Networx profile) |
-| Public creator storefront + custom slug | 🟡 Partial — artist/Catalyst public pages, not full storefront SKU |
+| Creator profile | ✅ Shipped (artist + Producer + Pro-Networx profile) |
+| Public creator storefront + custom slug | 🟡 Partial — public artist and Pro profile pages with share links, not full storefront SKU |
 | 30-second preview + full track Stripe purchase | ✅ Shipped |
-| Fan email capture + fan CRM | ❌ Not shipped as described |
+| Fan email capture + fan CRM | 🟡 Partial — artist email list (join from the artist page, list in Studio); no CRM |
 | Basic earnings dashboard | ✅ Shipped (analytics + transactions) |
 | Liked vs purchased library separation | ✅ Shipped |
 | Admin control (songs, users, sales) | ✅ Shipped |
 
 ### Next 30-day focus (recommended)
 
-1. Fan CRM + email capture on artist storefront (close original MVP gap)  
-2. Stripe Connect artist payouts (production-ready)  
-3. Play Store + App Store launch polish (listing in `docs/play-store-listing.md`)  
-4. Pro-Networx Google Play subscription parity (policy compliance)  
+1. Fan CRM on top of the artist email list (close original MVP gap)  
+2. Phone verification enforced in production once Twilio is configured  
+3. Play Store + App Store launch polish (listing in `docs/play-store-listing.md`); keep store console prices matched to the code catalog  
+4. Decide when Pro-Networx DMs leave free beta  
 5. Badge catalog (permanent beta badge, profile trophy case, name chip on comments) and invite-only Refinery (raffle or referral, seat caps, first 100 respected reviewers). See [`docs/business/badges-and-refinery-access.md`](business/badges-and-refinery-access.md) and [`docs/planned-implementation-badges-refinery.md`](planned-implementation-badges-refinery.md). The merch Founding 100 stays a separate cohort.  
 
 ---
@@ -362,13 +371,18 @@ Always-on radio, livestreams, votes and ripples, transparent analytics, and ProN
 
 ### Paywall copy (Pro-Networx — shipped)
 
-Subscribe to unlock direct messaging and contact info on services listings. Intro pricing shown in-app ($4.99 first month → $9.99/mo).
+Subscribe to unlock direct messaging and contact info on services listings. Intro pricing shown in-app ($4.99 first month → $9.99/mo). During beta: “Messaging is free during beta. Pro-Networx is $4.99 first month, then $9.99/mo — or Pro Bundle (Radio + Networx) for $12.99/mo.”
+
+### Paywall copy (Pro-Radio — shipped)
+
+Full on-demand listening, personal playlists, and a controllable player. Cancel anytime. ($4.99/mo; $1.99 first month on web.)
 
 ### Player copy (shipped)
 
-- Fire / Pass reactions  
-- Song temperature (0–100%)  
-- Send a Ripple  
+- 🔥 / 💩 reactions beside the title  
+- Popular and Peer temperature (0–100)  
+- ⋮ menu: rate 1–10, report, upload  
+- Comments (per song) and Live Chat (per station)  
 
 ---
 
@@ -410,3 +424,4 @@ NETWORX creates the culture. NETWORX runs the backend. The creator keeps the pow
 | June 13, 2026 | Aligned to shipped product, design tokens, terminology, and honest build status |
 | June 18, 2026 | Visual palette aligned to origin/3d **Dimension Cyber** (`#00F0FF` / `#FF007F` / `#F4D03F`); typography adds Unbounded + JetBrains Mono |
 | November 20, 2026 | Badge catalog and invite-only Refinery added to celebration, audience, and next-focus. Merch Founding 100 kept separate from the first 100 reviewers. |
+| November 23, 2026 | Product facts aligned to the app: Artist/Producer role labels, maker roles, 🔥/💩 votes with Popular and Peer temperature, Pro-Radio and Pro Bundle, store billing, credit bank removed, artist email list and Connect payouts, mobile artwork-first look and typefaces. |

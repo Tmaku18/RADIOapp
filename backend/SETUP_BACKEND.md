@@ -1,23 +1,28 @@
-# Backend Setup Complete ✅
+# Backend Setup
 
-The backend has been successfully set up and is ready for configuration.
+Steps to get the NestJS backend running locally. For the module overview see [README.md](README.md); for every env var see [ENV_REQUIREMENTS.md](ENV_REQUIREMENTS.md).
 
-## What's Been Done
+## 1. Install and build
 
-1. ✅ Dependencies installed (`npm install`)
-2. ✅ TypeScript compilation verified (`npm run build`)
-3. ✅ All modules and services created
-4. ✅ Type errors fixed
+```bash
+cd backend
+npm install
+npm run build   # optional: confirms TypeScript compiles
+```
 
-## Next Steps: Environment Configuration
+Use Node.js 22+.
 
-Create a `.env` file in the `backend/` directory with the following variables:
+## 2. Environment configuration
+
+Copy `.env.example` to `.env` in `backend/` and fill in at least:
 
 ```env
-# Firebase Admin SDK
+# Firebase Admin SDK — preferred: path to the service account JSON
+FIREBASE_SERVICE_ACCOUNT_PATH=/absolute/path/to/service-account.json
+# or the three fields from that JSON
 FIREBASE_PROJECT_ID=your-project-id
-FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYour private key here\n-----END PRIVATE KEY-----\n"
 FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@your-project.iam.gserviceaccount.com
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYour private key here\n-----END PRIVATE KEY-----\n"
 
 # Supabase
 SUPABASE_URL=https://xxxxx.supabase.co
@@ -27,41 +32,49 @@ SUPABASE_SERVICE_KEY=your-service-role-key-here
 STRIPE_SECRET_KEY=sk_test_xxxxx
 STRIPE_WEBHOOK_SECRET=whsec_xxxxx
 
-# Server Configuration
+# Server
 PORT=3000
 NODE_ENV=development
+WEB_URL=http://localhost:3001
 
-# CORS
-CORS_ORIGIN=http://localhost:3000,http://localhost:3001
+# Optional
+REDIS_URL=redis://localhost:6379
+CORS_ORIGIN=http://localhost:3001
 ```
 
 ## How to Get Your Credentials
 
 ### Firebase
-1. Go to [Firebase Console](https://console.firebase.google.com)
-2. Select your project
-3. Go to Settings > Service Accounts
-4. Click "Generate New Private Key"
-5. Copy the values from the downloaded JSON file
+1. Go to [Firebase Console](https://console.firebase.google.com) and select the project (`radioapp-4c14a`)
+2. Project settings > Service accounts
+3. Click "Generate new private key"
+4. Save the JSON outside git and point `FIREBASE_SERVICE_ACCOUNT_PATH` at it, or copy its fields into the three `FIREBASE_*` variables (see [FIREBASE_KEY_FORMAT.md](FIREBASE_KEY_FORMAT.md))
 
 ### Supabase
 1. Go to [Supabase Dashboard](https://supabase.com/dashboard)
 2. Select your project
-3. Go to Settings > API
-4. Copy the "Project URL" and "service_role" key (not the anon key!)
+3. Project Settings > API
+4. Copy the Project URL and the `service_role` key (the anon key is for clients only)
 
 ### Stripe
 1. Go to [Stripe Dashboard](https://dashboard.stripe.com)
-2. Go to Developers > API keys
-3. Copy your Secret key (starts with `sk_test_` or `sk_live_`)
-4. For webhook secret: Go to Developers > Webhooks
-5. Create endpoint: `https://your-domain.com/api/payments/webhook`
-6. Select event: `payment_intent.succeeded`
-7. Copy the signing secret (starts with `whsec_`)
+2. Developers > API keys: copy the Secret key (`sk_test_` or `sk_live_`)
+3. Developers > Webhooks: create an endpoint at `https://your-backend-host/api/payments/webhook`
+4. Select events: `payment_intent.succeeded`, `payment_intent.payment_failed`, `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`, `customer.subscription.updated`, `customer.subscription.deleted`, `account.updated`, `setup_intent.succeeded`
+5. Copy the signing secret (`whsec_`) into `STRIPE_WEBHOOK_SECRET`
+
+For local webhook testing: `stripe listen --forward-to localhost:3000/api/payments/webhook`.
+
+## 3. Database setup
+
+1. Apply the SQL files in `supabase/migrations/` in order. From the repo root with `DATABASE_URL` set:
+   ```bash
+   npx ts-node backend/scripts/apply-supabase-migrations.ts
+   ```
+   You can also paste them into the Supabase SQL Editor.
+2. Migrations create the storage buckets (`songs`, `artwork`, `avatars`, `feed`, `portfolio`, `resumes`, `dm-media`, `dj-soundboard`) and their policies.
 
 ## Running the Backend
-
-Once your `.env` file is configured:
 
 ```bash
 # Development mode (with hot reload)
@@ -72,48 +85,45 @@ npm run build
 npm run start:prod
 ```
 
-The server will start on `http://localhost:3000` (or the PORT you specified).
+The server starts on `http://localhost:3000` (or `PORT`) and logs `Application is running on: http://localhost:3000`.
+
+To run with Redis in Docker instead, use `docker compose up -d redis backend` from the repo root (see the root README).
 
 ## Testing the Setup
 
 1. Start the server: `npm run start:dev`
-2. Check health: Visit `http://localhost:3000/api` (should return "Hello World!")
-3. Test auth: `GET http://localhost:3000/api/auth/verify` (requires Firebase token)
-
-## Database Setup Required
-
-Before the backend can fully function, you need to:
-
-1. Run the SQL from `docs/database-schema.md` in your Supabase SQL Editor
-2. Create storage buckets:
-   - `songs` bucket (public) for audio files
-   - `artwork` bucket (public) for album artwork
+2. `GET http://localhost:3000/api` returns `Hello World!`
+3. `GET http://localhost:3000/api/health` returns `{"status":"ok",…}` when Supabase is reachable
+4. `GET http://localhost:3000/api/auth/verify` with a Firebase ID token returns your role
 
 ## Troubleshooting
 
 ### Build Errors
-- If you see TypeScript errors, run `npm run build` to see details
-- Make sure all dependencies are installed: `npm install`
+- Run `npm run build` to see TypeScript errors
+- Reinstall dependencies: `npm install`
 
 ### Runtime Errors
-- Check that all environment variables are set correctly
-- Verify Firebase service account key format (must include `\n` for newlines)
-- Ensure Supabase URL and keys are correct
-- Check that database tables exist
+- Check that all required environment variables are set
+- Firebase key: use `FIREBASE_SERVICE_ACCOUNT_PATH`, or keep `\n` escapes in `FIREBASE_PRIVATE_KEY`
+- Ensure the Supabase URL and service key are correct and migrations are applied
+- Realtime station events silently missing: upgrade to Node 22+
+- Clip trims or transcodes failing: install ffmpeg or set `FFMPEG_PATH`
+
+### Phone verification codes
+Without Twilio credentials in development, the sign-in text code is logged by the backend instead of sent.
 
 ### Port Already in Use
-- Change `PORT` in `.env` to a different port (e.g., 3001)
-- Or stop the process using port 3000
+- Change `PORT` in `.env`, or stop the process using port 3000 (the web app uses 3001)
 
 ## API Endpoints
 
-Once running, the API will be available at:
+Once running, the API is available at:
 - Base URL: `http://localhost:3000/api`
-- Auth: `/api/auth/verify`
+- Health: `/api/health`
+- Auth: `/api/auth/*`
 - Users: `/api/users/*`
 - Songs: `/api/songs/*`
 - Radio: `/api/radio/*`
 - Payments: `/api/payments/*`
-- Credits: `/api/credits/*`
 
-See `docs/api-spec.md` for full API documentation.
+Run `npm run test:routes:inventory` for the full route list, and see `../docs/api-spec.md` for documentation.

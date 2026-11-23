@@ -1,51 +1,61 @@
-# Vercel domain: networxradio.com
+# Vercel domains: networxradio.com + pro-networx.com
 
-**Full production checklist:** See [production-networxradio.md](production-networxradio.md) for the complete networxradio.com setup (DNS, Vercel, Railway, Firebase, Stripe).
+**Full production checklist:** See [production-networxradio.md](production-networxradio.md) for the complete setup (DNS, Vercel, Railway, Firebase, Stripe, app links).
 
-The main web app (in `web/`) is linked to the Vercel project **radi-oapp**. Production runs on **networxradio.com** and **www.networxradio.com** (both required).
+The main web app (in `web/`) is linked to the Vercel project **radi-oapp**. The same project serves both products:
 
-## Add the domain in Vercel
+- NETWORX Radio: **www.networxradio.com** (apex `networxradio.com` redirects to www)
+- Pro-Networx: **www.pro-networx.com** (apex `pro-networx.com` redirects to www)
+
+`web/src/middleware.ts` checks the host: on `pro-networx.com` / `www.pro-networx.com`, `/` redirects to `/pro-networx`.
+
+## Add the domains in Vercel
 
 1. Open [Vercel Dashboard](https://vercel.com) → **DiscoverMe Radio Group LLC** → project **radi-oapp**.
 2. Go to **Settings** → **Domains**.
-3. Click **Add** and add both (required):
+3. Click **Add** and add all four:
    - `networxradio.com`
    - `www.networxradio.com`
-4. Configure redirect in Vercel if desired (e.g. www to apex or apex to www).
-5. Follow Vercel’s DNS instructions: add the A/CNAME records at your registrar (where networxradio.com is registered) as shown in the Dashboard.
+   - `pro-networx.com`
+   - `www.pro-networx.com`
+4. Set each apex to redirect to its www host.
+5. Follow Vercel's DNS instructions: add the A/CNAME records at your registrar as shown in the Dashboard.
 
 ## Environment variables
 
 Set these so the app and backend use the correct URLs:
 
-- **Vercel (radi-oapp project)**  
-  - `NEXT_PUBLIC_WEB_URL` = `https://networxradio.com`  
-  - `BACKEND_URL` = your Railway backend URL (no trailing slash). Get it with `railway domain` in the repo; current value is **`https://backend-production-17cc.up.railway.app`**. Required for sign-up/role-select (POST /api/users) to work; otherwise you get 404.
+- **Vercel (radi-oapp project)**
+  - `BACKEND_URL` = your Railway backend URL (no trailing slash). Current value is **`https://backend-production-17cc.up.railway.app`**. `web/next.config.ts` rewrites `/api/*` to this host, and the `/api/songs`, `/api/users`, `/api/discovery`, and `/api/analytics` route handlers proxy to it.
+  - `NEXT_PUBLIC_API_URL` = same as `BACKEND_URL`.
+  - `ANDROID_APP_LINK_SHA256` = Play App Signing SHA-256, for `/.well-known/assetlinks.json`.
 
-- **Backend (e.g. Railway)**  
-  - `WEB_URL` = `https://networxradio.com`  
-  - `CORS_ORIGIN` = `https://networxradio.com,https://www.networxradio.com` (both required).
+- **Backend (Railway)**
+  - `WEB_URL` = `https://www.networxradio.com`
+  - `CORS_ORIGIN` = optional extras. Both apex and www origins for both domains are always allowed in `backend/src/main.ts`.
 
-After DNS propagates, the site will be served at **https://networxradio.com** and **https://www.networxradio.com**.
+After DNS propagates, the sites are served at **https://www.networxradio.com** and **https://www.pro-networx.com**.
 
 ## Build-minute optimization policy
 
-This repo has three Next.js apps (`web`, `pro-web`, `admin`) and each should have its own Vercel project with matching Root Directory.
+This repo has two Next.js apps (`web`, `admin`) and each should have its own Vercel project with matching Root Directory.
 
 - `web` -> `web`
-- `pro-web` -> `pro-web`
 - `admin` -> `admin`
 
-Each app now has a local `vercel.json` ignore command that skips builds when files in that app root were not changed in the commit.
+Each app has a local `vercel.json` ignore command that skips builds when files in that app root were not changed in the commit:
+
+```json
+"ignoreCommand": "if git rev-parse HEAD^ > /dev/null 2>&1; then git diff --quiet HEAD^ HEAD -- .; test $? -eq 0; else exit 1; fi"
+```
 
 ### Verification matrix (post-change)
 
 Use this matrix in Vercel Deployments to confirm skip behavior:
 
-1. Commit touching only `docs/**` -> all three projects should be **Skipped**.
-2. Commit touching only `web/**` -> `web` builds, `pro-web` and `admin` skip.
-3. Commit touching only `pro-web/**` -> `pro-web` builds, `web` and `admin` skip.
-4. Commit touching only `admin/**` -> `admin` builds, `web` and `pro-web` skip.
+1. Commit touching only `docs/**` -> both projects should be **Skipped**.
+2. Commit touching only `web/**` -> `web` builds, `admin` skips.
+3. Commit touching only `admin/**` -> `admin` builds, `web` skips.
 
 Track build count/build minutes for one week before and after applying these rules.
 

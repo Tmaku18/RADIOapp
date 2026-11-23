@@ -36,8 +36,9 @@ Should show: `[√] Android toolchain - develop for Android devices`
 ### Step 6: Build
 ```bash
 cd mobile
-flutter build appbundle
+flutter build appbundle --release
 ```
+Release builds need `mobile/android/key.properties` and the Firebase `google-services.json`; use `flutter build apk --debug` for an unsigned local check.
 
 ---
 
@@ -51,7 +52,7 @@ flutter build appbundle
 3. **Install SDK:**
    ```powershell
    cd C:\Users\tmaku\AppData\Local\Android\Sdk\cmdline-tools\latest\bin
-   .\sdkmanager.bat "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+   .\sdkmanager.bat "platform-tools" "platforms;android-35" "build-tools;35.0.0"
    ```
 
 4. **Configure Flutter:**
@@ -75,7 +76,7 @@ flutter doctor --android-licenses
 
 # Try building again
 cd mobile
-flutter build appbundle
+flutter build appbundle --release
 ```
 
 ---

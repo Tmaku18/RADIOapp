@@ -18,7 +18,7 @@ These are **different fingerprints**. Google Sign-In rejects the Play build if o
    - **Play App Signing** (Play Store): `ED:16:9D:AB:9D:CE:88:5F:08:E5:AD:1D:EB:41:C9:ED:E4:AC:1C:88`
 4. Add **SHA-256** for the Play App Signing cert as well (Play Console → App integrity → App signing key certificate).
 5. Paste that **full** SHA-256 into Vercel as `ANDROID_APP_LINK_SHA256` (comma-separate upload-key SHA-256 too if you sideload). Without it, `/.well-known/assetlinks.json` stays empty and Android opens artist/song links in the browser instead of the app.
-6. Download **`google-services.json`** and place at `mobile/android/app/google-services.json`.
+6. Download **`google-services.json`** and replace `mobile/android/app/google-services.json` (the file is tracked in this private repo).
 7. Rebuild and upload a **new** AAB (build number must increase).
 
 Play Console path for SHA-1/256: **Release → Setup → App integrity → App signing key certificate**.
@@ -56,16 +56,18 @@ This appears after picking a Google account when the **Android OAuth client** do
 4. **On the phone**  
    Settings → Apps → **Google Play services** → Storage → **Clear cache**, then retry.
 
-5. **Build 14+**  
-   Stops hardcoding the Play OAuth client on Android (auto-selects from `google-services.json`) and disables Credential Manager as a fallback for `[16]`.
+5. **What the app already does**  
+   On Android the app passes only `serverClientId` to Google Sign-In, so `google-services.json` picks the OAuth client that matches the signing key. `AndroidManifest.xml` also disables Credential Manager (`com.google.android.gms.credentials.API_ENABLED` and `androidx.credentials.CREDENTIAL_SERVICE_ENABLED` set to `false`) to avoid `[16]`.
 
 ## Upload checklist
 
-```powershell
+```bash
 cd mobile
 flutter pub get
-flutter build appbundle --release
+flutter build appbundle --release   # version/build from pubspec.yaml (currently 1.0.99+133)
 # Output: build/app/outputs/bundle/release/app-release.aab
 ```
+
+First-time Google sign-ins go to profile setup (display name and role) before the account is created. When text-code phone verification is active, every new sign-in also asks for a code.
 
 Upload to Play **Internal testing**, install from the Play Store link (not sideload), then test Google Sign-In.
