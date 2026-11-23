@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import { createClient, type RealtimeChannel } from '@supabase/supabase-js';
 import { useAuth } from '@/contexts/AuthContext';
+import { requireAccount } from '@/lib/require-account';
 import { messagesApi, proNetworkSubscriptionApi, usersApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -301,6 +302,7 @@ export default function MessagesPage() {
   };
 
   const handleSend = async () => {
+    if (!requireAccount()) return;
     const body = draft.trim();
     if ((!body && !attachment) || !selectedOther || sending || canDm !== true) return;
     setSending(true);

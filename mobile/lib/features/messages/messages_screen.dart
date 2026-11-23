@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/auth/auth_service.dart';
+import '../../core/auth/require_account.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/models/messages_models.dart';
 import '../../core/models/user.dart' as app_user;
@@ -345,6 +346,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
   Future<void> _send() async {
     final body = _draft.text.trim();
     if (body.isEmpty || _sending) return;
+    if (!await requireAccount(context)) return;
     if (!_canMessage) {
       await _openSubscribe();
       return;
