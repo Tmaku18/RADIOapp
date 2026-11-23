@@ -14,6 +14,7 @@ import { usePlatformLiveStats } from '@/hooks/usePlatformLiveStats';
 import { resolveArtistProfileHref } from '@/lib/artist-links';
 import { DEFAULT_STATION_ID } from '@/data/station-map';
 import { signalRadioNavIntent } from '@/lib/playback-preferences';
+import { ContinueAsGuestLink } from '@/components/marketing/ContinueAsGuestLink';
 
 type HomeStats = {
   totalUsers: number;
@@ -163,6 +164,7 @@ export function DimensionHomeSections({
                 >
                   Get Started Free
                 </Link>
+                <ContinueAsGuestLink className="inline-flex items-center gap-3 px-7 py-4 rounded-full border border-white/10 text-white/80 font-dim-mono text-[12px] tracking-[0.25em] uppercase hover:border-cyan-400 hover:text-cyan-300 transition-colors" />
               </div>
             </Reveal>
 

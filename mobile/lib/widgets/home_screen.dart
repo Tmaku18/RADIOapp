@@ -63,6 +63,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
     _loadUserProfile();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      final auth = Provider.of<AuthService>(context, listen: false);
+      if (auth.currentUser == null) return;
       unawaited(_promptLaunchPermissions());
     });
   }

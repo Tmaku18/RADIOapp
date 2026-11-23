@@ -16,6 +16,7 @@ import { FanEmailCard } from '@/components/artist/FanEmailCard';
 import { ShareArtistButton } from '@/components/artist/ShareArtistButton';
 import { OpenInAppBanner } from '@/components/marketing/OpenInAppBanner';
 import { SONG_SORT_OPTIONS, sortSongRows, type SongSortKey } from '@/lib/song-sort';
+import { requireAccount } from '@/lib/require-account';
 
 type ArtistSong = {
   id: string;
@@ -427,6 +428,7 @@ export function ArtistPageView({
   }, [data?.albums, data?.librarySongs, songSort]);
 
   const handleBuy = async (songId: string) => {
+    if (!requireAccount()) return;
     if (buyingId) return;
     setBuyingId(songId);
     try {
@@ -455,7 +457,7 @@ export function ArtistPageView({
   };
 
   const handleToggleLike = async (songId: string, nextLiked: boolean) => {
-    if (!profile?.id) return;
+    if (!requireAccount()) return;
     if (nextLiked) await songsApi.like(songId);
     else await songsApi.unlike(songId);
     setLikedBySongId((prev) => ({ ...prev, [songId]: nextLiked }));
@@ -545,7 +547,8 @@ export function ArtistPageView({
   }, [data]);
 
   const toggleFollow = async () => {
-    if (!data?.artist?.id || !profile?.id || profile.id === data.artist.id) return;
+    if (!requireAccount()) return;
+    if (!data?.artist?.id || profile?.id === data.artist.id) return;
     const targetUserId = data.artist.id;
     const nextFollowing = !following;
     setFollowLoading(true);
@@ -597,7 +600,8 @@ export function ArtistPageView({
   };
 
   const toggleFavorite = async () => {
-    if (!data?.artist?.id || !profile?.id || profile.id === data.artist.id) return;
+    if (!requireAccount()) return;
+    if (!data?.artist?.id || profile?.id === data.artist.id) return;
     const targetUserId = data.artist.id;
     const nextFavorited = !favorited;
     setFavoriteLoading(true);

@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/auth/auth_service.dart';
+import '../../core/auth/require_account.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/models/user.dart' as app_user;
 import '../../core/models/song.dart';
@@ -408,6 +409,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
 
   Future<void> _toggleFollow() async {
     if (_isOwnerProfile || _followLoading) return;
+    if (!await requireAccount(context)) return;
     final next = !_following;
     setState(() {
       _followLoading = true;
@@ -449,7 +451,9 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
     return copy;
   }
 
-  void _openMessages() {
+  Future<void> _openMessages() async {
+    if (!await requireAccount(context)) return;
+    if (!mounted) return;
     // ThreadScreen resolves the viewer's own user id when it's empty.
     Navigator.pushNamed(
       context,
@@ -464,6 +468,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
 
   Future<void> _toggleFavorite() async {
     if (_isOwnerProfile || _favoriteLoading) return;
+    if (!await requireAccount(context)) return;
     final next = !_favorited;
     setState(() {
       _favoriteLoading = true;
@@ -889,13 +894,12 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
   }
 
   Future<void> _toggleLike(Song s) async {
+    if (!await requireAccount(context)) return;
+    if (!mounted) return;
     final auth = Provider.of<AuthService>(context, listen: false);
     final me = await auth.getUserProfile();
     if (!mounted) return;
     if (me == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Log in to like songs.')));
       return;
     }
     final current = _likedBySongId[s.id] == true;

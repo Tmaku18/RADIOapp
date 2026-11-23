@@ -776,8 +776,10 @@ export class SongsController {
     return this.songsService.getPublicTrending(limit);
   }
 
+  @Public()
   @Get()
   async getSongs(
+    @CurrentUser() user?: FirebaseUser,
     @Query('artistId') artistId?: string,
     @Query('status') status?: string,
     @Query('limit') limit?: string,
@@ -785,34 +787,38 @@ export class SongsController {
   ) {
     return this.songsService.getSongs({
       artistId,
-      status,
+      status: user ? status : 'approved',
       limit: limit ? parseInt(limit, 10) : undefined,
       offset: offset ? parseInt(offset, 10) : undefined,
     });
   }
 
+  @Public()
   @Get('discover/feed')
   @UseGuards(RolesGuard)
   @Roles('listener', 'artist', 'service_provider', 'admin')
   async getDiscoverFeed(
-    @CurrentUser() user: FirebaseUser,
+    @CurrentUser() user?: FirebaseUser,
     @Query('limit') limit?: string,
     @Query('cursor') cursor?: string,
     @Query('seed') seed?: string,
     @Query('stationId') stationId?: string,
   ) {
     const supabase = getSupabaseClient();
-    const { data: userData } = await supabase
-      .from('users')
-      .select('id')
-      .eq('firebase_uid', user.uid)
-      .single();
-    if (!userData) throw new BadRequestException('User not found');
+    let viewerId = '00000000-0000-0000-0000-000000000000';
+    if (user?.uid) {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('id')
+        .eq('firebase_uid', user.uid)
+        .single();
+      if (userData?.id) viewerId = userData.id as string;
+    }
     const limitNum = limit
       ? Math.min(Math.max(parseInt(limit, 10) || 12, 1), 30)
       : 12;
     return this.songsService.getDiscoverFeed(
-      userData.id,
+      viewerId,
       limitNum,
       cursor,
       seed,
@@ -854,6 +860,7 @@ export class SongsController {
     });
   }
 
+  @Public()
   @Get('artists/search')
   @UseGuards(RolesGuard)
   @Roles('listener', 'artist', 'service_provider', 'admin')

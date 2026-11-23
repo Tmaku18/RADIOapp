@@ -57,7 +57,7 @@ describe('SongsController', () => {
       { backfillChecks: jest.fn() } as any,
     );
 
-    await controller.getSongs('artist-1', 'approved', '10', '5');
+    await controller.getSongs(undefined, 'artist-1', 'approved', '10', '5');
 
     expect(songsService.getSongs).toHaveBeenCalledWith({
       artistId: 'artist-1',

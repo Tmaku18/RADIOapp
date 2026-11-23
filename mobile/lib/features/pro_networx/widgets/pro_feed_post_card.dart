@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/auth/auth_service.dart';
+import '../../../core/auth/require_account.dart';
 import '../../../core/auth/role_helpers.dart';
 import '../../../core/models/pro_networx_models.dart';
 import '../../../core/navigation/app_routes.dart';
@@ -122,6 +123,7 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
 
   Future<void> _toggleLike() async {
     if (_busy) return;
+    if (!await requireAccount(context)) return;
     final post = widget.post;
     final wasLiked = post.likedByMe;
     setState(() {

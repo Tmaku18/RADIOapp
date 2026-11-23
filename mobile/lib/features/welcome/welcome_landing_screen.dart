@@ -4,6 +4,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 
+import 'package:provider/provider.dart';
+
+import '../../core/auth/auth_service.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/services/analytics_service.dart';
@@ -80,6 +83,10 @@ class _WelcomeLandingScreenState extends State<WelcomeLandingScreen> {
     Navigator.of(context).pushNamed(AppRoutes.login);
   }
 
+  void _continueAsGuest() {
+    unawaited(context.read<AuthService>().continueAsGuest());
+  }
+
   void _goToProNetworx() {
     Navigator.of(context).pushNamed(AppRoutes.proNetworxLanding);
   }
@@ -132,6 +139,10 @@ class _WelcomeLandingScreenState extends State<WelcomeLandingScreen> {
                       TextButton(
                         onPressed: _goToProNetworx,
                         child: const Text('Pro'),
+                      ),
+                      TextButton(
+                        onPressed: _continueAsGuest,
+                        child: const Text('Guest'),
                       ),
                       FilledButton(
                         onPressed: _goToLogin,
@@ -231,6 +242,7 @@ class _WelcomeLandingScreenState extends State<WelcomeLandingScreen> {
                   _FinalCta(
                     onGetStarted: _goToSignUp,
                     onLogin: _goToLogin,
+                    onGuest: _continueAsGuest,
                   ),
                   const SizedBox(height: 24),
                   Center(
@@ -306,10 +318,15 @@ class _ProNetworxTeaser extends StatelessWidget {
 }
 
 class _FinalCta extends StatelessWidget {
-  const _FinalCta({required this.onGetStarted, required this.onLogin});
+  const _FinalCta({
+    required this.onGetStarted,
+    required this.onLogin,
+    required this.onGuest,
+  });
 
   final VoidCallback onGetStarted;
   final VoidCallback onLogin;
+  final VoidCallback onGuest;
 
   @override
   Widget build(BuildContext context) {
@@ -346,6 +363,14 @@ class _FinalCta extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: TextButton(
+              onPressed: onGuest,
+              child: const Text('Continue as guest'),
+            ),
           ),
         ],
       ),

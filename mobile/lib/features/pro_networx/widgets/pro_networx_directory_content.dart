@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/auth/auth_service.dart';
+import '../../../core/auth/require_account.dart';
 import '../../../core/brand/brand_assets.dart';
 import '../../../core/constants/pro_networx_creative_types.dart';
 import '../../../core/models/pro_networx_models.dart';
@@ -157,6 +158,7 @@ class _ProNetworxDirectoryContentState extends State<ProNetworxDirectoryContent>
 
   Future<void> _toggleFollow(ProDirectoryItem item) async {
     if (_followBusy.contains(item.userId)) return;
+    if (!await requireAccount(context)) return;
     setState(() => _followBusy.add(item.userId));
 
     final wasFollowing = item.isFollowing;
@@ -412,30 +414,26 @@ class _ProNetworxDirectoryContentState extends State<ProNetworxDirectoryContent>
                 final item = _visibleItems[i];
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
-                  child: DimensionReveal(
-                    delay: Duration(milliseconds: (i % 6) * 50),
-                    offsetY: 24,
-                    child: _DirectoryCard(
-                      item: item,
-                      myUserId: _myUserId,
-                      followBusy: _followBusy.contains(item.userId),
-                      onFollow: () => _toggleFollow(item),
-                      onProfile: () => Navigator.of(context).pushNamed(
-                        AppRoutes.proProfile,
-                        arguments: item.userId,
-                      ),
-                      onMessage: _myUserId == null
-                          ? null
-                          : () => Navigator.of(context).pushNamed(
-                                AppRoutes.thread,
-                                arguments: {
-                                  'myUserId': _myUserId!,
-                                  'otherUserId': item.userId,
-                                  'otherDisplayName':
-                                      item.displayName ?? 'Creator',
-                                },
-                              ),
+                  child: _DirectoryCard(
+                    item: item,
+                    myUserId: _myUserId,
+                    followBusy: _followBusy.contains(item.userId),
+                    onFollow: () => _toggleFollow(item),
+                    onProfile: () => Navigator.of(context).pushNamed(
+                      AppRoutes.proProfile,
+                      arguments: item.userId,
                     ),
+                    onMessage: _myUserId == null
+                        ? null
+                        : () => Navigator.of(context).pushNamed(
+                              AppRoutes.thread,
+                              arguments: {
+                                'myUserId': _myUserId!,
+                                'otherUserId': item.userId,
+                                'otherDisplayName':
+                                    item.displayName ?? 'Creator',
+                              },
+                            ),
                   ),
                 );
               }),
@@ -531,7 +529,10 @@ class _DirectoryCard extends StatelessWidget {
                 child: CachedNetworkImage(
                   imageUrl: preview,
                   fit: BoxFit.cover,
-                  errorWidget: (_, __, ___) => _FallbackPreview(userId: item.userId),
+                  fadeInDuration: const Duration(milliseconds: 150),
+                  placeholder: (_, _) => const _PreviewPlaceholder(),
+                  errorWidget: (_, _, _) =>
+                      _FallbackPreview(userId: item.userId),
                 ),
               ),
             )
@@ -704,6 +705,23 @@ class _DirectoryCard extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PreviewPlaceholder extends StatelessWidget {
+  const _PreviewPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return const DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF1A1A1E), Color(0xFF12343A)],
+        ),
       ),
     );
   }

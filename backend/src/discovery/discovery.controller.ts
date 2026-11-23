@@ -31,6 +31,7 @@ import { UploadsService } from '../uploads/uploads.service';
 import { DurationService } from '../uploads/duration.service';
 import { ProNetworkSubscriptionService } from '../pro-network-subscription/pro-network-subscription.service';
 import { PRO_NETWORK_PAYWALL_PAYLOAD } from '../pro-network-subscription/pro-network-subscription.constants';
+import { Public } from '../auth/decorators/public.decorator';
 
 @Controller('discovery')
 @UseGuards(FirebaseAuthGuard)
@@ -80,9 +81,10 @@ export class DiscoveryController {
   ) {}
 
   /** Discoverable people with city/ZIP for map pins + directory lists. */
+  @Public()
   @Get('people/directory')
   async listPeopleDirectory(
-    @CurrentUser() user: FirebaseUser,
+    @CurrentUser() user?: FirebaseUser,
     @Query('lat') latStr?: string,
     @Query('lng') lngStr?: string,
     @Query('radiusKm') radiusKmStr?: string,
@@ -90,7 +92,9 @@ export class DiscoveryController {
     @Query('include') include?: string,
     @Query('role') role?: 'artist' | 'service_provider' | 'listener',
   ) {
-    const viewerUserId = await this.getUserId(user.uid);
+    const viewerUserId = user?.uid
+      ? await this.tryUserId(user.uid)
+      : undefined;
     const lat = latStr != null ? parseFloat(latStr) : undefined;
     const lng = lngStr != null ? parseFloat(lngStr) : undefined;
     const radiusKm = radiusKmStr != null ? parseFloat(radiusKmStr) : undefined;
@@ -113,9 +117,10 @@ export class DiscoveryController {
     });
   }
 
+  @Public()
   @Get('people')
   async listPeople(
-    @CurrentUser() user: FirebaseUser,
+    @CurrentUser() user?: FirebaseUser,
     @Query('serviceType') serviceType?: string,
     @Query('location') location?: string,
     @Query('search') search?: string,
@@ -132,7 +137,9 @@ export class DiscoveryController {
     @Query('genre') genre?: string,
     @Query('seed') seed?: string,
   ) {
-    const viewerUserId = await this.getUserId(user.uid);
+    const viewerUserId = user?.uid
+      ? await this.tryUserId(user.uid)
+      : undefined;
     const limit = limitStr
       ? Math.min(parseInt(limitStr, 10) || 20, 50)
       : undefined;
@@ -172,9 +179,10 @@ export class DiscoveryController {
    * Endless-scroll feed of catalyst/creative posts. Powers both the Networks
    * Radio Social tab (scope=all) and Pro Networks Home (scope=following).
    */
+  @Public()
   @Get('feed')
   async listFeed(
-    @CurrentUser() user: FirebaseUser,
+    @CurrentUser() user?: FirebaseUser,
     @Query('limit') limitStr?: string,
     @Query('cursor') cursor?: string,
     @Query('scope') scope?: 'all' | 'following',
@@ -182,12 +190,14 @@ export class DiscoveryController {
     const limit = limitStr
       ? Math.min(parseInt(limitStr, 10) || 20, 50)
       : undefined;
-    const viewerUserId = await this.getUserId(user.uid);
+    const viewerUserId = user?.uid
+      ? await this.tryUserId(user.uid)
+      : undefined;
     return this.discovery.listFeedPosts({
       limit,
       cursor: cursor || undefined,
       viewerUserId,
-      scope: scope === 'following' ? 'following' : 'all',
+      scope: scope === 'following' && viewerUserId ? 'following' : 'all',
     });
   }
 
@@ -312,6 +322,7 @@ export class DiscoveryController {
   }
 
   /** List comments on a feed post. */
+  @Public()
   @Get('feed/posts/:id/comments')
   async listComments(
     @Param('id') postId: string,
@@ -357,23 +368,29 @@ export class DiscoveryController {
   }
 
   /** Top-results search across people + posts. */
+  @Public()
   @Get('feed/search')
   async searchFeed(
-    @CurrentUser() user: FirebaseUser,
+    @CurrentUser() user?: FirebaseUser,
     @Query('q') q?: string,
   ) {
-    const viewerUserId = await this.getUserId(user.uid);
+    const viewerUserId = user?.uid
+      ? await this.tryUserId(user.uid)
+      : undefined;
     return this.discovery.searchTop((q ?? '').trim(), viewerUserId);
   }
 
   /** Default-state Search tab tile grid (random recent top posts). */
+  @Public()
   @Get('feed/explore')
   async exploreTiles(
-    @CurrentUser() user: FirebaseUser,
+    @CurrentUser() user?: FirebaseUser,
     @Query('limit') limitStr?: string,
     @Query('seed') seed?: string,
   ) {
-    const viewerUserId = await this.getUserId(user.uid);
+    const viewerUserId = user?.uid
+      ? await this.tryUserId(user.uid)
+      : undefined;
     const limit = limitStr
       ? Math.min(parseInt(limitStr, 10) || 60, 120)
       : undefined;
@@ -385,14 +402,17 @@ export class DiscoveryController {
   }
 
   /** Posts authored by a single user (Pro Networks portfolio grid). */
+  @Public()
   @Get('feed/users/:userId/posts')
   async listUserPosts(
-    @CurrentUser() user: FirebaseUser,
+    @CurrentUser() user: FirebaseUser | undefined,
     @Param('userId') authorUserId: string,
     @Query('limit') limitStr?: string,
     @Query('cursor') cursor?: string,
   ) {
-    const viewerUserId = await this.getUserId(user.uid);
+    const viewerUserId = user?.uid
+      ? await this.tryUserId(user.uid)
+      : undefined;
     const limit = limitStr
       ? Math.min(parseInt(limitStr, 10) || 24, 60)
       : undefined;
@@ -405,14 +425,17 @@ export class DiscoveryController {
   }
 
   /** Endless vertical scroll on Search tab once a tile is tapped. */
+  @Public()
   @Get('feed/explore-stream')
   async exploreStream(
-    @CurrentUser() user: FirebaseUser,
+    @CurrentUser() user?: FirebaseUser,
     @Query('cursor') cursor?: string,
     @Query('anchorPostId') anchorPostId?: string,
     @Query('limit') limitStr?: string,
   ) {
-    const viewerUserId = await this.getUserId(user.uid);
+    const viewerUserId = user?.uid
+      ? await this.tryUserId(user.uid)
+      : undefined;
     const limit = limitStr
       ? Math.min(parseInt(limitStr, 10) || 12, 30)
       : undefined;
@@ -749,6 +772,15 @@ export class DiscoveryController {
   private async getUserId(firebaseUid: string): Promise<string> {
     const row = await this.getUserWithRole(firebaseUid);
     return row.id;
+  }
+
+  /** Viewer id when a token is present; guests browse without one. */
+  private async tryUserId(firebaseUid: string): Promise<string | undefined> {
+    try {
+      return await this.getUserId(firebaseUid);
+    } catch {
+      return undefined;
+    }
   }
 
   private async getUserWithRole(

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 
+import '../../core/auth/require_account.dart';
 import '../../core/brand/brand_assets.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/services/audio_player_service.dart';
@@ -114,25 +115,32 @@ class DimensionRadioBar extends StatelessWidget {
                 title: Text(
                   ctrl.isFavorite ? 'In favorites' : 'Add to favorites',
                 ),
-                onTap: ctrl.favoriteBusy ? null : ctrl.toggleFavorite,
+                onTap: ctrl.favoriteBusy
+                    ? null
+                    : () async {
+                        if (!await requireAccount(context)) return;
+                        await ctrl.toggleFavorite();
+                      },
               ),
               if (ctrl.canVote) ...[
                 ListTile(
                   leading: const Text('🔥', style: TextStyle(fontSize: 20)),
                   title: const Text('Rate as fire'),
                   selected: ctrl.selectedReaction == 'fire',
-                  onTap: () {
+                  onTap: () async {
+                    if (!await requireAccount(context)) return;
                     ctrl.submitReaction('fire');
-                    Navigator.of(sheetContext).pop();
+                    if (sheetContext.mounted) Navigator.of(sheetContext).pop();
                   },
                 ),
                 ListTile(
                   leading: const Text('💩', style: TextStyle(fontSize: 20)),
                   title: const Text('Rate as trash'),
                   selected: ctrl.selectedReaction == 'shit',
-                  onTap: () {
+                  onTap: () async {
+                    if (!await requireAccount(context)) return;
                     ctrl.submitReaction('shit');
-                    Navigator.of(sheetContext).pop();
+                    if (sheetContext.mounted) Navigator.of(sheetContext).pop();
                   },
                 ),
               ],
@@ -153,12 +161,16 @@ class DimensionRadioBar extends StatelessWidget {
                 ListTile(
                   leading: const Icon(Icons.playlist_add),
                   title: const Text('Add to a playlist'),
-                  onTap: () {
+                  onTap: () async {
+                    final songId = ctrl.playlistSongId!;
+                    final songTitle = ctrl.playlistSongTitle;
+                    if (!await requireAccount(context)) return;
+                    if (!context.mounted || !sheetContext.mounted) return;
                     Navigator.of(sheetContext).pop();
                     AddToPlaylistSheet.show(
                       context,
-                      songId: ctrl.playlistSongId!,
-                      songTitle: ctrl.playlistSongTitle,
+                      songId: songId,
+                      songTitle: songTitle,
                     );
                   },
                 ),

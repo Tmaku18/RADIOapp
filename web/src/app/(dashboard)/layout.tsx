@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { GenreOnboardingDialog } from '@/components/onboarding/GenreOnboardingDialog';
 import { notificationsApi, usersApi } from '@/lib/api';
 import { hasArtistCapability } from '@/lib/roles';
+import { clearGuestBrowse, isGuestBrowse } from '@/lib/guest';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import {
   DropdownMenu,
@@ -189,6 +190,8 @@ export default function DashboardLayout({
   const router = useRouter();
   const { user, profile, loading, signOut, refreshProfile, pendingProfileSetup } =
     useAuth();
+  const [guest, setGuest] = useState(false);
+  const [guestChecked, setGuestChecked] = useState(false);
   const [adminRoleHint, setAdminRoleHint] = useState(false);
   const [showGenreOnboarding, setShowGenreOnboarding] = useState(false);
   // Confirmed admin hint must override stale profile.role values.
@@ -206,10 +209,23 @@ export default function DashboardLayout({
   }, [user, loading, refreshProfile]);
 
   useEffect(() => {
-    if (!loading && !user) {
+    setGuest(isGuestBrowse());
+    setGuestChecked(true);
+  }, [pathname, user]);
+
+  useEffect(() => {
+    if (user) {
+      clearGuestBrowse();
+      setGuest(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!guestChecked || loading) return;
+    if (!user && !isGuestBrowse()) {
       router.push('/login?redirect=' + encodeURIComponent(pathname));
     }
-  }, [loading, user, router, pathname]);
+  }, [guestChecked, loading, user, router, pathname, guest]);
 
   // Fallback role hint: if profile is delayed/missing, still unlock admin UI for allowlisted admins.
   useEffect(() => {
@@ -310,17 +326,19 @@ export default function DashboardLayout({
     setIsSigningOut(true);
     try {
       await signOut();
+      clearGuestBrowse();
+      setGuest(false);
       router.push('/');
     } finally {
       setIsSigningOut(false);
     }
   };
 
-  if (loading && !user) {
+  if (!guestChecked || (loading && !user && !guest)) {
     return null;
   }
 
-  if (!user) {
+  if (!user && !guest) {
     return null;
   }
 
@@ -475,6 +493,7 @@ export default function DashboardLayout({
           </SidebarContent>
 
           <SidebarFooter className="p-3 pb-20 md:pb-3">
+            {user ? (
             <DimensionSidebarUserFooter
               displayName={profile?.displayName || user.email || 'User'}
               roleLabel={effectiveRole || 'member'}
@@ -484,6 +503,14 @@ export default function DashboardLayout({
               onSignOut={() => void handleSignOut()}
               supportUrl={SUPPORT_DISCORD_URL}
             />
+            ) : (
+              <Link
+                href={`/login?redirect=${encodeURIComponent(pathname)}`}
+                className="flex w-full items-center justify-center rounded-full bg-cyan-400 px-4 py-2 text-xs font-bold uppercase tracking-wider text-black"
+              >
+                Sign in
+              </Link>
+            )}
           </SidebarFooter>
         </Sidebar>
 
@@ -503,7 +530,7 @@ export default function DashboardLayout({
 
           <div className="ml-auto flex items-center gap-2">
             <Link
-              href="/artist/upload"
+              href={user ? '/artist/upload' : `/login?redirect=${encodeURIComponent('/artist/upload')}`}
               className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-cyan-400 text-black font-dim-mono text-[10px] tracking-[0.2em] uppercase font-bold glow-cyan hover:bg-white transition-colors"
             >
               Upload

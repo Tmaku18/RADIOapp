@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { requireAccount } from '@/lib/require-account';
 import { leaderboardApi, feedApi, spotlightApi, competitionApi, suggestionsApi, browseApi } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -141,6 +142,7 @@ export default function CompetitionPage() {
   ]);
 
   const handleVote = async () => {
+    if (!requireAccount()) return;
     if (voteSongIds.length !== 7) {
       setVoteError('Select exactly 7 songs (rank 1–7).');
       return;

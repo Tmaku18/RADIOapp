@@ -205,7 +205,6 @@ class _MyAppState extends State<MyApp> {
             arguments: data['artistId'].toString(),
           );
         } else if (type == 'new_message' && data['senderId'] != null) {
-          // ThreadScreen resolves the viewer's own user id when it's empty.
           nav.pushNamed(
             AppRoutes.thread,
             arguments: {
@@ -342,6 +341,18 @@ class AuthWrapper extends StatelessWidget {
             if (snapshot.hasData && snapshot.data != null) {
               // Redeem any store purchase whose backend call never landed.
               unawaited(PendingPurchaseQueue.instance.drain(PaymentsService()));
+              if (authService.isGuest) {
+                unawaited(authService.clearGuest());
+              }
+              return const HomeScreen();
+            }
+
+            if (!authService.guestReady) {
+              return const SplashLoadingScreen();
+            }
+
+            // Continue as guest keeps the same home shell without an account.
+            if (authService.isGuest) {
               return const HomeScreen();
             }
 

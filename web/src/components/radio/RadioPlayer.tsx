@@ -23,6 +23,7 @@ import type { PlaybackTrack } from '@/components/playback';
 import { SyncedLyricsPanel } from './SyncedLyricsPanel';
 import { prospectorApi, radioApi, leaderboardApi, analyticsApi, songsApi, songSalesApi, usersApi } from '@/lib/api';
 import { artistProfilePath } from '@/lib/artist-links';
+import { requireAccount } from '@/lib/require-account';
 import { RadioShareMenu } from '@/components/radio/RadioShareMenu';
 import { RadioCaptureButton } from '@/components/radio/RadioCapture';
 import { SongStoriesBar } from '@/components/radio/SongStoriesBar';
@@ -52,6 +53,7 @@ import {
 import {
   consumeRadioNavIntent,
   getStationAutoplayEnabled,
+  readRadioUserMuted,
 } from '@/lib/playback-preferences';
 
 type PinnedCatalyst = {
@@ -473,7 +475,8 @@ export function RadioPlayer({
   }, [artistUserId, profile?.id]);
 
   const toggleFollowArtist = async () => {
-    if (!artistUserId || !profile?.id || profile.id === artistUserId || followLoading) {
+    if (!requireAccount()) return;
+    if (!artistUserId || profile?.id === artistUserId || followLoading) {
       return;
     }
 
@@ -496,10 +499,10 @@ export function RadioPlayer({
   };
 
   const toggleFavoriteArtist = async () => {
+    if (!requireAccount()) return;
     if (
       !artistUserId ||
-      !profile?.id ||
-      profile.id === artistUserId ||
+      profile?.id === artistUserId ||
       favoriteLoading
     ) {
       return;
@@ -947,14 +950,17 @@ export function RadioPlayer({
     }
   }, [autoplay]);
 
-  // Opening the full radio page should resume audible playback (unmute / play).
+  // A station change is a new page visit. It does not cancel a mute.
   useEffect(() => {
     audibleResumeKeyRef.current = null;
   }, [effectiveRadioId]);
 
   useEffect(() => {
+    const navIntent = consumeRadioNavIntent();
+    if (state.isMuted || readRadioUserMuted()) return;
+
     const wantsAudible =
-      autoplay || consumeRadioNavIntent() || getStationAutoplayEnabled();
+      autoplay || navIntent || getStationAutoplayEnabled();
     if (!wantsAudible) return;
 
     setHasUserInteracted(true);
@@ -1126,16 +1132,17 @@ export function RadioPlayer({
     
     if (state.isMuted) {
       // Unmute and rejoin the live stream (it never stopped, so no catch-up).
-      await actions.softResume();
+      await actions.softResume({ userGesture: true });
     } else if (state.isPlaying) {
       // Pause = mute but keep the stream live and synced.
-      actions.softPause();
+      actions.softPause({ remember: true });
     } else {
-      await actions.softResume();
+      await actions.softResume({ userGesture: true });
     }
   };
 
   const handleReaction = async (reaction: 'fire' | 'shit') => {
+    if (!requireAccount()) return;
     if (!state.track) return;
     if (isVoting) return;
 

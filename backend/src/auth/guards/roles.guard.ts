@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
+import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { getSupabaseClient } from '../../config/supabase.config';
 import { ConfigService } from '@nestjs/config';
 
@@ -150,7 +151,11 @@ export class RolesGuard implements CanActivate {
     const user = request.user;
 
     if (!user) {
-      return false;
+      const isPublic = this.reflector.getAllAndOverride<boolean>(
+        IS_PUBLIC_KEY,
+        [context.getHandler(), context.getClass()],
+      );
+      return !!isPublic;
     }
 
     let userRole: string | null = user.dbRole ?? null;

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/auth/require_account.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/models/competition_models.dart';
 import '../../core/services/competition_service.dart';
@@ -131,6 +132,7 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
   }
 
   Future<void> _submitVote() async {
+    if (!await requireAccount(context)) return;
     if (_voteSubmitting) return;
     if (_voteSongIds.length != 7) {
       setState(() => _voteError = 'Select exactly 7 songs (rank 1–7).');

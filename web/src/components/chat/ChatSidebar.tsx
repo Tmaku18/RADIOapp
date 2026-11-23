@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { chatApi } from '@/lib/api';
+import { requireAccount } from '@/lib/require-account';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -469,6 +470,7 @@ export default function ChatSidebar({
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!requireAccount()) return;
     
     if (!newMessage.trim() || isSending || !chatEnabled) return;
     if (commentsMode && !normalizedSongId) return;

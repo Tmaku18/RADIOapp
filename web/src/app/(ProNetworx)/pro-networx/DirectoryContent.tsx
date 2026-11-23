@@ -7,6 +7,7 @@ import { proNetworxApi, usersApi } from '@/lib/api';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
+import { requireAccount } from '@/lib/require-account';
 import { NETWORX_LOGO } from '@/lib/brand-assets';
 import { Reveal } from '@/components/dimension/Reveal';
 import { cn } from '@/lib/utils';
@@ -187,6 +188,7 @@ export function ProNetworxDirectoryContent({
   };
 
   const toggleFollow = async (targetUserId: string, currentlyFollowing: boolean) => {
+    if (!requireAccount()) return;
     setFollowBusy((prev) => ({ ...prev, [targetUserId]: true }));
     const prev = items;
     setItems((current) =>
@@ -342,9 +344,8 @@ export function ProNetworxDirectoryContent({
             {total} RESULTS
           </p>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {items.map((p, i) => (
-              <Reveal key={p.userId} delay={(i % 6) * 0.05} y={24}>
-                <div className="tilt group relative cursor-pointer rounded-2xl tracing-border glass overflow-hidden h-full flex flex-col">
+            {items.map((p) => (
+                <div key={p.userId} className="tilt group relative cursor-pointer rounded-2xl tracing-border glass overflow-hidden h-full flex flex-col">
                   <Link
                     href={`/pro-networx/u/${p.userId}`}
                     aria-label={`Open ${p.displayName || 'profile'}`}
@@ -353,7 +354,7 @@ export function ProNetworxDirectoryContent({
                   />
                   <div className="relative z-[2] p-4 space-y-3 flex-1 flex flex-col pointer-events-none">
                     {p.mediaPreviewUrl && p.mediaPreviewType === 'image' ? (
-                      <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-white/10 bg-black/40">
+                      <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-white/10 bg-gradient-to-br from-zinc-900 to-cyan-950/50">
                         <Image
                           src={p.mediaPreviewUrl}
                           alt={p.serviceTitle ?? p.displayName ?? 'Preview'}
@@ -377,7 +378,7 @@ export function ProNetworxDirectoryContent({
 
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="font-unbounded font-black text-base text-white truncate">
+                        <p className="font-unbounded font-black text-base leading-snug text-white truncate">
                           {p.serviceTitle?.replace(/_/g, ' ') ||
                             p.skills[0]?.replace(/_/g, ' ') ||
                             (p.role === 'service_provider' ? 'Service' : 'Artist')}
@@ -485,7 +486,6 @@ export function ProNetworxDirectoryContent({
                     </div>
                   </div>
                 </div>
-              </Reveal>
             ))}
           </div>
 

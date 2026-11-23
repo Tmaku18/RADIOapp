@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Reveal } from '@/components/dimension';
+import { ContinueAsGuestLink } from '@/components/marketing/ContinueAsGuestLink';
 
 const GLOSSARY: Array<{
   system: string;
@@ -174,6 +175,7 @@ export function DimensionFinalCta() {
             >
               <Link href="/pro-networx">Explore ProNetworx</Link>
             </Button>
+            <ContinueAsGuestLink className="inline-flex h-11 items-center justify-center px-6 rounded-full border border-white/20 text-white font-dim-mono text-xs tracking-wider uppercase hover:border-cyan-400 hover:text-cyan-300" />
           </div>
         </Reveal>
       </div>

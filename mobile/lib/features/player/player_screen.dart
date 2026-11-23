@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/auth/auth_service.dart';
+import '../../core/auth/require_account.dart';
 import '../../core/models/user.dart' as app_user;
 import '../../core/models/track.dart';
 import '../../core/models/track_fetch_result.dart';
@@ -708,6 +709,9 @@ class _PlayerScreenState extends State<PlayerScreen>
     // song.
     if (_audioPlayer.speed != 1.0) await _audioPlayer.setSpeed(1.0);
     await _applyMainVolumeForTrack(track);
+    if (AudioPlayerService.handler.radioMutedByUser) {
+      await AudioPlayerService.handler.setUserPaused(true);
+    }
     if (AudioPlayerService.handler.holdsExternalAudio) {
       // A clip or video owns the microphone. Starting the station here, even
       // at volume 0, steals the audio unit and the recording cannot finish.
@@ -780,6 +784,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   }
 
   Future<void> _toggleFavorite() async {
+    if (!await requireAccount(context)) return;
     final track = _currentTrack;
     if (track == null || _favoriteBusy) return;
     final next = !_isFavorite;
@@ -1539,7 +1544,7 @@ class _PlayerScreenState extends State<PlayerScreen>
     if (_nonRadioOwnsPlayer) {
       await _syncCurrentTrack(force: true);
       if (!mounted) return;
-      if (handler.userPaused) {
+      if (handler.userPaused && !handler.radioMutedByUser) {
         await handler.setUserPaused(false);
       }
       setState(() => _isPlaying = !handler.userPaused && _audioPlayer.playing);
@@ -1547,7 +1552,7 @@ class _PlayerScreenState extends State<PlayerScreen>
     }
     final shouldPlay = handler.userPaused;
     try {
-      await handler.setUserPaused(!shouldPlay);
+      await handler.setUserPaused(!shouldPlay, fromUser: true);
       if (!mounted) return;
       setState(() => _isPlaying = shouldPlay);
       if (shouldPlay) {

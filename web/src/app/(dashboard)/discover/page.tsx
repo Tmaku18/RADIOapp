@@ -8,6 +8,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { discoveryApi, type DiscoverFeedPost, usersApi } from '@/lib/api';
 import { DEFAULT_STATION_ID } from '@/data/station-map';
 import { useAuth } from '@/contexts/AuthContext';
+import { requireAccount } from '@/lib/require-account';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -374,6 +375,7 @@ export default function DiscoverPage() {
   }, [activeTab, debouncedSearch, debouncedLocation, serviceType, role, randomMode, randomSeed, artistSort, artistGenre]);
 
   const toggleFollow = async (targetUserId: string, currentlyFollowing: boolean) => {
+    if (!requireAccount()) return;
     setFollowBusy((prev) => ({ ...prev, [targetUserId]: true }));
     const prev = items;
     setItems((current) =>

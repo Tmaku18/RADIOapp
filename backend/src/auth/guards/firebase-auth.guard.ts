@@ -116,14 +116,18 @@ export class FirebaseAuthGuard implements CanActivate {
       context.getClass(),
     ]);
 
-    if (isPublic) {
+    const request = context.switchToHttp().getRequest();
+    const authHeader = request.headers.authorization;
+    const hasBearer =
+      typeof authHeader === 'string' && authHeader.startsWith('Bearer ');
+
+    // Public reads stay open. A valid token is still attached so signed-in
+    // viewers keep personalization (following, hidden authors).
+    if (isPublic && !hasBearer) {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest();
-    const authHeader = request.headers.authorization;
-
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!hasBearer) {
       throw new UnauthorizedException(
         'Missing or invalid authorization header',
       );
@@ -245,6 +249,7 @@ export class FirebaseAuthGuard implements CanActivate {
       if (error instanceof ForbiddenException) {
         throw error;
       }
+      if (isPublic) return true;
       throw new UnauthorizedException('Invalid token');
     }
   }

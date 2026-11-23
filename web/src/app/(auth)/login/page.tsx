@@ -17,6 +17,7 @@ import {
   mapFirebaseAuthError,
   safeInternalPath,
 } from '@/lib/firebase-client';
+import { startGuestBrowse } from '@/lib/guest';
 
 function LoginForm() {
   const router = useRouter();
@@ -245,6 +246,17 @@ function LoginForm() {
           Sign up
         </Link>
       </p>
+      <Button
+        type="button"
+        variant="ghost"
+        className="mt-3 w-full"
+        onClick={() => {
+          startGuestBrowse();
+          router.push(redirectTo && redirectTo !== '/login' ? redirectTo : '/listen');
+        }}
+      >
+        Continue as guest
+      </Button>
       </div>
   );
 }

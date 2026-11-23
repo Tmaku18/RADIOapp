@@ -11,6 +11,7 @@ import {
   type DiscoverFeedPost,
   type DiscoverFeedComment,
 } from '@/lib/api';
+import { requireAccount } from '@/lib/require-account';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
@@ -50,10 +51,7 @@ export function FeedPostCard({ post, onChange, onHidden, variant = 'feed' }: Fee
   }, []);
   useEffect(() => {
     if (!videoOpen) return;
-    const pb = playbackRef.current;
-    const holdRadio =
-      pb?.state.source === 'radio' && !pb.state.isMuted && pb.state.isPlaying;
-    if (holdRadio) pb.actions.softPause();
+    playbackRef.current?.actions.holdForExternalMedia();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setVideoOpen(false);
     };
@@ -61,7 +59,7 @@ export function FeedPostCard({ post, onChange, onHidden, variant = 'feed' }: Fee
     return () => {
       window.removeEventListener('keydown', onKey);
       fullscreenVideoRef.current?.pause();
-      if (holdRadio) void playbackRef.current?.actions.softResume();
+      playbackRef.current?.actions.releaseExternalMedia();
     };
   }, [videoOpen]);
   const isOwnPost = profile?.id === post.authorUserId;
@@ -87,6 +85,7 @@ export function FeedPostCard({ post, onChange, onHidden, variant = 'feed' }: Fee
   };
 
   const handleToggleBookmark = async () => {
+    if (!requireAccount()) return;
     if (bookmarkBusy) return;
     setBookmarkBusy(true);
     const wasBookmarked = bookmarkedByMe;
@@ -129,6 +128,7 @@ export function FeedPostCard({ post, onChange, onHidden, variant = 'feed' }: Fee
   };
 
   const handleToggleLike = async () => {
+    if (!requireAccount()) return;
     if (busy) return;
     setBusy(true);
     const wasLiked = likedByMe;
@@ -182,6 +182,7 @@ export function FeedPostCard({ post, onChange, onHidden, variant = 'feed' }: Fee
   };
 
   const handlePostComment = async () => {
+    if (!requireAccount()) return;
     const text = commentBody.trim();
     if (!text || submittingComment) return;
     setSubmittingComment(true);
