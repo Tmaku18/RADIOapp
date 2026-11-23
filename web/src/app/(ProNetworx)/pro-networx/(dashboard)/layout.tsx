@@ -22,15 +22,17 @@ export default function ProNetworxDashboardLayout({
     setGuestChecked(true);
   }, [pathname, user]);
 
+  const publicProfile = pathname?.startsWith('/pro-networx/u/') ?? false;
+
   useEffect(() => {
     if (!guestChecked || loading) return;
-    if (!user && !isGuestBrowse()) {
+    if (!user && !isGuestBrowse() && !publicProfile) {
       const redirect = encodeURIComponent(pathname || '/pro-networx/home');
       router.replace(`/login?redirect=${redirect}`);
     }
-  }, [guestChecked, loading, user, router, pathname, guest]);
+  }, [guestChecked, loading, user, router, pathname, guest, publicProfile]);
 
-  if (!guestChecked || (!loading && !user && !guest)) return null;
+  if (!guestChecked || (!loading && !user && !guest && !publicProfile)) return null;
 
   return <ProNetworxAppShell>{children}</ProNetworxAppShell>;
 }

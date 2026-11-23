@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -7,7 +8,9 @@ import '../../core/auth/auth_service.dart';
 import '../../core/models/pro_networx_models.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/services/pro_networx_service.dart';
+import '../../core/services/radio_share.dart';
 import '../../core/services/users_service.dart';
+import '../artist/share_artist_sheet.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 import 'widgets/pro_network_paywall_sheet.dart';
@@ -314,6 +317,31 @@ class _ProNetworxProfileScreenState extends State<ProNetworxProfileScreen> {
                         ],
                       ),
                       const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            final userId = (p['userId'] ??
+                                    p['user_id'] ??
+                                    widget.userId)
+                                .toString();
+                            unawaited(
+                              showShareArtistSheet(
+                                context,
+                                artistId: userId,
+                                artistName: displayName,
+                                shareText: RadioShare.proProfileMessage(
+                                  userId: userId,
+                                  name: displayName,
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.ios_share, size: 18),
+                          label: const Text('Share'),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                       if (!_isOwnProfile && _myUserId != null) ...[
                         SizedBox(
                           width: double.infinity,

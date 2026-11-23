@@ -1731,6 +1731,8 @@ export const proNetworxApi = {
       }>;
     }>('/pro-networx/public/marketing-stats'),
   getProfileByUserId: (userId: string) => api.get(`/pro-networx/profiles/${userId}`),
+  getPublicProfile: (userId: string) =>
+    api.get(`/pro-networx/public/profiles/${userId}`),
 
   // Resume PDF
   getMyResume: () =>

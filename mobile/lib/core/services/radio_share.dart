@@ -22,6 +22,17 @@ class RadioShare {
   static String stationLink(String stationId) =>
       '$siteOrigin/radio/${Uri.encodeComponent(stationId)}';
 
+  static String proProfileLink(String userId) =>
+      '$siteOrigin/pro-networx/u/${Uri.encodeComponent(userId)}';
+
+  static String proProfileMessage({
+    required String userId,
+    required String name,
+  }) {
+    final who = name.trim().isEmpty ? 'This Pro' : name.trim();
+    return '$who is on Pro-Networx.\n${proProfileLink(userId)}';
+  }
+
   static String artistLink(String artistId, {String? songId}) {
     // /open/artists is the share landing. The site opens the installed app
     // from there. A bare /artists link stays in the browser on iOS Chrome.

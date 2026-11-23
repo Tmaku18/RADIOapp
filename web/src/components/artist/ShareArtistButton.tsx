@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { messagesApi, studiosApi } from '@/lib/api';
 import { artistShareText, artistShareUrl, shareLink } from '@/lib/radio-share';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -37,9 +38,15 @@ function errorText(error: unknown): string {
 export function ShareArtistButton({
   artistId,
   artistName,
+  shareText,
+  shareUrl,
+  className,
 }: {
   artistId: string;
   artistName: string;
+  shareText?: string;
+  shareUrl?: string;
+  className?: string;
 }) {
   const { profile } = useAuth();
   const [dmOpen, setDmOpen] = useState(false);
@@ -48,7 +55,8 @@ export function ShareArtistButton({
   const [loadingPeople, setLoadingPeople] = useState(false);
   const [sendingId, setSendingId] = useState<string | null>(null);
 
-  const shareBody = artistShareText({ artistName, artistId });
+  const shareBody = shareText ?? artistShareText({ artistName, artistId });
+  const link = shareUrl ?? artistShareUrl(artistId);
 
   useEffect(() => {
     if (!dmOpen) return;
@@ -108,7 +116,7 @@ export function ShareArtistButton({
   }, [dmOpen, query, profile?.id]);
 
   const sendText = async () => {
-    const result = await shareLink(shareBody, artistShareUrl(artistId));
+    const result = await shareLink(shareBody, link);
     if (result === 'copied') {
       toast.success('Link copied. Paste it into a text.');
     } else if (result === 'failed') {
@@ -143,7 +151,7 @@ export function ShareArtistButton({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" className="w-full sm:w-auto">
+          <Button variant="outline" className={cn('w-full sm:w-auto', className)}>
             Share
           </Button>
         </DropdownMenuTrigger>

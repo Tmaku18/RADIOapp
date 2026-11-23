@@ -22,6 +22,8 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserSafetyMenu } from '@/components/safety/UserSafetyMenu';
 import { ArtistPageView } from '@/components/artist/ArtistPageView';
+import { ShareArtistButton } from '@/components/artist/ShareArtistButton';
+import { proProfileShareText, proProfileShareUrl } from '@/lib/radio-share';
 
 type ProviderListing = {
   id: string;
@@ -121,7 +123,7 @@ export default function ProNetworxProfilePage() {
   useEffect(() => {
     let alive = true;
     proNetworxApi
-      .getProfileByUserId(id)
+      .getPublicProfile(id)
       .then((res) => {
         if (!alive) return;
         setData(res.data as ProPublicProfile);
@@ -279,6 +281,21 @@ export default function ProNetworxProfilePage() {
   const aboutText = (data?.about ?? data?.bio ?? '').trim();
   const headlineText =
     data?.currentTitle ?? data?.skillsHeadline ?? data?.headline ?? '—';
+  const shareName =
+    data?.displayName?.trim() ||
+    data?.currentTitle?.trim() ||
+    data?.skillsHeadline?.trim() ||
+    'This Pro';
+  const shareButton = (className?: string) =>
+    data ? (
+      <ShareArtistButton
+        artistId={data.userId}
+        artistName={shareName}
+        shareText={proProfileShareText({ name: shareName, userId: data.userId })}
+        shareUrl={proProfileShareUrl(data.userId)}
+        className={className}
+      />
+    ) : null;
 
   return (
     <div className="container max-w-6xl py-6 sm:py-8">
@@ -361,6 +378,7 @@ export default function ProNetworxProfilePage() {
                   </div>
                 </div>
                 <div className="hidden sm:flex gap-2 shrink-0 ml-auto items-center">
+                  {shareButton('w-auto')}
                   {isMe ? (
                     <Button asChild>
                       <Link href="/pro-networx/me">Edit profile</Link>
@@ -448,6 +466,7 @@ export default function ProNetworxProfilePage() {
                   ) : null}
                 </div>
               </div>
+              <div className="mt-4 sm:hidden">{shareButton('w-full')}</div>
             </CardContent>
           </Card>
 

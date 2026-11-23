@@ -59,6 +59,15 @@ export function artistShareText(input: {
   return `${lead}\n${artistShareUrl(input.artistId, input.songId)}`;
 }
 
+export function proProfileShareUrl(userId: string): string {
+  return `${origin()}/pro-networx/u/${encodeURIComponent(userId)}`;
+}
+
+export function proProfileShareText(input: { name: string; userId: string }): string {
+  const name = input.name.trim() || 'This Pro';
+  return `${name} is on Pro-Networx.\n${proProfileShareUrl(input.userId)}`;
+}
+
 export async function shareLink(text: string, url: string): Promise<'shared' | 'copied' | 'cancelled' | 'failed'> {
   if (typeof navigator.share === 'function') {
     try {
