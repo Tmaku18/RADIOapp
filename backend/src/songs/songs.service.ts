@@ -18,7 +18,7 @@ import { LyricsService } from '../lyrics/lyrics.service';
 import { PushNotificationService } from '../push-notifications/push-notification.service';
 import { EmailService } from '../email/email.service';
 import { promoteListenerToArtist } from '../users/promote-listener';
-import { stampVote } from '../common/vote-integrity';
+import { isActionFlood, stampVote } from '../common/vote-integrity';
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegStatic from 'ffmpeg-static';
 import { existsSync, promises as fs } from 'node:fs';
@@ -3937,6 +3937,19 @@ export class SongsService {
       }
       return { liked: false };
     } else {
+      if (
+        await isActionFlood(supabase, {
+          table: 'likes',
+          userId,
+          limit: 20,
+          reason: 'like_flood',
+          detail: 'Saved songs faster than a person usually can',
+        })
+      ) {
+        throw new BadRequestException(
+          'Please slow down before liking more songs.',
+        );
+      }
       // Like
       const { error: likeError } = await supabase.from('likes').insert({
         user_id: userId,

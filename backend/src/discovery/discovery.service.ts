@@ -18,6 +18,7 @@ import {
   stationIdsForGenres,
 } from '../radio/station.constants';
 import { UsersService } from '../users/users.service';
+import { isActionFlood } from '../common/vote-integrity';
 import { PushNotificationService } from '../push-notifications/push-notification.service';
 
 export type DiscoveryPeopleSort = 'popularity' | 'songs' | 'recent';
@@ -1681,6 +1682,18 @@ export class DiscoveryService {
       .maybeSingle();
     if (existing) return;
 
+    if (
+      await isActionFlood(supabase, {
+        table: 'discover_feed_post_likes',
+        userId: viewerUserId,
+        limit: 20,
+        reason: 'like_flood',
+        detail: 'Liked feed posts faster than a person usually can',
+      })
+    ) {
+      return;
+    }
+
     const { data: post, error: postError } = await supabase
       .from('discover_feed_posts')
       .select('id, author_user_id')
@@ -1808,6 +1821,18 @@ export class DiscoveryService {
     const trimmed = body.trim();
     if (!trimmed) {
       throw new Error('Comment body required');
+    }
+    if (
+      await isActionFlood(supabase, {
+        table: 'discover_feed_post_comments',
+        userId: viewerUserId,
+        userColumn: 'author_user_id',
+        limit: 8,
+        reason: 'comment_flood',
+        detail: 'Posted feed comments faster than a person usually can',
+      })
+    ) {
+      throw new Error('Please slow down before commenting again.');
     }
     const { data, error } = await supabase
       .from('discover_feed_post_comments')

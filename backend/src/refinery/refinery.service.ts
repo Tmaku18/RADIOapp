@@ -8,6 +8,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { getSupabaseClient } from '../config/supabase.config';
 import { signSongAudioUrl } from '../common/song-audio.util';
+import { isActionFlood } from '../common/vote-integrity';
 import { StripeService } from '../payments/stripe.service';
 import { NotificationService } from '../notifications/notification.service';
 import {
@@ -1111,6 +1112,17 @@ export class RefineryService {
     }
     const trimmed = (body ?? '').trim();
     if (!trimmed) throw new BadRequestException('Comment body is required');
+    if (
+      await isActionFlood(supabase, {
+        table: 'refinery_comments',
+        userId,
+        limit: 8,
+        reason: 'comment_flood',
+        detail: 'Posted Refinery comments faster than a person usually can',
+      })
+    ) {
+      throw new BadRequestException('Please slow down before commenting again.');
+    }
 
     const { data: inserted, error } = await supabase
       .from('refinery_comments')

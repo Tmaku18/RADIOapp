@@ -53,10 +53,12 @@ function isMissingRelation(error: unknown): boolean {
   );
 }
 
-async function flagOnce(
+/** Record a suspicious account for admin review. Never bans. One flag per reason per hour. */
+export async function flagActivity(
   supabase: SupabaseClient,
   userId: string,
   reason: string,
+  detail?: string,
 ): Promise<void> {
   const since = new Date(Date.now() - FLAG_COOLDOWN_MS).toISOString();
   const existing = await supabase
@@ -73,12 +75,59 @@ async function flagOnce(
     return;
   }
   if ((existing.data ?? []).length > 0) return;
-  const inserted = await supabase
-    .from('activity_flags')
-    .insert({ user_id: userId, reason });
+  const payload: { user_id: string; reason: string; detail?: string } = {
+    user_id: userId,
+    reason,
+  };
+  if (detail) payload.detail = detail;
+  let inserted = await supabase.from('activity_flags').insert(payload);
+  if (
+    inserted.error &&
+    `${inserted.error.message ?? ''}`.toLowerCase().includes('detail')
+  ) {
+    inserted = await supabase
+      .from('activity_flags')
+      .insert({ user_id: userId, reason });
+  }
   if (inserted.error && !isMissingRelation(inserted.error)) {
     console.warn(`activity flag insert failed: ${inserted.error.message}`);
   }
+}
+
+/**
+ * True when this account already did `limit` of these actions in the last minute.
+ * The caller should drop the new action. The account is flagged, not banned.
+ */
+export async function isActionFlood(
+  supabase: SupabaseClient,
+  args: {
+    table: string;
+    userId: string;
+    userColumn?: string;
+    timeColumn?: string;
+    limit: number;
+    reason: string;
+    detail: string;
+  },
+): Promise<boolean> {
+  const since = new Date(Date.now() - BURST_WINDOW_MS).toISOString();
+  const userColumn = args.userColumn ?? 'user_id';
+  const timeColumn = args.timeColumn ?? 'created_at';
+  const recent = await supabase
+    .from(args.table)
+    .select(userColumn, { count: 'exact', head: true })
+    .eq(userColumn, args.userId)
+    .gte(timeColumn, since);
+  if (recent.error) return false;
+  const count = recent.count ?? 0;
+  if (count < args.limit) return false;
+  await flagActivity(
+    supabase,
+    args.userId,
+    args.reason,
+    `${args.detail} (${count} in the last minute)`,
+  );
+  return true;
 }
 
 async function heardSong(
@@ -114,7 +163,7 @@ async function heardSong(
 async function isVoteBurst(
   supabase: SupabaseClient,
   userId: string,
-): Promise<boolean> {
+): Promise<number> {
   const since = new Date(Date.now() - BURST_WINDOW_MS).toISOString();
   const likes = await supabase
     .from('leaderboard_likes')
@@ -126,9 +175,8 @@ async function isVoteBurst(
     .select('user_id', { count: 'exact', head: true })
     .eq('user_id', userId)
     .gte('updated_at', since);
-  if (likes.error && ratings.error) return false;
-  const total = (likes.count ?? 0) + (ratings.count ?? 0);
-  return total >= BURST_LIMIT;
+  if (likes.error && ratings.error) return 0;
+  return (likes.count ?? 0) + (ratings.count ?? 0);
 }
 
 /**
@@ -168,13 +216,23 @@ export async function stampVote(
 
   const heard = await heardSong(supabase, userId, songId);
   if (!heard) {
-    await flagOnce(supabase, userId, 'vote_without_listen');
+    await flagActivity(
+      supabase,
+      userId,
+      'vote_without_listen',
+      'Fire, pass, or rating with no listen on that song',
+    );
     return { voter_cohort: cohort, counts_toward_score: false };
   }
 
   const burst = await isVoteBurst(supabase, userId);
-  if (burst) {
-    await flagOnce(supabase, userId, 'vote_burst');
+  if (burst >= BURST_LIMIT) {
+    await flagActivity(
+      supabase,
+      userId,
+      'vote_burst',
+      `${burst} fire, pass, or rating votes in the last minute`,
+    );
     return { voter_cohort: cohort, counts_toward_score: false };
   }
 
@@ -200,7 +258,12 @@ export async function isRepeatedComment(
   const repeated =
     rows.length === 2 && rows.every((row) => row.message === trimmed);
   if (repeated) {
-    await flagOnce(supabase, userId, 'comment_repeat');
+    await flagActivity(
+      supabase,
+      userId,
+      'comment_repeat',
+      'Same comment sent three times in a row',
+    );
   }
   return repeated;
 }

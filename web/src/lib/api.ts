@@ -2167,6 +2167,7 @@ export const adminApi = {
         displayName: string | null;
         email: string | null;
         reason: string;
+        detail: string | null;
         createdAt: string;
       }>;
     }>('/admin/activity-flags'),

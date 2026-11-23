@@ -6,7 +6,11 @@ import {
   OnModuleDestroy,
 } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
-import { isRepeatedComment } from '../common/vote-integrity';
+import {
+  flagActivity,
+  isActionFlood,
+  isRepeatedComment,
+} from '../common/vote-integrity';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 interface ChatMessage {
@@ -210,8 +214,21 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
       );
     }
 
-    // Check rate limits
-    this.checkRateLimit(userId);
+    // Check rate limits. A normal pause is not a flag. Blowing the burst limit is.
+    try {
+      this.checkRateLimit(userId);
+    } catch (err) {
+      const text = err instanceof Error ? err.message : '';
+      if (text.includes('too quickly')) {
+        await flagActivity(
+          supabase,
+          userId,
+          'comment_flood',
+          'Sent chat messages faster than the live limit',
+        );
+      }
+      throw err;
+    }
 
     // Check shadow ban status
     const { data: user } = await supabase
@@ -249,6 +266,19 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
 
     if (await isRepeatedComment(supabase, userId, message)) {
       this.logger.log(`Repeated comment from ${userId} ignored`);
+      return { success: true, id: `ignored-${Date.now()}` };
+    }
+
+    if (
+      await isActionFlood(supabase, {
+        table: 'chat_messages',
+        userId,
+        limit: 10,
+        reason: 'comment_flood',
+        detail: 'Filled chat faster than a person in the room',
+      })
+    ) {
+      this.logger.log(`Comment flood from ${userId} ignored`);
       return { success: true, id: `ignored-${Date.now()}` };
     }
 

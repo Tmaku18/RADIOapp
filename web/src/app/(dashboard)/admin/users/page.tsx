@@ -55,9 +55,11 @@ export default function AdminUsersPage() {
   const [flags, setFlags] = useState<
     Array<{
       id: string;
+      userId: string;
       displayName: string | null;
       email: string | null;
       reason: string;
+      detail: string | null;
       createdAt: string;
     }>
   >([]);
@@ -233,8 +235,10 @@ export default function AdminUsersPage() {
 
   const flagLabel = (reason: string) => {
     if (reason === 'vote_without_listen') return 'Vote with no listen';
-    if (reason === 'vote_burst') return 'Vote burst';
+    if (reason === 'vote_burst') return 'Like and dislike burst';
+    if (reason === 'like_flood') return 'Like flood';
     if (reason === 'comment_repeat') return 'Repeated comment';
+    if (reason === 'comment_flood') return 'Comment flood';
     return reason;
   };
 
@@ -244,12 +248,21 @@ export default function AdminUsersPage() {
         <div className="rounded-lg border border-amber-300 bg-amber-50 p-4">
           <h2 className="font-semibold text-amber-950">Flagged activity</h2>
           <p className="mt-1 text-sm text-amber-900">
-            These accounts were flagged. Nothing here removes them from the app.
+            These accounts flooded comments or likes. Open one to decide if it is hurting the site. Nothing here removes them.
           </p>
-          <ul className="mt-3 space-y-1 text-sm text-amber-950">
+          <ul className="mt-3 space-y-2 text-sm text-amber-950">
             {flags.slice(0, 12).map((flag) => (
               <li key={flag.id}>
-                {flag.displayName || flag.email || 'Account'} · {flagLabel(flag.reason)} ·{' '}
+                <Link
+                  href={`/admin/users/${flag.userId}`}
+                  className="font-medium underline"
+                >
+                  {flag.displayName || flag.email || 'Account'}
+                </Link>
+                {' · '}
+                {flagLabel(flag.reason)}
+                {flag.detail ? ` · ${flag.detail}` : ''}
+                {' · '}
                 {new Date(flag.createdAt).toLocaleString()}
               </li>
             ))}

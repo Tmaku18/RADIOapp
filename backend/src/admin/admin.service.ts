@@ -3364,11 +3364,28 @@ export class AdminService {
 
   async getActivityFlags(limit = 30) {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
+    const flagQuery = await supabase
       .from('activity_flags')
-      .select('id, user_id, reason, created_at')
+      .select('id, user_id, reason, detail, created_at')
       .order('created_at', { ascending: false })
       .limit(limit);
+    const fallback =
+      flagQuery.error &&
+      `${flagQuery.error.message ?? ''}`.toLowerCase().includes('detail')
+        ? await supabase
+            .from('activity_flags')
+            .select('id, user_id, reason, created_at')
+            .order('created_at', { ascending: false })
+            .limit(limit)
+        : null;
+    const data = (fallback?.data ?? flagQuery.data) as Array<{
+      id: string;
+      user_id: string;
+      reason: string;
+      detail?: string | null;
+      created_at: string;
+    }> | null;
+    const error = fallback?.error ?? flagQuery.error;
     if (error) {
       const message = (error.message ?? '').toLowerCase();
       if (
@@ -3406,6 +3423,7 @@ export class AdminService {
         displayName: who?.displayName ?? null,
         email: who?.email ?? null,
         reason: row.reason as string,
+        detail: (row.detail as string | null) ?? null,
         createdAt: row.created_at as string,
       };
     });
