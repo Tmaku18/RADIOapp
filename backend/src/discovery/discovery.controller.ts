@@ -128,6 +128,8 @@ export class DiscoveryController {
     @Query('lng') lngStr?: string,
     @Query('radiusKm') radiusKmStr?: string,
     @Query('mode') mode?: 'default' | 'random',
+    @Query('sort') sort?: 'popularity' | 'songs' | 'recent',
+    @Query('genre') genre?: string,
     @Query('seed') seed?: string,
   ) {
     const viewerUserId = await this.getUserId(user.uid);
@@ -153,6 +155,8 @@ export class DiscoveryController {
       search,
       role: role ?? 'all',
       mode: mode ?? 'default',
+      sort: sort ?? 'recent',
+      genre,
       seed,
       limit,
       offset,

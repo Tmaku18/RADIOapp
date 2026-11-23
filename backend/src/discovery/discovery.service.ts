@@ -13,9 +13,14 @@ import {
   startingAtFromRates,
   normalizePrecision,
 } from '../studios/studio-public.util';
-import { isExplicitFilteredStation } from '../radio/station.constants';
+import {
+  isExplicitFilteredStation,
+  stationIdsForGenres,
+} from '../radio/station.constants';
 import { UsersService } from '../users/users.service';
 import { PushNotificationService } from '../push-notifications/push-notification.service';
+
+export type DiscoveryPeopleSort = 'popularity' | 'songs' | 'recent';
 
 export interface DiscoveryProfile {
   kind?: 'person' | 'studio';
@@ -39,6 +44,12 @@ export interface DiscoveryProfile {
   mentorOptIn?: boolean;
   distanceKm?: number;
   isFollowing?: boolean;
+  /** Artist catalog stats for glass cards / sort. */
+  songCount?: number;
+  likeCount?: number;
+  playCount?: number;
+  listens?: number;
+  earsReached?: number;
   /** Studio-only extras. */
   name?: string | null;
   tagline?: string | null;
@@ -1014,6 +1025,76 @@ export class DiscoveryService {
       });
   }
 
+  private async loadArtistSongStats(
+    artistIds: string[],
+  ): Promise<
+    Map<
+      string,
+      {
+        songCount: number;
+        likeCount: number;
+        playCount: number;
+        listens: number;
+        earsReached: number;
+        stationIds: Set<string>;
+      }
+    >
+  > {
+    const stats = new Map<
+      string,
+      {
+        songCount: number;
+        likeCount: number;
+        playCount: number;
+        listens: number;
+        earsReached: number;
+        stationIds: Set<string>;
+      }
+    >();
+    if (artistIds.length === 0) return stats;
+    const supabase = getSupabaseClient();
+    const { data: songs } = await supabase
+      .from('songs')
+      .select(
+        'artist_id, like_count, play_count, profile_play_count, station_id, station_ids, status',
+      )
+      .in('artist_id', artistIds)
+      .eq('status', 'approved');
+    for (const song of (songs ?? []) as Array<{
+      artist_id: string | null;
+      like_count: number | null;
+      play_count: number | null;
+      profile_play_count: number | null;
+      station_id: string | null;
+      station_ids: string[] | null;
+    }>) {
+      if (!song.artist_id) continue;
+      const current = stats.get(song.artist_id) ?? {
+        songCount: 0,
+        likeCount: 0,
+        playCount: 0,
+        listens: 0,
+        earsReached: 0,
+        stationIds: new Set<string>(),
+      };
+      current.songCount += 1;
+      current.likeCount += song.like_count ?? 0;
+      const plays =
+        (song.play_count ?? 0) + (song.profile_play_count ?? 0);
+      current.playCount += plays;
+      current.listens += plays;
+      current.earsReached += plays;
+      if (song.station_id) current.stationIds.add(song.station_id);
+      if (Array.isArray(song.station_ids)) {
+        for (const id of song.station_ids) {
+          if (id) current.stationIds.add(String(id));
+        }
+      }
+      stats.set(song.artist_id, current);
+    }
+    return stats;
+  }
+
   async listPeople(params: {
     viewerUserId?: string;
     serviceType?: string;
@@ -1021,6 +1102,8 @@ export class DiscoveryService {
     search?: string;
     role?: 'artist' | 'service_provider' | 'all';
     mode?: 'default' | 'random';
+    sort?: DiscoveryPeopleSort;
+    genre?: string;
     seed?: string;
     limit?: number;
     offset?: number;
@@ -1034,6 +1117,17 @@ export class DiscoveryService {
     const offset = params.offset ?? 0;
     const supabase = getSupabaseClient();
     const mode = params.mode ?? 'default';
+    const sort: DiscoveryPeopleSort =
+      params.sort === 'popularity' || params.sort === 'songs'
+        ? params.sort
+        : 'recent';
+    const genreStations = stationIdsForGenres(
+      params.genre?.trim() ? [params.genre.trim()] : [],
+    );
+    const needsFullScan =
+      mode === 'random' ||
+      sort !== 'recent' ||
+      genreStations.length > 0;
     const seed =
       (params.seed ?? '').trim() || new Date().toISOString().slice(0, 10);
 
@@ -1161,7 +1255,7 @@ export class DiscoveryService {
     }
 
     let usersResult: { data: any[] | null; count: number | null } | null = null;
-    if (mode === 'random') {
+    if (needsFullScan) {
       const { data: users, count: totalCount } = await userQuery.order(
         'created_at',
         { ascending: false },
@@ -1208,6 +1302,24 @@ export class DiscoveryService {
       }
     }
 
+    const artistIds = filtered
+      .filter((u) => u.role === 'artist')
+      .map((u) => u.id as string);
+    const songStats = await this.loadArtistSongStats(artistIds);
+
+    if (genreStations.length > 0) {
+      const genreSet = new Set(genreStations);
+      filtered = filtered.filter((u) => {
+        if (u.role !== 'artist') return false;
+        const stats = songStats.get(u.id);
+        if (!stats) return false;
+        for (const stationId of stats.stationIds) {
+          if (genreSet.has(stationId)) return true;
+        }
+        return false;
+      });
+    }
+
     let items: DiscoveryProfile[] = filtered.map((u) => {
       const prov = providerByUserId.get(u.id);
       const providerId = prov?.id;
@@ -1215,6 +1327,7 @@ export class DiscoveryService {
         ? (typesByProviderId.get(providerId) ?? [])
         : [];
       const distanceKm = nearbyMap.get(u.id);
+      const stats = songStats.get(u.id);
       return {
         id: u.id,
         userId: u.id,
@@ -1229,6 +1342,11 @@ export class DiscoveryService {
         mentorOptIn: prov?.mentor_opt_in ?? false,
         distanceKm,
         isFollowing: followMap.has(u.id),
+        songCount: stats?.songCount ?? 0,
+        likeCount: stats?.likeCount ?? 0,
+        playCount: stats?.playCount ?? 0,
+        listens: stats?.listens ?? 0,
+        earsReached: stats?.earsReached ?? 0,
       };
     });
 
@@ -1239,18 +1357,35 @@ export class DiscoveryService {
         const db = b.distanceKm ?? Infinity;
         return da - db;
       });
-    }
-
-    if (mode === 'random') {
+    } else if (mode === 'random') {
       items.sort(
         (a, b) =>
           this.deterministicSeededRank(a.userId, seed) -
           this.deterministicSeededRank(b.userId, seed),
       );
+    } else if (sort === 'popularity') {
+      const score = (p: DiscoveryProfile) =>
+        (p.earsReached ?? 0) + (p.likeCount ?? 0) * 5;
+      items.sort((a, b) => score(b) - score(a));
+    } else if (sort === 'songs') {
+      items.sort(
+        (a, b) =>
+          (b.songCount ?? 0) - (a.songCount ?? 0) ||
+          (b.likeCount ?? 0) - (a.likeCount ?? 0),
+      );
+    } else {
+      items.sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
+    }
+
+    const total = needsFullScan ? items.length : (totalCount ?? items.length);
+    if (needsFullScan) {
       items = items.slice(offset, offset + limit);
     }
 
-    return { items, total: totalCount ?? items.length };
+    return { items, total };
   }
 
   /**

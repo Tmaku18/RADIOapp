@@ -32,6 +32,8 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { artistProfilePath } from '@/lib/artist-links';
 import { StationNetworkSelector } from '@/components/discovery/StationNetworkSelector';
+import { ArtistGlassCard } from '@/components/dimension/ArtistGlassCard';
+import { GENRE_OPTIONS } from '@/data/genre-options';
 import { getStationAutoplayEnabled, getLastRadioStationId, signalRadioNavIntent } from '@/lib/playback-preferences';
 import { usePlaybackOptional } from '@/components/playback/PlaybackProvider';
 
@@ -57,7 +59,14 @@ interface DiscoveryProfile {
   mentorOptIn?: boolean;
   distanceKm?: number;
   isFollowing?: boolean;
+  songCount?: number;
+  likeCount?: number;
+  playCount?: number;
+  listens?: number;
+  earsReached?: number;
 }
+
+type ArtistSort = 'popularity' | 'songs' | 'recent';
 
 const PAGE_SIZE = 20;
 const FEED_PAGE_SIZE = 16;
@@ -183,6 +192,8 @@ export default function DiscoverPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [randomMode, setRandomMode] = useState(false);
   const [randomSeed, setRandomSeed] = useState(() => String(Date.now()));
+  const [artistSort, setArtistSort] = useState<ArtistSort>('popularity');
+  const [artistGenre, setArtistGenre] = useState<string>('all');
   const [followBusy, setFollowBusy] = useState<Record<string, boolean>>({});
   const [nearbyEnabled, setNearbyEnabled] = useState(false);
   const [userLat, setUserLat] = useState<number | null>(null);
@@ -320,6 +331,9 @@ export default function DiscoverPage() {
           lng: nearbyEnabled && role === 'service_provider' && userLng != null ? userLng : undefined,
           radiusKm: nearbyEnabled && role === 'service_provider' && userLat != null && userLng != null ? 100 : undefined,
           mode: randomMode ? 'random' : 'default',
+          sort: role === 'artist' && !randomMode ? artistSort : undefined,
+          genre:
+            role === 'artist' && artistGenre !== 'all' ? artistGenre : undefined,
           seed: randomMode ? randomSeed : undefined,
         });
         const data = res.data as { items: DiscoveryProfile[]; total: number };
@@ -339,7 +353,7 @@ export default function DiscoverPage() {
         setLoadingMore(false);
       }
     },
-    [debouncedSearch, debouncedLocation, serviceType, role, nearbyEnabled, userLat, userLng, minRateCents, maxRateCents, randomMode, randomSeed],
+    [debouncedSearch, debouncedLocation, serviceType, role, nearbyEnabled, userLat, userLng, minRateCents, maxRateCents, randomMode, randomSeed, artistSort, artistGenre],
   );
 
   useEffect(() => {
@@ -357,7 +371,7 @@ export default function DiscoverPage() {
     if (activeTab === 'feed') return;
     setOffset(0);
     load(false, 0);
-  }, [activeTab, debouncedSearch, debouncedLocation, serviceType, role, randomMode, randomSeed]);
+  }, [activeTab, debouncedSearch, debouncedLocation, serviceType, role, randomMode, randomSeed, artistSort, artistGenre]);
 
   const toggleFollow = async (targetUserId: string, currentlyFollowing: boolean) => {
     setFollowBusy((prev) => ({ ...prev, [targetUserId]: true }));
@@ -627,6 +641,10 @@ export default function DiscoverPage() {
               setRandomMode={setRandomMode}
               randomSeed={randomSeed}
               reshuffle={() => setRandomSeed(String(Date.now()))}
+              artistSort={artistSort}
+              setArtistSort={setArtistSort}
+              artistGenre={artistGenre}
+              setArtistGenre={setArtistGenre}
               followBusy={followBusy}
               toggleFollow={toggleFollow}
               currentUserId={profile?.id ?? null}
@@ -701,6 +719,10 @@ function PeopleTabContent({
   randomMode,
   setRandomMode,
   reshuffle,
+  artistSort = 'popularity',
+  setArtistSort,
+  artistGenre = 'all',
+  setArtistGenre,
   followBusy,
   toggleFollow,
   currentUserId,
@@ -733,6 +755,10 @@ function PeopleTabContent({
   setRandomMode: (v: boolean) => void;
   randomSeed: string;
   reshuffle: () => void;
+  artistSort?: ArtistSort;
+  setArtistSort?: (v: ArtistSort) => void;
+  artistGenre?: string;
+  setArtistGenre?: (v: string) => void;
   followBusy: Record<string, boolean>;
   toggleFollow: (targetUserId: string, currentlyFollowing: boolean) => Promise<void>;
   currentUserId: string | null;
@@ -741,6 +767,7 @@ function PeopleTabContent({
     profile.role === 'service_provider'
       ? `/pro-networx/u/${profile.userId}`
       : artistProfilePath(profile.userId);
+  const isArtistTab = role === 'artist';
 
   return (
     <>
@@ -759,19 +786,54 @@ function PeopleTabContent({
                 className="bg-background border-border"
                 aria-label="Location region"
               />
-              <Select value={serviceType} onValueChange={setServiceType}>
-                <SelectTrigger className="bg-background">
-                  <SelectValue placeholder="Service type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All types</SelectItem>
-                  {SERVICE_TYPE_OPTIONS.map((st) => (
-                    <SelectItem key={st} value={st}>
-                      {st}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {isArtistTab ? (
+                <>
+                  <Select
+                    value={artistSort}
+                    onValueChange={(v) => setArtistSort?.(v as ArtistSort)}
+                    disabled={randomMode}
+                  >
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="Sort" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="popularity">Popularity</SelectItem>
+                      <SelectItem value="songs">Most songs</SelectItem>
+                      <SelectItem value="recent">Recently uploaded</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={artistGenre}
+                    onValueChange={(v) => setArtistGenre?.(v)}
+                  >
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="Genre" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All genres</SelectItem>
+                      {GENRE_OPTIONS.map((g) => (
+                        <SelectItem key={g.id} value={g.id}>
+                          {g.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </>
+              ) : (
+                <Select value={serviceType} onValueChange={setServiceType}>
+                  <SelectTrigger className="bg-background">
+                    <SelectValue placeholder="Service type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All types</SelectItem>
+                    {SERVICE_TYPE_OPTIONS.map((st) => (
+                      <SelectItem key={st} value={st}>
+                        {st}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <Button onClick={() => load(false, 0)} variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20">
                 Apply filters
               </Button>
@@ -822,6 +884,59 @@ function PeopleTabContent({
                 <p className="text-sm text-muted-foreground">
                   {total} {total === 1 ? 'person' : 'people'} found
                 </p>
+                {isArtistTab ? (
+                  <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {items.map((profile, index) => (
+                      <ArtistGlassCard
+                        key={profile.userId}
+                        index={index}
+                        href={getProfileHref(profile)}
+                        artist={{
+                          id: profile.userId,
+                          displayName: profile.displayName || 'Artist',
+                          avatarUrl: profile.avatarUrl,
+                          headline: profile.headline,
+                          songCount: profile.songCount,
+                          likeCount: profile.likeCount,
+                          listens: profile.listens ?? profile.earsReached,
+                          earsReached: profile.earsReached,
+                        }}
+                        footer={
+                          currentUserId !== profile.userId ? (
+                            <>
+                              <Button
+                                size="sm"
+                                variant={profile.isFollowing ? 'outline' : 'secondary'}
+                                disabled={!!followBusy[profile.userId]}
+                                onClick={() =>
+                                  void toggleFollow(
+                                    profile.userId,
+                                    !!profile.isFollowing,
+                                  )
+                                }
+                              >
+                                {followBusy[profile.userId]
+                                  ? '...'
+                                  : profile.isFollowing
+                                    ? 'Following'
+                                    : 'Follow'}
+                              </Button>
+                              <Button size="sm" asChild>
+                                <Link href={`/messages?with=${profile.userId}`}>
+                                  Message
+                                </Link>
+                              </Button>
+                            </>
+                          ) : (
+                            <Button size="sm" variant="outline" disabled>
+                              You
+                            </Button>
+                          )
+                        }
+                      />
+                    ))}
+                  </div>
+                ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
                   {items.map((profile) => (
                     <Card key={profile.userId} className="relative gap-0 overflow-hidden border-border/80 p-0 py-0 transition-colors hover:border-primary/30 hover:bg-elevated/50 cursor-pointer">
@@ -911,6 +1026,7 @@ function PeopleTabContent({
                     </Card>
                   ))}
                 </div>
+                )}
                 {hasMore && items.length > 0 && (
                   <div className="flex justify-center pt-4">
                     <Button variant="outline" onClick={loadMore} disabled={loadingMore} className="border-primary/40 text-primary hover:bg-primary/10">

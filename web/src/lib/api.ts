@@ -893,7 +893,7 @@ export const fansApi = {
 export const usersApi = {
   getMe: () => api.get('/users/me'),
   checkAdmin: () => api.get<{ isAdmin: boolean }>('/users/me/check-admin'),
-  updateMe: (data: { displayName?: string; username?: string; avatarUrl?: string; region?: string; suggestLocalArtists?: boolean; notifyFollowedArtistOnRadio?: boolean; discoverable?: boolean; favoriteGenres?: string[]; completeGenreOnboarding?: boolean; bio?: string; headline?: string; locationRegion?: string; instagramUrl?: string; twitterUrl?: string; youtubeUrl?: string; tiktokUrl?: string; websiteUrl?: string; soundcloudUrl?: string; spotifyUrl?: string; appleMusicUrl?: string; facebookUrl?: string; snapchatUrl?: string; role?: 'listener' | 'artist' | 'service_provider' }) => 
+  updateMe: (data: { displayName?: string; username?: string; avatarUrl?: string; region?: string; suggestLocalArtists?: boolean; notifyFollowedArtistOnRadio?: boolean; discoverable?: boolean; favoriteGenres?: string[]; completeGenreOnboarding?: boolean; bio?: string; headline?: string; locationRegion?: string; instagramUrl?: string; twitterUrl?: string; youtubeUrl?: string; tiktokUrl?: string; websiteUrl?: string; soundcloudUrl?: string; spotifyUrl?: string; appleMusicUrl?: string; facebookUrl?: string; snapchatUrl?: string; role?: 'listener' | 'artist' | 'service_provider' | 'dj' | 'musician'; userRoles?: string[] }) => 
     api.put('/users/me', data),
   deleteMyAccount: () => api.delete<{ ok: true }>('/users/me'),
   uploadProfilePhoto: (file: File) => {
@@ -952,7 +952,7 @@ export const usersApi = {
       }>;
     }>('/users/me/blocks'),
   getArtistProfile: (id: string) => api.get(`/users/${id}/artist-profile`),
-  create: (data: { email: string; displayName: string; role?: 'listener' | 'artist' | 'service_provider' }) => 
+  create: (data: { email: string; displayName: string; role?: 'listener' | 'artist' | 'service_provider' | 'dj' | 'musician'; userRoles?: string[] }) => 
     api.post('/users', data),
   upgradeToArtist: () => api.post('/users/upgrade-to-artist'),
   upgradeToCatalyst: () => api.post('/users/upgrade-to-catalyst'),
@@ -1119,6 +1119,8 @@ export const discoveryApi = {
     lng?: number;
     radiusKm?: number;
     mode?: 'default' | 'random';
+    sort?: 'popularity' | 'songs' | 'recent';
+    genre?: string;
     seed?: string;
   }) => api.get('/discovery/people', { params }),
   listFeed: (params?: {
@@ -2157,6 +2159,17 @@ export const adminApi = {
   trimSong: (id: string, data: { startSeconds: number; endSeconds: number }) =>
     api.post(`/admin/songs/${id}/trim`, data),
   getUserProfile: (id: string) => api.get(`/admin/users/${id}`),
+  getActivityFlags: () =>
+    api.get<{
+      flags: Array<{
+        id: string;
+        userId: string;
+        displayName: string | null;
+        email: string | null;
+        reason: string;
+        createdAt: string;
+      }>;
+    }>('/admin/activity-flags'),
   getUsers: (params?: { 
     role?: string; 
     search?: string;

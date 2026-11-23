@@ -5,6 +5,32 @@ class StationOption {
   final String genre;
 }
 
+class GenreFilterOption {
+  const GenreFilterOption({required this.id, required this.label});
+
+  final String id;
+  final String label;
+}
+
+/// Genre ids accepted by `/discovery/people?genre=` (mirrors web GENRE_OPTIONS).
+const List<GenreFilterOption> kGenreFilterOptions = <GenreFilterOption>[
+  GenreFilterOption(id: 'rap', label: 'Rap'),
+  GenreFilterOption(id: 'hip-hop', label: 'Hip Hop'),
+  GenreFilterOption(id: 'country', label: 'Country'),
+  GenreFilterOption(id: 'rock', label: 'Rock'),
+  GenreFilterOption(id: 'metal', label: 'Metal'),
+  GenreFilterOption(id: 'pop', label: 'Pop'),
+  GenreFilterOption(id: 'edm', label: 'EDM'),
+  GenreFilterOption(id: 'rnb', label: 'R&B'),
+  GenreFilterOption(id: 'gospel', label: 'Gospel'),
+  GenreFilterOption(id: 'jazz', label: 'Jazz'),
+  GenreFilterOption(id: 'lofi', label: 'Lo-Fi'),
+  GenreFilterOption(id: 'afrobeats', label: 'Afro-Beats'),
+  GenreFilterOption(id: 'spanish', label: 'Spanish'),
+  GenreFilterOption(id: 'beats', label: 'Beats'),
+  GenreFilterOption(id: 'kids-friendly', label: 'Kids Friendly'),
+];
+
 const List<StationOption> kStationCatalog = <StationOption>[
   StationOption(id: 'us-ready-now-rap', genre: 'Ready Now Radio'),
   StationOption(id: 'us-rap', genre: 'New School Rap Radio'),

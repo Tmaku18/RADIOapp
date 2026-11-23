@@ -10,6 +10,8 @@ class NearbyService {
     String? search,
     String? location,
     String role = 'service_provider',
+    String? sort,
+    String? genre,
     int limit = 50,
     int offset = 0,
   }) async {
@@ -24,6 +26,10 @@ class NearbyService {
         'search=${Uri.encodeQueryComponent(search.trim())}',
       if (location != null && location.trim().isNotEmpty)
         'location=${Uri.encodeQueryComponent(location.trim())}',
+      if (sort != null && sort.trim().isNotEmpty)
+        'sort=${Uri.encodeQueryComponent(sort.trim())}',
+      if (genre != null && genre.trim().isNotEmpty)
+        'genre=${Uri.encodeQueryComponent(genre.trim())}',
     ].join('&');
     final res = await _api.get('discovery/people?$q');
     if (res is Map<String, dynamic>) return res;
