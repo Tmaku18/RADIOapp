@@ -890,6 +890,18 @@ export const fansApi = {
     ),
 };
 
+export const phoneMfaApi = {
+  send: (phone?: string) =>
+    api.post<{ sent: true; phoneLast4: string; enrolled: boolean }>(
+      '/auth/phone/send',
+      phone ? { phone } : {},
+    ),
+  verify: (code: string) =>
+    api.post<{ verified: true; phoneLast4: string }>('/auth/phone/verify', {
+      code,
+    }),
+};
+
 export const usersApi = {
   getMe: () => api.get('/users/me'),
   checkAdmin: () => api.get<{ isAdmin: boolean }>('/users/me/check-admin'),

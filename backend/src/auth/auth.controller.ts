@@ -21,9 +21,15 @@ import {
   ExchangeCrossDomainTokenDto,
 } from './dto/cross-domain-token.dto';
 import { randomBytes } from 'crypto';
+import { SkipPhoneMfa } from './decorators/skip-phone-mfa.decorator';
+import { SendPhoneMfaDto, VerifyPhoneMfaDto } from './dto/phone-mfa.dto';
+import { PhoneMfaService } from './phone-mfa.service';
 
+@SkipPhoneMfa()
 @Controller('auth')
 export class AuthController {
+  constructor(private readonly phoneMfa: PhoneMfaService) {}
+
   @Get('verify')
   @UseGuards(FirebaseAuthGuard)
   verify(@CurrentUser() user: FirebaseUser) {
@@ -31,7 +37,29 @@ export class AuthController {
       uid: user.uid,
       email: user.email,
       emailVerified: user.emailVerified,
+      role: user.dbRole ?? null,
+      phoneVerified: user.phoneVerified === true,
+      phoneLast4: user.phoneLast4 ?? null,
+      mfaSatisfied: user.mfaSatisfied === true,
     };
+  }
+
+  /** Text a 6-digit code. New accounts pass a mobile number. Returning accounts use the saved one. */
+  @Post('phone/send')
+  async sendPhoneCode(
+    @CurrentUser() user: FirebaseUser,
+    @Body() dto: SendPhoneMfaDto,
+  ) {
+    return this.phoneMfa.sendCode(user.uid, dto.phone);
+  }
+
+  /** Confirm the text code for this sign-in and claim the number if it is still free. */
+  @Post('phone/verify')
+  async verifyPhoneCode(
+    @CurrentUser() user: FirebaseUser,
+    @Body() dto: VerifyPhoneMfaDto,
+  ) {
+    return this.phoneMfa.verifyCode(user.uid, dto.code, user.authTime ?? null);
   }
 
   /**

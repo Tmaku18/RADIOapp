@@ -503,8 +503,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             const SizedBox(height: 6),
                             Text(
                               _isSignUp
-                                  ? 'Create your account'
-                                  : 'Welcome back',
+                                  ? 'Create your account, then confirm it by text'
+                                  : 'Welcome back. We text a code after you sign in',
                               textAlign: TextAlign.center,
                               style: textTheme.bodyMedium?.copyWith(
                                 color: onPage.withValues(alpha: 0.74),

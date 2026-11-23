@@ -19,6 +19,10 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   getIdToken: () => Promise<string | null>;
   isAdmin: boolean;
+  mfaSatisfied: boolean | null;
+  phoneVerified: boolean;
+  phoneLast4: string | null;
+  markMfaSatisfied: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -28,6 +32,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [mfaSatisfied, setMfaSatisfied] = useState<boolean | null>(null);
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [phoneLast4, setPhoneLast4] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -49,8 +56,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (response.ok) {
             const data = await response.json();
             setIsAdmin(data.role === 'admin');
+            setMfaSatisfied(data.mfaSatisfied === false ? false : true);
+            setPhoneVerified(data.phoneVerified === true);
+            setPhoneLast4(
+              typeof data.phoneLast4 === 'string' ? data.phoneLast4 : null,
+            );
           } else {
             setIsAdmin(false);
+            setMfaSatisfied(null);
+            setPhoneVerified(false);
+            setPhoneLast4(null);
           }
         } catch (err) {
           console.error('Failed to verify admin status:', err);
@@ -58,6 +73,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } else {
         setIsAdmin(false);
+        setMfaSatisfied(null);
+        setPhoneVerified(false);
+        setPhoneLast4(null);
       }
       
       setLoading(false);
@@ -98,6 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await firebaseSignOut(auth);
       setIsAdmin(false);
+      setMfaSatisfied(null);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to sign out';
       setError(errorMessage);
@@ -126,6 +145,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signOut,
         getIdToken,
         isAdmin,
+        mfaSatisfied,
+        phoneVerified,
+        phoneLast4,
+        markMfaSatisfied: () => setMfaSatisfied(true),
       }}
     >
       {children}

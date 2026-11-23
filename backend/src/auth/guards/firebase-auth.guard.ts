@@ -29,6 +29,15 @@ export class FirebaseAuthGuard implements CanActivate {
     private readonly configService: ConfigService,
   ) {}
 
+  /** Texts can be sent, or this is a non-production environment that logs codes. */
+  private phoneMfaEnforced(): boolean {
+    const sid = this.configService.get<string>('TWILIO_ACCOUNT_SID')?.trim();
+    const token = this.configService.get<string>('TWILIO_AUTH_TOKEN')?.trim();
+    const from = this.configService.get<string>('TWILIO_FROM_NUMBER')?.trim();
+    if (sid && token && from) return true;
+    return this.configService.get<string>('NODE_ENV') !== 'production';
+  }
+
   private getAdminEmails(): string[] {
     const raw = this.configService.get<string>('ADMIN_EMAILS');
     if (!raw?.trim()) return [];
@@ -276,13 +285,15 @@ export class FirebaseAuthGuard implements CanActivate {
       const phoneVerified = Boolean(user?.phone_verified_at);
       let mfaSatisfied = false;
       let mfaCheckFailed = false;
-      if (phoneVerified && user?.id && authTime != null && !userLookupError) {
+      const enforcePhoneMfa = this.phoneMfaEnforced();
+      const mfaUserId = user?.id;
+      if (phoneVerified && mfaUserId && authTime != null && !userLookupError) {
         try {
           const session = await withDeadline('mfa session', 4000, async () => {
             const { data, error } = await supabase
               .from('phone_mfa_sessions')
               .select('auth_time')
-              .eq('user_id', user.id)
+              .eq('user_id', mfaUserId)
               .eq('auth_time', authTime)
               .maybeSingle();
             if (error) {
@@ -301,6 +312,11 @@ export class FirebaseAuthGuard implements CanActivate {
             }`,
           );
         }
+      }
+      // Production without a text provider must keep working. Enforcement
+      // starts as soon as Twilio credentials are present.
+      if (!enforcePhoneMfa) {
+        mfaSatisfied = true;
       }
 
       request.user = {

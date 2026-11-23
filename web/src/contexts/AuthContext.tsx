@@ -20,6 +20,7 @@ import { toast } from 'sonner';
 import { usersApi } from '@/lib/api';
 import { clearGuestBrowse } from '@/lib/guest';
 import { DisplayNameGate } from '@/components/DisplayNameGate';
+import { PhoneMfaGate } from '@/components/auth/PhoneMfaGate';
 
 function accountWasRestored(data: unknown): boolean {
   return Boolean(
@@ -74,6 +75,9 @@ interface UserProfile {
   appleMusicUrl?: string | null;
   facebookUrl?: string | null;
   snapchatUrl?: string | null;
+  phoneVerified?: boolean;
+  phoneLast4?: string | null;
+  mfaSatisfied?: boolean;
 }
 
 interface AuthContextType {
@@ -513,6 +517,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           suggestedName={providerDisplayName(user)}
           email={resolveAuthEmail(user)}
           onSubmit={completeProfileSetup}
+          onCancel={handleSignOut}
+        />
+      )}
+      {!pendingProfileSetup && profile?.mfaSatisfied === false && (
+        <PhoneMfaGate
+          phoneVerified={profile.phoneVerified === true}
+          phoneLast4={profile.phoneLast4 ?? null}
+          onVerified={fetchProfile}
           onCancel={handleSignOut}
         />
       )}

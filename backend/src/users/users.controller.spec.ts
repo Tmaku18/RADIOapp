@@ -37,7 +37,12 @@ describe('UsersController', () => {
     expect(usersService.getUserByFirebaseUid).toHaveBeenCalledWith(
       'firebase-uid',
     );
-    expect(result).toEqual({ id: 'user-1' });
+    expect(result).toEqual({
+      id: 'user-1',
+      phoneVerified: false,
+      phoneLast4: null,
+      mfaSatisfied: false,
+    });
   });
 
   it('updates current user', async () => {

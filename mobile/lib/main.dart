@@ -29,6 +29,7 @@ import 'widgets/login_screen.dart';
 import 'widgets/home_screen.dart';
 import 'widgets/splash_loading_screen.dart';
 import 'features/welcome/welcome_landing_screen.dart';
+import 'features/auth/phone_mfa_gate.dart';
 import 'firebase_options.dart';
 
 Future<void> _startApp() async {
@@ -271,7 +272,7 @@ class _MyAppState extends State<MyApp> {
               AppRoutes.root: (context) => const AuthWrapper(),
               AppRoutes.welcome: (context) => const WelcomeLandingScreen(),
               AppRoutes.login: (context) => const LoginScreen(),
-              AppRoutes.home: (context) => const HomeScreen(),
+              AppRoutes.home: (context) => const PhoneMfaGate(child: _SignedInHome()),
             },
             onGenerateRoute: AppRouter.onGenerateRoute,
           );
@@ -279,6 +280,25 @@ class _MyAppState extends State<MyApp> {
       ),
     );
   }
+}
+
+class _SignedInHome extends StatefulWidget {
+  const _SignedInHome();
+
+  @override
+  State<_SignedInHome> createState() => _SignedInHomeState();
+}
+
+class _SignedInHomeState extends State<_SignedInHome> {
+  @override
+  void initState() {
+    super.initState();
+    // Redeem any store purchase whose backend call never landed.
+    unawaited(PendingPurchaseQueue.instance.drain(PaymentsService()));
+  }
+
+  @override
+  Widget build(BuildContext context) => const HomeScreen();
 }
 
 class AuthWrapper extends StatelessWidget {
@@ -339,12 +359,10 @@ class AuthWrapper extends StatelessWidget {
 
             // User is authenticated - show home with navigation
             if (snapshot.hasData && snapshot.data != null) {
-              // Redeem any store purchase whose backend call never landed.
-              unawaited(PendingPurchaseQueue.instance.drain(PaymentsService()));
               if (authService.isGuest) {
                 unawaited(authService.clearGuest());
               }
-              return const HomeScreen();
+              return const PhoneMfaGate(child: _SignedInHome());
             }
 
             if (!authService.guestReady) {

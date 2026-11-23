@@ -47,6 +47,7 @@ import '../../features/studios/studios_hub_screen.dart';
 import '../../features/discovery/discover_create_video_screen.dart';
 import '../../features/upload/upload_screen.dart';
 import '../../features/yield/yield_screen.dart';
+import '../../features/auth/phone_mfa_gate.dart';
 import '../../widgets/home_screen.dart';
 import '../../widgets/login_screen.dart';
 import '../../widgets/require_artist.dart';
@@ -63,7 +64,7 @@ class AppRouter {
       case AppRoutes.login:
         return _route(const LoginScreen(), settings);
       case AppRoutes.home:
-        return _route(const HomeScreen(), settings);
+        return _route(const PhoneMfaGate(child: HomeScreen()), settings);
       case AppRoutes.player:
         return _route(const PlayerScreen(), settings);
       case AppRoutes.analytics:

@@ -3,13 +3,24 @@
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '../contexts/AuthContext';
+import PhoneMfaGate from './PhoneMfaGate';
 
 interface AuthGuardProps {
   children: React.ReactNode;
 }
 
 export default function AuthGuard({ children }: AuthGuardProps) {
-  const { user, loading, isAdmin } = useAuth();
+  const {
+    user,
+    loading,
+    isAdmin,
+    mfaSatisfied,
+    phoneVerified,
+    phoneLast4,
+    markMfaSatisfied,
+    getIdToken,
+    signOut,
+  } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -66,6 +77,18 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   // Don't render children if not authenticated (except login page)
   if (!user && pathname !== '/login') {
     return null;
+  }
+
+  if (user && isAdmin && mfaSatisfied === false && pathname !== '/login') {
+    return (
+      <PhoneMfaGate
+        phoneVerified={phoneVerified}
+        phoneLast4={phoneLast4}
+        getToken={getIdToken}
+        onVerified={markMfaSatisfied}
+        onSignOut={signOut}
+      />
+    );
   }
 
   return <>{children}</>;

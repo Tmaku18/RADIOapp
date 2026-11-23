@@ -159,7 +159,9 @@ function SignupForm() {
     <div className="bg-card text-card-foreground rounded-2xl border border-border shadow-xl p-8">
       <div className="text-center mb-8">
         <h1 className="text-2xl font-bold text-foreground">Create your account</h1>
-        <p className="text-muted-foreground mt-2">Join Networx — discover artists, share your music, or offer your craft</p>
+        <p className="text-muted-foreground mt-2">
+          Join Networx, then confirm a mobile number by text. Each number can only belong to one account.
+        </p>
       </div>
 
       {oauthRedirectPending && !profile && (
