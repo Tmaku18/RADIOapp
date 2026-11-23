@@ -1,16 +1,17 @@
 import 'dart:async';
-import 'dart:ui';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/navigation/app_routes.dart';
 import '../../core/radio/station_catalog.dart';
+import '../../core/services/discover_audio_service.dart';
 import '../../core/services/growth_service.dart';
 import '../../core/services/nearby_service.dart';
 import '../../core/theme/dimension_tokens.dart';
+import '../../widgets/dimension/artist_glass_card.dart';
 import '../../widgets/shared/media_widgets.dart';
 import '../../widgets/states/app_states.dart';
+import '../../core/models/discover_audio_models.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -22,13 +23,22 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final _growth = GrowthService();
   final _nearby = NearbyService();
+  final _discover = DiscoverAudioService();
   final _query = TextEditingController();
   Timer? _debounce;
   bool _loading = false;
   List<Map<String, dynamic>> _songs = const [];
   List<Map<String, dynamic>> _artists = const [];
   String _artistSort = 'popularity';
+  String _artistScope = 'all';
   String? _artistGenre;
+  List<DiscoverLikedArtist> _liked = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_search(''));
+  }
 
   @override
   void dispose() {
@@ -44,38 +54,44 @@ class _SearchScreenState extends State<SearchScreen> {
 
   Future<void> _search(String value) async {
     final q = value.trim();
-    if (q.length < 2) {
-      setState(() {
-        _songs = const [];
-        _artists = const [];
-      });
-      return;
-    }
     setState(() => _loading = true);
     try {
       final results = await Future.wait([
-        _growth.search(q),
+        q.length < 2
+            ? Future<Map<String, dynamic>>.value(const {})
+            : _growth.search(q),
         _nearby.listPeople(
           role: 'artist',
-          search: q,
+          search: q.length < 2 ? null : q,
           sort: _artistSort,
           genre: _artistGenre,
-          limit: 24,
+          limit: 50,
         ),
+        () async {
+          try {
+            return await _discover.getLikedArtists(limit: 100);
+          } catch (_) {
+            return const <DiscoverLikedArtist>[];
+          }
+        }(),
       ]);
       if (!mounted) return;
-      final growth = results[0];
-      final people = results[1];
+      final growth = results[0] as Map<String, dynamic>;
+      final people = results[1] as Map<String, dynamic>;
+      final liked = results[2] as List<DiscoverLikedArtist>;
       final peopleItems = ((people['items'] as List?) ?? const [])
           .whereType<Map>()
           .map((e) => Map<String, dynamic>.from(e))
           .toList();
       setState(() {
-        _songs = ((growth['songs'] as List?) ?? const [])
-            .whereType<Map>()
-            .map((e) => Map<String, dynamic>.from(e))
-            .toList();
+        _songs = q.length < 2
+            ? const []
+            : ((growth['songs'] as List?) ?? const [])
+                .whereType<Map>()
+                .map((e) => Map<String, dynamic>.from(e))
+                .toList();
         _artists = peopleItems;
+        _liked = liked;
       });
     } catch (_) {
       if (!mounted) return;
@@ -100,10 +116,50 @@ class _SearchScreenState extends State<SearchScreen> {
     _search(_query.text);
   }
 
+  void _setScope(String scope) {
+    if (_artistScope == scope) return;
+    setState(() => _artistScope = scope);
+  }
+
+  int _asInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  List<Map<String, dynamic>> get _visibleArtists {
+    final q = _query.text.trim().toLowerCase();
+    if (_artistScope == 'liked') {
+      return [
+        for (final artist in _liked)
+          if (q.length < 2 ||
+              (artist.displayName ?? '').toLowerCase().contains(q) ||
+              (artist.username ?? '').toLowerCase().contains(q))
+            {
+              'userId': artist.userId,
+              'displayName': (artist.displayName ?? '').trim().isEmpty
+                  ? 'Artist'
+                  : artist.displayName!.trim(),
+              'headline': artist.likedSongCount > 0
+                  ? '${artist.likedSongCount} liked song${artist.likedSongCount == 1 ? '' : 's'}'
+                  : (artist.headline ?? ''),
+              'avatarUrl': artist.avatarUrl,
+              'likeCount': artist.likedSongCount,
+              'listens': 0,
+            },
+      ];
+    }
+    if (_artistScope == 'following') {
+      return _artists.where((artist) => artist['isFollowing'] == true).toList();
+    }
+    return _artists;
+  }
+
   @override
   Widget build(BuildContext context) {
     DimensionTokens.watch(context);
     final empty = _query.text.trim().length < 2;
+    final artists = _visibleArtists;
     return Scaffold(
       appBar: AppBar(title: const Text('Search')),
       body: Column(
@@ -120,8 +176,7 @@ class _SearchScreenState extends State<SearchScreen> {
               onChanged: _onChanged,
             ),
           ),
-          if (!empty)
-            SizedBox(
+          SizedBox(
               height: 40,
               child: ListView(
                 scrollDirection: Axis.horizontal,
@@ -142,6 +197,21 @@ class _SearchScreenState extends State<SearchScreen> {
                     selected: _artistSort == 'recent',
                     onTap: () => _setSort('recent'),
                   ),
+                  _FilterChip(
+                    label: 'Everyone',
+                    selected: _artistScope == 'all',
+                    onTap: () => _setScope('all'),
+                  ),
+                  _FilterChip(
+                    label: 'Following',
+                    selected: _artistScope == 'following',
+                    onTap: () => _setScope('following'),
+                  ),
+                  _FilterChip(
+                    label: 'Liked',
+                    selected: _artistScope == 'liked',
+                    onTap: () => _setScope('liked'),
+                  ),
                   const SizedBox(width: 8),
                   _FilterChip(
                     label: 'All genres',
@@ -160,16 +230,10 @@ class _SearchScreenState extends State<SearchScreen> {
             ),
           if (_loading) const LinearProgressIndicator(minHeight: 2),
           Expanded(
-            child: empty
-                ? const EmptyState(
-                    title: 'Search the station',
-                    message: 'Find a song, an artist, or someone to follow.',
-                    illustrationAsset:
-                        'assets/images/illustrations/empty-search.jpg',
-                  )
-                : CustomScrollView(
+            child: (!empty || artists.isNotEmpty || _loading)
+                ? CustomScrollView(
                     slivers: [
-                      if (_songs.isEmpty && _artists.isEmpty && !_loading)
+                      if (_songs.isEmpty && artists.isEmpty && !_loading)
                         const SliverFillRemaining(
                           hasScrollBody: false,
                           child: EmptyState(
@@ -197,7 +261,7 @@ class _SearchScreenState extends State<SearchScreen> {
                           ),
                         ),
                       ],
-                      if (_artists.isNotEmpty) ...[
+                      if (artists.isNotEmpty) ...[
                         const SliverToBoxAdapter(
                           child: Padding(
                             padding: EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -218,18 +282,31 @@ class _SearchScreenState extends State<SearchScreen> {
                               crossAxisCount: 2,
                               mainAxisSpacing: 12,
                               crossAxisSpacing: 12,
-                              childAspectRatio: 0.72,
+                              childAspectRatio: 0.68,
                             ),
                             delegate: SliverChildBuilderDelegate(
                               (context, i) {
-                                final artist = _artists[i];
-                                return _ArtistGlassCard(
-                                  index: i,
-                                  artist: artist,
+                                final artist = artists[i];
+                                final name = (artist['displayName'] ??
+                                        artist['title'] ??
+                                        'Artist')
+                                    .toString();
+                                return ArtistGlassCard(
+                                  rank: i + 1,
+                                  name: name,
+                                  subtitle:
+                                      (artist['headline'] ?? '').toString(),
+                                  imageUrl: (artist['avatarUrl'] ??
+                                          artist['imageUrl'])
+                                      ?.toString(),
+                                  listens: _asInt(
+                                    artist['listens'] ?? artist['earsReached'],
+                                  ),
+                                  likes: _asInt(artist['likeCount']),
                                   onTap: () {
-                                    final id =
-                                        (artist['userId'] ?? artist['id'])
-                                            ?.toString();
+                                    final id = (artist['userId'] ??
+                                            artist['id'])
+                                        ?.toString();
                                     if (id == null || id.isEmpty) return;
                                     Navigator.pushNamed(
                                       context,
@@ -239,12 +316,18 @@ class _SearchScreenState extends State<SearchScreen> {
                                   },
                                 );
                               },
-                              childCount: _artists.length,
+                              childCount: artists.length,
                             ),
                           ),
                         ),
                       ],
                     ],
+                  )
+                : const EmptyState(
+                    title: 'Search the station',
+                    message: 'Find a song, an artist, or someone to follow.',
+                    illustrationAsset:
+                        'assets/images/illustrations/empty-search.jpg',
                   ),
           ),
         ],
@@ -276,161 +359,6 @@ class _FilterChip extends StatelessWidget {
         selectedColor: scheme.primary.withValues(alpha: 0.22),
         checkmarkColor: scheme.primary,
         visualDensity: VisualDensity.compact,
-      ),
-    );
-  }
-}
-
-class _ArtistGlassCard extends StatelessWidget {
-  const _ArtistGlassCard({
-    required this.index,
-    required this.artist,
-    required this.onTap,
-  });
-
-  final int index;
-  final Map<String, dynamic> artist;
-  final VoidCallback onTap;
-
-  int _int(dynamic value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    return int.tryParse(value?.toString() ?? '') ?? 0;
-  }
-
-  String _format(int n) {
-    if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M';
-    if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}K';
-    return '$n';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    DimensionTokens.watch(context);
-    final name =
-        (artist['displayName'] ?? artist['title'] ?? 'Artist').toString();
-    final avatar =
-        (artist['avatarUrl'] ?? artist['imageUrl'])?.toString();
-    final headline = (artist['headline'] ?? '').toString();
-    final likes = _int(artist['likeCount']);
-    final songs = _int(artist['songCount']);
-    final listens = _int(artist['listens'] ?? artist['earsReached']);
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(18),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (avatar != null && avatar.isNotEmpty)
-                CachedNetworkImage(
-                  imageUrl: avatar,
-                  fit: BoxFit.cover,
-                )
-              else
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        DimensionTokens.neonCyan.withValues(alpha: 0.25),
-                        Colors.black,
-                        DimensionTokens.neonPink.withValues(alpha: 0.2),
-                      ],
-                    ),
-                  ),
-                  child: Center(
-                    child: Text(
-                      name.isNotEmpty ? name[0].toUpperCase() : 'A',
-                      style: TextStyle(
-                        fontSize: 72,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white.withValues(alpha: 0.12),
-                      ),
-                    ),
-                  ),
-                ),
-              const DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black54,
-                      Colors.black87,
-                    ],
-                    stops: [0.35, 0.7, 1],
-                  ),
-                ),
-              ),
-              BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 0.2, sigmaY: 0.2),
-                child: const SizedBox.expand(),
-              ),
-              Positioned(
-                top: 10,
-                left: 12,
-                child: Text(
-                  '#${(index + 1).toString().padLeft(2, '0')} / GEM',
-                  style: TextStyle(
-                    fontSize: 10,
-                    letterSpacing: 1.6,
-                    color: Colors.white.withValues(alpha: 0.7),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              Positioned(
-                left: 12,
-                right: 12,
-                bottom: 12,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 18,
-                        height: 1.1,
-                      ),
-                    ),
-                    if (headline.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        headline,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.65),
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 8),
-                    Text(
-                      '${_format(listens)} listens · ${_format(likes)} likes · ${_format(songs)} songs',
-                      style: TextStyle(
-                        color: DimensionTokens.neonCyan.withValues(alpha: 0.9),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

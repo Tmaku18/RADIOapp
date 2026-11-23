@@ -40,7 +40,6 @@ class DiscoveryScreen extends StatefulWidget {
 
 class _DiscoveryScreenState extends State<DiscoveryScreen>
     with SingleTickerProviderStateMixin {
-  final NearbyService _people = NearbyService();
   final TextEditingController _searchCtrl = TextEditingController();
   final GlobalKey<DiscoverAudioTabState> _swipeKey =
       GlobalKey<DiscoverAudioTabState>();
@@ -51,12 +50,9 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
   late int _searchTab;
   Timer? _searchDebounce;
 
-  bool _searchingArtists = false;
-  String? _artistSearchError;
-  List<Map<String, dynamic>> _artistResults = const [];
   String _artistSort = 'popularity';
-
-  bool get _hasArtistQuery => _searchCtrl.text.trim().length >= 2;
+  String _artistScope = 'all';
+  String _artistQuery = '';
 
   /// Map old 4-tab indices onto Swipe / Artists / Library.
   static int _normalizeTabIndex(int raw) {
@@ -115,78 +111,25 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
     _searchDebounce?.cancel();
     if (_tabController.index != 1) return;
     final q = _searchCtrl.text.trim();
-    if (q.length < 2) {
-      setState(() {
-        _artistResults = const [];
-        _artistSearchError = null;
-        _searchingArtists = false;
-      });
-      return;
-    }
-    setState(() => _searchingArtists = true);
-    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
-      unawaited(_searchArtists(q));
-    });
-  }
-
-  Future<void> _searchArtists(String query) async {
-    final q = query.trim();
-    if (q.length < 2) return;
-    setState(() {
-      _searchingArtists = true;
-      _artistSearchError = null;
-    });
-    final sort = _artistSort;
-    try {
-      final res = await _people.listPeople(
-        role: 'artist',
-        search: q,
-        sort: sort,
-        limit: 40,
-      );
-      final raw = (res['items'] is List) ? res['items'] as List : const [];
-      final items = raw
-          .whereType<Map>()
-          .map((m) => Map<String, dynamic>.from(m))
-          .toList();
-      if (!mounted || _searchCtrl.text.trim() != q || _artistSort != sort) {
-        return;
-      }
-      setState(() => _artistResults = items);
-    } catch (e) {
-      if (!mounted || _searchCtrl.text.trim() != q || _artistSort != sort) {
-        return;
-      }
-      setState(() {
-        _artistSearchError = "Couldn't search artists. Try again.";
-        _artistResults = const [];
-      });
-    } finally {
-      if (mounted && _searchCtrl.text.trim() == q && _artistSort == sort) {
-        setState(() => _searchingArtists = false);
-      }
-    }
+    _searchDebounce = Timer(
+      Duration(milliseconds: q.length < 2 ? 0 : 350),
+      () {
+        if (!mounted) return;
+        final next = q.length >= 2 ? q : '';
+        if (next == _artistQuery) return;
+        setState(() => _artistQuery = next);
+      },
+    );
   }
 
   void _setArtistSort(String sort) {
     if (_artistSort == sort) return;
     setState(() => _artistSort = sort);
-    final q = _searchCtrl.text.trim();
-    if (_tabController.index == 1 && q.length >= 2) {
-      unawaited(_searchArtists(q));
-    }
   }
 
-  void _openArtist(Map<String, dynamic> person) {
-    final id = (person['userId'] ?? person['user_id'] ?? person['id'] ?? '')
-        .toString()
-        .trim();
-    if (id.isEmpty) return;
-    Navigator.pushNamed(
-      context,
-      AppRoutes.artistProfile,
-      arguments: id,
-    );
+  void _setArtistScope(String scope) {
+    if (_artistScope == scope) return;
+    setState(() => _artistScope = scope);
   }
 
   Future<void> _onAppBarRefresh() async {
@@ -207,7 +150,6 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
 
   @override
   Widget build(BuildContext context) {
-    final surfaces = context.networxSurfaces;
     final scheme = Theme.of(context).colorScheme;
 
     final embedded = widget.onOpenNavDrawer != null;
@@ -248,12 +190,8 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
               icon: const Icon(Icons.video_call_outlined),
             ),
             IconButton(
-              onPressed: _tabController.index == 1 && _hasArtistQuery
-                  ? () => _searchArtists(_searchCtrl.text.trim())
-                  : _onAppBarRefresh,
-              tooltip: _tabController.index == 1 && _hasArtistQuery
-                  ? 'Search'
-                  : 'Refresh',
+              onPressed: _onAppBarRefresh,
+              tooltip: 'Refresh',
               icon: const Icon(Icons.refresh),
             ),
           ],
@@ -283,6 +221,22 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
                           checkmarkColor: scheme.primary,
                         ),
                       ),
+                    for (final option in const [
+                      ('all', 'Everyone'),
+                      ('following', 'Following'),
+                      ('liked', 'Liked'),
+                    ])
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: FilterChip(
+                          label: Text(option.$2),
+                          selected: _artistScope == option.$1,
+                          onSelected: (_) => _setArtistScope(option.$1),
+                          visualDensity: VisualDensity.compact,
+                          selectedColor: scheme.primary.withValues(alpha: 0.22),
+                          checkmarkColor: scheme.primary,
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -292,11 +246,6 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
               child: TextField(
                 controller: _searchCtrl,
                 textInputAction: TextInputAction.search,
-                onSubmitted: (v) {
-                  if (_tabController.index == 1 && v.trim().length >= 2) {
-                    unawaited(_searchArtists(v.trim()));
-                  }
-                },
                 decoration: InputDecoration(
                   hintText: _tabController.index == 2
                       ? 'Filter your favorites, likes, and dislikes…'
@@ -346,6 +295,8 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
                       _LikedArtistsTab(
                         key: _likedArtistsKey,
                         sort: _artistSort,
+                        query: _artistQuery,
+                        scope: _artistScope,
                       ),
                       _LibraryTab(
                         key: _libraryKey,
@@ -355,13 +306,6 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
                       ),
                     ],
                   ),
-                  if (_tabController.index == 1 && _hasArtistQuery)
-                    Positioned.fill(
-                      child: ColoredBox(
-                        color: scheme.surface,
-                        child: _buildArtistSearchBody(surfaces),
-                      ),
-                    ),
                 ],
               ),
             ),
@@ -378,111 +322,6 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
     );
   }
 
-  Widget _buildArtistSearchBody(NetworxSurfaces surfaces) {
-    if (_searchingArtists && _artistResults.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (_artistSearchError != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _artistSearchError!,
-                textAlign: TextAlign.center,
-                style: TextStyle(color: surfaces.textSecondary),
-              ),
-              const SizedBox(height: 12),
-              FilledButton.icon(
-                onPressed: () => _searchArtists(_searchCtrl.text.trim()),
-                icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-    if (_artistResults.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            'No artists match “${_searchCtrl.text.trim()}”.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: surfaces.textSecondary),
-          ),
-        ),
-      );
-    }
-
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
-      itemCount: _artistResults.length + (_searchingArtists ? 1 : 0),
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        if (index >= _artistResults.length) {
-          return const Padding(
-            padding: EdgeInsets.all(16),
-            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-          );
-        }
-        final person = _artistResults[index];
-        final name = (person['displayName'] ??
-                person['display_name'] ??
-                'Artist')
-            .toString();
-        final headline = (person['headline'] ?? '').toString();
-        final location = (person['locationRegion'] ??
-                person['location_region'] ??
-                '')
-            .toString();
-        final avatar = (person['avatarUrl'] ?? person['avatar_url'] ?? '')
-            .toString();
-        final subtitle = [
-          if (headline.isNotEmpty) headline,
-          if (location.isNotEmpty) location,
-        ].join(' · ');
-
-        return Card(
-          child: ListTile(
-            onTap: () => _openArtist(person),
-            leading: CircleAvatar(
-              backgroundColor:
-                  DimensionTokens.neonCyan.withValues(alpha: 0.15),
-              backgroundImage:
-                  avatar.isNotEmpty ? NetworkImage(avatar) : null,
-              child: avatar.isEmpty
-                  ? Text(
-                      name.isNotEmpty ? name[0].toUpperCase() : '?',
-                      style: TextStyle(
-                        color: DimensionTokens.neonCyan,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    )
-                  : null,
-            ),
-            title: Text(
-              name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-            subtitle: subtitle.isEmpty
-                ? null
-                : Text(
-                    subtitle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-            trailing: const Icon(Icons.chevron_right),
-          ),
-        );
-      },
-    );
-  }
 }
 
 // _FeedTab + _FeedPostComposer were removed: posting now happens only inside
@@ -492,9 +331,16 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
 // Discover "Saved" tab removed — swipe likes live under Library → Liked.
 
 class _LikedArtistsTab extends StatefulWidget {
-  const _LikedArtistsTab({super.key, required this.sort});
+  const _LikedArtistsTab({
+    super.key,
+    required this.sort,
+    required this.query,
+    required this.scope,
+  });
 
   final String sort;
+  final String query;
+  final String scope;
 
   @override
   State<_LikedArtistsTab> createState() => _LikedArtistsTabState();
@@ -519,7 +365,7 @@ class _LikedArtistsTabState extends State<_LikedArtistsTab> {
   @override
   void didUpdateWidget(covariant _LikedArtistsTab oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.sort != widget.sort) {
+    if (oldWidget.sort != widget.sort || oldWidget.query != widget.query) {
       unawaited(_loadMoreArtists());
     }
   }
@@ -552,296 +398,202 @@ class _LikedArtistsTabState extends State<_LikedArtistsTab> {
 
   Future<void> _loadMoreArtists() async {
     final sort = widget.sort;
+    final query = widget.query.trim();
     try {
       final res = await _people.listPeople(
         role: 'artist',
+        search: query.length >= 2 ? query : null,
         sort: sort,
-        limit: 40,
+        limit: 50,
         offset: 0,
       );
       final raw = (res['items'] is List) ? res['items'] as List : const [];
-      final likedIds = _liked.map((a) => a.userId).toSet();
-      // Prefer excluding already-liked when that list is already in; if liked
-      // hasn't finished yet, filter again after both settle in build.
       final items = raw
           .whereType<Map>()
           .map((m) => Map<String, dynamic>.from(m))
           .where((m) {
             final id = (m['userId'] ?? m['user_id'] ?? m['id'] ?? '')
                 .toString();
-            return id.isNotEmpty && !likedIds.contains(id);
+            return id.isNotEmpty;
           })
           .toList();
-      if (!mounted || widget.sort != sort) return;
+      if (!mounted || widget.sort != sort || widget.query.trim() != query) {
+        return;
+      }
       setState(() => _moreArtists = items);
     } catch (_) {
-      if (!mounted || widget.sort != sort) return;
+      if (!mounted || widget.sort != sort || widget.query.trim() != query) {
+        return;
+      }
       setState(
         () => _moreError = "Couldn't load more artists. Pull to refresh.",
       );
     } finally {
-      if (mounted) setState(() => _loadingMore = false);
+      if (mounted && widget.sort == sort && widget.query.trim() == query) {
+        setState(() => _loadingMore = false);
+      }
     }
   }
 
-  void _openLiked(DiscoverLikedArtist artist) {
-    if (artist.userId.isEmpty) return;
-    unawaited(
-      AppRoutes.openArtistProfile(context, artistId: artist.userId),
-    );
+  int _asInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 
-  void _openPerson(Map<String, dynamic> person) {
-    final id = (person['userId'] ?? person['user_id'] ?? person['id'] ?? '')
-        .toString()
-        .trim();
-    if (id.isEmpty) return;
-    unawaited(AppRoutes.openArtistProfile(context, artistId: id));
-  }
+  List<
+      ({
+        String id,
+        String name,
+        String subtitle,
+        String image,
+        int listens,
+        int likes,
+      })> get _cards {
+    if (widget.scope == 'liked') {
+      final q = widget.query.trim().toLowerCase();
+      final rows = _liked.where((artist) {
+        if (q.isEmpty) return true;
+        final name = (artist.displayName ?? '').toLowerCase();
+        final handle = (artist.username ?? '').toLowerCase();
+        return name.contains(q) || handle.contains(q);
+      }).toList();
+      if (widget.sort == 'songs') {
+        rows.sort((a, b) => b.likedSongCount.compareTo(a.likedSongCount));
+      } else if (widget.sort == 'recent') {
+        rows.sort((a, b) {
+          final ad = a.lastLikedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final bd = b.lastLikedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          return bd.compareTo(ad);
+        });
+      }
+      return [
+        for (final artist in rows)
+          (
+            id: artist.userId,
+            name: (artist.displayName ?? '').trim().isEmpty
+                ? 'Artist'
+                : artist.displayName!.trim(),
+            subtitle: artist.likedSongCount > 0
+                ? '${artist.likedSongCount} liked song${artist.likedSongCount == 1 ? '' : 's'}'
+                : (artist.headline ?? '').trim(),
+            image: (artist.avatarUrl ?? '').trim(),
+            listens: 0,
+            likes: artist.likedSongCount,
+          ),
+      ];
+    }
 
-  List<Map<String, dynamic>> get _browseArtists {
-    final likedIds = _liked.map((a) => a.userId).toSet();
-    return _moreArtists.where((m) {
-      final id = (m['userId'] ?? m['user_id'] ?? m['id'] ?? '').toString();
-      return id.isNotEmpty && !likedIds.contains(id);
-    }).toList();
+    final people = widget.scope == 'following'
+        ? _moreArtists.where((person) => person['isFollowing'] == true).toList()
+        : _moreArtists;
+    return [
+      for (final person in people)
+        () {
+          final rawName =
+              (person['displayName'] ?? person['display_name'] ?? '')
+                  .toString()
+                  .trim();
+          final headline = (person['headline'] ?? '').toString().trim();
+          return (
+            id: (person['userId'] ?? person['user_id'] ?? person['id'] ?? '')
+                .toString(),
+            name: rawName.isEmpty ? 'Artist' : rawName,
+            subtitle: headline,
+            image:
+                (person['avatarUrl'] ?? person['avatar_url'] ?? '').toString(),
+            listens: _asInt(person['listens'] ?? person['earsReached']),
+            likes: _asInt(person['likeCount']),
+          );
+        }(),
+    ];
   }
 
   @override
   Widget build(BuildContext context) {
     final surfaces = context.networxSurfaces;
-    final scheme = Theme.of(context).colorScheme;
-    final browse = _browseArtists;
-    final initialLoading =
-        (_loadingLiked && _liked.isEmpty) && (_loadingMore && browse.isEmpty);
+    final cards = _cards;
+    final loading = widget.scope == 'liked' ? _loadingLiked : _loadingMore;
+    final error = widget.scope == 'liked' ? _likedError : _moreError;
 
-    if (initialLoading) {
+    if (loading && cards.isEmpty) {
       return const Center(child: CircularProgressIndicator());
+    }
+
+    if (error != null && cards.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(error, textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: () => unawaited(reload()),
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (cards.isEmpty) {
+      final message = switch (widget.scope) {
+        'following' => "You aren't following any artists yet.",
+        'liked' => "You haven't liked any songs yet.",
+        _ => widget.query.trim().isEmpty
+            ? 'No artists to show yet.'
+            : 'No artists match “${widget.query.trim()}”.',
+      };
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: surfaces.textSecondary),
+          ),
+        ),
+      );
     }
 
     return RefreshIndicator(
       onRefresh: reload,
-      child: ListView(
+      child: GridView.builder(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 32),
-        children: [
-          _sectionLabel(surfaces, 'Artists you’ve liked'),
-          const SizedBox(height: 8),
-          if (_loadingLiked && _liked.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
-              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-            )
-          else if (_likedError != null && _liked.isEmpty)
-            _messageCard(
-              surfaces,
-              _likedError!,
-              actionLabel: 'Retry',
-              onAction: _loadLiked,
-            )
-          else if (_liked.isEmpty)
-            _messageCard(
-              surfaces,
-              'None yet — swipe right on Discover songs, or browse more artists below.',
-            )
-          else
-            ..._liked.map((artist) {
-              // Null displayName used to take the false branch of
-              // `(name ?? 'Artist').isEmpty ? … : name!` and crash the tab.
-              final rawName = (artist.displayName ?? '').trim();
-              final name = rawName.isEmpty ? 'Artist' : rawName;
-              final handle = (artist.username ?? '').trim();
-              final headline = (artist.headline ?? '').trim();
-              final meta = [
-                if (handle.isNotEmpty) '@$handle',
-                if (headline.isNotEmpty) headline,
-              ].join(' · ');
-              final likedLine = artist.likedSongCount > 0
-                  ? '${artist.likedSongCount} liked song${artist.likedSongCount == 1 ? '' : 's'}'
-                  : null;
-              final avatar = (artist.avatarUrl ?? '').trim();
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Card(
-                  child: ListTile(
-                    onTap: () => _openLiked(artist),
-                    leading: CircleAvatar(
-                      backgroundColor: scheme.surfaceContainerHighest,
-                      backgroundImage:
-                          avatar.isNotEmpty ? NetworkImage(avatar) : null,
-                      child: avatar.isEmpty
-                          ? const Icon(Icons.person_outline)
-                          : null,
-                    ),
-                    title: Text(
-                      name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (meta.isNotEmpty)
-                          Text(
-                            meta,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: surfaces.textSecondary,
-                              fontSize: 13,
-                            ),
-                          ),
-                        if (likedLine != null)
-                          Text(
-                            likedLine,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: surfaces.textMuted,
-                              fontSize: 12,
-                            ),
-                          ),
-                      ],
-                    ),
-                    isThreeLine: meta.isNotEmpty && likedLine != null,
-                    trailing: const Icon(Icons.chevron_right),
-                  ),
-                ),
-              );
-            }),
-          const SizedBox(height: 16),
-          _sectionLabel(surfaces, 'More artists'),
-          const SizedBox(height: 4),
-          Text(
-            'Search above to find anyone by name, or browse here.',
-            style: TextStyle(color: surfaces.textMuted, fontSize: 12),
-          ),
-          const SizedBox(height: 8),
-          if (_loadingMore && browse.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
-              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-            )
-          else if (_moreError != null && browse.isEmpty)
-            _messageCard(
-              surfaces,
-              _moreError!,
-              actionLabel: 'Retry',
-              onAction: _loadMoreArtists,
-            )
-          else if (browse.isEmpty)
-            _messageCard(
-              surfaces,
-              'No other discoverable artists right now. Try searching by name.',
-            )
-          else ...[
-            ...browse.map((person) {
-              final name =
-                  (person['displayName'] ??
-                          person['display_name'] ??
-                          'Artist')
-                      .toString()
-                      .trim();
-              final handle =
-                  (person['username'] ?? '').toString().trim();
-              final headline =
-                  (person['headline'] ?? '').toString().trim();
-              final avatar =
-                  (person['avatarUrl'] ?? person['avatar_url'] ?? '')
-                      .toString();
-              final meta = [
-                if (handle.isNotEmpty) '@$handle',
-                if (headline.isNotEmpty) headline,
-              ].join(' · ');
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Card(
-                  child: ListTile(
-                    onTap: () => _openPerson(person),
-                    leading: CircleAvatar(
-                      backgroundColor: scheme.surfaceContainerHighest,
-                      backgroundImage:
-                          avatar.isNotEmpty ? NetworkImage(avatar) : null,
-                      child: avatar.isEmpty
-                          ? const Icon(Icons.person_outline)
-                          : null,
-                    ),
-                    title: Text(
-                      name.isEmpty ? 'Artist' : name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    subtitle: meta.isEmpty
-                        ? null
-                        : Text(
-                            meta,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                    trailing: const Icon(Icons.chevron_right),
-                  ),
-                ),
-              );
-            }),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-              child: Text(
-                'That’s everyone for now. Use search to find more.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: surfaces.textMuted, fontSize: 12),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _sectionLabel(NetworxSurfaces surfaces, String text) {
-    return Text(
-      text,
-      style: TextStyle(
-        color: surfaces.textSecondary,
-        fontSize: 13,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 0.2,
-      ),
-    );
-  }
-
-  Widget _messageCard(
-    NetworxSurfaces surfaces,
-    String message, {
-    String? actionLabel,
-    Future<void> Function()? onAction,
-  }) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: surfaces.textSecondary, fontSize: 13),
-            ),
-            if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: 10),
-              Center(
-                child: TextButton.icon(
-                  onPressed: () => unawaited(onAction()),
-                  icon: const Icon(Icons.refresh, size: 18),
-                  label: Text(actionLabel),
-                ),
-              ),
-            ],
-          ],
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 32),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          childAspectRatio: 0.68,
         ),
+        itemCount: cards.length,
+        itemBuilder: (context, index) {
+          final artist = cards[index];
+          return ArtistGlassCard(
+            rank: index + 1,
+            name: artist.name,
+            subtitle: artist.subtitle,
+            imageUrl: artist.image,
+            listens: artist.listens,
+            likes: artist.likes,
+            onTap: () {
+              if (artist.id.isEmpty) return;
+              unawaited(
+                AppRoutes.openArtistProfile(context, artistId: artist.id),
+              );
+            },
+          );
+        },
       ),
     );
   }
 }
+
 
 class _LibraryTab extends StatefulWidget {
   const _LibraryTab({super.key, this.filter = ''});

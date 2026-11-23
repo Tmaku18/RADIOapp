@@ -10,6 +10,7 @@ export 'dimension_typography.dart';
 export 'chat_backdrop.dart';
 export 'cyber_backdrop.dart';
 export 'dimension_cta_button.dart';
+export 'artist_glass_card.dart';
 export 'glass_card.dart';
 export 'glitch_text.dart';
 export 'live_dot.dart';
