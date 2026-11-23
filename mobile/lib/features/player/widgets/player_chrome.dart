@@ -532,6 +532,7 @@ class _PlayerBody extends StatelessWidget {
   final bool isBuying;
   final VoidCallback onBuy;
   final Future<void> Function(String reaction) onReact;
+  final AlbumReactionBurst? albumBurst;
   final VoidCallback onRate;
   final VoidCallback onToggleFavorite;
   final VoidCallback onAddToPlaylist;
@@ -562,6 +563,7 @@ class _PlayerBody extends StatelessWidget {
     required this.isBuying,
     required this.onBuy,
     required this.onReact,
+    required this.albumBurst,
     required this.onRate,
     required this.onToggleFavorite,
     required this.onAddToPlaylist,
@@ -596,6 +598,9 @@ class _PlayerBody extends StatelessWidget {
           tag: 'now-playing-art',
           child: TouchTilt(
           share: coverTilt,
+          child: AlbumReactionHost(
+          burst: albumBurst,
+          borderRadius: BorderRadius.circular(DimensionTokens.artworkRadius),
           child: DecoratedBox(
           // The one place in the app that gets a real drop shadow — it lifts
           // the cover off its own blurred backdrop.
@@ -647,6 +652,7 @@ class _PlayerBody extends StatelessWidget {
             ),
           ),
         ),
+          ),
           ),
           ),
         ),

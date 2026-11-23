@@ -28,6 +28,7 @@ import '../../core/services/radio_connection_monitor.dart';
 import '../../core/services/radio_presence_service.dart';
 import '../../core/services/radio_share.dart';
 import 'radio_capture_screen.dart';
+import 'widgets/album_reaction_fx.dart';
 import 'widgets/song_stories_strip.dart';
 import '../../core/services/station_events_service.dart';
 import '../../core/navigation/app_routes.dart';
@@ -119,6 +120,8 @@ class _PlayerScreenState extends State<PlayerScreen>
   bool _isLoading = true;
   bool _hasVoted = false;
   String? _selectedReaction;
+  int _albumBurstSerial = 0;
+  String? _albumBurstKind;
   bool _isVoting = false;
   bool _isFavorite = false;
   bool _favoriteBusy = false;
@@ -1111,7 +1114,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   void _startTrackSyncTimer() {
     _trackSyncTimer?.cancel();
     // Keep pace with the live queue (was 30s — too slow for station advances).
-    _trackSyncTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+    _trackSyncTimer = Timer.periodic(const Duration(seconds: 25), (_) {
       _syncCurrentTrack();
     });
   }
@@ -1312,7 +1315,7 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   void _startTrackStatsTimer() {
     _presenceTimer?.cancel();
-    _presenceTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+    _presenceTimer = Timer.periodic(const Duration(seconds: 60), (_) {
       _refreshTrackStats();
     });
   }
@@ -1437,6 +1440,8 @@ class _PlayerScreenState extends State<PlayerScreen>
 
     setState(() {
       _isVoting = true;
+      _albumBurstSerial += 1;
+      _albumBurstKind = reaction;
     });
 
     try {
@@ -1810,6 +1815,12 @@ class _PlayerScreenState extends State<PlayerScreen>
                       isBuying: _isBuying,
                       onBuy: _buySong,
                       onReact: _react,
+                      albumBurst: _albumBurstKind == null
+                          ? null
+                          : AlbumReactionBurst(
+                              id: _albumBurstSerial,
+                              kind: _albumBurstKind!,
+                            ),
                       onRate: _rateCurrentSong,
                       onToggleFavorite: _toggleFavorite,
                       onAddToPlaylist: () {

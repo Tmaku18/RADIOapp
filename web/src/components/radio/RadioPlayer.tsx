@@ -45,6 +45,11 @@ import { parseDjOverlay, subscribeDjBoothEvents } from '@/lib/dj-booth-listener'
 import { resolveNextTrackAfterEnd, shouldDeferServerTrackSwitch } from '@/lib/radio-sync';
 import { useBassPulseRef } from '@/components/dimension/BassPulseLogo';
 import {
+  AlbumReactionHost,
+  nextAlbumBurst,
+  type AlbumReactionBurst,
+} from '@/components/radio/AlbumReactionFx';
+import {
   consumeRadioNavIntent,
   getStationAutoplayEnabled,
 } from '@/lib/playback-preferences';
@@ -109,6 +114,7 @@ export function RadioPlayer({
   const { profile } = useAuth();
   const [hasVoted, setHasVoted] = useState(false);
   const [selectedReaction, setSelectedReaction] = useState<'fire' | 'shit' | null>(null);
+  const [albumBurst, setAlbumBurst] = useState<AlbumReactionBurst | null>(null);
   const [isVoting, setIsVoting] = useState(false);
   const [reactionError, setReactionError] = useState<string | null>(null);
   const [isBuying, setIsBuying] = useState(false);
@@ -1097,7 +1103,7 @@ export function RadioPlayer({
         // Count refresh failures should not affect playback.
       }
     };
-    const interval = setInterval(refreshReactions, 7000);
+    const interval = setInterval(refreshReactions, 20000);
     return () => {
       cancelled = true;
       clearInterval(interval);
@@ -1133,6 +1139,7 @@ export function RadioPlayer({
     if (!state.track) return;
     if (isVoting) return;
 
+    setAlbumBurst(nextAlbumBurst(reaction));
     setIsVoting(true);
     setReactionError(null);
     try {
@@ -1533,8 +1540,9 @@ export function RadioPlayer({
           )}
 
           <div className="relative p-6 pt-7 md:p-8 md:pt-9 flex flex-col md:flex-row gap-6 md:gap-8 items-center md:items-start">
-            <div
-              ref={artRef}
+            <AlbumReactionHost
+              burst={albumBurst}
+              artRef={artRef}
               onPointerMove={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 if (rect.width <= 0 || rect.height <= 0) return;
@@ -1548,9 +1556,9 @@ export function RadioPlayer({
               onPointerCancel={(e) => {
                 e.currentTarget.style.transform = 'perspective(900px) rotateX(0deg) rotateY(0deg)';
               }}
-              className="relative w-56 h-56 md:w-72 md:h-72 shrink-0 transition-transform duration-100 ease-out will-change-transform [transform-style:preserve-3d]"
+              className="w-56 h-56 md:w-72 md:h-72 shrink-0 transition-transform duration-100 ease-out will-change-transform [transform-style:preserve-3d]"
+              artClassName="rounded-2xl ring-1 ring-cyan-400/30"
             >
-              <div className="absolute inset-0 rounded-2xl overflow-hidden ring-1 ring-cyan-400/30">
               <ArtworkImage
                 src={state.track?.artworkUrl}
                 alt={state.track?.title || 'Album art'}
@@ -1568,8 +1576,7 @@ export function RadioPlayer({
                   <div className="animate-spin rounded-full h-10 w-10 border-2 border-cyan-400 border-t-transparent" />
                 </div>
               )}
-              </div>
-            </div>
+            </AlbumReactionHost>
 
             <div className="flex-1 min-w-0 w-full">
               <div className="font-dim-mono text-[10px] tracking-[0.3em] text-cyan-300 mb-2">
@@ -1762,23 +1769,27 @@ export function RadioPlayer({
   }
 
   return (
-    <Card className={cn('overflow-hidden glass-panel border-border/80', cardClassName)}>
+    <Card className={cn('overflow-visible glass-panel border-border/80', cardClassName)}>
       {/* Album Art — subtle signature gradient behind */}
-      <div className="h-[clamp(110px,20vh,240px)] sm:h-[clamp(130px,24vh,280px)] bg-signature relative overflow-hidden shrink-0">
+      <AlbumReactionHost
+        burst={albumBurst}
+        className="h-[clamp(110px,20vh,240px)] sm:h-[clamp(130px,24vh,280px)] bg-signature shrink-0"
+        artClassName="rounded-t-2xl"
+      >
         <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-primary/10" aria-hidden />
         <ArtworkImage
           src={state.track?.artworkUrl}
           alt={state.track?.title || 'Album art'}
           className="w-full h-full object-cover relative z-0"
         />
-        
+
         {/* Loading overlay */}
         {state.isLoading && (
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
           </div>
         )}
-      </div>
+      </AlbumReactionHost>
 
       {/* Track Info */}
       <div className="p-3 sm:p-4">

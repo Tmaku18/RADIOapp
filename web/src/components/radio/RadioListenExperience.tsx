@@ -196,11 +196,13 @@ export function RadioListenExperience({
               <Reveal>
                 <div
                   data-testid="player-hero"
-                  className="relative rounded-3xl glass overflow-hidden"
+                  className="relative rounded-3xl glass overflow-visible"
                 >
-                  <div className="absolute inset-0 cyber-grid opacity-20 pointer-events-none" />
-                  <div className="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-cyan-500/20 blur-3xl pointer-events-none" />
-                  <div className="absolute -bottom-24 -right-24 w-72 h-72 rounded-full bg-pink-500/15 blur-3xl pointer-events-none" />
+                  <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none" aria-hidden>
+                    <div className="absolute inset-0 cyber-grid opacity-20" />
+                    <div className="absolute -top-24 -left-24 w-72 h-72 rounded-full bg-cyan-500/20 blur-3xl" />
+                    <div className="absolute -bottom-24 -right-24 w-72 h-72 rounded-full bg-pink-500/15 blur-3xl" />
+                  </div>
 
                   <RadioPlayer
                     radioId={resolvedStationId}

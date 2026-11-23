@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import {
   FastForward,
   Flame,
@@ -20,17 +20,31 @@ import { SongStoriesBar } from '@/components/radio/SongStoriesBar';
 import { usePlaybackOptional } from '@/components/playback/PlaybackProvider';
 import { signalRadioNavIntent } from '@/lib/playback-preferences';
 import type { DimensionPlayerModel } from '@/hooks/useDimensionPlayer';
+import {
+  AlbumReactionHost,
+  nextAlbumBurst,
+  type AlbumReactionBurst,
+} from '@/components/radio/AlbumReactionFx';
 
 const MINI_VBAR_COUNT = 9;
 
-function ReactionButtons({ player }: { player: DimensionPlayerModel }) {
+function ReactionButtons({
+  player,
+  onBurst,
+}: {
+  player: DimensionPlayerModel;
+  onBurst: (kind: AlbumReactionBurst['kind']) => void;
+}) {
   if (!player.canVote) return null;
 
   return (
     <div className="flex items-center gap-1 shrink-0">
       <button
         type="button"
-        onClick={() => player.submitReaction('shit')}
+        onClick={() => {
+          onBurst('shit');
+          player.submitReaction('shit');
+        }}
         disabled={player.isVoting}
         data-testid="player-shit-btn"
         aria-label="Pass vote"
@@ -45,7 +59,10 @@ function ReactionButtons({ player }: { player: DimensionPlayerModel }) {
       </button>
       <button
         type="button"
-        onClick={() => player.submitReaction('fire')}
+        onClick={() => {
+          onBurst('fire');
+          player.submitReaction('fire');
+        }}
         disabled={player.isVoting}
         data-testid="player-fire-btn"
         aria-label="Fire vote"
@@ -156,12 +173,13 @@ type DimensionRadioBarProps = {
 export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
   const playback = usePlaybackOptional();
   const artRef = useBassPulseRef(playback?.bassRef);
+  const [albumBurst, setAlbumBurst] = useState<AlbumReactionBurst | null>(null);
   const tempLabel =
     player.temperature != null ? `${player.temperature}°` : '—';
 
   return (
     <footer
-      className="fixed bottom-0 left-0 right-0 z-50 glass border-t border-white/10 pointer-events-none"
+      className="fixed bottom-0 left-0 right-0 z-50 glass border-t border-white/10 pointer-events-none overflow-visible"
       aria-label="Now playing"
       data-dimension
       data-testid="radio-player"
@@ -177,9 +195,12 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
           }}
           className="pointer-events-auto flex items-center gap-3 min-w-0 flex-1 lg:flex-none lg:w-72 hover:opacity-90 transition-opacity"
         >
-          <div
-            ref={artRef}
-            className="relative w-12 h-12 rounded overflow-hidden border border-cyan-400/40 shrink-0 bg-muted/40 transition-shadow duration-75"
+          <AlbumReactionHost
+            burst={albumBurst}
+            compact
+            artRef={artRef}
+            className="w-12 h-12 shrink-0"
+            artClassName="rounded border border-cyan-400/40 bg-muted/40 transition-shadow duration-75"
           >
             <ArtworkImage
               src={player.artworkUrl}
@@ -187,7 +208,7 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
               className="w-full h-full object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-          </div>
+          </AlbumReactionHost>
           <div className="min-w-0">
             {player.showLiveBadge ? (
               <div className="flex items-center gap-2">
@@ -217,7 +238,10 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
 
         {player.canVote ? (
           <div className="pointer-events-auto hidden sm:flex shrink-0 border-l border-white/10 pl-3">
-            <ReactionButtons player={player} />
+            <ReactionButtons
+              player={player}
+              onBurst={(kind) => setAlbumBurst(nextAlbumBurst(kind))}
+            />
           </div>
         ) : null}
 
@@ -302,7 +326,10 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
             </div>
             {player.canVote ? (
               <div className="pointer-events-auto sm:hidden ml-1">
-                <ReactionButtons player={player} />
+                <ReactionButtons
+                  player={player}
+                  onBurst={(kind) => setAlbumBurst(nextAlbumBurst(kind))}
+                />
               </div>
             ) : null}
           </div>
