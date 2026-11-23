@@ -74,6 +74,13 @@ export default function ProNetworxBeatsPage() {
   );
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setAppliedQuery(query);
+    }, 280);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  useEffect(() => {
     setOffset(0);
     void fetchPage(false, 0);
   }, [fetchPage]);
@@ -171,21 +178,16 @@ export default function ProNetworxBeatsPage() {
         )}
       </div>
 
-      <form
-        className="relative"
-        onSubmit={(e) => {
-          e.preventDefault();
-          setAppliedQuery(query);
-        }}
-      >
+      <div className="relative">
         <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search beats or producers"
           className="pl-9"
+          aria-label="Search beats or producers"
         />
-      </form>
+      </div>
 
       {error && (
         <p className="text-sm text-destructive">{error}</p>

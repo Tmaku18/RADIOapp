@@ -77,7 +77,17 @@ extension AdminDashboardTabs on _AdminDashboardScreenState {
             Expanded(
               child: TextField(
                 controller: _songSearchCtrl,
-                onSubmitted: (_) => _refreshSongs(),
+                onChanged: (_) {
+                  _songSearchDebounce?.cancel();
+                  _songSearchDebounce = Timer(
+                    const Duration(milliseconds: 280),
+                    _refreshSongs,
+                  );
+                },
+                onSubmitted: (_) {
+                  _songSearchDebounce?.cancel();
+                  _refreshSongs();
+                },
                 decoration: const InputDecoration(
                   labelText: 'Search songs by title',
                   border: OutlineInputBorder(),
@@ -85,7 +95,13 @@ extension AdminDashboardTabs on _AdminDashboardScreenState {
               ),
             ),
             const SizedBox(width: 8),
-            FilledButton(onPressed: _refreshSongs, child: const Text('Search')),
+            FilledButton(
+              onPressed: () {
+                _songSearchDebounce?.cancel();
+                _refreshSongs();
+              },
+              child: const Text('Search'),
+            ),
           ],
         ),
         const SizedBox(height: 10),
@@ -611,7 +627,17 @@ extension AdminDashboardTabs on _AdminDashboardScreenState {
             Expanded(
               child: TextField(
                 controller: _userSearchCtrl,
-                onSubmitted: (_) => _refreshUsers(),
+                onChanged: (_) {
+                  _userSearchDebounce?.cancel();
+                  _userSearchDebounce = Timer(
+                    const Duration(milliseconds: 280),
+                    _refreshUsers,
+                  );
+                },
+                onSubmitted: (_) {
+                  _userSearchDebounce?.cancel();
+                  _refreshUsers();
+                },
                 decoration: const InputDecoration(
                   labelText: 'Search users / artists (name or email)',
                   border: OutlineInputBorder(),
@@ -619,7 +645,13 @@ extension AdminDashboardTabs on _AdminDashboardScreenState {
               ),
             ),
             const SizedBox(width: 8),
-            FilledButton(onPressed: _refreshUsers, child: const Text('Search')),
+            FilledButton(
+              onPressed: () {
+                _userSearchDebounce?.cancel();
+                _refreshUsers();
+              },
+              child: const Text('Search'),
+            ),
           ],
         ),
         const SizedBox(height: 10),

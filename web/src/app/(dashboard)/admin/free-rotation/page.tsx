@@ -144,13 +144,26 @@ export default function FreeRotationPage() {
   };
 
   // Handle search
-  const handleSearch = () => {
+  const handleSearch = useCallback(() => {
     if (searchTab === 'songs') {
-      searchSongs();
+      void searchSongs();
     } else {
-      searchUsers();
+      void searchUsers();
     }
-  };
+  }, [searchTab, searchQuery]);
+
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (q.length < 2) {
+      setSongs([]);
+      setUsers([]);
+      return;
+    }
+    const timer = setTimeout(() => {
+      handleSearch();
+    }, 280);
+    return () => clearTimeout(timer);
+  }, [searchQuery, searchTab, handleSearch]);
 
   // Render eligibility badge
   const EligibilityBadge = ({ song }: { song: Song }) => {
@@ -252,17 +265,13 @@ export default function FreeRotationPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             placeholder={searchTab === 'songs' ? 'Search by song title...' : 'Search by name or email...'}
             className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+            aria-label={searchTab === 'songs' ? 'Search songs' : 'Search users'}
           />
-          <button
-            onClick={handleSearch}
-            disabled={loading || searchQuery.trim().length < 2}
-            className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
-          >
-            {loading ? 'Searching...' : 'Search'}
-          </button>
+          {loading && (
+            <span className="self-center text-sm text-muted-foreground">Searching…</span>
+          )}
         </div>
 
         {error && (

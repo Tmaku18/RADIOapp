@@ -106,7 +106,9 @@ export function ProNetworxDirectoryContent({
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [location, setLocation] = useState('');
+  const [debouncedLocation, setDebouncedLocation] = useState('');
   const [skill, setSkill] = useState('');
   const [availableOnly, setAvailableOnly] = useState(false);
 
@@ -118,9 +120,17 @@ export function ProNetworxDirectoryContent({
   const [randomSeed, setRandomSeed] = useState(() => String(Date.now()));
   const [followBusy, setFollowBusy] = useState<Record<string, boolean>>({});
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setDebouncedLocation(location);
+    }, 280);
+    return () => clearTimeout(timer);
+  }, [search, location]);
+
   const params = useMemo(() => {
-    const s = search.trim() || undefined;
-    const l = location.trim() || undefined;
+    const s = debouncedSearch.trim() || undefined;
+    const l = debouncedLocation.trim() || undefined;
     const sk = skill.trim().toLowerCase().replace(/\s+/g, '_') || undefined;
     return {
       search: s,
@@ -135,7 +145,7 @@ export function ProNetworxDirectoryContent({
           : ('default' as const),
       seed: randomMode ? randomSeed : undefined,
     };
-  }, [search, location, skill, availableOnly, randomMode, randomSeed, smartRanking]);
+  }, [debouncedSearch, debouncedLocation, skill, availableOnly, randomMode, randomSeed, smartRanking]);
 
   const load = useCallback(async (append: boolean, currentOffset: number) => {
     if (append) setLoadingMore(true);

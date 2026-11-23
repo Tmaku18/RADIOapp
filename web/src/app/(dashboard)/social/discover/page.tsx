@@ -99,6 +99,20 @@ export default function SocialDiscoverSwipePage() {
   const discoverSeedRef = useRef<string>(generateDiscoverSeed());
   const nextCursorRef = useRef<string | undefined>(undefined);
   const prefetchingRef = useRef(false);
+  const lastSearchNavRef = useRef<string>('');
+
+  useEffect(() => {
+    const q = searchQuery.trim();
+    const timer = setTimeout(() => {
+      const href = q
+        ? `/discover?tab=artist&q=${encodeURIComponent(q)}`
+        : '';
+      if (!href || href === lastSearchNavRef.current) return;
+      lastSearchNavRef.current = href;
+      router.push(href);
+    }, 280);
+    return () => clearTimeout(timer);
+  }, [searchQuery, router]);
 
   const currentCard = cards[0] ?? null;
   const currentCardClipCapSeconds = Math.max(
@@ -928,25 +942,12 @@ export default function SocialDiscoverSwipePage() {
       <Card className="border-border/80">
         <CardContent className="pt-4 space-y-3">
           <h2 className="text-lg font-semibold text-foreground">Search</h2>
-          <form
-            className="flex flex-col gap-2 sm:flex-row"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const q = searchQuery.trim();
-              if (!q) {
-                router.push('/discover?tab=artist');
-                return;
-              }
-              router.push(`/discover?tab=artist&q=${encodeURIComponent(q)}`);
-            }}
-          >
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search artists or catalysts..."
-            />
-            <Button type="submit">Search</Button>
-          </form>
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search artists or catalysts..."
+            aria-label="Search artists or catalysts"
+          />
         </CardContent>
       </Card>
 

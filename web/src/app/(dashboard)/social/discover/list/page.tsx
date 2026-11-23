@@ -181,6 +181,13 @@ export default function DiscoverLibraryPage() {
     }
   }, [artistSearch]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void searchArtists();
+    }, 280);
+    return () => clearTimeout(timer);
+  }, [searchArtists]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
@@ -362,20 +369,14 @@ export default function DiscoverLibraryPage() {
         </TabsContent>
 
         <TabsContent value="artists" className="space-y-4">
-          <form
-            className="flex gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void searchArtists();
-            }}
-          >
+          <div className="flex gap-2">
             <Input
               value={artistSearch}
               onChange={(e) => setArtistSearch(e.target.value)}
               placeholder="Search artists"
+              aria-label="Search artists"
             />
-            <Button type="submit">Search</Button>
-          </form>
+          </div>
           {artistResults.length > 0 && (
             <div className="space-y-2">
               <p className="text-sm font-medium">Search results</p>

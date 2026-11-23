@@ -71,6 +71,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   final TextEditingController _songSearchCtrl = TextEditingController();
   final TextEditingController _userSearchCtrl = TextEditingController();
+  Timer? _songSearchDebounce;
+  Timer? _userSearchDebounce;
   final TextEditingController _queueDraftCtrl = TextEditingController();
   final TextEditingController _fallbackTitleCtrl = TextEditingController();
   final TextEditingController _fallbackArtistCtrl = TextEditingController();
@@ -91,6 +93,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
   void dispose() {
     _previewSub?.cancel();
+    _songSearchDebounce?.cancel();
+    _userSearchDebounce?.cancel();
     _previewPlayer.dispose();
     _songSearchCtrl.dispose();
     _userSearchCtrl.dispose();

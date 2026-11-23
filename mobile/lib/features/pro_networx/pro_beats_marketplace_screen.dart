@@ -27,6 +27,7 @@ class _ProBeatsMarketplaceScreenState extends State<ProBeatsMarketplaceScreen> {
   final SongsService _songs = SongsService();
   final TextEditingController _search = TextEditingController();
   final AudioPlayer _player = AudioPlayerService().player;
+  Timer? _searchDebounce;
 
   bool _loading = true;
   String? _error;
@@ -59,9 +60,18 @@ class _ProBeatsMarketplaceScreenState extends State<ProBeatsMarketplaceScreen> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     unawaited(_playerSub?.cancel() ?? Future<void>.value());
     _search.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String _) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 280), () {
+      if (!mounted) return;
+      _load();
+    });
   }
 
   Future<void> _load() async {
@@ -214,13 +224,20 @@ class _ProBeatsMarketplaceScreenState extends State<ProBeatsMarketplaceScreen> {
                       hintText: 'trap, drill, producer name…',
                       isDense: true,
                     ),
-                    onSubmitted: (_) => _load(),
+                    onChanged: _onSearchChanged,
+                    onSubmitted: (_) {
+                      _searchDebounce?.cancel();
+                      _load();
+                    },
                   ),
                 ),
                 const SizedBox(width: 8),
                 IconButton(
                   tooltip: 'Search',
-                  onPressed: _load,
+                  onPressed: () {
+                    _searchDebounce?.cancel();
+                    _load();
+                  },
                   icon: const Icon(Icons.search),
                 ),
               ],

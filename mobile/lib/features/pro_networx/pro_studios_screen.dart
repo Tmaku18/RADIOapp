@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/models/studio_models.dart';
@@ -22,6 +24,7 @@ class _ProStudiosScreenState extends State<ProStudiosScreen>
     with SingleTickerProviderStateMixin {
   final StudioService _service = StudioService();
   final TextEditingController _query = TextEditingController();
+  Timer? _searchDebounce;
   List<Studio> _items = const [];
   bool _loading = true;
   late final TabController _tabs;
@@ -39,9 +42,18 @@ class _ProStudiosScreenState extends State<ProStudiosScreen>
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _tabs.dispose();
     _query.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String _) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 280), () {
+      if (!mounted) return;
+      _load();
+    });
   }
 
   Future<void> _load() async {
@@ -100,7 +112,11 @@ class _ProStudiosScreenState extends State<ProStudiosScreen>
                     hintText: 'Search studios',
                     prefixIcon: Icon(Icons.search),
                   ),
-                  onSubmitted: (_) => _load(),
+                  onChanged: _onSearchChanged,
+                  onSubmitted: (_) {
+                    _searchDebounce?.cancel();
+                    _load();
+                  },
                 ),
               ),
               const SizedBox(width: 8),

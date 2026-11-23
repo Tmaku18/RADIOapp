@@ -40,6 +40,7 @@ export default function ProNetworxServicesPage() {
   const { profile } = useAuth();
   const canList = hasArtistCapability(profile?.role) || profile?.role === 'service_provider';
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [serviceType, setServiceType] = useState('');
   const [items, setItems] = useState<ProServiceListing[]>([]);
   const [total, setTotal] = useState(0);
@@ -47,13 +48,18 @@ export default function ProNetworxServicesPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
 
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query), 280);
+    return () => clearTimeout(timer);
+  }, [query]);
+
   const fetchPage = useCallback(
     async (append: boolean, currentOffset: number) => {
       if (append) setLoadingMore(true);
       else setLoading(true);
       try {
         const res = await proNetworxApi.listServices({
-          search: query.trim() || undefined,
+          search: debouncedQuery.trim() || undefined,
           serviceType: serviceType || undefined,
           limit: PAGE_SIZE,
           offset: currentOffset,
@@ -69,7 +75,7 @@ export default function ProNetworxServicesPage() {
         setLoadingMore(false);
       }
     },
-    [query, serviceType],
+    [debouncedQuery, serviceType],
   );
 
   useEffect(() => {

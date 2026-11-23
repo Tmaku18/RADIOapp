@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
@@ -15,6 +17,7 @@ class ProServicesScreen extends StatefulWidget {
 class _ProServicesScreenState extends State<ProServicesScreen> {
   final ProNetworxService _service = ProNetworxService();
   final TextEditingController _query = TextEditingController();
+  Timer? _searchDebounce;
   String _serviceType = '';
   bool _loading = true;
   List<ProServiceListing> _items = [];
@@ -30,8 +33,17 @@ class _ProServicesScreenState extends State<ProServicesScreen> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _query.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String _) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 280), () {
+      if (!mounted) return;
+      _load(reset: true);
+    });
   }
 
   Future<void> _load({bool reset = false}) async {
@@ -75,7 +87,11 @@ class _ProServicesScreenState extends State<ProServicesScreen> {
               Expanded(
                 child: TextField(
                   controller: _query,
-                  onSubmitted: (_) => _load(reset: true),
+                  onChanged: _onSearchChanged,
+                  onSubmitted: (_) {
+                    _searchDebounce?.cancel();
+                    _load(reset: true);
+                  },
                   decoration: const InputDecoration(
                     hintText: 'Search services…',
                     prefixIcon: Icon(Icons.search),

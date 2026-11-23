@@ -155,7 +155,9 @@ export default function DiscoverPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState(initialSearchParam);
+  const [debouncedSearch, setDebouncedSearch] = useState(initialSearchParam);
   const [location, setLocation] = useState('');
+  const [debouncedLocation, setDebouncedLocation] = useState('');
   const [serviceType, setServiceType] = useState<string>('all');
   const [role, setRole] = useState<'artist' | 'service_provider'>('artist');
   const [activeTab, setActiveTab] = useState<
@@ -306,8 +308,8 @@ export default function DiscoverPage() {
         const minR = minRateCents.trim() ? parseInt(minRateCents, 10) : undefined;
         const maxR = maxRateCents.trim() ? parseInt(maxRateCents, 10) : undefined;
         const res = await discoveryApi.listPeople({
-          search: search.trim() || undefined,
-          location: location.trim() || undefined,
+          search: debouncedSearch.trim() || undefined,
+          location: debouncedLocation.trim() || undefined,
           serviceType: serviceType === 'all' ? undefined : serviceType,
           role,
           limit: PAGE_SIZE,
@@ -337,8 +339,16 @@ export default function DiscoverPage() {
         setLoadingMore(false);
       }
     },
-    [search, location, serviceType, role, nearbyEnabled, userLat, userLng, minRateCents, maxRateCents, randomMode, randomSeed],
+    [debouncedSearch, debouncedLocation, serviceType, role, nearbyEnabled, userLat, userLng, minRateCents, maxRateCents, randomMode, randomSeed],
   );
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setDebouncedLocation(location);
+    }, 280);
+    return () => clearTimeout(timer);
+  }, [search, location]);
 
   useEffect(() => {
     if (activeTab === 'artist' || activeTab === 'service_provider') setRole(activeTab);
@@ -347,7 +357,7 @@ export default function DiscoverPage() {
     if (activeTab === 'feed') return;
     setOffset(0);
     load(false, 0);
-  }, [activeTab, search, location, serviceType, role, randomMode, randomSeed]);
+  }, [activeTab, debouncedSearch, debouncedLocation, serviceType, role, randomMode, randomSeed]);
 
   const toggleFollow = async (targetUserId: string, currentlyFollowing: boolean) => {
     setFollowBusy((prev) => ({ ...prev, [targetUserId]: true }));
@@ -739,15 +749,15 @@ function PeopleTabContent({
                 placeholder="Search name, headline, bio..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && load(false, 0)}
                 className="bg-background border-border focus-visible:ring-primary"
+                aria-label="Search name, headline, bio"
               />
               <Input
                 placeholder="Location (region)"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && load(false, 0)}
                 className="bg-background border-border"
+                aria-label="Location region"
               />
               <Select value={serviceType} onValueChange={setServiceType}>
                 <SelectTrigger className="bg-background">

@@ -108,7 +108,9 @@ export default function ArtistServicesPage() {
   const [items, setItems] = useState<DiscoveryProfile[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [location, setLocation] = useState('');
+  const [debouncedLocation, setDebouncedLocation] = useState('');
   const [serviceType, setServiceType] = useState<string>('all');
   const [nearbyEnabled, setNearbyEnabled] = useState(false);
   const [userLat, setUserLat] = useState<number | null>(null);
@@ -150,6 +152,14 @@ export default function ArtistServicesPage() {
   const [portfolioUrlProfile, setPortfolioUrlProfile] = useState('');
   const [mentorOptIn, setMentorOptIn] = useState(false);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setDebouncedLocation(location);
+    }, 280);
+    return () => clearTimeout(timer);
+  }, [search, location]);
+
   const loadDirectory = useCallback(async () => {
     setLoading(true);
     try {
@@ -157,8 +167,8 @@ export default function ArtistServicesPage() {
       const maxR = maxRateCents.trim() ? parseInt(maxRateCents, 10) : undefined;
       const res = await discoveryApi.listPeople({
         role: 'service_provider',
-        search: search.trim() || undefined,
-        location: location.trim() || undefined,
+        search: debouncedSearch.trim() || undefined,
+        location: debouncedLocation.trim() || undefined,
         serviceType: serviceType === 'all' ? undefined : serviceType,
         limit: 50,
         offset: 0,
@@ -176,7 +186,7 @@ export default function ArtistServicesPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, location, serviceType, nearbyEnabled, userLat, userLng, minRateCents, maxRateCents]);
+  }, [debouncedSearch, debouncedLocation, serviceType, nearbyEnabled, userLat, userLng, minRateCents, maxRateCents]);
 
   const loadMe = useCallback(async () => {
     if (!isProvider) return;

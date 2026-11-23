@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -39,6 +41,7 @@ class _ProNetworxDirectoryContentState extends State<ProNetworxDirectoryContent>
   final UsersService _usersService = UsersService();
   final TextEditingController _search = TextEditingController();
   final TextEditingController _location = TextEditingController();
+  Timer? _searchDebounce;
   String? _selectedType;
 
   List<ProDirectoryItem> _allItems = [];
@@ -65,9 +68,18 @@ class _ProNetworxDirectoryContentState extends State<ProNetworxDirectoryContent>
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _search.dispose();
     _location.dispose();
     super.dispose();
+  }
+
+  void _onFilterTextChanged(String _) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 280), () {
+      if (!mounted) return;
+      _load(reset: true);
+    });
   }
 
   Future<void> _resolveMyUserId() async {
@@ -239,7 +251,11 @@ class _ProNetworxDirectoryContentState extends State<ProNetworxDirectoryContent>
                       labelText: 'Search name or headline',
                       hintText: 'Producer, designer…',
                     ),
-                    onSubmitted: (_) => _load(reset: true),
+                    onChanged: _onFilterTextChanged,
+                    onSubmitted: (_) {
+                      _searchDebounce?.cancel();
+                      _load(reset: true);
+                    },
                   ),
                   const SizedBox(height: 10),
                   TextField(
@@ -247,7 +263,11 @@ class _ProNetworxDirectoryContentState extends State<ProNetworxDirectoryContent>
                     decoration: const InputDecoration(
                       labelText: 'Location (region)',
                     ),
-                    onSubmitted: (_) => _load(reset: true),
+                    onChanged: _onFilterTextChanged,
+                    onSubmitted: (_) {
+                      _searchDebounce?.cancel();
+                      _load(reset: true);
+                    },
                   ),
                   const SizedBox(height: 12),
                   Text(

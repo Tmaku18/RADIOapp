@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -23,6 +24,7 @@ class _ProNetworxDirectoryScreenState extends State<ProNetworxDirectoryScreen> {
   String? _error;
 
   final TextEditingController _search = TextEditingController();
+  Timer? _searchDebounce;
   String? _selectedType;
   bool _availableOnly = false;
 
@@ -34,8 +36,17 @@ class _ProNetworxDirectoryScreenState extends State<ProNetworxDirectoryScreen> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _search.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String _) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 280), () {
+      if (!mounted) return;
+      _load();
+    });
   }
 
   Future<void> _load() async {
@@ -130,7 +141,11 @@ class _ProNetworxDirectoryScreenState extends State<ProNetworxDirectoryScreen> {
                     labelText: 'Search',
                     hintText: 'Producer, studio, designer, photographer…',
                   ),
-                  onSubmitted: (_) => _load(),
+                  onChanged: _onSearchChanged,
+                  onSubmitted: (_) {
+                    _searchDebounce?.cancel();
+                    _load();
+                  },
                 ),
                 const SizedBox(height: 10),
                 Align(
