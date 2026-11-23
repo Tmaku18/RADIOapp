@@ -89,6 +89,23 @@ extension AdminDashboardTabs on _AdminDashboardScreenState {
           ],
         ),
         const SizedBox(height: 10),
+        DropdownButton<String>(
+          value: _songSort,
+          dropdownColor: const Color(0xFF16161A),
+          items: const [
+            DropdownMenuItem(value: 'newest', child: Text('Newest')),
+            DropdownMenuItem(value: 'oldest', child: Text('Oldest')),
+            DropdownMenuItem(value: 'liked', child: Text('Most liked')),
+            DropdownMenuItem(value: 'alpha', child: Text('Alphabetical')),
+            DropdownMenuItem(value: 'heard', child: Text('Most heard')),
+          ],
+          onChanged: (value) async {
+            if (value == null) return;
+            setState(() => _songSort = value);
+            await _refreshSongs();
+          },
+        ),
+        const SizedBox(height: 10),
         Wrap(
           spacing: 8,
           runSpacing: 8,

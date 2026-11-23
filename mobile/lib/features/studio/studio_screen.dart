@@ -9,6 +9,7 @@ import '../../core/auth/auth_service.dart';
 import '../../core/brand/brand_assets.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/models/song.dart';
+import '../../core/models/song_sort.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/services/refinery_service.dart';
 import '../../core/services/songs_service.dart';
@@ -40,6 +41,7 @@ class _StudioScreenState extends State<StudioScreen>
   bool _likedLoading = false;
   bool _favoritesLoading = false;
   List<Song> _items = const [];
+  SongSort _trackSort = SongSort.newest;
   List<LibrarySong> _liked = const [];
   List<LibrarySong> _favorites = const [];
   String? _activeSongId;
@@ -96,6 +98,24 @@ class _StudioScreenState extends State<StudioScreen>
     _tabController.dispose();
     _playerStateSub?.cancel();
     super.dispose();
+  }
+
+  List<Song> get _sortedTracks {
+    final copy = [..._items];
+    copy.sort(
+      (a, b) => compareBySongSort(
+        _trackSort,
+        titleA: a.title,
+        titleB: b.title,
+        createdA: a.createdAt,
+        createdB: b.createdAt,
+        likesA: a.likeCount,
+        likesB: b.likeCount,
+        heardA: a.listenCount ?? a.playCount,
+        heardB: b.listenCount ?? b.playCount,
+      ),
+    );
+    return copy;
   }
 
   Future<void> _loadLiked() async {
@@ -506,6 +526,21 @@ class _StudioScreenState extends State<StudioScreen>
                             style: DimensionTypography.cardTitle(fontSize: 20),
                           ),
                         ),
+                        DropdownButton<SongSort>(
+                          value: _trackSort,
+                          underline: const SizedBox.shrink(),
+                          items: [
+                            for (final sort in SongSort.values)
+                              DropdownMenuItem(
+                                value: sort,
+                                child: Text(songSortLabels[sort] ?? ''),
+                              ),
+                          ],
+                          onChanged: (value) {
+                            if (value == null) return;
+                            setState(() => _trackSort = value);
+                          },
+                        ),
                         TextButton(
                           onPressed: () {
                             Navigator.pushNamed(context, AppRoutes.credits)
@@ -528,7 +563,7 @@ class _StudioScreenState extends State<StudioScreen>
                         ),
                       )
                     else
-                      ..._items.map((s) => Padding(
+                      ...(_sortedTracks.map((s) => Padding(
                             padding: const EdgeInsets.only(bottom: 10),
                             child: Card(
                               child: Padding(
@@ -794,7 +829,7 @@ class _StudioScreenState extends State<StudioScreen>
                             ),
                           ),
                         ),
-                      )),
+                      ))),
                   ],
                 ),
           _buildLikedTab(surfaces),

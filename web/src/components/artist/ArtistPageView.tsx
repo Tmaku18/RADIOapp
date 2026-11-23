@@ -13,7 +13,9 @@ import { usePlayback } from '@/components/playback';
 import { ProRadioPaywallCard } from '@/components/pro-radio/ProRadioPaywallCard';
 import { SongLikesDialog } from '@/components/songs/SongLikesDialog';
 import { FanEmailCard } from '@/components/artist/FanEmailCard';
+import { ShareArtistButton } from '@/components/artist/ShareArtistButton';
 import { AppDownloadBanner } from '@/components/marketing/AppDownloadBanner';
+import { SONG_SORT_OPTIONS, sortSongRows, type SongSortKey } from '@/lib/song-sort';
 
 type ArtistSong = {
   id: string;
@@ -110,6 +112,15 @@ type LegacyUserResponse = {
   snapchatUrl?: string | null;
 };
 
+function pickSongSort(song: ArtistSong) {
+  return {
+    title: song.title,
+    createdAt: song.createdAt,
+    likeCount: song.likeCount,
+    heardCount: song.listenCount ?? song.profilePlayCount ?? song.playCount ?? 0,
+  };
+}
+
 function formatNumber(n: number) {
   return new Intl.NumberFormat().format(n || 0);
 }
@@ -169,6 +180,7 @@ export function ArtistPageView({
   const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set());
   const [buyingId, setBuyingId] = useState<string | null>(null);
   const [proRadioPaywallOpen, setProRadioPaywallOpen] = useState(false);
+  const [songSort, setSongSort] = useState<SongSortKey>('newest');
 
   const refreshFollowState = async (targetUserId: string) => {
     const canRelate = !!profile?.id && profile.id !== targetUserId;
@@ -396,14 +408,20 @@ export function ArtistPageView({
     [data?.librarySongs, likedBySongId, ownedIds],
   );
 
-  const albumGroups = useMemo(() => data?.albums ?? [], [data?.albums]);
+  const albumGroups = useMemo(() => {
+    return (data?.albums ?? []).map((album) => ({
+      ...album,
+      tracks: sortSongRows(album.tracks, songSort, pickSongSort),
+    }));
+  }, [data?.albums, songSort]);
 
   const singles = useMemo(() => {
     const inAlbum = new Set(
-      albumGroups.flatMap((a) => a.tracks.map((t) => t.id)),
+      (data?.albums ?? []).flatMap((album) => album.tracks.map((track) => track.id)),
     );
-    return (data?.librarySongs ?? []).filter((s) => !inAlbum.has(s.id));
-  }, [albumGroups, data?.librarySongs]);
+    const rows = (data?.librarySongs ?? []).filter((song) => !inAlbum.has(song.id));
+    return sortSongRows(rows, songSort, pickSongSort);
+  }, [data?.albums, data?.librarySongs, songSort]);
 
   const handleBuy = async (songId: string) => {
     if (buyingId) return;
@@ -648,6 +666,10 @@ export function ArtistPageView({
               )}
             </div>
             <div className="md:ml-auto flex w-full md:w-auto flex-wrap items-center gap-2">
+              <ShareArtistButton
+                artistId={data.artist.id}
+                artistName={data.artist.displayName || 'This artist'}
+              />
               {profile?.id && profile.id !== data.artist.id && (
                 <>
                   <Button
@@ -699,12 +721,6 @@ export function ArtistPageView({
         <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Songs</p><p className="text-xl font-bold">{formatNumber(data.stats.totalSongs)}</p></CardContent></Card>
         <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Monthly listeners</p><p className="text-xl font-bold">{formatNumber(data.stats.monthlyListenerCount)}</p></CardContent></Card>
       </div>
-
-      <FanEmailCard
-        artistId={data.artist.id}
-        artistName={data.artist.displayName || 'this artist'}
-        isOwner={profile?.id === data.artist.id}
-      />
 
       {data.artist.bio && (
         <Card>
@@ -844,7 +860,23 @@ export function ArtistPageView({
 
       <Card>
         <CardContent className="pt-6 space-y-8">
-          <h2 className="font-semibold text-xl">Discography</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="font-semibold text-xl">Discography</h2>
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              Sort
+              <select
+                value={songSort}
+                onChange={(event) => setSongSort(event.target.value as SongSortKey)}
+                className="rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground"
+              >
+                {SONG_SORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
           {tracks.length === 0 ? (
             <p className="text-sm text-muted-foreground">No approved songs yet.</p>
           ) : (
@@ -910,6 +942,12 @@ export function ArtistPageView({
           )}
         </CardContent>
       </Card>
+
+      <FanEmailCard
+        artistId={data.artist.id}
+        artistName={data.artist.displayName || 'this artist'}
+        isOwner={profile?.id === data.artist.id}
+      />
 
       <SongLikesDialog
         open={likesDialogOpen}

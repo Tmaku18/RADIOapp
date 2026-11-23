@@ -62,6 +62,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   /// Matches web admin songs default filter.
   String _songStatusFilter = 'pending';
+  /// newest, oldest, liked, alpha, heard
+  String _songSort = 'newest';
   /// `all` or a role like `artist`.
   String _userRoleFilter = 'all';
   String? _previewingSongId;
@@ -405,6 +407,21 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
   }
 
+  ({String sortBy, String sortOrder}) _songSortQuery() {
+    switch (_songSort) {
+      case 'oldest':
+        return (sortBy: 'created_at', sortOrder: 'asc');
+      case 'liked':
+        return (sortBy: 'like_count', sortOrder: 'desc');
+      case 'alpha':
+        return (sortBy: 'title', sortOrder: 'asc');
+      case 'heard':
+        return (sortBy: 'play_count', sortOrder: 'desc');
+      default:
+        return (sortBy: 'created_at', sortOrder: 'desc');
+    }
+  }
+
   ({String status, String? copyrightStatus}) _songListQuery() {
     if (_songStatusFilter == 'copyrighted') {
       return (status: 'all', copyrightStatus: 'flagged');
@@ -417,6 +434,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       // Backend: omit status → defaults to pending; send "all" for unfiltered.
       // "copyrighted" uses status=all + copyrightStatus=flagged (web parity).
       final query = _songListQuery();
+      final sort = _songSortQuery();
       final songs = await _admin.getSongs(
         limit: 100,
         status: query.status,
@@ -424,8 +442,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         search: _songSearchCtrl.text.trim().isEmpty
             ? null
             : _songSearchCtrl.text.trim(),
-        sortBy: 'created_at',
-        sortOrder: 'desc',
+        sortBy: sort.sortBy,
+        sortOrder: sort.sortOrder,
       );
       if (!mounted) return;
       setState(() => _songs = songs);

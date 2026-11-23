@@ -29,6 +29,8 @@ import '../../core/theme/networx_extensions.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 import '../../widgets/safety/report_block_sheet.dart';
 import 'manage_albums_sheet.dart';
+import 'share_artist_sheet.dart';
+import '../../core/models/song_sort.dart';
 
 class _AlbumGroup {
   const _AlbumGroup({
@@ -102,6 +104,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
   final _fanEmail = TextEditingController();
   bool _fanBusy = false;
   String? _fanStatus;
+  SongSort _songSort = SongSort.newest;
   String? _highlightedSongId;
   bool _didScrollToFocus = false;
 
@@ -213,13 +216,9 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
     }
     final groups = <_AlbumGroup>[];
     for (final album in albums) {
-      final albumTracks = List<Song>.from(byId[album.id] ?? const <Song>[]);
-      albumTracks.sort((a, b) {
-        final an = a.trackNumber ?? 9999;
-        final bn = b.trackNumber ?? 9999;
-        if (an != bn) return an.compareTo(bn);
-        return a.createdAt.compareTo(b.createdAt);
-      });
+      final albumTracks = _sortedSongs(
+        List<Song>.from(byId[album.id] ?? const <Song>[]),
+      );
       if (albumTracks.isEmpty) continue;
       groups.add(
         _AlbumGroup(
@@ -430,6 +429,24 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
     } finally {
       if (mounted) setState(() => _followLoading = false);
     }
+  }
+
+  List<Song> _sortedSongs(List<Song> songs) {
+    final copy = [...songs];
+    copy.sort(
+      (a, b) => compareBySongSort(
+        _songSort,
+        titleA: a.title,
+        titleB: b.title,
+        createdA: a.createdAt,
+        createdB: b.createdAt,
+        likesA: a.likeCount,
+        likesB: b.likeCount,
+        heardA: a.listenCount ?? a.playCount,
+        heardB: b.listenCount ?? b.playCount,
+      ),
+    );
+    return copy;
   }
 
   void _openMessages() {
@@ -1274,6 +1291,23 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
                   ],
                 ),
               ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    unawaited(
+                      showShareArtistSheet(
+                        context,
+                        artistId: widget.artistId,
+                        artistName: displayName,
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.ios_share, size: 18),
+                  label: const Text('Share'),
+                ),
+              ),
               if (!_isOwnerProfile && isLoggedIn) ...[
                 const SizedBox(height: 12),
                 Row(
@@ -1310,41 +1344,6 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
                     label: const Text('Message'),
                   ),
                 ),
-              ],
-              if (!_isOwnerProfile) ...[
-                const SizedBox(height: 16),
-                Text(
-                  'Hear from $displayName',
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Leave your email and this artist can write to you about new music.',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _fanEmail,
-                  keyboardType: TextInputType.emailAddress,
-                  autocorrect: false,
-                  decoration: const InputDecoration(
-                    hintText: 'you@email.com',
-                    isDense: true,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: FilledButton(
-                    onPressed: _fanBusy ? null : _joinFanList,
-                    child: Text(_fanBusy ? 'Saving…' : 'Join the list'),
-                  ),
-                ),
-                if (_fanStatus != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text(_fanStatus!),
-                  ),
               ],
               const SizedBox(height: 10),
               Row(
@@ -1391,6 +1390,41 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
               })(),
               const SizedBox(height: 16),
               ..._buildDiscographySections(surfaces, scheme, glass),
+              if (!_isOwnerProfile) ...[
+                const SizedBox(height: 16),
+                Text(
+                  'Hear from $displayName',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Leave your email and this artist can write to you about new music.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _fanEmail,
+                  keyboardType: TextInputType.emailAddress,
+                  autocorrect: false,
+                  decoration: const InputDecoration(
+                    hintText: 'you@email.com',
+                    isDense: true,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton(
+                    onPressed: _fanBusy ? null : _joinFanList,
+                    child: Text(_fanBusy ? 'Saving…' : 'Join the list'),
+                  ),
+                ),
+                if (_fanStatus != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(_fanStatus!),
+                  ),
+              ],
             ],
           ),
 
@@ -1488,8 +1522,8 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
     ColorScheme scheme,
     Widget Function({required Widget child}) glass,
   ) {
-    final beats = _tracks.where((t) => t.isBeat).toList();
-    final songs = _tracks.where((t) => !t.isBeat).toList();
+    final beats = _sortedSongs(_tracks.where((t) => t.isBeat).toList());
+    final songs = _sortedSongs(_tracks.where((t) => !t.isBeat).toList());
     final widgets = <Widget>[];
 
     if (beats.isNotEmpty) {
@@ -1521,6 +1555,21 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
               'Songs',
               style: DimensionTypography.cardTitle(fontSize: 20),
             ),
+          ),
+          DropdownButton<SongSort>(
+            value: _songSort,
+            underline: const SizedBox.shrink(),
+            items: [
+              for (final sort in SongSort.values)
+                DropdownMenuItem(
+                  value: sort,
+                  child: Text(songSortLabels[sort] ?? ''),
+                ),
+            ],
+            onChanged: (value) {
+              if (value == null) return;
+              setState(() => _songSort = value);
+            },
           ),
           if (_isOwnerProfile)
             TextButton.icon(

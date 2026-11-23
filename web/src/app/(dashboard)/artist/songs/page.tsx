@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { songsApi, refineryApi } from '@/lib/api';
@@ -28,6 +28,7 @@ import { StationAssignmentField } from '@/components/songs/StationAssignmentFiel
 import { DiscoverClipDialog } from '@/components/songs/DiscoverClipDialog';
 import { RefinerySubmitDialog } from '@/components/refinery/RefinerySubmitDialog';
 import { REFINERY_SUBMISSION_PRICE_USD } from '@/data/refinery-questions';
+import { SONG_SORT_OPTIONS, sortSongRows, type SongSortKey } from '@/lib/song-sort';
 
 type ApiError = { response?: { status?: number; data?: { message?: string } } };
 
@@ -233,6 +234,7 @@ export default function MySongsPage() {
   const router = useRouter();
   const { actions } = usePlayback();
   const [songs, setSongs] = useState<Song[]>([]);
+  const [songSort, setSongSort] = useState<SongSortKey>('newest');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [playingSongId, setPlayingSongId] = useState<string | null>(null);
@@ -700,6 +702,17 @@ export default function MySongsPage() {
     }
   };
 
+  const sortedSongs = useMemo(
+    () =>
+      sortSongRows(songs, songSort, (song) => ({
+        title: song.title,
+        createdAt: song.createdAt,
+        likeCount: song.likeCount,
+        heardCount: song.listenCount ?? song.playCount ?? 0,
+      })),
+    [songs, songSort],
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-64">
@@ -715,7 +728,21 @@ export default function MySongsPage() {
           <h1 className="text-2xl font-bold text-foreground">My Songs</h1>
           <p className="text-muted-foreground mt-1">Manage your uploaded songs and track performance</p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            Sort
+            <select
+              value={songSort}
+              onChange={(event) => setSongSort(event.target.value as SongSortKey)}
+              className="rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground"
+            >
+              {SONG_SORT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <Button variant="outline" onClick={() => router.push('/artist/stats')}>
             Analytics
           </Button>
@@ -763,7 +790,7 @@ export default function MySongsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {songs.map((song) => {
+              {sortedSongs.map((song) => {
                 const isApproved = song.status === 'approved';
                 const hasSample =
                   !!song.sampleUrl || song.sampleStartSeconds != null;

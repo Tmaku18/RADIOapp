@@ -13,6 +13,7 @@ import { EmailService } from '../email/email.service';
 import { RadioService } from '../radio/radio.service';
 import { PushNotificationService } from '../push-notifications/push-notification.service';
 import {
+  DEFAULT_STATION_ID,
   normalizeSongStationId,
   STATION_IDS,
 } from '../radio/station.constants';
@@ -195,6 +196,8 @@ export class AdminService {
       artist: 'title', // Will sort by title as artist is joined
       created_at: 'created_at',
       status: 'status',
+      like_count: 'like_count',
+      play_count: 'play_count',
     };
     const sortColumn = sortColumnMap[sortBy] || 'created_at';
 
@@ -245,6 +248,8 @@ export class AdminService {
         artist: 'title',
         created_at: 'created_at',
         status: 'status',
+        like_count: 'like_count',
+        play_count: 'play_count',
       };
       const sortColumn = sortColumnMap[sortBy] || 'created_at';
       fallbackQuery = fallbackQuery.order(sortColumn, { ascending });
@@ -326,11 +331,119 @@ export class AdminService {
       })),
     );
 
+    if (sortBy === 'like_count' || sortBy === 'play_count') {
+      const direction = ascending ? 1 : -1;
+      enrichedRows.sort((a, b) => {
+        const left =
+          sortBy === 'like_count'
+            ? Number(a.like_count) || 0
+            : Number(a.listen_count) || 0;
+        const right =
+          sortBy === 'like_count'
+            ? Number(b.like_count) || 0
+            : Number(b.listen_count) || 0;
+        if (left !== right) return (left - right) * direction;
+        return String(a.title || '').localeCompare(String(b.title || ''));
+      });
+    }
+
     this.songsCache.set(cacheKey, {
       data: enrichedRows,
       updatedAt: Date.now(),
     });
     return enrichedRows;
+  }
+
+  /**
+   * Take a copyright-flagged song off sale. Listeners keep the stream, and
+   * the buy button disappears because is_for_sale is cleared.
+   */
+  async demonetizeCopyrightedSong(songId: string) {
+    const supabase = getSupabaseClient();
+    const { data: song, error } = await supabase
+      .from('songs')
+      .select('id, title, copyright_status, demonetized, is_for_sale')
+      .eq('id', songId)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    if (error) {
+      throw new BadRequestException(
+        `Failed to load song: ${error.message}`,
+      );
+    }
+    if (!song) {
+      throw new NotFoundException('Song not found');
+    }
+    if (song.copyright_status !== 'flagged') {
+      throw new BadRequestException(
+        'Only copyrighted songs can be demonetized',
+      );
+    }
+    if (song.demonetized === true && song.is_for_sale === false) {
+      return song;
+    }
+
+    const { data: updated, error: updateError } = await supabase
+      .from('songs')
+      .update({ demonetized: true, is_for_sale: false })
+      .eq('id', songId)
+      .select('id, title, copyright_status, demonetized, is_for_sale')
+      .single();
+
+    if (updateError || !updated) {
+      throw new BadRequestException(
+        `Failed to demonetize song: ${updateError?.message ?? 'no row returned'}`,
+      );
+    }
+    return updated;
+  }
+
+  /**
+   * Put a song that just became approved at the front of each of its station
+   * queues. The track that is already playing is left alone; this song is next.
+   * A failure here must not undo the approval.
+   */
+  private async queueNewlyApprovedSongNext(song: {
+    id: string;
+    title?: string;
+    station_id?: string | null;
+    station_ids?: unknown;
+    product_kind?: string | null;
+  }) {
+    if (song.product_kind === 'beat') return;
+
+    const stations = new Set<string>();
+    if (typeof song.station_id === 'string' && song.station_id.trim()) {
+      stations.add(normalizeSongStationId(song.station_id));
+    }
+    if (Array.isArray(song.station_ids)) {
+      for (const id of song.station_ids) {
+        if (typeof id === 'string' && id.trim()) {
+          stations.add(normalizeSongStationId(id));
+        }
+      }
+    }
+    if (stations.size === 0) stations.add(DEFAULT_STATION_ID);
+
+    for (const radioId of stations) {
+      try {
+        this.radioService.clearFreeRotationPoolCache(radioId);
+        await this.radioService.addAdminQueueEntries(radioId, {
+          items: [{ songId: song.id, source: 'songs' }],
+          position: 0,
+        });
+        this.logger.log(
+          `Queued approved song ${song.id} next on ${radioId}`,
+        );
+      } catch (err) {
+        this.logger.warn(
+          `Approved song ${song.id} ("${song.title ?? ''}") was not queued next on ${radioId}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    }
   }
 
   async updateSongStatus(
@@ -421,6 +534,16 @@ export class AdminService {
       throw new BadRequestException(
         `Failed to update song status: ${error.message}`,
       );
+    }
+
+    if (status === 'approved' && previousStatus !== 'approved') {
+      await this.queueNewlyApprovedSongNext(data as {
+        id: string;
+        title?: string;
+        station_id?: string | null;
+        station_ids?: unknown;
+        product_kind?: string | null;
+      });
     }
 
     // Only send notifications if status actually changed

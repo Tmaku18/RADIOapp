@@ -57,6 +57,8 @@ interface Song {
     score?: number;
     provider?: string;
   } | null;
+  demonetized?: boolean;
+  is_for_sale?: boolean;
   created_at: string;
   users?: {
     display_name: string;
@@ -89,7 +91,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-type SortField = 'title' | 'created_at' | 'status';
+type SortField = 'title' | 'created_at' | 'status' | 'like_count' | 'play_count';
 type SortOrder = 'asc' | 'desc';
 const ADMIN_SONGS_CACHE_KEY = 'admin:songs:last-success';
 
@@ -110,6 +112,7 @@ type SongActionsMenuProps = {
   onDiscoverClip: (song: Song) => void;
   onEdit: (song: Song) => void;
   onDelete: (song: Song) => void;
+  onDemonetize: (song: Song) => void;
 };
 
 function SongActionsMenu({
@@ -125,6 +128,7 @@ function SongActionsMenu({
   onDiscoverClip,
   onEdit,
   onDelete,
+  onDemonetize,
 }: SongActionsMenuProps) {
   return (
     <DropdownMenu>
@@ -208,6 +212,15 @@ function SongActionsMenu({
         >
           Edit
         </DropdownMenuItem>
+        {song.copyright_status === 'flagged' && (
+          <DropdownMenuItem
+            variant="destructive"
+            disabled={actionLoading === song.id || song.demonetized === true}
+            onSelect={() => onDemonetize(song)}
+          >
+            {song.demonetized ? 'Demonetized' : 'Demonetize'}
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           variant="destructive"
@@ -234,6 +247,14 @@ function sortSongsLocal(rows: Song[], sortBy: SortField, sortOrder: SortOrder): 
     }
     if (sortBy === 'status') {
       return normalizeText(a.status).localeCompare(normalizeText(b.status)) * multiplier;
+    }
+    if (sortBy === 'like_count') {
+      return ((Number(a.like_count) || 0) - (Number(b.like_count) || 0)) * multiplier;
+    }
+    if (sortBy === 'play_count') {
+      const heard = (song: Song) =>
+        Number(song.listen_count ?? song.play_count_real) || 0;
+      return (heard(a) - heard(b)) * multiplier;
     }
     return normalizeText(a.title).localeCompare(normalizeText(b.title)) * multiplier;
   });
@@ -617,6 +638,35 @@ export default function AdminSongsPage() {
     setTimeout(() => {
       if (!window.confirm(message)) return;
       void handleApprove(song.id);
+    }, 0);
+  };
+
+  const handleDemonetize = (song: Song) => {
+    setTimeout(() => {
+      if (
+        !window.confirm(
+          `Demonetize "${song.title}"? The buy button will be removed, and the artist cannot put it back on sale.`,
+        )
+      ) {
+        return;
+      }
+      setActionLoading(song.id);
+      void adminApi
+        .demonetizeSong(song.id)
+        .then(() => {
+          setSongs((rows) =>
+            rows.map((row) =>
+              row.id === song.id
+                ? { ...row, demonetized: true, is_for_sale: false }
+                : row,
+            ),
+          );
+        })
+        .catch((err) => {
+          console.error('Failed to demonetize song:', err);
+          alert(getErrorMessage(err, 'Failed to demonetize song'));
+        })
+        .finally(() => setActionLoading(null));
     }, 0);
   };
 
@@ -1023,18 +1073,45 @@ export default function AdminSongsPage() {
           
           {/* Sort Dropdown */}
           <select
-            value={`${sortBy}-${sortOrder}`}
+            value={
+              sortBy === 'created_at' && sortOrder === 'desc'
+                ? 'newest'
+                : sortBy === 'created_at' && sortOrder === 'asc'
+                  ? 'oldest'
+                  : sortBy === 'like_count'
+                    ? 'liked'
+                    : sortBy === 'title' && sortOrder === 'asc'
+                      ? 'alpha'
+                      : sortBy === 'play_count'
+                        ? 'heard'
+                        : 'newest'
+            }
             onChange={(e) => {
-              const [field, order] = e.target.value.split('-') as [SortField, SortOrder];
-              setSortBy(field);
-              setSortOrder(order);
+              const choice = e.target.value;
+              if (choice === 'oldest') {
+                setSortBy('created_at');
+                setSortOrder('asc');
+              } else if (choice === 'liked') {
+                setSortBy('like_count');
+                setSortOrder('desc');
+              } else if (choice === 'alpha') {
+                setSortBy('title');
+                setSortOrder('asc');
+              } else if (choice === 'heard') {
+                setSortBy('play_count');
+                setSortOrder('desc');
+              } else {
+                setSortBy('created_at');
+                setSortOrder('desc');
+              }
             }}
             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
           >
-            <option value="created_at-desc">Newest First</option>
-            <option value="created_at-asc">Oldest First</option>
-            <option value="title-asc">A-Z</option>
-            <option value="title-desc">Z-A</option>
+            <option value="newest">Newest</option>
+            <option value="oldest">Oldest</option>
+            <option value="liked">Most liked</option>
+            <option value="alpha">Alphabetical</option>
+            <option value="heard">Most heard</option>
           </select>
 
           <button
@@ -1326,6 +1403,7 @@ export default function AdminSongsPage() {
                         onDiscoverClip={setDiscoverClipSong}
                         onEdit={openEditModal}
                         onDelete={handleDeleteSong}
+                        onDemonetize={handleDemonetize}
                       />
                     </div>
                   </td>
