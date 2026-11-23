@@ -8,6 +8,8 @@ let networxLockReactNotification = "com.tmaktechnologies.networxradio.lockReact"
 let networxLockReactionKey = "lockReaction"
 let networxLockSongIdKey = "lockSongId"
 let networxLockPlayIdKey = "lockPlayId"
+let networxLockMutedKey = "lockMuted"
+let networxLockMutedAtKey = "lockMutedAt"
 
 @available(iOS 16.1, *)
 struct NowPlayingAttributes: ActivityAttributes {

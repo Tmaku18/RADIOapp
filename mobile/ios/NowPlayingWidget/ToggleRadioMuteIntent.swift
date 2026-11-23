@@ -14,10 +14,20 @@ struct ToggleRadioMuteIntent: LiveActivityIntent {
   func perform() async throws -> some IntentResult {
     #if canImport(ActivityKit)
     if #available(iOS 16.2, *) {
+      var nextMuted: Bool?
       for activity in Activity<NowPlayingAttributes>.activities {
         var state = activity.content.state
         state.isMuted.toggle()
+        nextMuted = state.isMuted
         await activity.update(ActivityContent(state: state, staleDate: nil))
+      }
+      if let nextMuted {
+        // Absolute value plus a time, so a song update already in flight
+        // cannot paint Mute back over Unmute.
+        let defaults = UserDefaults(suiteName: networxAppGroupId)
+        defaults?.set(nextMuted ? "true" : "false", forKey: networxLockMutedKey)
+        defaults?.set(Date().timeIntervalSince1970, forKey: networxLockMutedAtKey)
+        defaults?.synchronize()
       }
     }
     #endif

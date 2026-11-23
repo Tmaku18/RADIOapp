@@ -120,11 +120,13 @@ private struct LockScreenMuteButton: View {
       VStack(spacing: compact ? 2 : 4) {
         Image(systemName: isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill")
           .font(compact ? .body : .title2)
-        Text(isMuted ? "Muted" : "Mute")
+        Text(isMuted ? "Unmute" : "Mute")
           .font(.caption2)
+          .lineLimit(1)
+          .minimumScaleFactor(0.7)
       }
       .foregroundStyle(isMuted ? Color.white.opacity(0.7) : networxCyan)
-      .frame(width: compact ? 52 : 64, height: compact ? 52 : 72)
+      .frame(width: compact ? 68 : 72, height: compact ? 52 : 72)
       .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
     .buttonStyle(.borderless)
@@ -135,6 +137,7 @@ private struct LockScreenMuteButton: View {
 private struct LockScreenReactionButton: View {
   let emoji: String
   let fire: Bool
+  var compact = false
 
   var body: some View {
     Group {
@@ -149,8 +152,9 @@ private struct LockScreenReactionButton: View {
 
   private var label: some View {
     Text(emoji)
-      .font(.title2)
-      .frame(width: 64, height: 36)
+      .font(compact ? .title3 : .title2)
+      .frame(width: compact ? 56 : 64, height: compact ? 32 : 36)
+      .background(Color.white.opacity(compact ? 0.08 : 0), in: Capsule())
   }
 }
 
@@ -213,11 +217,22 @@ struct NowPlayingLiveActivity: Widget {
           }
         }
         DynamicIslandExpandedRegion(.bottom) {
-          Text(context.state.station)
-            .font(.caption2)
-            .foregroundStyle(networxCyan)
-          Text(context.state.title).font(.headline).lineLimit(1)
-          Text(context.state.artist).font(.subheadline).lineLimit(1)
+          VStack(alignment: .leading, spacing: 2) {
+            Text(context.state.station)
+              .font(.caption2)
+              .foregroundStyle(networxCyan)
+              .lineLimit(1)
+            Text(context.state.title).font(.headline).lineLimit(1)
+            Text(context.state.artist).font(.subheadline).lineLimit(1)
+            if #available(iOS 17.0, *) {
+              HStack(alignment: .center, spacing: 0) {
+                LockScreenReactionButton(emoji: "💩", fire: false, compact: true)
+                Spacer(minLength: 8)
+                LockScreenReactionButton(emoji: "🔥", fire: true, compact: true)
+              }
+              .padding(.top, 2)
+            }
+          }
         }
       } compactLeading: {
         Text("NX")

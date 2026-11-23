@@ -23,7 +23,12 @@ class NowPlayingWidgetSync {
     _liveActivity.setMethodCallHandler((call) async {
       if (call.method == 'toggleMute') {
         final handler = AudioPlayerService.handler;
-        await handler.setUserPaused(!handler.userPaused, fromUser: true);
+        final desired = await _lockMutedFromCard();
+        await handler.setUserPaused(
+          desired ?? !handler.userPaused,
+          fromUser: true,
+        );
+        await push(handler.mediaItem.valueOrNull);
         return;
       }
       if (call.method == 'react') {
@@ -31,6 +36,20 @@ class NowPlayingWidgetSync {
       }
     });
     unawaited(drainLockReaction());
+  }
+
+  /// The island writes the muted state it just showed. Null if that write
+  /// did not land, in which case the app toggles whatever it last knew.
+  static Future<bool?> _lockMutedFromCard() async {
+    try {
+      await HomeWidget.setAppGroupId(_appGroupId);
+      final raw = await HomeWidget.getWidgetData<String>('lockMuted');
+      if (raw == 'true') return true;
+      if (raw == 'false') return false;
+    } catch (e) {
+      debugPrint('Lock mute read skipped: $e');
+    }
+    return null;
   }
 
   /// A lock-screen tap can land before Flutter is listening. Ask iOS to
@@ -108,14 +127,9 @@ class NowPlayingWidgetSync {
     }
     if (!Platform.isIOS) return;
     try {
-      final life = WidgetsBinding.instance.lifecycleState;
-      final background =
-          life == AppLifecycleState.paused ||
-          life == AppLifecycleState.hidden ||
-          life == AppLifecycleState.detached;
-      if (item == null ||
-          title.isEmpty ||
-          (AudioPlayerService.handler.radioMutedByUser && background)) {
+      // A muted station still keeps the card so Mute can turn into Unmute
+      // and the vote buttons stay reachable from the island.
+      if (item == null || title.isEmpty) {
         await _liveActivity.invokeMethod<void>('end');
         return;
       }

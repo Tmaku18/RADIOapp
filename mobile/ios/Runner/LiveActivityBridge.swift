@@ -136,6 +136,9 @@ enum LiveActivityBridge {
       defaults?.set(songId, forKey: networxLockSongIdKey)
     }
     defaults?.set(playId, forKey: networxLockPlayIdKey)
+    // Captured before the queue waits, so a mute tap during an in-flight
+    // song update still wins.
+    let requestedAt = Date().timeIntervalSince1970
     enqueue {
       // Title first. Waiting on the artwork download left the card on the
       // previous song while the system player had already moved on.
@@ -143,7 +146,7 @@ enum LiveActivityBridge {
         title: title,
         artist: artist,
         station: station,
-        isMuted: isMuted,
+        isMuted: mutedPreferringCard(isMuted, requestedAt: requestedAt),
         artworkToken: lastArtworkToken
       )
       await publish(state)
@@ -152,8 +155,24 @@ enum LiveActivityBridge {
       lastArtworkUrl = artworkUrl
       lastArtworkToken = token
       state.artworkToken = token
+      if let live = Activity<NowPlayingAttributes>.activities.first {
+        state.isMuted = live.content.state.isMuted
+      }
+      state.isMuted = mutedPreferringCard(state.isMuted, requestedAt: requestedAt)
       await publish(state)
     }
+  }
+
+  /// A mute tap on the island writes a newer value than this update. Keep it.
+  private static func mutedPreferringCard(_ requested: Bool, requestedAt: TimeInterval) -> Bool {
+    let defaults = UserDefaults(suiteName: networxAppGroupId)
+    let tappedAt = defaults?.double(forKey: networxLockMutedAtKey) ?? 0
+    guard tappedAt > requestedAt,
+          let raw = defaults?.string(forKey: networxLockMutedKey)
+    else { return requested }
+    if raw == "true" { return true }
+    if raw == "false" { return false }
+    return requested
   }
 
   /// One card only. A second request used to stick around with an old song.

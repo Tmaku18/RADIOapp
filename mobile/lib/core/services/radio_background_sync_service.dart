@@ -313,15 +313,9 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
             state == AppLifecycleState.hidden)) {
       unawaited(handler.applyOutputVolume());
     }
-    // Swiping the app away ends the card. So does leaving while muted: the
-    // station stays silent and the lock-screen card does not keep playing the
-    // next song. Muting from the card itself does not send another pause, so
-    // that card stays up and its votes still count.
-    final leftWhileMuted =
-        handler.radioMutedByUser &&
-        (state == AppLifecycleState.paused ||
-            state == AppLifecycleState.hidden);
-    if (state == AppLifecycleState.detached || leftWhileMuted) {
+    // Swiping the app away ends the card. Muting does not: the island stays
+    // so Mute can switch to Unmute and votes still count.
+    if (state == AppLifecycleState.detached) {
       unawaited(NowPlayingWidgetSync.end());
     }
   }
