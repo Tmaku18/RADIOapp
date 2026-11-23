@@ -151,10 +151,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final authService = Provider.of<AuthService>(context, listen: false);
     try {
       final user = await authService.getUserProfile();
-      if (mounted) {
-        setState(() {
-          _user = user;
-        });
+      if (!mounted) return;
+      setState(() {
+        _user = user;
+      });
+      if (authService.consumeAccountRestoredNotice()) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Welcome back. Signing in restored your account, so it will not be deleted.',
+            ),
+          ),
+        );
       }
     } catch (_) {
       // Keep default navigation; profile can load later from other screens.

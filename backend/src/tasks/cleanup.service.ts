@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { getSupabaseClient } from '../config/supabase.config';
+import { AdminService } from '../admin/admin.service';
 
 /**
  * Service for cleaning up:
@@ -10,6 +11,8 @@ import { getSupabaseClient } from '../config/supabase.config';
 @Injectable()
 export class CleanupService {
   private readonly logger = new Logger(CleanupService.name);
+
+  constructor(private readonly adminService: AdminService) {}
   private static readonly SUPABASE_PUBLIC_SONGS_MARKER =
     '/storage/v1/object/public/songs/';
 
@@ -117,6 +120,49 @@ export class CleanupService {
       this.logger.log(`Pruned ${total} play decision rows`);
     } catch (error) {
       this.logger.error(`Play decision prune error: ${error.message}`);
+    }
+  }
+
+  /**
+   * Permanently delete accounts whose 48-hour recovery window has ended.
+   * Signing in before this runs clears the schedule and keeps the data.
+   */
+  @Cron(CronExpression.EVERY_HOUR)
+  async purgeScheduledAccountDeletions() {
+    const supabase = getSupabaseClient();
+    const now = new Date().toISOString();
+    const { data, error } = await supabase
+      .from('users')
+      .select('id')
+      .lt('deletion_scheduled_for', now)
+      .limit(25);
+
+    if (error) {
+      if (/deletion_scheduled_for/i.test(error.message)) {
+        this.logger.warn(
+          'Account deletion schedule is not available yet; skipping purge',
+        );
+        return;
+      }
+      this.logger.error(
+        `Failed to list accounts scheduled for deletion: ${error.message}`,
+      );
+      return;
+    }
+
+    if (!data?.length) return;
+
+    for (const row of data) {
+      try {
+        await this.adminService.deleteUserAccount(row.id);
+        this.logger.log(`Permanently deleted account ${row.id} after 48 hours`);
+      } catch (err) {
+        this.logger.error(
+          `Failed to permanently delete account ${row.id}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
     }
   }
 

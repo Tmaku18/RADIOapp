@@ -29,6 +29,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { DeleteAccountCard } from '@/components/account/DeleteAccountCard';
 
 type FollowListItem = {
   id: string;
@@ -1012,6 +1013,8 @@ export default function ProfilePage() {
       <p className="text-sm text-muted-foreground">
         <a href="/settings" className="underline hover:text-foreground">Settings and activity</a> — Account, notifications, security, and more.
       </p>
+
+      <DeleteAccountCard />
     </div>
   );
 }

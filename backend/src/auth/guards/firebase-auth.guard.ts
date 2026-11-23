@@ -11,6 +11,14 @@ import { ConfigService } from '@nestjs/config';
 import { getFirebaseAuth } from '../../config/firebase.config';
 import { getSupabaseClient } from '../../config/supabase.config';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import { phoneLast4 } from '../phone-mfa.util';
+import {
+  ACCOUNT_DELETION_EXPIRED_MESSAGE,
+  ACCOUNT_DELETION_PENDING_MESSAGE,
+} from '../../users/account-deletion';
+
+const USER_AUTH_SELECT =
+  'id, role, is_banned, ban_reason, deletion_requested_at, deletion_scheduled_for, phone_e164, phone_verified_at';
 
 @Injectable()
 export class FirebaseAuthGuard implements CanActivate {
@@ -172,17 +180,19 @@ export class FirebaseAuthGuard implements CanActivate {
         role: string | null;
         is_banned: boolean | null;
         ban_reason: string | null;
+        deletion_requested_at?: string | null;
+        deletion_scheduled_for?: string | null;
+        phone_e164?: string | null;
+        phone_verified_at?: string | null;
       };
-      let user: UserRow | null = null;
-      let userLookupError: { message: string } | null = null;
-      try {
-        const result = await withDeadline<{
+      const lookupUser = async (columns: string) =>
+        withDeadline<{
           data: UserRow | null;
           error: { message: string } | null;
         }>('users lookup', 5000, async () => {
           const { data, error } = await supabase
             .from('users')
-            .select('id, role, is_banned, ban_reason')
+            .select(columns)
             .eq('firebase_uid', decodedToken.uid)
             .maybeSingle();
           return {
@@ -190,6 +200,24 @@ export class FirebaseAuthGuard implements CanActivate {
             error: error ? { message: error.message } : null,
           };
         });
+      let user: UserRow | null = null;
+      let userLookupError: { message: string } | null = null;
+      try {
+        let result = await lookupUser(USER_AUTH_SELECT);
+        if (
+          result.error &&
+          /phone_e164|phone_verified_at/i.test(result.error.message)
+        ) {
+          result = await lookupUser(
+            'id, role, is_banned, ban_reason, deletion_requested_at, deletion_scheduled_for',
+          );
+        }
+        if (
+          result.error &&
+          /deletion_requested_at|deletion_scheduled_for/i.test(result.error.message)
+        ) {
+          result = await lookupUser('id, role, is_banned, ban_reason');
+        }
         user = result.data;
         userLookupError = result.error;
       } catch (lookupError) {
@@ -212,7 +240,7 @@ export class FirebaseAuthGuard implements CanActivate {
           );
           const { data: provisioned } = await supabase
             .from('users')
-            .select('id, role, is_banned, ban_reason')
+            .select(USER_AUTH_SELECT)
             .eq('firebase_uid', decodedToken.uid)
             .maybeSingle();
           if (provisioned) {
@@ -236,12 +264,57 @@ export class FirebaseAuthGuard implements CanActivate {
         );
       }
 
+      const accountRestored = user
+        ? await this.restoreOrBlockScheduledDeletion(
+            user,
+            decodedToken.auth_time,
+          )
+        : false;
+
+      const authTime =
+        typeof decodedToken.auth_time === 'number' ? decodedToken.auth_time : null;
+      const phoneVerified = Boolean(user?.phone_verified_at);
+      let mfaSatisfied = false;
+      let mfaCheckFailed = false;
+      if (phoneVerified && user?.id && authTime != null && !userLookupError) {
+        try {
+          const session = await withDeadline('mfa session', 4000, async () => {
+            const { data, error } = await supabase
+              .from('phone_mfa_sessions')
+              .select('auth_time')
+              .eq('user_id', user.id)
+              .eq('auth_time', authTime)
+              .maybeSingle();
+            if (error) {
+              throw new Error(error.message);
+            }
+            return data;
+          });
+          mfaSatisfied = Boolean(session);
+        } catch (sessionError) {
+          mfaCheckFailed = true;
+          this.logger.warn(
+            `Phone MFA lookup failed for ${decodedToken.uid}: ${
+              sessionError instanceof Error
+                ? sessionError.message
+                : String(sessionError)
+            }`,
+          );
+        }
+      }
+
       request.user = {
         uid: decodedToken.uid,
         email: decodedToken.email,
         emailVerified: decodedToken.email_verified,
         dbRole: user?.role ?? null,
         dbUserId: user?.id ?? null,
+        accountRestored,
+        authTime,
+        phoneVerified,
+        phoneLast4: phoneLast4(user?.phone_e164),
+        mfaSatisfied,
+        mfaCheckFailed,
       };
 
       return true;
@@ -252,5 +325,53 @@ export class FirebaseAuthGuard implements CanActivate {
       if (isPublic) return true;
       throw new UnauthorizedException('Invalid token');
     }
+  }
+
+  /**
+   * A deletion request signs the current session out. Signing in again before
+   * the deadline clears it. The session that requested deletion has an older
+   * auth_time, so it cannot immediately undo the request.
+   */
+  private async restoreOrBlockScheduledDeletion(
+    user: {
+      id: string;
+      deletion_requested_at?: string | null;
+      deletion_scheduled_for?: string | null;
+    },
+    authTimeSec: number | undefined,
+  ): Promise<boolean> {
+    if (!user.deletion_scheduled_for) return false;
+
+    const scheduledFor = new Date(user.deletion_scheduled_for).getTime();
+    const requestedAt = user.deletion_requested_at
+      ? new Date(user.deletion_requested_at).getTime()
+      : scheduledFor;
+    if (!Number.isFinite(scheduledFor) || Date.now() >= scheduledFor) {
+      throw new ForbiddenException(ACCOUNT_DELETION_EXPIRED_MESSAGE);
+    }
+
+    // auth_time is whole seconds. Allow a couple of seconds so a sign-in in
+    // the same second as the request still counts as a restore. The session
+    // that requested deletion signed in earlier than that.
+    const authTimeMs = (authTimeSec ?? 0) * 1000;
+    if (!(authTimeMs + 2000 > requestedAt)) {
+      throw new ForbiddenException(ACCOUNT_DELETION_PENDING_MESSAGE);
+    }
+
+    const supabase = getSupabaseClient();
+    const { error } = await supabase
+      .from('users')
+      .update({
+        deletion_requested_at: null,
+        deletion_scheduled_for: null,
+      })
+      .eq('id', user.id);
+    if (error) {
+      this.logger.warn(
+        `Failed to restore account ${user.id}: ${error.message}`,
+      );
+      throw new ForbiddenException(ACCOUNT_DELETION_PENDING_MESSAGE);
+    }
+    return true;
   }
 }

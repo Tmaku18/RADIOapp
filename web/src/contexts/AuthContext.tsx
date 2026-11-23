@@ -16,9 +16,35 @@ import {
   resolveAuthEmail,
   peekOAuthRedirectPending,
 } from '@/lib/firebase-client';
+import { toast } from 'sonner';
 import { usersApi } from '@/lib/api';
 import { clearGuestBrowse } from '@/lib/guest';
 import { DisplayNameGate } from '@/components/DisplayNameGate';
+
+function accountWasRestored(data: unknown): boolean {
+  return Boolean(
+    data &&
+      typeof data === 'object' &&
+      (data as { accountRestored?: boolean }).accountRestored,
+  );
+}
+
+function deletionLockoutMessage(err: unknown): string | null {
+  const response = (
+    err as { response?: { status?: number; data?: { message?: unknown } } }
+  ).response;
+  if (response?.status !== 403) return null;
+  const raw = response.data?.message;
+  const text = typeof raw === 'string' ? raw : '';
+  const lower = text.toLowerCase();
+  if (
+    lower.includes('scheduled for deletion') ||
+    lower.includes('recovery window')
+  ) {
+    return text;
+  }
+  return null;
+}
 
 interface UserProfile {
   id: string;
@@ -88,6 +114,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Suppresses the auto-setup gate while the email sign-up flow is creating the
   // profile itself, so the background listener doesn't race it.
   const suppressAutoSetupRef = useRef(false);
+  const restoredNoticeShown = useRef(false);
+
+  const noteAccountRestored = useCallback((data: unknown) => {
+    if (!accountWasRestored(data) || restoredNoticeShown.current) return;
+    restoredNoticeShown.current = true;
+    toast.success(
+      'Welcome back. Signing in restored your account, so it will not be deleted.',
+    );
+  }, []);
+
+  const signOutIfDeletionLocked = useCallback(async (err: unknown) => {
+    const message = deletionLockoutMessage(err);
+    if (!message) return false;
+    setError(message);
+    try {
+      await signOut();
+    } catch {
+      // The session is already unusable. Clear local state below.
+    }
+    setUser(null);
+    setProfile(null);
+    restoredNoticeShown.current = false;
+    return true;
+  }, []);
   const AUTH_BOOT_TIMEOUT_MS = 15000;
 
   const getHttpStatus = useCallback((err: unknown): number | null => {
@@ -120,11 +170,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await withTimeout(usersApi.getMe());
       setProfile(response.data);
+      noteAccountRestored(response.data);
     } catch (err) {
+      if (await signOutIfDeletionLocked(err)) return;
       console.error('Failed to fetch profile:', err);
       // Preserve last known profile on transient failures/timeouts.
     }
-  }, [withTimeout]);
+  }, [withTimeout, noteAccountRestored, signOutIfDeletionLocked]);
 
   // Set role cookie whenever profile has a role so middleware can allow /artist/* and /job-board
   useEffect(() => {
@@ -186,6 +238,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const ready = !!response.data?.displayName?.trim();
         if (ready) {
           setProfile(response.data);
+          noteAccountRestored(response.data);
           setPendingProfileSetup(false);
           return;
         }
@@ -193,6 +246,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setPendingProfileSetup(true);
         return;
       } catch (err) {
+        if (await signOutIfDeletionLocked(err)) return;
         if (getHttpStatus(err) !== 404) {
           return;
         }
@@ -201,7 +255,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
     },
-    [getHttpStatus],
+    [getHttpStatus, noteAccountRestored, signOutIfDeletionLocked],
   );
 
   // Complete full-page OAuth redirect (Apple/Google) before wiring auth listener.
@@ -247,12 +301,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const response = await withTimeout(usersApi.getMe());
           if (response.data?.displayName?.trim()) {
             setProfile(response.data);
+            noteAccountRestored(response.data);
             setPendingProfileSetup(false);
           } else {
             setProfile(null);
             setPendingProfileSetup(true);
           }
         } catch (err) {
+          if (await signOutIfDeletionLocked(err)) return;
           // Only require profile setup when backend confirms the row is missing.
           if (getHttpStatus(err) !== 404) {
             return;
@@ -269,6 +325,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setProfile(null);
         setPendingProfileSetup(false);
+        restoredNoticeShown.current = false;
       }
     });
 
@@ -276,7 +333,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(bootTimeout);
       unsubscribe();
     };
-  }, [withTimeout, getHttpStatus]);
+  }, [withTimeout, getHttpStatus, noteAccountRestored, signOutIfDeletionLocked]);
 
   // Background reconciliation: if auth exists but profile is missing, keep retrying.
   // This prevents users getting stuck in unresolved "Loading..." role states.
@@ -419,6 +476,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await signOut();
       setProfile(null);
+      restoredNoticeShown.current = false;
       clearGuestBrowse();
       if (typeof document !== 'undefined') {
         document.cookie =

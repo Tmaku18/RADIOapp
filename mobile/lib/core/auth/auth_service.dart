@@ -537,9 +537,31 @@ class AuthService extends ChangeNotifier with WidgetsBindingObserver {
     } catch (_) {}
   }
 
+  bool _accountRestoredNotice = false;
+
+  /// True once after a sign-in cancels a deletion that was still inside 48 hours.
+  bool consumeAccountRestoredNotice() {
+    final pending = _accountRestoredNotice;
+    _accountRestoredNotice = false;
+    return pending;
+  }
+
+  bool _isDeletionLockout(Object error) {
+    final message = error.toString().toLowerCase();
+    return message.contains('scheduled for deletion') ||
+        message.contains('recovery window');
+  }
+
   Future<app_user.User?> _getUserProfile() async {
     final response = await _apiService.get('users/me');
-    return app_user.User.fromJson(response);
+    if (response is Map && response['accountRestored'] == true) {
+      _accountRestoredNotice = true;
+    }
+    return app_user.User.fromJson(
+      response is Map<String, dynamic>
+          ? response
+          : Map<String, dynamic>.from(response as Map),
+    );
   }
 
   /// Returns the identity provider's real name (trimmed) or an empty string.
@@ -628,6 +650,11 @@ class AuthService extends ChangeNotifier with WidgetsBindingObserver {
         debugPrint('getUserProfile: backend timed out, using fallback user.');
         return _buildFallbackUser(firebaseUser);
       } catch (e) {
+        if (_isDeletionLockout(e)) {
+          debugPrint('Account is scheduled for deletion; signing out.');
+          await signOut();
+          return null;
+        }
         debugPrint('Error getting user profile: $e');
         return _buildFallbackUser(firebaseUser);
       }

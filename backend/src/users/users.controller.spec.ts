@@ -1,18 +1,11 @@
 import { UsersController } from './users.controller';
 
-const adminServiceStub = {
-  deleteUserAccount: jest.fn(),
-} as any;
-
 describe('UsersController', () => {
   it('delegates user creation', async () => {
     const usersService = {
       createUser: jest.fn().mockResolvedValue({ id: 'user-1' }),
     };
-    const controller = new UsersController(
-      usersService as any,
-      adminServiceStub,
-    );
+    const controller = new UsersController(usersService as any);
 
     const result = await controller.createUser(
       { uid: 'firebase-uid' } as any,
@@ -35,10 +28,7 @@ describe('UsersController', () => {
     const usersService = {
       getUserByFirebaseUid: jest.fn().mockResolvedValue({ id: 'user-1' }),
     };
-    const controller = new UsersController(
-      usersService as any,
-      adminServiceStub,
-    );
+    const controller = new UsersController(usersService as any);
 
     const result = await controller.getCurrentUser({
       uid: 'firebase-uid',
@@ -56,10 +46,7 @@ describe('UsersController', () => {
         .fn()
         .mockResolvedValue({ id: 'user-1', displayName: 'Updated' }),
     };
-    const controller = new UsersController(
-      usersService as any,
-      adminServiceStub,
-    );
+    const controller = new UsersController(usersService as any);
 
     const result = await controller.updateCurrentUser(
       { uid: 'firebase-uid' } as any,
@@ -76,10 +63,7 @@ describe('UsersController', () => {
     const usersService = {
       upgradeToArtist: jest.fn().mockResolvedValue({ role: 'artist' }),
     };
-    const controller = new UsersController(
-      usersService as any,
-      adminServiceStub,
-    );
+    const controller = new UsersController(usersService as any);
 
     const result = await controller.upgradeToArtist({
       uid: 'firebase-uid',
@@ -93,10 +77,7 @@ describe('UsersController', () => {
     const usersService = {
       getUserById: jest.fn().mockResolvedValue({ id: 'user-2' }),
     };
-    const controller = new UsersController(
-      usersService as any,
-      adminServiceStub,
-    );
+    const controller = new UsersController(usersService as any);
 
     const result = await controller.getUserById('user-2');
 

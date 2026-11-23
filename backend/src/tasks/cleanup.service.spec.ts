@@ -7,7 +7,7 @@ jest.mock('../config/supabase.config', () => ({
 
 describe('CleanupService', () => {
   it('handles archive RPC errors gracefully', async () => {
-    const service = new CleanupService();
+    const service = new CleanupService({} as never);
     const supabase = {
       rpc: jest
         .fn()

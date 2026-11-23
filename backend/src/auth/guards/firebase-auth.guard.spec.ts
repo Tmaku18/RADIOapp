@@ -118,6 +118,12 @@ describe('FirebaseAuthGuard', () => {
       emailVerified: true,
       dbRole: 'listener',
       dbUserId: 'user-id',
+      accountRestored: false,
+      authTime: null,
+      phoneVerified: false,
+      phoneLast4: null,
+      mfaSatisfied: false,
+      mfaCheckFailed: false,
     });
   });
 });

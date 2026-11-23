@@ -9,6 +9,8 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { getSupabaseClient } from '../config/supabase.config';
+import { getFirebaseAuth } from '../config/firebase.config';
+import { ACCOUNT_DELETION_GRACE_MS } from './account-deletion';
 import { signSongAudioUrl } from '../common/song-audio.util';
 import { generateUniqueUsername } from '../common/username.util';
 import { UploadsService } from '../uploads/uploads.service';
@@ -429,6 +431,53 @@ export class UsersService {
     }
 
     return transformUser(result.data);
+  }
+
+  /**
+   * Mark the account for deletion in 48 hours without removing data.
+   * A later sign-in inside that window clears the mark and restores access.
+   */
+  async scheduleAccountDeletion(firebaseUid: string): Promise<{
+    scheduled: true;
+    deletionScheduledFor: string;
+    graceHours: number;
+  }> {
+    const supabase = getSupabaseClient();
+    const now = new Date();
+    const scheduledFor = new Date(now.getTime() + ACCOUNT_DELETION_GRACE_MS);
+    const { data, error } = await supabase
+      .from('users')
+      .update({
+        deletion_requested_at: now.toISOString(),
+        deletion_scheduled_for: scheduledFor.toISOString(),
+      })
+      .eq('firebase_uid', firebaseUid)
+      .select('id, firebase_uid')
+      .maybeSingle();
+
+    if (error || !data) {
+      throw new BadRequestException(
+        error?.message || 'Could not schedule account deletion',
+      );
+    }
+
+    if (data.firebase_uid) {
+      try {
+        await getFirebaseAuth().revokeRefreshTokens(data.firebase_uid);
+      } catch (err) {
+        this.logger.warn(
+          `Could not revoke sessions for ${data.firebase_uid}: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        );
+      }
+    }
+
+    return {
+      scheduled: true,
+      deletionScheduledFor: scheduledFor.toISOString(),
+      graceHours: 48,
+    };
   }
 
   async getArtistLikeNotificationSettings(

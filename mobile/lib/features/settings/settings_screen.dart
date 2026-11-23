@@ -16,6 +16,7 @@ import '../../core/auth/auth_service.dart';
 import '../../core/auth/role_helpers.dart';
 import '../../core/models/user.dart' as app_user;
 import '../../widgets/dimension/dimension_widgets.dart';
+import '../account/delete_account_flow.dart';
 
 /// Settings screen with Instagram/Twitch-style sectioned list:
 /// Account, Preferences, Notifications, Security & Privacy, Payments,
@@ -562,9 +563,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     context,
                     icon: Icons.delete_forever_outlined,
                     title: 'Delete account',
-                    subtitle: 'Permanently delete your account and data',
+                    subtitle: 'Kept for 48 hours. Sign in again to restore it.',
                     destructive: true,
-                    onTap: _confirmDeleteAccount,
+                    onTap: () => confirmAndScheduleAccountDeletion(context),
                   ),
                 ]),
 
@@ -1031,100 +1032,5 @@ class _SettingsScreenState extends State<SettingsScreen> {
       trailing: Icon(Icons.chevron_right, color: color),
       onTap: onTap,
     );
-  }
-
-  Future<void> _confirmDeleteAccount() async {
-    final scheme = Theme.of(context).colorScheme;
-    final confirmCtrl = TextEditingController();
-
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (dialogCtx) {
-        return StatefulBuilder(
-          builder: (ctx, setLocal) {
-            final canConfirm = confirmCtrl.text.trim().toUpperCase() == 'DELETE';
-            return AlertDialog(
-              title: const Text('Delete account'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'This will permanently delete your account, profile, '
-                    'uploaded songs, library, chat messages, and notification '
-                    'preferences. This cannot be undone.\n\n'
-                    'If you subscribed in the App Store or Google Play, cancel '
-                    'that subscription in your store account first. Deleting '
-                    'the app account does not cancel a store subscription.',
-                  ),
-                  const SizedBox(height: 16),
-                  const Text('Type DELETE to confirm:'),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: confirmCtrl,
-                    autofocus: true,
-                    decoration: const InputDecoration(
-                      hintText: 'DELETE',
-                      border: OutlineInputBorder(),
-                    ),
-                    onChanged: (_) => setLocal(() {}),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogCtx, false),
-                  child: const Text('Cancel'),
-                ),
-                FilledButton(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: scheme.error,
-                    foregroundColor: scheme.onError,
-                  ),
-                  onPressed: canConfirm
-                      ? () => Navigator.pop(dialogCtx, true)
-                      : null,
-                  child: const Text('Delete account'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-
-    if (result != true || !mounted) return;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
-
-    try {
-      await _usersService.deleteMyAccount();
-      if (!mounted) return;
-      Navigator.of(context, rootNavigator: true).pop();
-
-      try {
-        final auth = Provider.of<AuthService>(context, listen: false);
-        await auth.signOut();
-      } catch (_) {}
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Your account has been deleted.')),
-      );
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        AppRoutes.login,
-        (_) => false,
-      );
-    } catch (e) {
-      if (!mounted) return;
-      Navigator.of(context, rootNavigator: true).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to delete account: $e')),
-      );
-    }
   }
 }

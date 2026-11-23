@@ -17,6 +17,7 @@ import '../../core/services/users_service.dart';
 import '../../core/navigation/home_tab_intent.dart';
 import '../../core/utils/image_crop_picker.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
+import '../account/delete_account_flow.dart';
 import '../../widgets/states/app_states.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -1492,6 +1493,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         style: TextStyle(color: _isSigningOut ? Colors.grey : Colors.red),
                       ),
                       onTap: _isSigningOut ? null : _signOut,
+                    ),
+                    const Divider(),
+                    ListTile(
+                      leading: Icon(
+                        Icons.delete_forever_outlined,
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                      title: Text(
+                        'Delete account',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                      subtitle: const Text(
+                        'Kept for 48 hours. Sign in again to restore it. Type delete to confirm.',
+                      ),
+                      onTap: () => confirmAndScheduleAccountDeletion(context),
                     ),
                   ],
                 ),

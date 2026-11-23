@@ -2,36 +2,22 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { usersApi } from '@/lib/api';
+import { DeleteAccountCard } from '@/components/account/DeleteAccountCard';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 
 export default function SecuritySettingsPage() {
-  const router = useRouter();
-  const { profile, refreshProfile, signOut } = useAuth();
+  const { profile, refreshProfile } = useAuth();
 
   const [discoverable, setDiscoverable] = useState(true);
   const [savingDiscoverable, setSavingDiscoverable] = useState(false);
   const [discoverableSaved, setDiscoverableSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState('');
-  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     setDiscoverable(profile?.discoverable !== false);
@@ -51,22 +37,6 @@ export default function SecuritySettingsPage() {
       setDiscoverable(profile?.discoverable !== false);
     } finally {
       setSavingDiscoverable(false);
-    }
-  };
-
-  const handleDeleteAccount = async () => {
-    if (deleteConfirm.trim().toUpperCase() !== 'DELETE') return;
-    setDeleting(true);
-    setError(null);
-    try {
-      await usersApi.deleteMyAccount();
-      setDeleteOpen(false);
-      await signOut();
-      router.replace('/login');
-    } catch {
-      setError('Failed to delete account. Please try again or contact support.');
-    } finally {
-      setDeleting(false);
     }
   };
 
@@ -113,49 +83,7 @@ export default function SecuritySettingsPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent className="space-y-4 pt-6">
-          <div className="space-y-1">
-            <h2 className="text-lg font-semibold text-foreground">Delete account</h2>
-            <p className="text-sm text-muted-foreground">
-              Permanently delete your account, profile, uploaded songs, library, messages, and
-              notification preferences. This cannot be undone.
-            </p>
-          </div>
-          <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
-            Delete account
-          </Button>
-        </CardContent>
-      </Card>
-
-      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete account</DialogTitle>
-            <DialogDescription>
-              Type DELETE to confirm permanent account deletion.
-            </DialogDescription>
-          </DialogHeader>
-          <Input
-            value={deleteConfirm}
-            onChange={(e) => setDeleteConfirm(e.target.value)}
-            placeholder="DELETE"
-            autoComplete="off"
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteOpen(false)} disabled={deleting}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => void handleDeleteAccount()}
-              disabled={deleting || deleteConfirm.trim().toUpperCase() !== 'DELETE'}
-            >
-              {deleting ? 'Deleting…' : 'Delete account'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DeleteAccountCard />
     </div>
   );
 }

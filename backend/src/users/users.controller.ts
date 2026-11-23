@@ -15,7 +15,6 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
-import { AdminService } from '../admin/admin.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { AppleAuthorizationDto } from '../common/dto/request-bodies.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -23,15 +22,13 @@ import { UpdateArtistLikeNotificationSettingsDto } from './dto/update-artist-lik
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
+import { SkipPhoneMfa } from '../auth/decorators/skip-phone-mfa.decorator';
 import { getFirebaseAuth } from '../config/firebase.config';
 import { getSupabaseClient } from '../config/supabase.config';
 
 @Controller('users')
 export class UsersController {
-  constructor(
-    private readonly usersService: UsersService,
-    private readonly adminService: AdminService,
-  ) {}
+  constructor(private readonly usersService: UsersService) {}
 
   /**
    * Create a new user in Supabase after Firebase authentication.
@@ -39,6 +36,7 @@ export class UsersController {
    * No role guard: new users have no Supabase row yet; role is set from request body (listener | artist | service_provider).
    */
   @Post()
+  @SkipPhoneMfa()
   async createUser(
     @CurrentUser() user: FirebaseUser,
     @Body() createUserDto: CreateUserDto,
@@ -47,31 +45,31 @@ export class UsersController {
   }
 
   @Get('me')
+  @SkipPhoneMfa()
   async getCurrentUser(@CurrentUser() user: FirebaseUser) {
-    return this.usersService.getUserByFirebaseUid(user.uid);
+    const profile = await this.usersService.getUserByFirebaseUid(user.uid);
+    return {
+      ...profile,
+      ...(user.accountRestored ? { accountRestored: true } : {}),
+      phoneVerified: user.phoneVerified === true,
+      phoneLast4: user.phoneLast4 ?? null,
+      mfaSatisfied: user.mfaSatisfied === true,
+    };
   }
 
   /**
    * Self-service account deletion (Google Play / Apple App Store requirement).
-   * Removes the user's data and Firebase credentials. The user can sign up again afterwards.
+   * Data is kept for 48 hours. Signing in again during that window restores the account.
    */
   @Delete('me')
+  @SkipPhoneMfa()
   async deleteCurrentUser(@CurrentUser() user: FirebaseUser) {
-    const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('users')
-      .select('id')
-      .eq('firebase_uid', user.uid)
-      .single();
-    if (error || !data) {
-      throw new BadRequestException('User not found');
-    }
-    await this.adminService.deleteUserAccount(data.id);
-    return { deleted: true };
+    return this.usersService.scheduleAccountDeletion(user.uid);
   }
 
   /** Store the latest Sign in with Apple authorization code so delete can revoke it. */
   @Post('me/apple-authorization')
+  @SkipPhoneMfa()
   async saveAppleAuthorization(
     @CurrentUser() user: FirebaseUser,
     @Body() body: AppleAuthorizationDto,
@@ -96,6 +94,7 @@ export class UsersController {
    * Used by frontend to skip role selection for first-time admin logins.
    */
   @Get('me/check-admin')
+  @SkipPhoneMfa()
   async checkAdmin(@CurrentUser() user: FirebaseUser) {
     return {
       isAdmin: await this.usersService.isAdminUser(user.uid, user.email),

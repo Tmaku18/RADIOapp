@@ -36,10 +36,10 @@ export default function DeleteAccountPage() {
 
       <section className="space-y-3">
         <p className="text-muted-foreground">
-          You can permanently delete your NETWORX account and associated personal
-          data at any time. Account deletion is irreversible. Once deleted, you
-          will lose access to your profile, library, uploads, purchase history,
-          credits, and any in-app earnings.
+          You can delete your NETWORX account from your profile or from Help.
+          We keep your data for 48 hours. Sign in again during that time and
+          the account is restored. After 48 hours the account and its data are
+          permanently deleted.
         </p>
       </section>
 
@@ -49,12 +49,15 @@ export default function DeleteAccountPage() {
           The fastest way to delete your account is from inside the NETWORX app:
         </p>
         <ol className="list-decimal pl-6 text-muted-foreground space-y-2">
-          <li>Open the NETWORX app and sign in.</li>
+          <li>Open NETWORX on the web or in the app and sign in.</li>
           <li>
-            Go to <strong>Settings</strong> → <strong>Account</strong>.
+            Go to <strong>My Profile</strong> (bottom of the page) or{' '}
+            <strong>Help</strong>. You can also use{' '}
+            <strong>Settings → Security &amp; Privacy</strong>.
           </li>
           <li>
-            Tap <strong>Delete account</strong> and confirm.
+            Read the warnings, type <strong>delete</strong>, and confirm.
+            Signing in again within 48 hours restores the account.
           </li>
         </ol>
       </section>
@@ -129,8 +132,9 @@ export default function DeleteAccountPage() {
         <h2 className="text-2xl font-semibold">Timeline</h2>
         <ul className="list-disc pl-6 text-muted-foreground space-y-2">
           <li>
-            <strong>In-app requests:</strong> deletion is queued immediately and
-            completed within 24 hours.
+            <strong>In the app or on the site:</strong> your data is kept for
+            48 hours. Sign in during that window to restore the account. After
+            48 hours, deletion is permanent.
           </li>
           <li>
             <strong>Email requests:</strong> we acknowledge within 5 business

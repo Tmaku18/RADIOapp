@@ -5,6 +5,7 @@ import '../../core/utils/mobile_store.dart';
 import '../../core/services/app_tutorial_service.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 import '../invite/invite_friends_sheet.dart';
+import '../account/delete_account_flow.dart';
 
 /// Help, support, and legal documents — surfaced from More, not Settings.
 class HelpLegalScreen extends StatelessWidget {
@@ -71,6 +72,15 @@ class HelpLegalScreen extends StatelessWidget {
               title: 'Contact Us',
               subtitle: 'Get in touch',
               onTap: () => _openExternal('https://pro-networx.com/contact'),
+            ),
+            _navTile(
+              context,
+              icon: Icons.delete_forever_outlined,
+              title: 'Delete account',
+              subtitle:
+                  'Kept for 48 hours. Sign in again to restore it. Type delete to confirm.',
+              onTap: () => confirmAndScheduleAccountDeletion(context),
+              destructive: true,
             ),
           ]),
           _section('Legal', [
@@ -160,18 +170,22 @@ class HelpLegalScreen extends StatelessWidget {
     required String title,
     required String subtitle,
     required VoidCallback onTap,
+    bool destructive = false,
   }) {
     final scheme = Theme.of(context).colorScheme;
+    final color = destructive ? scheme.error : null;
     return ListTile(
-      leading: Icon(icon, size: 24),
-      title: Text(title),
+      leading: Icon(icon, size: 24, color: color),
+      title: Text(title, style: TextStyle(color: color)),
       subtitle: Text(
         subtitle,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: scheme.onSurfaceVariant,
+              color: destructive
+                  ? scheme.error.withValues(alpha: 0.8)
+                  : scheme.onSurfaceVariant,
             ),
       ),
-      trailing: const Icon(Icons.chevron_right),
+      trailing: Icon(Icons.chevron_right, color: color),
       onTap: onTap,
     );
   }

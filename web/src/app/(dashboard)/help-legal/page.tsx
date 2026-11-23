@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
+import { DeleteAccountCard } from '@/components/account/DeleteAccountCard';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   HelpCircleIcon,
@@ -17,6 +18,7 @@ type HelpItem = {
   href: string;
   icon: typeof HelpCircleIcon;
   external?: boolean;
+  destructive?: boolean;
 };
 
 const helpItems: HelpItem[] = [
@@ -38,6 +40,13 @@ const helpItems: HelpItem[] = [
     description: 'Get in touch',
     href: '/contact',
     icon: HelpCircleIcon,
+  },
+  {
+    label: 'Delete account',
+    description: 'Schedule deletion. Sign in within 48 hours to restore it.',
+    href: '#delete-account',
+    icon: HelpCircleIcon,
+    destructive: true,
   },
 ];
 
@@ -106,7 +115,15 @@ function HelpLegalList({ items }: { items: HelpItem[] }) {
               />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="font-medium text-foreground">{item.label}</p>
+              <p
+                className={
+                  item.destructive
+                    ? 'font-medium text-destructive'
+                    : 'font-medium text-foreground'
+                }
+              >
+                {item.label}
+              </p>
               <p className="text-sm text-muted-foreground">{item.description}</p>
             </div>
             <span className="text-muted-foreground" aria-hidden>
@@ -125,6 +142,10 @@ function HelpLegalList({ items }: { items: HelpItem[] }) {
                 rel="noopener noreferrer"
                 className={className}
               >
+                {content}
+              </a>
+            ) : item.href.startsWith('#') ? (
+              <a href={item.href} className={className}>
                 {content}
               </a>
             ) : (
@@ -159,6 +180,8 @@ export default function HelpLegalPage() {
           <HelpLegalList items={helpItems} />
         </CardContent>
       </Card>
+
+      <DeleteAccountCard />
 
       <Card>
         <CardContent className="p-0">
