@@ -127,7 +127,7 @@ private struct LockScreenMuteButton: View {
       .frame(width: compact ? 52 : 64, height: compact ? 52 : 72)
       .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
-    .buttonStyle(.plain)
+    .buttonStyle(.borderless)
   }
 }
 
@@ -144,7 +144,7 @@ private struct LockScreenReactionButton: View {
         Button(intent: ShitSongIntent()) { label }
       }
     }
-    .buttonStyle(.plain)
+    .buttonStyle(.borderless)
   }
 
   private var label: some View {
@@ -158,44 +158,41 @@ private struct LockScreenNowPlaying: View {
   let state: NowPlayingAttributes.ContentState
 
   var body: some View {
-    HStack(alignment: .top, spacing: 12) {
-      VStack(spacing: 4) {
+    VStack(alignment: .leading, spacing: 8) {
+      HStack(alignment: .top, spacing: 12) {
         LockScreenArtwork(token: state.artworkToken, side: 64)
+        VStack(alignment: .leading, spacing: 2) {
+          Text(state.station)
+            .font(.caption)
+            .foregroundStyle(networxCyan)
+            .lineLimit(1)
+          Text(state.title)
+            .font(.title3)
+            .fontWeight(.bold)
+            .foregroundStyle(.white)
+            .lineLimit(2)
+          Text(state.artist)
+            .font(.subheadline)
+            .foregroundStyle(.white.opacity(0.72))
+            .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
         if #available(iOS 17.0, *) {
-          LockScreenReactionButton(emoji: "💩", fire: false)
+          LockScreenMuteButton(isMuted: state.isMuted)
         }
       }
-      VStack(spacing: 2) {
-        Text(state.station)
-          .font(.caption)
-          .foregroundStyle(networxCyan)
-          .lineLimit(1)
-        Text(state.title)
-          .font(.title3)
-          .fontWeight(.bold)
-          .foregroundStyle(.white)
-          .lineLimit(2)
-        Text(state.artist)
-          .font(.subheadline)
-          .foregroundStyle(.white.opacity(0.72))
-          .lineLimit(1)
-      }
-      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
       if #available(iOS 17.0, *) {
-        LockScreenMuteButton(isMuted: state.isMuted)
+        HStack(alignment: .center, spacing: 0) {
+          LockScreenReactionButton(emoji: "💩", fire: false)
+          Spacer(minLength: 8)
+          LockScreenReactionButton(emoji: "🔥", fire: true)
+        }
       }
     }
     .padding(.horizontal, 14)
-    .padding(.top, 12)
-    .padding(.bottom, 40)
-    .frame(maxWidth: .infinity, minHeight: 148, alignment: .top)
-    .overlay(alignment: .bottomTrailing) {
-      if #available(iOS 17.0, *) {
-        LockScreenReactionButton(emoji: "🔥", fire: true)
-          .padding(.bottom, 2)
-          .padding(.trailing, 14)
-      }
-    }
+    .padding(.top, 10)
+    .padding(.bottom, 2)
+    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
   }
 }
 
@@ -205,7 +202,6 @@ struct NowPlayingLiveActivity: Widget {
       LockScreenNowPlaying(state: context.state)
         .activityBackgroundTint(Color.black)
         .activitySystemActionForegroundColor(.white)
-        .widgetURL(URL(string: "networxradio://radio"))
     } dynamicIsland: { context in
       DynamicIsland {
         DynamicIslandExpandedRegion(.leading) {

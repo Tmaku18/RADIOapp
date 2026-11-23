@@ -130,6 +130,11 @@ class RadioGuestPlaybackService {
     } catch (_) {
       return false;
     }
+    if (AudioPlayerService.handler.radioMutedByUser) {
+      await AudioPlayerService.handler.setUserPaused(true);
+      await AudioPlayerService.handler.applyOutputVolume();
+      return true;
+    }
     await AudioPlayerService.handler.setUserPaused(false);
     await player.play();
     unawaited(_radio.reportPlay(track.id, radioId: radioId));

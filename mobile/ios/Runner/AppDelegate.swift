@@ -31,6 +31,13 @@ import flutter_local_notifications
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
+  override func applicationWillTerminate(_ application: UIApplication) {
+    if #available(iOS 16.2, *) {
+      LiveActivityBridge.endAll()
+    }
+    super.applicationWillTerminate(application)
+  }
+
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     // Background notification isolate needs the same plugin set.
     FlutterLocalNotificationsPlugin.setPluginRegistrantCallback { registry in

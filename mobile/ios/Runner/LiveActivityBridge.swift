@@ -32,6 +32,8 @@ enum LiveActivityBridge {
   private static var updateChain: Task<Void, Never>?
   private static var observingMute = false
   private static var observingReact = false
+  private static var lastArtworkToken = ""
+  private static var lastArtworkUrl = ""
 
   static func register(messenger: FlutterBinaryMessenger) {
     let methodChannel = FlutterMethodChannel(
@@ -54,15 +56,23 @@ enum LiveActivityBridge {
           artist: args?["artist"] as? String ?? "",
           station: args?["station"] as? String ?? "NetworX Radio",
           artworkUrl: args?["artworkUrl"] as? String ?? "",
-          isMuted: args?["isMuted"] as? Bool ?? false
+          isMuted: args?["isMuted"] as? Bool ?? false,
+          songId: args?["songId"] as? String ?? "",
+          playId: args?["playId"] as? String ?? ""
         )
         result(true)
       case "end":
         end()
         result(true)
+      case "drain":
+        deliverLockReaction()
+        result(true)
       default:
         result(FlutterMethodNotImplemented)
       }
+    }
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+      deliverLockReaction()
     }
   }
 
@@ -71,10 +81,18 @@ enum LiveActivityBridge {
   }
 
   static func deliverLockReaction() {
-    let reaction = UserDefaults(suiteName: networxAppGroupId)?
-      .string(forKey: networxLockReactionKey) ?? ""
+    guard channel != nil else { return }
+    let defaults = UserDefaults(suiteName: networxAppGroupId)
+    let reaction = defaults?.string(forKey: networxLockReactionKey) ?? ""
     guard reaction == "fire" || reaction == "shit" else { return }
-    channel?.invokeMethod("react", arguments: reaction)
+    let songId = defaults?.string(forKey: networxLockSongIdKey) ?? ""
+    let playId = defaults?.string(forKey: networxLockPlayIdKey) ?? ""
+    defaults?.removeObject(forKey: networxLockReactionKey)
+    channel?.invokeMethod("react", arguments: [
+      "reaction": reaction,
+      "songId": songId,
+      "playId": playId,
+    ])
   }
 
   private static func observeLockMute() {
@@ -109,17 +127,31 @@ enum LiveActivityBridge {
     artist: String,
     station: String,
     artworkUrl: String,
-    isMuted: Bool
+    isMuted: Bool,
+    songId: String,
+    playId: String
   ) {
+    let defaults = UserDefaults(suiteName: networxAppGroupId)
+    if !songId.isEmpty {
+      defaults?.set(songId, forKey: networxLockSongIdKey)
+    }
+    defaults?.set(playId, forKey: networxLockPlayIdKey)
     enqueue {
-      let token = await saveArtwork(from: artworkUrl)
-      let state = NowPlayingAttributes.ContentState(
+      // Title first. Waiting on the artwork download left the card on the
+      // previous song while the system player had already moved on.
+      var state = NowPlayingAttributes.ContentState(
         title: title,
         artist: artist,
         station: station,
         isMuted: isMuted,
-        artworkToken: token
+        artworkToken: lastArtworkToken
       )
+      await publish(state)
+      let token = await saveArtwork(from: artworkUrl)
+      guard !token.isEmpty, token != state.artworkToken else { return }
+      lastArtworkUrl = artworkUrl
+      lastArtworkToken = token
+      state.artworkToken = token
       await publish(state)
     }
   }
@@ -149,6 +181,13 @@ enum LiveActivityBridge {
       )
     } catch {
       NSLog("Live Activity request failed: \(error.localizedDescription)")
+    }
+  }
+
+  @available(iOS 16.2, *)
+  static func endAll() {
+    for activity in Activity<NowPlayingAttributes>.activities {
+      Task { await activity.end(nil, dismissalPolicy: .immediate) }
     }
   }
 

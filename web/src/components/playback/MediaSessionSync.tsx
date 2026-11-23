@@ -30,10 +30,11 @@ export function MediaSessionSync() {
     };
 
     setHandler('play', () => {
+      // A track change also fires this. A mute stays until the on-page button.
       void actionsRef.current?.softResume();
     });
     setHandler('pause', () => {
-      actionsRef.current?.softPause();
+      actionsRef.current?.softPause({ remember: true });
     });
 
     return () => {

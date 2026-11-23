@@ -28,6 +28,27 @@ export function setStationAutoplayEnabled(enabled: boolean): void {
   window.localStorage.setItem(STATION_AUTOPLAY_KEY, enabled ? '1' : '0');
 }
 
+const RADIO_USER_MUTED_KEY = 'networx-radio-user-muted';
+
+/** The listener muted the live station. Stays set until they unmute. */
+export function readRadioUserMuted(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.sessionStorage.getItem(RADIO_USER_MUTED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function writeRadioUserMuted(muted: boolean): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(RADIO_USER_MUTED_KEY, muted ? '1' : '0');
+  } catch {
+    /* ignore */
+  }
+}
+
 const RADIO_NAV_INTENT_KEY = 'networx-radio-nav-intent';
 
 /** Call when the user taps a nav link to open the live radio page. */

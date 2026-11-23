@@ -5,4 +5,8 @@ class NowPlayingWidgetSync {
   static void listenForLockMute() {}
 
   static Future<void> push(MediaItem? item) async {}
+
+  static Future<void> end() async {}
+
+  static Future<void> drainLockReaction() async {}
 }

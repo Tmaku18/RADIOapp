@@ -59,9 +59,17 @@ class AudioPlayerService {
     var applied = false;
     await _runExclusiveSourceLoad(() async {
       if (isStale?.call() ?? false) return;
+      final handler = AudioPlayerService.handler;
+      handler.armMuteHoldThroughSourceSwap();
       await player.setAudioSource(source);
       if (initialPosition != null && initialPosition > Duration.zero) {
         await player.seek(initialPosition);
+      }
+      final tag = source is IndexedAudioSource ? source.tag : null;
+      final radioTrack =
+          tag is MediaItem && tag.extras?['source']?.toString() == 'radio';
+      if (radioTrack && handler.radioMutedByUser) {
+        await handler.setUserPaused(true);
       }
       applied = true;
     });

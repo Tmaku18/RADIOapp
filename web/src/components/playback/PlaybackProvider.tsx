@@ -196,9 +196,6 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   // True when the listener muted the radio via the pause button. The stream
   // keeps playing/advancing and stays synced to live; only output is silenced.
   const mutedByUserRef = useRef(false);
-  // Track changes and page opens fire play events. Ignore those while the
-  // listener's mute is still settling on the new element.
-  const ignoreUnmuteUntilRef = useRef(0);
   // Page media (clips, recorded takes, story video) that is currently audible.
   // `new Audio()` is not in the document, so those callers use the hold API.
   const externalPlayingRef = useRef<Set<HTMLMediaElement>>(new Set());
@@ -1272,7 +1269,6 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       }
       if (source === 'radio' && readRadioUserMuted()) {
         mutedByUserRef.current = true;
-        ignoreUnmuteUntilRef.current = Date.now() + 2500;
       }
 
       // Join the radio at its live offset so all listeners stay aligned. Ignore
@@ -1650,10 +1646,8 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     if (externalHoldCountRef.current > 0) return;
     const sticky = readRadioUserMuted();
     // Page opens, station changes, and the next song all try to resume.
-    // Only the listener's unmute button (or a play tap after the handoff)
-    // may turn the station back up.
+    // Only the listener's unmute button may turn the station back up.
     if (sticky && !opts?.userGesture) return;
-    if (sticky && Date.now() < ignoreUnmuteUntilRef.current) return;
     if (opts?.userGesture) writeRadioUserMuted(false);
     mutedByUserRef.current = false;
     notifyUserPlaybackGesture();

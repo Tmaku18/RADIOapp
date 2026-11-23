@@ -128,6 +128,11 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
     if (_hasRadioSource || handler.holdsExternalAudio) return;
     await tuneStation(stationId);
     if (!_hasRadioSource) return;
+    if (handler.radioMutedByUser) {
+      await handler.setUserPaused(true);
+      await handler.applyOutputVolume();
+      return;
+    }
     await handler.setUserPaused(false);
     await handler.applyOutputVolume();
     if (!_player.playing) {
@@ -294,6 +299,28 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
         state == AppLifecycleState.resumed &&
         !playerScreenActive) {
       unawaited(_syncCurrentTrack());
+    }
+    final handler = AudioPlayerService.handler;
+    if (state == AppLifecycleState.resumed) {
+      unawaited(NowPlayingWidgetSync.drainLockReaction());
+    }
+    if (handler.radioMutedByUser &&
+        (state == AppLifecycleState.resumed ||
+            state == AppLifecycleState.inactive ||
+            state == AppLifecycleState.paused ||
+            state == AppLifecycleState.hidden)) {
+      unawaited(handler.applyOutputVolume());
+    }
+    // Swiping the app away ends the card. So does leaving while muted: the
+    // station stays silent and the lock-screen card does not keep playing the
+    // next song. Muting from the card itself does not send another pause, so
+    // that card stays up and its votes still count.
+    final leftWhileMuted =
+        handler.radioMutedByUser &&
+        (state == AppLifecycleState.paused ||
+            state == AppLifecycleState.hidden);
+    if (state == AppLifecycleState.detached || leftWhileMuted) {
+      unawaited(NowPlayingWidgetSync.end());
     }
   }
 
@@ -598,8 +625,16 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
     if (_player.speed != 1.0) await _player.setSpeed(1.0);
     final handler = AudioPlayerService.handler;
     // Never hardcode volume to 1 — that blasts after temporary mutes/ducks.
-    await handler.applyOutputVolume();
-    if (!handler.userPaused) {
+    if (handler.radioMutedByUser || handler.userPaused) {
+      await handler.setUserPaused(true);
+      await handler.applyOutputVolume();
+      if (!_player.playing) {
+        try {
+          await _player.play();
+        } catch (_) {}
+      }
+    } else {
+      await handler.applyOutputVolume();
       await _player.play();
     }
     if (reportPlay) {

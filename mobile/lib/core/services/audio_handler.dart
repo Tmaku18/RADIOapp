@@ -85,6 +85,29 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
   String? _overlayUrl;
   double _overlayDuckVolume = 0.25;
   bool _userPaused = false;
+  /// Set only when the listener mutes. Song changes and leaving the app must
+  /// not clear this. Cleared when they unmute from the player or lock screen.
+  bool _radioMutedByUser = false;
+  DateTime? _ignoreControlUntil;
+
+  bool get radioMutedByUser => _radioMutedByUser;
+
+  bool get _inSourceSwap =>
+      _ignoreControlUntil != null &&
+      DateTime.now().isBefore(_ignoreControlUntil!);
+
+  /// just_audio and the system both send play/pause while a new song is loading.
+  void armMuteHoldThroughSourceSwap() {
+    _ignoreControlUntil = DateTime.now().add(const Duration(seconds: 4));
+    if (!_radioMutedByUser && !_userPaused) return;
+    for (final ms in [200, 700, 1500, 3000]) {
+      Future<void>.delayed(Duration(milliseconds: ms), () {
+        if (_radioMutedByUser || _userPaused) {
+          unawaited(music.setVolume(0));
+        }
+      });
+    }
+  }
   bool _suppressVoiceOverlay = false;
 
   /// Outside players (Discover video, a recorded take, a guest clip) that must
@@ -289,6 +312,10 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
       }
     });
     music.volumeStream.listen((volume) {
+      if (_radioMutedByUser && volume > 0.001) {
+        unawaited(music.setVolume(0));
+        return;
+      }
       if (_externalAudioHolds > 0 && volume > 0.001 && !_externalSilenceActive) {
         unawaited(music.setVolume(0));
       }
@@ -354,7 +381,8 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
   /// advancing on the live server timeline (so every device stays in sync); we
   /// only silence the output. Unmuting rejoins instantly with no catch-up. The
   /// DJ voice overlay is paused+muted since it shouldn't accumulate while muted.
-  Future<void> setUserPaused(bool paused) async {
+  Future<void> setUserPaused(bool paused, {bool fromUser = false}) async {
+    if (fromUser) _radioMutedByUser = paused;
     if (!paused && _externalAudioHolds > 0) {
       await _forceExternalSilence();
       return;
@@ -394,7 +422,16 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
   }
 
   @override
-  Future<void> play() => setUserPaused(false);
+  Future<void> play() async {
+    // The system sends play() when a song changes and when the app is closed.
+    // That must not undo a mute. The listener unmutes from the player or the
+    // lock-screen mute button.
+    if (_radioMutedByUser || (_userPaused && _inSourceSwap)) {
+      await applyOutputVolume();
+      return;
+    }
+    await setUserPaused(false);
+  }
 
   MediaItem _stationMediaItem(StationOption station) {
     return MediaItem(
@@ -446,7 +483,11 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
   }
 
   @override
-  Future<void> pause() => setUserPaused(true);
+  Future<void> pause() async {
+    // Loading the next song sends a pause that is not the listener's mute.
+    if (_inSourceSwap) return;
+    await setUserPaused(true, fromUser: true);
+  }
 
   @override
   Future<void> seek(Duration position) => music.seek(position);

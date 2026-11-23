@@ -1,8 +1,9 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:audio_service/audio_service.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:home_widget/home_widget.dart';
 
 import '../services/audio_player_service.dart';
@@ -22,27 +23,64 @@ class NowPlayingWidgetSync {
     _liveActivity.setMethodCallHandler((call) async {
       if (call.method == 'toggleMute') {
         final handler = AudioPlayerService.handler;
-        await handler.setUserPaused(!handler.userPaused);
+        await handler.setUserPaused(!handler.userPaused, fromUser: true);
         return;
       }
       if (call.method == 'react') {
-        await react(call.arguments as String?);
+        await react(call.arguments);
       }
     });
+    unawaited(drainLockReaction());
+  }
+
+  /// A lock-screen tap can land before Flutter is listening. Ask iOS to
+  /// deliver anything still sitting in the app group.
+  static Future<void> drainLockReaction() async {
+    if (!Platform.isIOS) return;
+    try {
+      await _liveActivity.invokeMethod<void>('drain');
+    } catch (e) {
+      debugPrint('Lock reaction drain skipped: $e');
+    }
+  }
+
+  static Future<void> end() async {
+    if (!Platform.isIOS) return;
+    try {
+      await _liveActivity.invokeMethod<void>('end');
+    } catch (e) {
+      debugPrint('Live Activity end skipped: $e');
+    }
   }
 
   /// Lock-screen 🔥 / 💩. The app stays in the background.
-  static Future<void> react(String? reaction) async {
+  static Future<void> react(dynamic args) async {
+    String? reaction;
+    String? songId;
+    String? playId;
+    if (args is Map) {
+      reaction = args['reaction']?.toString();
+      songId = args['songId']?.toString();
+      playId = args['playId']?.toString();
+    } else {
+      reaction = args as String?;
+    }
     if (reaction != 'fire' && reaction != 'shit') return;
+    final vote = reaction as String;
     final item = AudioPlayerService.handler.mediaItem.valueOrNull;
-    final songId = (item?.extras?['songId'] ?? item?.id)?.toString().trim() ?? '';
-    if (songId.isEmpty || songId.startsWith('station:')) return;
-    final playId = item?.extras?['playId']?.toString();
+    final fromCard = songId?.trim() ?? '';
+    final fromPlayer =
+        (item?.extras?['songId'] ?? item?.id)?.toString().trim() ?? '';
+    final votedSong = fromCard.isNotEmpty && !fromCard.startsWith('station:')
+        ? fromCard
+        : fromPlayer;
+    if (votedSong.isEmpty || votedSong.startsWith('station:')) return;
+    playId ??= item?.extras?['playId']?.toString();
     try {
       await RadioService().submitReaction(
-        songId: songId,
+        songId: votedSong,
         playId: playId,
-        reaction: reaction!,
+        reaction: vote,
       );
     } catch (e) {
       debugPrint('Lock screen reaction skipped: $e');
@@ -70,16 +108,28 @@ class NowPlayingWidgetSync {
     }
     if (!Platform.isIOS) return;
     try {
-      if (item == null || title.isEmpty) {
+      final life = WidgetsBinding.instance.lifecycleState;
+      final background =
+          life == AppLifecycleState.paused ||
+          life == AppLifecycleState.hidden ||
+          life == AppLifecycleState.detached;
+      if (item == null ||
+          title.isEmpty ||
+          (AudioPlayerService.handler.radioMutedByUser && background)) {
         await _liveActivity.invokeMethod<void>('end');
         return;
       }
+      final songId =
+          (item.extras?['songId'] ?? item.id).toString().trim();
+      final playId = item.extras?['playId']?.toString() ?? '';
       await _liveActivity.invokeMethod<void>('update', {
         'title': shownTitle,
         'artist': shownArtist,
         'station': station.isEmpty ? 'NetworX Radio' : station,
         'artworkUrl': item.artUri?.toString() ?? '',
         'isMuted': AudioPlayerService.handler.userPaused,
+        'songId': songId.startsWith('station:') ? '' : songId,
+        'playId': playId,
       });
     } catch (e) {
       debugPrint('Live Activity update skipped: $e');
