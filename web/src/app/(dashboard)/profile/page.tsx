@@ -45,7 +45,8 @@ type SocialTab = 'friends' | 'fans' | 'following';
 export default function ProfilePage() {
   const router = useRouter();
   const { user, profile, refreshProfile, signOut } = useAuth();
-  const [isEditing, setIsEditing] = useState(false);
+  const formDirty = useRef(false);
+  const hydratedKey = useRef<string | null>(null);
   const [displayName, setDisplayName] = useState(profile?.displayName || '');
   const [username, setUsername] = useState(profile?.username || '');
   const [usernameStatus, setUsernameStatus] = useState<
@@ -133,40 +134,64 @@ export default function ProfilePage() {
     };
   }, [profile?.id]);
 
-  // Sync local state when profile changes (e.g., after refreshProfile)
-  useEffect(() => {
-    if (!isEditing) {
-      if (profile?.displayName !== undefined) setDisplayName(profile.displayName || '');
-      if (profile?.username !== undefined) setUsername(profile.username || '');
-      if (profile?.region !== undefined) setRegion(profile.region ?? '');
-      if (profile?.suggestLocalArtists !== undefined) setSuggestLocalArtists(profile.suggestLocalArtists !== false);
-      if (profile?.bio !== undefined) setBio(profile.bio ?? '');
-      if (profile?.headline !== undefined) setHeadline(profile.headline ?? '');
-      if (profile?.locationRegion !== undefined) setLocationRegion(profile.locationRegion ?? '');
-      if (profile?.instagramUrl !== undefined) setInstagramUrl(profile.instagramUrl ?? '');
-      if (profile?.twitterUrl !== undefined) setTwitterUrl(profile.twitterUrl ?? '');
-      if (profile?.youtubeUrl !== undefined) setYoutubeUrl(profile.youtubeUrl ?? '');
-      if (profile?.tiktokUrl !== undefined) setTiktokUrl(profile.tiktokUrl ?? '');
-      if (profile?.websiteUrl !== undefined) setWebsiteUrl(profile.websiteUrl ?? '');
-      if (profile?.soundcloudUrl !== undefined) setSoundcloudUrl(profile.soundcloudUrl ?? '');
-      if (profile?.spotifyUrl !== undefined) setSpotifyUrl(profile.spotifyUrl ?? '');
-      if (profile?.appleMusicUrl !== undefined) setAppleMusicUrl(profile.appleMusicUrl ?? '');
-      if (profile?.facebookUrl !== undefined) setFacebookUrl(profile.facebookUrl ?? '');
-      if (profile?.snapchatUrl !== undefined) setSnapchatUrl(profile.snapchatUrl ?? '');
-      if (profile?.role && profile.role !== 'admin') {
-        setSelectedRoles(makerRolesFromProfile(profile));
-      }
-    }
-  }, [profile?.displayName, profile?.username, profile?.region, profile?.suggestLocalArtists, profile?.bio, profile?.headline, profile?.locationRegion, profile?.instagramUrl, profile?.twitterUrl, profile?.youtubeUrl, profile?.tiktokUrl, profile?.websiteUrl, profile?.soundcloudUrl, profile?.spotifyUrl, profile?.appleMusicUrl, profile?.facebookUrl, profile?.snapchatUrl, profile?.role, profile?.userRoles, isEditing]);
+  const markDirty = () => {
+    formDirty.current = true;
+  };
 
-  // Debounced username availability check while editing.
+  // Fill the form when the profile arrives. Skip while the person is typing
+  // so a background refresh does not wipe unsaved edits.
   useEffect(() => {
-    if (!isEditing) {
-      setUsernameStatus('idle');
-      return;
+    if (!profile || formDirty.current) return;
+    const key = [
+      profile.id,
+      profile.displayName,
+      profile.username,
+      profile.region,
+      profile.suggestLocalArtists,
+      profile.bio,
+      profile.headline,
+      profile.locationRegion,
+      profile.instagramUrl,
+      profile.twitterUrl,
+      profile.youtubeUrl,
+      profile.tiktokUrl,
+      profile.websiteUrl,
+      profile.soundcloudUrl,
+      profile.spotifyUrl,
+      profile.appleMusicUrl,
+      profile.facebookUrl,
+      profile.snapchatUrl,
+      profile.role,
+      (profile.userRoles ?? []).join(','),
+    ].join('\0');
+    if (hydratedKey.current === key) return;
+    hydratedKey.current = key;
+    setDisplayName(profile.displayName || '');
+    setUsername(profile.username || '');
+    setRegion(profile.region ?? '');
+    setSuggestLocalArtists(profile.suggestLocalArtists !== false);
+    setBio(profile.bio ?? '');
+    setHeadline(profile.headline ?? '');
+    setLocationRegion(profile.locationRegion ?? '');
+    setInstagramUrl(profile.instagramUrl ?? '');
+    setTwitterUrl(profile.twitterUrl ?? '');
+    setYoutubeUrl(profile.youtubeUrl ?? '');
+    setTiktokUrl(profile.tiktokUrl ?? '');
+    setWebsiteUrl(profile.websiteUrl ?? '');
+    setSoundcloudUrl(profile.soundcloudUrl ?? '');
+    setSpotifyUrl(profile.spotifyUrl ?? '');
+    setAppleMusicUrl(profile.appleMusicUrl ?? '');
+    setFacebookUrl(profile.facebookUrl ?? '');
+    setSnapchatUrl(profile.snapchatUrl ?? '');
+    if (profile.role && profile.role !== 'admin') {
+      setSelectedRoles(makerRolesFromProfile(profile));
     }
+  }, [profile]);
+
+  // Debounced username availability check.
+  useEffect(() => {
     const candidate = username.trim().toLowerCase();
-    if (candidate === (profile?.username ?? '').toLowerCase()) {
+    if (!candidate || candidate === (profile?.username ?? '').toLowerCase()) {
       setUsernameStatus('idle');
       return;
     }
@@ -189,7 +214,7 @@ export default function ProfilePage() {
       alive = false;
       clearTimeout(t);
     };
-  }, [username, isEditing, profile?.username]);
+  }, [username, profile?.username]);
 
   useEffect(() => {
     const userId = profile?.id;
@@ -317,8 +342,8 @@ export default function ProfilePage() {
         snapchatUrl: snapchatUrl.trim() || undefined,
         userRoles: rolesChanged ? selectedRoles : undefined,
       });
+      formDirty.current = false;
       await refreshProfile();
-      setIsEditing(false);
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err: unknown) {
@@ -326,32 +351,6 @@ export default function ProfilePage() {
     } finally {
       setIsSaving(false);
     }
-  };
-
-  const handleCancel = () => {
-    setDisplayName(profile?.displayName || '');
-    setUsername(profile?.username || '');
-    setUsernameStatus('idle');
-    setRegion(profile?.region ?? '');
-    setSuggestLocalArtists(profile?.suggestLocalArtists !== false);
-    setBio(profile?.bio ?? '');
-    setHeadline(profile?.headline ?? '');
-    setLocationRegion(profile?.locationRegion ?? '');
-    setInstagramUrl(profile?.instagramUrl ?? '');
-    setTwitterUrl(profile?.twitterUrl ?? '');
-    setYoutubeUrl(profile?.youtubeUrl ?? '');
-    setTiktokUrl(profile?.tiktokUrl ?? '');
-    setWebsiteUrl(profile?.websiteUrl ?? '');
-    setSoundcloudUrl(profile?.soundcloudUrl ?? '');
-    setSpotifyUrl(profile?.spotifyUrl ?? '');
-    setAppleMusicUrl(profile?.appleMusicUrl ?? '');
-    setFacebookUrl(profile?.facebookUrl ?? '');
-    setSnapchatUrl(profile?.snapchatUrl ?? '');
-    if (profile?.role && profile.role !== 'admin') {
-      setSelectedRoles(makerRolesFromProfile(profile));
-    }
-    setIsEditing(false);
-    setError(null);
   };
 
   const ALLOWED_AVATAR_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
@@ -570,41 +569,43 @@ export default function ProfilePage() {
 
             <div className="space-y-2">
               <Label>Display Name</Label>
-              {isEditing ? (
-                <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Enter your display name" />
-              ) : (
-                <Input value={profile?.displayName || 'Not set'} disabled />
-              )}
+              <Input
+                value={displayName}
+                onChange={(e) => {
+                  markDirty();
+                  setDisplayName(e.target.value);
+                }}
+                placeholder="Enter your display name"
+              />
             </div>
 
             <div className="space-y-2">
               <Label>Username</Label>
-              {isEditing ? (
-                <Input
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value.toLowerCase())}
-                  placeholder="your_handle"
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                />
-              ) : (
-                <Input value={profile?.username ? `@${profile.username}` : 'Not set'} disabled />
-              )}
-              {isEditing && usernameStatus === 'checking' && (
+              <Input
+                value={username}
+                onChange={(e) => {
+                  markDirty();
+                  setUsername(e.target.value.toLowerCase());
+                }}
+                placeholder="your_handle"
+                autoCapitalize="none"
+                autoCorrect="off"
+              />
+              {usernameStatus === 'checking' && (
                 <p className="text-xs text-muted-foreground">Checking availability…</p>
               )}
-              {isEditing && usernameStatus === 'available' && (
+              {usernameStatus === 'available' && (
                 <p className="text-xs text-green-600">@{username.trim()} is available</p>
               )}
-              {isEditing && usernameStatus === 'taken' && (
+              {usernameStatus === 'taken' && (
                 <p className="text-xs text-destructive">That username is already taken.</p>
               )}
-              {isEditing && usernameStatus === 'invalid' && (
+              {usernameStatus === 'invalid' && (
                 <p className="text-xs text-destructive">
                   3-30 characters: lowercase letters, numbers, underscores, or dots.
                 </p>
               )}
-              {(!isEditing || usernameStatus === 'idle') && (
+              {usernameStatus === 'idle' && (
                 <p className="text-xs text-muted-foreground">
                   Your unique @handle, separate from your display name.
                 </p>
@@ -613,21 +614,27 @@ export default function ProfilePage() {
 
             <div className="space-y-2">
               <Label>Headline</Label>
-              {isEditing ? (
-                <Input value={headline} onChange={(e) => setHeadline(e.target.value)} placeholder="Short tagline (e.g. Producer, Photographer)" />
-              ) : (
-                <Input value={headline || 'Not set'} disabled />
-              )}
+              <Input
+                value={headline}
+                onChange={(e) => {
+                  markDirty();
+                  setHeadline(e.target.value);
+                }}
+                placeholder="Short tagline (e.g. Producer, Photographer)"
+              />
               <p className="text-xs text-muted-foreground">Shown on your profile and in discovery</p>
             </div>
 
             <div className="space-y-2">
               <Label>Location</Label>
-              {isEditing ? (
-                <Input value={locationRegion} onChange={(e) => setLocationRegion(e.target.value)} placeholder="e.g. Atlanta, GA or London, UK" />
-              ) : (
-                <Input value={locationRegion || 'Not set'} disabled />
-              )}
+              <Input
+                value={locationRegion}
+                onChange={(e) => {
+                  markDirty();
+                  setLocationRegion(e.target.value);
+                }}
+                placeholder="e.g. Atlanta, GA or London, UK"
+              />
               <p className="text-xs text-muted-foreground">Used for discovery and &quot;Artists in your area&quot;</p>
             </div>
 
@@ -636,27 +643,28 @@ export default function ProfilePage() {
                 <Label className="text-base">Suggest artists in my area</Label>
                 <p className="text-sm text-muted-foreground">Show local artist suggestions on the Competition page</p>
               </div>
-              {isEditing ? (
-                <Switch checked={suggestLocalArtists} onCheckedChange={setSuggestLocalArtists} />
-              ) : (
-                <Switch checked={suggestLocalArtists} disabled />
-              )}
+              <Switch
+                checked={suggestLocalArtists}
+                onCheckedChange={(checked) => {
+                  markDirty();
+                  setSuggestLocalArtists(checked);
+                }}
+              />
             </div>
 
             {hasArtistCapability(profile) && (
               <div className="space-y-2">
                 <Label>Bio</Label>
-                {isEditing ? (
-                  <Textarea
-                    value={bio}
-                    onChange={(e) => setBio(e.target.value)}
-                    placeholder="Tell prospectors about yourself..."
-                    rows={4}
-                    className="resize-y"
-                  />
-                ) : (
-                  <Textarea value={bio || 'Not set'} disabled rows={4} className="resize-none" />
-                )}
+                <Textarea
+                  value={bio}
+                  onChange={(e) => {
+                    markDirty();
+                    setBio(e.target.value);
+                  }}
+                  placeholder="Tell prospectors about yourself..."
+                  rows={4}
+                  className="resize-y"
+                />
                 <p className="text-xs text-muted-foreground">Shown on your artist or provider profile</p>
               </div>
             )}
@@ -667,19 +675,21 @@ export default function ProfilePage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <Input
                     value={instagramUrl}
-                    onChange={(e) => setInstagramUrl(e.target.value)}
+                    onChange={(e) => {
+                      markDirty();
+                      setInstagramUrl(e.target.value);
+                    }}
                     placeholder="https://instagram.com/you, @you, or instagram.com/you"
-                    disabled={!isEditing}
                   />
-                  <Input value={twitterUrl} onChange={(e) => setTwitterUrl(e.target.value)} placeholder="X / Twitter URL" disabled={!isEditing} />
-                  <Input value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} placeholder="YouTube URL" disabled={!isEditing} />
-                  <Input value={tiktokUrl} onChange={(e) => setTiktokUrl(e.target.value)} placeholder="TikTok URL" disabled={!isEditing} />
-                  <Input value={soundcloudUrl} onChange={(e) => setSoundcloudUrl(e.target.value)} placeholder="SoundCloud URL" disabled={!isEditing} />
-                  <Input value={spotifyUrl} onChange={(e) => setSpotifyUrl(e.target.value)} placeholder="Spotify URL" disabled={!isEditing} />
-                  <Input value={appleMusicUrl} onChange={(e) => setAppleMusicUrl(e.target.value)} placeholder="Apple Music URL" disabled={!isEditing} />
-                  <Input value={facebookUrl} onChange={(e) => setFacebookUrl(e.target.value)} placeholder="Facebook URL" disabled={!isEditing} />
-                  <Input value={snapchatUrl} onChange={(e) => setSnapchatUrl(e.target.value)} placeholder="Snapchat URL" disabled={!isEditing} />
-                  <Input value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="Website URL" disabled={!isEditing} />
+                  <Input value={twitterUrl} onChange={(e) => { markDirty(); setTwitterUrl(e.target.value); }} placeholder="X / Twitter URL" />
+                  <Input value={youtubeUrl} onChange={(e) => { markDirty(); setYoutubeUrl(e.target.value); }} placeholder="YouTube URL" />
+                  <Input value={tiktokUrl} onChange={(e) => { markDirty(); setTiktokUrl(e.target.value); }} placeholder="TikTok URL" />
+                  <Input value={soundcloudUrl} onChange={(e) => { markDirty(); setSoundcloudUrl(e.target.value); }} placeholder="SoundCloud URL" />
+                  <Input value={spotifyUrl} onChange={(e) => { markDirty(); setSpotifyUrl(e.target.value); }} placeholder="Spotify URL" />
+                  <Input value={appleMusicUrl} onChange={(e) => { markDirty(); setAppleMusicUrl(e.target.value); }} placeholder="Apple Music URL" />
+                  <Input value={facebookUrl} onChange={(e) => { markDirty(); setFacebookUrl(e.target.value); }} placeholder="Facebook URL" />
+                  <Input value={snapchatUrl} onChange={(e) => { markDirty(); setSnapchatUrl(e.target.value); }} placeholder="Snapchat URL" />
+                  <Input value={websiteUrl} onChange={(e) => { markDirty(); setWebsiteUrl(e.target.value); }} placeholder="Website URL" />
                 </div>
                 <p className="text-xs text-muted-foreground">These links appear on your Spotify-style artist page.</p>
                 {socialLinks.length > 0 && (
@@ -702,7 +712,7 @@ export default function ProfilePage() {
 
             <div className="space-y-3">
               <Label>Account</Label>
-              {isEditing && !isAdmin ? (
+              {!isAdmin ? (
                 <div className="grid grid-cols-2 gap-2">
                   {MAKER_ROLE_OPTIONS.map((option) => {
                     const checked = selectedRoles.includes(option.id);
@@ -714,13 +724,14 @@ export default function ProfilePage() {
                         <input
                           type="checkbox"
                           checked={checked}
-                          onChange={() =>
+                          onChange={() => {
+                            markDirty();
                             setSelectedRoles((current) =>
                               checked
                                 ? current.filter((role) => role !== option.id)
                                 : [...current, option.id],
-                            )
-                          }
+                            );
+                          }}
                         />
                         {option.label}
                       </label>
@@ -758,14 +769,9 @@ export default function ProfilePage() {
           </div>
 
           <div className="mt-6 flex flex-wrap justify-end gap-3 border-t border-border pt-6">
-            {isEditing ? (
-              <>
-                <Button variant="ghost" onClick={handleCancel} disabled={isSaving} className="w-full sm:w-auto">Cancel</Button>
-                <Button onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto">{isSaving ? 'Saving...' : 'Save Changes'}</Button>
-              </>
-            ) : (
-              <Button onClick={() => setIsEditing(true)} className="w-full sm:w-auto">Edit Profile</Button>
-            )}
+            <Button onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto">
+              {isSaving ? 'Saving...' : 'Save changes'}
+            </Button>
           </div>
         </CardContent>
       </Card>

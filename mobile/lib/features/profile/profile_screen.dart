@@ -42,8 +42,89 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final ProNetworxService _feedService = ProNetworxService();
   List<ProFeedPost> _myPosts = const [];
   bool _loadingPosts = false;
+  bool _formDirty = false;
+  bool _syncingForm = false;
+  final _nameCtrl = TextEditingController();
+  final _usernameCtrl = TextEditingController();
+  final _headlineCtrl = TextEditingController();
+  final _bioCtrl = TextEditingController();
+  final _cityCtrl = TextEditingController();
+  final _zipCtrl = TextEditingController();
+  final _instagramCtrl = TextEditingController();
+  final _twitterCtrl = TextEditingController();
+  final _tiktokCtrl = TextEditingController();
+  final _youtubeCtrl = TextEditingController();
+  final _websiteCtrl = TextEditingController();
+  final _soundcloudCtrl = TextEditingController();
+  final _spotifyCtrl = TextEditingController();
+  final _appleMusicCtrl = TextEditingController();
+  final _facebookCtrl = TextEditingController();
+  final _snapchatCtrl = TextEditingController();
 
   bool get _canEditCover => hasArtistCapability(_user?.role);
+
+  List<TextEditingController> get _formControllers => [
+        _nameCtrl,
+        _usernameCtrl,
+        _headlineCtrl,
+        _bioCtrl,
+        _cityCtrl,
+        _zipCtrl,
+        _instagramCtrl,
+        _twitterCtrl,
+        _tiktokCtrl,
+        _youtubeCtrl,
+        _websiteCtrl,
+        _soundcloudCtrl,
+        _spotifyCtrl,
+        _appleMusicCtrl,
+        _facebookCtrl,
+        _snapchatCtrl,
+      ];
+
+  @override
+  void initState() {
+    super.initState();
+    for (final controller in _formControllers) {
+      controller.addListener(_onFormEdited);
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _formControllers) {
+      controller.removeListener(_onFormEdited);
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  void _onFormEdited() {
+    if (_syncingForm) return;
+    _formDirty = true;
+  }
+
+  void _applyProfileToForm(app_user.User? user) {
+    if (user == null || _formDirty) return;
+    _syncingForm = true;
+    _nameCtrl.text = user.displayName ?? '';
+    _usernameCtrl.text = user.username ?? '';
+    _headlineCtrl.text = user.headline ?? '';
+    _bioCtrl.text = user.bio ?? '';
+    _cityCtrl.text = user.city ?? '';
+    _zipCtrl.text = user.zipCode ?? '';
+    _instagramCtrl.text = user.instagramUrl ?? '';
+    _twitterCtrl.text = user.twitterUrl ?? '';
+    _tiktokCtrl.text = user.tiktokUrl ?? '';
+    _youtubeCtrl.text = user.youtubeUrl ?? '';
+    _websiteCtrl.text = user.websiteUrl ?? '';
+    _soundcloudCtrl.text = user.soundcloudUrl ?? '';
+    _spotifyCtrl.text = user.spotifyUrl ?? '';
+    _appleMusicCtrl.text = user.appleMusicUrl ?? '';
+    _facebookCtrl.text = user.facebookUrl ?? '';
+    _snapchatCtrl.text = user.snapchatUrl ?? '';
+    _syncingForm = false;
+  }
 
   @override
   void didChangeDependencies() {
@@ -66,6 +147,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (id != null && id.isNotEmpty) dbUserId = id;
     } catch (_) {}
     if (mounted) {
+      _applyProfileToForm(user);
       setState(() {
         _user = user;
         _isLoading = false;
@@ -358,383 +440,201 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _openEditProfileSheet() async {
+  Future<void> _saveProfile() async {
     final user = _user;
-    if (user == null) return;
-    final nameCtrl = TextEditingController(text: user.displayName ?? '');
-    final usernameCtrl = TextEditingController(text: user.username ?? '');
-    final headlineCtrl = TextEditingController(text: user.headline ?? '');
-    final bioCtrl = TextEditingController(text: user.bio ?? '');
-    final cityCtrl = TextEditingController(text: user.city ?? '');
-    final zipCtrl = TextEditingController(text: user.zipCode ?? '');
-    final instagramCtrl = TextEditingController(text: user.instagramUrl ?? '');
-    final twitterCtrl = TextEditingController(text: user.twitterUrl ?? '');
-    final tiktokCtrl = TextEditingController(text: user.tiktokUrl ?? '');
-    final youtubeCtrl = TextEditingController(text: user.youtubeUrl ?? '');
-    final websiteCtrl = TextEditingController(text: user.websiteUrl ?? '');
-    final soundcloudCtrl = TextEditingController(text: user.soundcloudUrl ?? '');
-    final spotifyCtrl = TextEditingController(text: user.spotifyUrl ?? '');
-    final appleMusicCtrl = TextEditingController(text: user.appleMusicUrl ?? '');
-    final facebookCtrl = TextEditingController(text: user.facebookUrl ?? '');
-    final snapchatCtrl = TextEditingController(text: user.snapchatUrl ?? '');
-    bool saving = false;
+    if (user == null || _isUpdatingProfile) return;
+    final trimmedName = _nameCtrl.text.trim();
+    if (trimmedName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Display name cannot be empty.')),
+      );
+      return;
+    }
+    final trimmedUsername = _usernameCtrl.text.trim().toLowerCase();
+    final usernameChanged =
+        trimmedUsername != (user.username ?? '').toLowerCase();
+    if (usernameChanged &&
+        trimmedUsername.isNotEmpty &&
+        !RegExp(r'^[a-z0-9_.]{3,30}$').hasMatch(trimmedUsername)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Username must be 3-30 characters: lowercase letters, numbers, underscores, or dots.',
+          ),
+        ),
+      );
+      return;
+    }
+    setState(() => _isUpdatingProfile = true);
+    try {
+      if (usernameChanged && trimmedUsername.isNotEmpty) {
+        final available =
+            await _usersService.checkUsernameAvailable(trimmedUsername);
+        if (!available) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('That username is already taken.')),
+          );
+          return;
+        }
+      }
+      // Only patch social fields that changed so a bad unused
+      // field cannot block username / bio saves.
+      String? socialPatch(String current, String original) {
+        final next = current.trim();
+        final prev = original.trim();
+        if (next == prev) return null;
+        return next;
+      }
 
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            Future<void> submit() async {
-              if (saving) return;
-              final trimmedName = nameCtrl.text.trim();
-              if (trimmedName.isEmpty) {
-                ScaffoldMessenger.of(this.context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Display name cannot be empty.'),
-                  ),
-                );
-                return;
-              }
-              final trimmedUsername =
-                  usernameCtrl.text.trim().toLowerCase();
-              final usernameChanged =
-                  trimmedUsername != (user.username ?? '').toLowerCase();
-              if (usernameChanged &&
-                  trimmedUsername.isNotEmpty &&
-                  !RegExp(r'^[a-z0-9_.]{3,30}$').hasMatch(trimmedUsername)) {
-                ScaffoldMessenger.of(this.context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Username must be 3-30 characters: lowercase letters, numbers, underscores, or dots.',
-                    ),
-                  ),
-                );
-                return;
-              }
-              setModalState(() => saving = true);
-              setState(() => _isUpdatingProfile = true);
-              try {
-                if (usernameChanged && trimmedUsername.isNotEmpty) {
-                  final available = await _usersService
-                      .checkUsernameAvailable(trimmedUsername);
-                  if (!available) {
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(this.context).showSnackBar(
-                      const SnackBar(
-                        content: Text('That username is already taken.'),
-                      ),
-                    );
-                    return;
-                  }
-                }
-                // Only patch social fields that changed so a bad unused
-                // field cannot block username / bio saves.
-                String? socialPatch(String current, String original) {
-                  final next = current.trim();
-                  final prev = original.trim();
-                  if (next == prev) return null;
-                  return next;
-                }
+      await _usersService.updateMe(
+        displayName: trimmedName,
+        username: usernameChanged && trimmedUsername.isNotEmpty
+            ? trimmedUsername
+            : null,
+        headline: _headlineCtrl.text.trim(),
+        bio: _bioCtrl.text.trim(),
+        city: _cityCtrl.text.trim(),
+        zipCode: _zipCtrl.text.trim(),
+        instagramUrl: socialPatch(
+          _instagramCtrl.text,
+          user.instagramUrl ?? '',
+        ),
+        twitterUrl: socialPatch(
+          _twitterCtrl.text,
+          user.twitterUrl ?? '',
+        ),
+        tiktokUrl: socialPatch(
+          _tiktokCtrl.text,
+          user.tiktokUrl ?? '',
+        ),
+        youtubeUrl: socialPatch(
+          _youtubeCtrl.text,
+          user.youtubeUrl ?? '',
+        ),
+        websiteUrl: socialPatch(
+          _websiteCtrl.text,
+          user.websiteUrl ?? '',
+        ),
+        soundcloudUrl: socialPatch(
+          _soundcloudCtrl.text,
+          user.soundcloudUrl ?? '',
+        ),
+        spotifyUrl: socialPatch(
+          _spotifyCtrl.text,
+          user.spotifyUrl ?? '',
+        ),
+        appleMusicUrl: socialPatch(
+          _appleMusicCtrl.text,
+          user.appleMusicUrl ?? '',
+        ),
+        facebookUrl: socialPatch(
+          _facebookCtrl.text,
+          user.facebookUrl ?? '',
+        ),
+        snapchatUrl: socialPatch(
+          _snapchatCtrl.text,
+          user.snapchatUrl ?? '',
+        ),
+      );
+      _formDirty = false;
+      if (!mounted) return;
+      await _loadProfile();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile updated.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      final msg = e is ApiException ? e.message : e.toString();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update profile: $msg')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isUpdatingProfile = false);
+      }
+    }
+  }
 
-                await _usersService.updateMe(
-                  displayName: trimmedName,
-                  username: usernameChanged && trimmedUsername.isNotEmpty
-                      ? trimmedUsername
-                      : null,
-                  headline: headlineCtrl.text.trim(),
-                  bio: bioCtrl.text.trim(),
-                  city: cityCtrl.text.trim(),
-                  zipCode: zipCtrl.text.trim(),
-                  instagramUrl: socialPatch(
-                    instagramCtrl.text,
-                    user.instagramUrl ?? '',
-                  ),
-                  twitterUrl: socialPatch(
-                    twitterCtrl.text,
-                    user.twitterUrl ?? '',
-                  ),
-                  tiktokUrl: socialPatch(
-                    tiktokCtrl.text,
-                    user.tiktokUrl ?? '',
-                  ),
-                  youtubeUrl: socialPatch(
-                    youtubeCtrl.text,
-                    user.youtubeUrl ?? '',
-                  ),
-                  websiteUrl: socialPatch(
-                    websiteCtrl.text,
-                    user.websiteUrl ?? '',
-                  ),
-                  soundcloudUrl: socialPatch(
-                    soundcloudCtrl.text,
-                    user.soundcloudUrl ?? '',
-                  ),
-                  spotifyUrl: socialPatch(
-                    spotifyCtrl.text,
-                    user.spotifyUrl ?? '',
-                  ),
-                  appleMusicUrl: socialPatch(
-                    appleMusicCtrl.text,
-                    user.appleMusicUrl ?? '',
-                  ),
-                  facebookUrl: socialPatch(
-                    facebookCtrl.text,
-                    user.facebookUrl ?? '',
-                  ),
-                  snapchatUrl: socialPatch(
-                    snapchatCtrl.text,
-                    user.snapchatUrl ?? '',
-                  ),
-                );
-                if (!mounted || !context.mounted) return;
-                Navigator.pop(context);
-                await _loadProfile();
-                if (!mounted) return;
-                ScaffoldMessenger.of(this.context).showSnackBar(
-                  const SnackBar(content: Text('Profile updated.')),
-                );
-              } catch (e) {
-                if (!mounted) return;
-                final msg = e is ApiException
-                    ? e.message
-                    : e.toString();
-                ScaffoldMessenger.of(this.context).showSnackBar(
-                  SnackBar(content: Text('Failed to update profile: $msg')),
-                );
-              } finally {
-                if (mounted) {
-                  setState(() => _isUpdatingProfile = false);
-                }
-                setModalState(() => saving = false);
-              }
-            }
+  List<Widget> _profileFields() {
+    Widget field(
+      TextEditingController controller, {
+      required String label,
+      String? helper,
+      String? hint,
+      String? prefix,
+      TextInputType? keyboardType,
+      TextCapitalization capitalization = TextCapitalization.none,
+      bool autocorrect = true,
+      int minLines = 1,
+      int maxLines = 1,
+    }) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: TextField(
+          controller: controller,
+          keyboardType: keyboardType,
+          textCapitalization: capitalization,
+          autocorrect: autocorrect,
+          minLines: minLines,
+          maxLines: maxLines,
+          decoration: InputDecoration(
+            labelText: label,
+            helperText: helper,
+            hintText: hint,
+            prefixText: prefix,
+          ),
+        ),
+      );
+    }
 
-            return SafeArea(
-              child: Padding(
-                padding: EdgeInsets.only(
-                  left: 16,
-                  right: 16,
-                  top: 8,
-                  bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-                ),
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Edit profile',
-                          style: Theme.of(context).textTheme.titleLarge),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: nameCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Display name',
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: usernameCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Username',
-                          prefixText: '@',
-                          helperText:
-                              'Your unique handle, separate from display name.',
-                        ),
-                        autocorrect: false,
-                        textCapitalization: TextCapitalization.none,
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: headlineCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Headline',
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: cityCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'City',
-                          helperText:
-                              'Used for grouping in Nearby. Map area comes from ZIP.',
-                        ),
-                        textCapitalization: TextCapitalization.words,
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: zipCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'ZIP / postal code',
-                          helperText:
-                              'Sets your approximate map area. The pin is '
-                              'deliberately shifted — never your exact address.',
-                        ),
-                        keyboardType: TextInputType.number,
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: bioCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Bio',
-                        ),
-                        minLines: 3,
-                        maxLines: 5,
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: instagramCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Instagram',
-                          hintText: 'https://instagram.com/you, @you, or handle',
-                        ),
-                        keyboardType: TextInputType.url,
-                        autocorrect: false,
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: twitterCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'X / Twitter',
-                          hintText: 'https://twitter.com/you',
-                        ),
-                        keyboardType: TextInputType.url,
-                        autocorrect: false,
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: tiktokCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'TikTok',
-                          hintText: 'https://www.tiktok.com/@you',
-                        ),
-                        keyboardType: TextInputType.url,
-                        autocorrect: false,
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: youtubeCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'YouTube',
-                          hintText: 'https://www.youtube.com/@you',
-                        ),
-                        keyboardType: TextInputType.url,
-                        autocorrect: false,
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: soundcloudCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'SoundCloud',
-                          hintText: 'https://soundcloud.com/you',
-                        ),
-                        keyboardType: TextInputType.url,
-                        autocorrect: false,
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: spotifyCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Spotify',
-                          hintText: 'https://open.spotify.com/artist/...',
-                        ),
-                        keyboardType: TextInputType.url,
-                        autocorrect: false,
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: appleMusicCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Apple Music',
-                          hintText: 'https://music.apple.com/...',
-                        ),
-                        keyboardType: TextInputType.url,
-                        autocorrect: false,
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: facebookCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Facebook',
-                          hintText: 'https://facebook.com/you',
-                        ),
-                        keyboardType: TextInputType.url,
-                        autocorrect: false,
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: snapchatCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Snapchat',
-                          hintText: 'https://www.snapchat.com/add/you',
-                        ),
-                        keyboardType: TextInputType.url,
-                        autocorrect: false,
-                      ),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: websiteCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Website',
-                          hintText: 'https://your-site.com',
-                        ),
-                        keyboardType: TextInputType.url,
-                        autocorrect: false,
-                      ),
-                      const SizedBox(height: 14),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed:
-                                  saving ? null : () => Navigator.pop(context),
-                              child: const Text('Cancel'),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: FilledButton(
-                              onPressed: saving ? null : submit,
-                              child: saving
-                                  ? const SizedBox(
-                                      height: 16,
-                                      width: 16,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2),
-                                    )
-                                  : const Text('Save'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-
-    // Clean up controllers after the bottom sheet closes.
-    nameCtrl.dispose();
-    usernameCtrl.dispose();
-    headlineCtrl.dispose();
-    bioCtrl.dispose();
-    cityCtrl.dispose();
-    zipCtrl.dispose();
-    instagramCtrl.dispose();
-    twitterCtrl.dispose();
-    tiktokCtrl.dispose();
-    youtubeCtrl.dispose();
-    websiteCtrl.dispose();
-    soundcloudCtrl.dispose();
-    spotifyCtrl.dispose();
-    appleMusicCtrl.dispose();
-    facebookCtrl.dispose();
-    snapchatCtrl.dispose();
+    return [
+      field(_nameCtrl, label: 'Display name', capitalization: TextCapitalization.words),
+      field(
+        _usernameCtrl,
+        label: 'Username',
+        prefix: '@',
+        helper: 'Your unique handle, separate from display name.',
+        autocorrect: false,
+      ),
+      field(_headlineCtrl, label: 'Headline', capitalization: TextCapitalization.sentences),
+      field(
+        _cityCtrl,
+        label: 'City',
+        helper: 'Used for grouping in Nearby. Map area comes from ZIP.',
+        capitalization: TextCapitalization.words,
+      ),
+      field(
+        _zipCtrl,
+        label: 'ZIP / postal code',
+        helper:
+            'Sets your approximate map area. The pin is deliberately shifted — never your exact address.',
+        keyboardType: TextInputType.number,
+      ),
+      field(_bioCtrl, label: 'Bio', minLines: 3, maxLines: 5, capitalization: TextCapitalization.sentences),
+      field(_instagramCtrl, label: 'Instagram', hint: 'https://instagram.com/you, @you, or handle', keyboardType: TextInputType.url, autocorrect: false),
+      field(_twitterCtrl, label: 'X / Twitter', hint: 'https://twitter.com/you', keyboardType: TextInputType.url, autocorrect: false),
+      field(_tiktokCtrl, label: 'TikTok', hint: 'https://www.tiktok.com/@you', keyboardType: TextInputType.url, autocorrect: false),
+      field(_youtubeCtrl, label: 'YouTube', hint: 'https://www.youtube.com/@you', keyboardType: TextInputType.url, autocorrect: false),
+      field(_soundcloudCtrl, label: 'SoundCloud', hint: 'https://soundcloud.com/you', keyboardType: TextInputType.url, autocorrect: false),
+      field(_spotifyCtrl, label: 'Spotify', hint: 'https://open.spotify.com/artist/...', keyboardType: TextInputType.url, autocorrect: false),
+      field(_appleMusicCtrl, label: 'Apple Music', hint: 'https://music.apple.com/...', keyboardType: TextInputType.url, autocorrect: false),
+      field(_facebookCtrl, label: 'Facebook', hint: 'https://facebook.com/you', keyboardType: TextInputType.url, autocorrect: false),
+      field(_snapchatCtrl, label: 'Snapchat', hint: 'https://www.snapchat.com/add/you', keyboardType: TextInputType.url, autocorrect: false),
+      field(_websiteCtrl, label: 'Website', hint: 'https://your-site.com', keyboardType: TextInputType.url, autocorrect: false),
+      const SizedBox(height: 4),
+      FilledButton(
+        onPressed: _isUpdatingProfile ? null : _saveProfile,
+        child: _isUpdatingProfile
+            ? const SizedBox(
+                height: 18,
+                width: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Text('Save changes'),
+      ),
+    ];
   }
 
   Uri? _normalizeSocialUri({
@@ -1149,20 +1049,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 8),
-                    Center(
-                      child: FilledButton.tonalIcon(
-                        onPressed: _isUpdatingProfile ? null : _openEditProfileSheet,
-                        icon: _isUpdatingProfile
-                            ? const SizedBox(
-                                width: 14,
-                                height: 14,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Icon(Icons.edit_outlined),
-                        label: const Text('Edit profile'),
-                      ),
-                    ),
+                    const SizedBox(height: 16),
+                    ..._profileFields(),
                     const SizedBox(height: 4),
                     Center(
                       child: TextButton(
