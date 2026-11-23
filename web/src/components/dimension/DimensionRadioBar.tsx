@@ -14,7 +14,6 @@ import {
 import { ArtworkImage } from '@/components/common/ArtworkImage';
 import { useBassPulseRef } from '@/components/dimension/BassPulseLogo';
 import { FrequencyVisualizer } from '@/components/radio/FrequencyVisualizer';
-import { RadioShareMenu } from '@/components/radio/RadioShareMenu';
 import { SongStoriesBar } from '@/components/radio/SongStoriesBar';
 import { usePlaybackOptional } from '@/components/playback/PlaybackProvider';
 import { signalRadioNavIntent } from '@/lib/playback-preferences';
@@ -41,24 +40,6 @@ function ReactionButtons({
       <button
         type="button"
         onClick={() => {
-          onBurst('shit');
-          player.submitReaction('shit');
-        }}
-        disabled={player.isVoting}
-        data-testid="player-shit-btn"
-        aria-label="Pass vote"
-        title="Pass"
-        className={`h-8 w-8 rounded-full text-base leading-none transition ${
-          player.selectedReaction === 'shit'
-            ? 'bg-emerald-600/20 ring-2 ring-emerald-400'
-            : 'bg-white/5 hover:bg-emerald-600/10'
-        } disabled:opacity-40`}
-      >
-        💩
-      </button>
-      <button
-        type="button"
-        onClick={() => {
           onBurst('fire');
           player.submitReaction('fire');
         }}
@@ -73,6 +54,24 @@ function ReactionButtons({
         } disabled:opacity-40`}
       >
         🔥
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          onBurst('shit');
+          player.submitReaction('shit');
+        }}
+        disabled={player.isVoting}
+        data-testid="player-shit-btn"
+        aria-label="Pass vote"
+        title="Pass"
+        className={`h-8 w-8 rounded-full text-base leading-none transition ${
+          player.selectedReaction === 'shit'
+            ? 'bg-emerald-600/20 ring-2 ring-emerald-400'
+            : 'bg-white/5 hover:bg-emerald-600/10'
+        } disabled:opacity-40`}
+      >
+        💩
       </button>
     </div>
   );
@@ -298,23 +297,19 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
                 <FastForward className="w-4 h-4" />
               </button>
             ) : null}
-            <RadioShareMenu
-              compact
-              stationId={
-                playback?.state.source === 'radio'
-                  ? playback.state.track?.radioId || player.radioId
-                  : player.radioId
-              }
-              artistId={playback?.state.track?.artistId}
-              artistName={playback?.state.track?.artistName || player.artist}
-              songId={playback?.state.track?.id}
-              songTitle={playback?.state.track?.title || player.title}
-            />
+            {player.canVote ? (
+              <div className="pointer-events-auto sm:hidden">
+                <ReactionButtons
+                  player={player}
+                  onBurst={(kind) => setAlbumBurst(nextAlbumBurst(kind))}
+                />
+              </div>
+            ) : null}
             <SongStoriesBar
               compact
               songId={playback?.state.track?.id}
             />
-            <div className="flex items-end h-6 ml-2 w-[72px] shrink-0">
+            <div className="hidden sm:flex items-end h-6 ml-2 w-[72px] shrink-0">
               <FrequencyVisualizer
                 playing={player.isPlaying}
                 barCount={MINI_VBAR_COUNT}
@@ -322,14 +317,6 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
                 barClassName="min-w-[3px] flex-none w-[3px]"
               />
             </div>
-            {player.canVote ? (
-              <div className="pointer-events-auto sm:hidden ml-1">
-                <ReactionButtons
-                  player={player}
-                  onBurst={(kind) => setAlbumBurst(nextAlbumBurst(kind))}
-                />
-              </div>
-            ) : null}
           </div>
           <div className="w-full max-w-2xl flex items-center gap-3">
             <span className="font-dim-mono text-[10px] dim-text-subtle w-8 text-right shrink-0">
