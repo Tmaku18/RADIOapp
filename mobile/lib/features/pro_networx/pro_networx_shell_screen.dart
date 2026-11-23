@@ -161,13 +161,6 @@ class _ProNetworxShellScreenState extends State<ProNetworxShellScreen> {
                         ),
                       ],
                     ),
-                    actions: [
-                      BackToNetworxRadioButton(
-                        compact: true,
-                        authenticatedTarget: true,
-                        onPressed: _exitToRadio,
-                      ),
-                    ],
                   ),
                 ),
               ),
