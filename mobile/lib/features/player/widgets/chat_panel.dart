@@ -17,7 +17,9 @@ import '../../../widgets/safety/report_block_sheet.dart';
 class ChatPanel extends StatefulWidget {
   final String? currentSongId;
   final String? currentSongTitle;
+  final String? currentSongArtist;
   final String? currentRadioId;
+  final bool showThreadToggle;
   final bool isExpanded;
   final VoidCallback? onToggleExpand;
   final bool fillHeightWhenExpanded;
@@ -30,7 +32,9 @@ class ChatPanel extends StatefulWidget {
     super.key,
     this.currentSongId,
     this.currentSongTitle,
+    this.currentSongArtist,
     this.currentRadioId,
+    this.showThreadToggle = false,
     this.isExpanded = false,
     this.onToggleExpand,
     this.fillHeightWhenExpanded = false,
@@ -71,12 +75,20 @@ class _ChatPanelState extends State<ChatPanel> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+      final chatService = Provider.of<ChatService>(context, listen: false);
       if (widget.currentRadioId != null) {
-        final chatService = Provider.of<ChatService>(context, listen: false);
-        chatService.setRadioId(widget.currentRadioId!);
+        await chatService.setRadioId(widget.currentRadioId!);
       }
+      if (widget.showThreadToggle &&
+          (widget.currentSongId?.trim().isNotEmpty ?? false)) {
+        await chatService.setThread(
+          ChatThread.comments,
+          songId: widget.currentSongId,
+        );
+      }
+      if (!mounted) return;
       _loadMyProfile();
     });
   }
@@ -124,16 +136,24 @@ class _ChatPanelState extends State<ChatPanel> {
   @override
   void didUpdateWidget(ChatPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final chatService = Provider.of<ChatService>(context, listen: false);
     if (widget.currentRadioId != null &&
         widget.currentRadioId != oldWidget.currentRadioId) {
-      final chatService = Provider.of<ChatService>(context, listen: false);
       chatService.setRadioId(widget.currentRadioId!);
     }
-    // Handle song transitions
-    if (widget.currentSongTitle != null &&
+    if (widget.showThreadToggle &&
+        widget.currentSongId != oldWidget.currentSongId &&
+        chatService.thread == ChatThread.comments) {
+      chatService.setThread(
+        ChatThread.comments,
+        songId: widget.currentSongId,
+      );
+    }
+    // Handle song transitions in live chat only.
+    if (chatService.thread == ChatThread.live &&
+        widget.currentSongTitle != null &&
         widget.currentSongTitle != _lastSongTitle &&
         _lastSongTitle != null) {
-      final chatService = Provider.of<ChatService>(context, listen: false);
       chatService.onSongChanged(widget.currentSongTitle!);
     }
     _lastSongTitle = widget.currentSongTitle;
@@ -160,7 +180,11 @@ class _ChatPanelState extends State<ChatPanel> {
 
   Future<void> _sendMessage() async {
     final message = _messageController.text.trim();
-    if (message.isEmpty || _isSending) return;
+    final commentsWithoutSong =
+        Provider.of<ChatService>(context, listen: false).thread ==
+            ChatThread.comments &&
+        (widget.currentSongId?.trim().isEmpty ?? true);
+    if (message.isEmpty || _isSending || commentsWithoutSong) return;
 
     setState(() => _isSending = true);
 
@@ -171,6 +195,8 @@ class _ChatPanelState extends State<ChatPanel> {
     final success = await chatService.sendMessage(
       message,
       songId: widget.currentSongId,
+      songTitle: widget.currentSongTitle,
+      artistName: widget.currentSongArtist,
       senderUserId: _myUserId,
       senderDisplayName: _myDisplayName,
       senderAvatarUrl: _myAvatarUrl,
@@ -340,30 +366,26 @@ class _ChatPanelState extends State<ChatPanel> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          message.displayName,
-                          style: TextStyle(
-                            color: isOwnMessage
-                                ? scheme.onPrimary.withValues(alpha: 0.85)
-                                : surfaces.textSecondary,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          _formatTime(message.createdAt),
-                          style: TextStyle(
-                            color: isOwnMessage
-                                ? scheme.onPrimary.withValues(alpha: 0.65)
-                                : surfaces.textMuted,
-                            fontSize: 10,
-                          ),
-                        ),
-                      ],
+                    Text(
+                      message.displayName,
+                      style: TextStyle(
+                        color: isOwnMessage
+                            ? scheme.onPrimary.withValues(alpha: 0.85)
+                            : surfaces.textSecondary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      message.kind == 'comment'
+                          ? _formatCommentStamp(message.createdAt)
+                          : _formatTime(message.createdAt),
+                      style: TextStyle(
+                        color: isOwnMessage
+                            ? scheme.onPrimary.withValues(alpha: 0.65)
+                            : surfaces.textMuted,
+                        fontSize: 10,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -375,6 +397,18 @@ class _ChatPanelState extends State<ChatPanel> {
                         fontSize: 14,
                       ),
                     ),
+                    if (_liveSongLabel(message) != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        _liveSongLabel(message)!,
+                        style: TextStyle(
+                          color: isOwnMessage
+                              ? scheme.onPrimary.withValues(alpha: 0.75)
+                              : surfaces.textMuted,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -390,6 +424,71 @@ class _ChatPanelState extends State<ChatPanel> {
     final hour = dateTime.hour.toString().padLeft(2, '0');
     final minute = dateTime.minute.toString().padLeft(2, '0');
     return '$hour:$minute';
+  }
+
+  String _formatCommentStamp(DateTime dateTime) {
+    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    final local = dateTime.toLocal();
+    final hour12 = local.hour % 12 == 0 ? 12 : local.hour % 12;
+    final minute = local.minute.toString().padLeft(2, '0');
+    final period = local.hour >= 12 ? 'PM' : 'AM';
+    return '${weekdays[local.weekday - 1]}, ${months[local.month - 1]} ${local.day} · $hour12:$minute $period';
+  }
+
+  String _threadTitle(ChatService chat, String channelLabel) {
+    if (!widget.showThreadToggle) return 'The Room · $channelLabel';
+    return chat.thread == ChatThread.comments ? 'Comments' : 'Live Chat';
+  }
+
+  String? _liveSongLabel(ChatMessage message) {
+    if (message.isSystemMessage || message.kind == 'comment') return null;
+    final title = message.songTitle?.trim();
+    if (title == null || title.isEmpty) return null;
+    final artist = message.artistName?.trim();
+    if (artist == null || artist.isEmpty) return '($title)';
+    return '($title by $artist)';
+  }
+
+  Future<void> _openThreadPicker() async {
+    final chatService = Provider.of<ChatService>(context, listen: false);
+    final picked = await showModalBottomSheet<ChatThread>(
+      context: context,
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: const Text('Live Chat'),
+                subtitle: const Text('Talk with people on this station'),
+                trailing: chatService.thread == ChatThread.live
+                    ? const Icon(Icons.check)
+                    : null,
+                onTap: () => Navigator.pop(ctx, ChatThread.live),
+              ),
+              ListTile(
+                title: const Text('Comments'),
+                subtitle: Text(
+                  (widget.currentSongTitle?.trim().isNotEmpty ?? false)
+                      ? widget.currentSongTitle!.trim()
+                      : 'Reviews for the song that is playing',
+                ),
+                trailing: chatService.thread == ChatThread.comments
+                    ? const Icon(Icons.check)
+                    : null,
+                onTap: () => Navigator.pop(ctx, ChatThread.comments),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (!mounted || picked == null) return;
+    await chatService.setThread(picked, songId: widget.currentSongId);
   }
 
   @override
@@ -424,7 +523,7 @@ class _ChatPanelState extends State<ChatPanel> {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    'The Room · $channelLabel',
+                    _threadTitle(chatService, channelLabel),
                     style: TextStyle(color: surfaces.textSecondary),
                   ),
                   const SizedBox(width: 8),
@@ -471,7 +570,9 @@ class _ChatPanelState extends State<ChatPanel> {
             children: [
               // Header
               GestureDetector(
-                onTap: widget.onToggleExpand,
+                onTap: widget.showThreadToggle
+                    ? _openThreadPicker
+                    : widget.onToggleExpand,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -489,16 +590,25 @@ class _ChatPanelState extends State<ChatPanel> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'The Room · $channelLabel',
+                        _threadTitle(chatService, channelLabel),
                         style: TextStyle(
                           color: scheme.onSurface,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
+                      if (widget.showThreadToggle) ...[
+                        const SizedBox(width: 2),
+                        Icon(
+                          Icons.expand_more_rounded,
+                          color: surfaces.textSecondary,
+                          size: 20,
+                        ),
+                      ],
                       const SizedBox(width: 8),
                       _buildConnectionIndicator(chatService.connectionState),
                       const Spacer(),
-                      if (widget.onToggleExpand != null)
+                      if (!widget.showThreadToggle &&
+                          widget.onToggleExpand != null)
                         Icon(
                           Icons.keyboard_arrow_down,
                           color: surfaces.textSecondary,
@@ -508,6 +618,7 @@ class _ChatPanelState extends State<ChatPanel> {
                 ),
               ),
 
+              if (chatService.thread != ChatThread.comments)
               // Emoji reaction bar
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
@@ -569,17 +680,28 @@ class _ChatPanelState extends State<ChatPanel> {
                                     ),
                                     const SizedBox(height: 12),
                                     Text(
-                                      'No messages yet',
+                                      chatService.thread == ChatThread.comments
+                                          ? ((widget.currentSongId?.trim().isNotEmpty ?? false)
+                                              ? 'No comments on this song yet'
+                                              : 'Comments show while a song is playing')
+                                          : 'No messages yet',
                                       style: TextStyle(
                                         color: surfaces.textSecondary,
                                       ),
+                                      textAlign: TextAlign.center,
                                     ),
                                     const SizedBox(height: 4),
-                                    Text(
-                                      'Be the first to say something!',
-                                      style: TextStyle(
-                                        color: surfaces.textMuted,
-                                        fontSize: 12,
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                                      child: Text(
+                                        chatService.thread == ChatThread.comments
+                                            ? 'Use comments for reviews and feedback. They come back the next time this song plays. Use Live Chat to talk with the room.'
+                                            : 'Be the first to say something!',
+                                        style: TextStyle(
+                                          color: surfaces.textMuted,
+                                          fontSize: 12,
+                                        ),
+                                        textAlign: TextAlign.center,
                                       ),
                                     ),
                                   ],
@@ -728,7 +850,9 @@ class _ChatPanelState extends State<ChatPanel> {
                                   ),
                                   cursorColor: scheme.onSurface,
                                   decoration: InputDecoration(
-                                    hintText: 'Type a message...',
+                                    hintText: chatService.thread == ChatThread.comments
+                                        ? 'Leave feedback on this song'
+                                        : 'Type a message...',
                                     hintStyle: TextStyle(
                                       color: surfaces.textMuted,
                                     ),
@@ -768,7 +892,15 @@ class _ChatPanelState extends State<ChatPanel> {
                                   shape: BoxShape.circle,
                                 ),
                                 child: IconButton(
-                                  onPressed: _isSending ? null : _sendMessage,
+                                  onPressed: _isSending ||
+                                          (chatService.thread ==
+                                                  ChatThread.comments &&
+                                              (widget.currentSongId
+                                                      ?.trim()
+                                                      .isEmpty ??
+                                                  true))
+                                      ? null
+                                      : _sendMessage,
                                   icon: _isSending
                                       ? SizedBox(
                                           width: 20,

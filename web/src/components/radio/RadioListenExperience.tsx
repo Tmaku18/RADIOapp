@@ -77,6 +77,8 @@ export function RadioListenExperience({
   const [showChat, setShowChat] = useState(false);
 
   const currentStation = getStationById(resolvedStationId) ?? null;
+  const radioTrack =
+    playback?.state.source === 'radio' ? playback.state.track : null;
   const switcherStationId =
     playback?.state.source === 'radio' && playback.state.track?.radioId?.trim()
       ? playback.state.track.radioId.trim()
@@ -235,7 +237,13 @@ export function RadioListenExperience({
 
             <Reveal delay={0.1} className="hidden lg:block sticky top-4">
               <div className="rounded-2xl glass overflow-hidden min-h-[480px] h-[calc(100vh-12rem)] max-h-[720px] flex flex-col">
-                <ChatSidebar radioId={resolvedStationId} dimensionChrome />
+                <ChatSidebar
+                  radioId={resolvedStationId}
+                  dimensionChrome
+                  songId={radioTrack?.id}
+                  songTitle={radioTrack?.title}
+                  artistName={radioTrack?.artistName}
+                />
               </div>
             </Reveal>
           </div>
@@ -264,6 +272,9 @@ export function RadioListenExperience({
               radioId={resolvedStationId}
               onExitMobile={() => setShowChat(false)}
               dimensionChrome
+              songId={radioTrack?.id}
+              songTitle={radioTrack?.title}
+              artistName={radioTrack?.artistName}
             />
           </div>
         </div>

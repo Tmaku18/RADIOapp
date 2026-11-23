@@ -1,4 +1,4 @@
-import { IsString, IsOptional, MaxLength, IsNotEmpty } from 'class-validator';
+import { IsString, IsOptional, MaxLength, IsNotEmpty, IsIn } from 'class-validator';
 
 export class SendMessageDto {
   @IsString()
@@ -14,4 +14,9 @@ export class SendMessageDto {
   @IsOptional()
   @MaxLength(64)
   radioId?: string;
+
+  /** `live` is station chat. `comment` is the per-song thread and requires songId. */
+  @IsOptional()
+  @IsIn(['live', 'comment'])
+  kind?: 'live' | 'comment';
 }

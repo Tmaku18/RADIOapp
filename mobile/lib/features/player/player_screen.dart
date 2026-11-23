@@ -152,6 +152,8 @@ class _PlayerScreenState extends State<PlayerScreen>
   /// don't jump the listener backward (or reload mid-handoff).
   ({String id, DateTime at})? _recentlyAdvancedFrom;
   late final AnimationController _rippleController;
+  late final ValueNotifier<({String? id, String? title, String? artist})>
+      _roomSong;
 
   /// Shared across instances (see [_StationTuner]) so a station switch made in
   /// a pushed player also invalidates the home-tab instance's in-flight work.
@@ -193,6 +195,11 @@ class _PlayerScreenState extends State<PlayerScreen>
       vsync: this,
       duration: const Duration(milliseconds: 950),
     );
+    _roomSong = ValueNotifier((
+      id: null,
+      title: null,
+      artist: null,
+    ));
     _loadMe();
     final seeded = _trackFromLiveRadio();
     if (seeded != null) {
@@ -1582,6 +1589,7 @@ class _PlayerScreenState extends State<PlayerScreen>
     _trackBoundaryTimer?.cancel();
     _prefetchTimer?.cancel();
     _rippleController.dispose();
+    _roomSong.dispose();
     _coverTilt.dispose();
     super.dispose();
   }
@@ -1610,13 +1618,21 @@ class _PlayerScreenState extends State<PlayerScreen>
           child: SafeArea(
             child: SizedBox(
               height: MediaQuery.of(context).size.height * 0.78,
-              child: ChatPanel(
-                currentSongId: _currentTrack?.id,
-                currentSongTitle: _currentTrack?.title,
-                currentRadioId: _radioId,
-                isExpanded: true,
-                fillHeightWhenExpanded: true,
-                expandedHeight: 9999,
+              child: ValueListenableBuilder<
+                  ({String? id, String? title, String? artist})>(
+                valueListenable: _roomSong,
+                builder: (context, song, _) {
+                  return ChatPanel(
+                    currentSongId: song.id,
+                    currentSongTitle: song.title,
+                    currentSongArtist: song.artist,
+                    currentRadioId: _radioId,
+                    showThreadToggle: true,
+                    isExpanded: true,
+                    fillHeightWhenExpanded: true,
+                    expandedHeight: 9999,
+                  );
+                },
               ),
             ),
           ),
@@ -1627,6 +1643,22 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   @override
   Widget build(BuildContext context) {
+    final nextSong = (
+      id: _currentTrack?.id,
+      title: _currentTrack?.title,
+      artist: _currentTrack?.artistName,
+    );
+    if (_roomSong.value != nextSong) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final latest = (
+          id: _currentTrack?.id,
+          title: _currentTrack?.title,
+          artist: _currentTrack?.artistName,
+        );
+        if (_roomSong.value != latest) _roomSong.value = latest;
+      });
+    }
     return ChangeNotifierProvider(
       create: (_) => ChatService()..initialize(radioId: _radioId),
       child: Builder(

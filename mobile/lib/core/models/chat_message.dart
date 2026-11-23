@@ -9,6 +9,9 @@ class ChatMessage {
   final String message;
   final DateTime createdAt;
   final bool isSystemMessage;
+  final String? songTitle;
+  final String? artistName;
+  final String? kind;
 
   ChatMessage({
     required this.id,
@@ -20,6 +23,9 @@ class ChatMessage {
     required this.message,
     required this.createdAt,
     this.isSystemMessage = false,
+    this.songTitle,
+    this.artistName,
+    this.kind,
   });
 
   /// Create a ChatMessage from JSON response (camelCase or snake_case).
@@ -38,6 +44,9 @@ class ChatMessage {
       message: (json['message'] ?? '').toString(),
       createdAt: DateTime.tryParse(createdRaw) ?? DateTime.now(),
       isSystemMessage: false,
+      songTitle: (json['songTitle'] ?? json['song_title'])?.toString(),
+      artistName: (json['artistName'] ?? json['artist_name'])?.toString(),
+      kind: (json['kind'])?.toString(),
     );
   }
 

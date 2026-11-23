@@ -13,6 +13,8 @@ enum ChatConnectionState {
   offline,
 }
 
+enum ChatThread { live, comments }
+
 /// Chat service with production-grade features:
 /// - Hydration: Fetch history on load
 /// - Connection states: Track realtime connection status
@@ -36,6 +38,9 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
   bool _isUserAtBottom = true;
   bool _initialized = false;
   String _radioId = 'global';
+  ChatThread _thread = ChatThread.live;
+  String? _commentSongId;
+  int _hydrateGen = 0;
   /// Latest emoji burst for UI floaters: `{ "❤️": 3, "🔥": 1 }`.
   Map<String, int> _lastEmojiBurst = const {};
   int _emojiBurstSeq = 0;
@@ -49,6 +54,8 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
   bool get isUserAtBottom => _isUserAtBottom;
 
   String get radioId => _radioId;
+  ChatThread get thread => _thread;
+  String? get commentSongId => _commentSongId;
   Map<String, int> get lastEmojiBurst => _lastEmojiBurst;
   int get emojiBurstSeq => _emojiBurstSeq;
 
@@ -105,16 +112,27 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
   /// Hydrate chat history and subscribe to realtime updates
   Future<void> _rehydrateAndSubscribe() async {
     if (_supabase == null) return;
-    
+    final gen = ++_hydrateGen;
+
     _connectionState = ChatConnectionState.connecting;
     notifyListeners();
 
+    if (_thread == ChatThread.comments &&
+        (_commentSongId == null || _commentSongId!.trim().isEmpty)) {
+      if (gen != _hydrateGen) return;
+      _messages = [];
+      await _unsubscribe();
+      if (gen != _hydrateGen) return;
+      _connectionState = ChatConnectionState.connected;
+      notifyListeners();
+      return;
+    }
+
     try {
       // Step 1: Hydration - Fetch latest history from API
-      final response = await _apiService.get(
-        'chat/history?limit=50&radioId=${Uri.encodeComponent(_radioId)}',
-      );
-      
+      final response = await _apiService.get(_historyPath());
+      if (gen != _hydrateGen) return;
+
       if (response != null && response['messages'] != null) {
         final messagesList = response['messages'] as List;
         _messages = messagesList
@@ -124,6 +142,7 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
 
       // Step 2: Get chat status
       final statusResponse = await _apiService.get('chat/status');
+      if (gen != _hydrateGen) return;
       if (statusResponse != null) {
         _chatEnabled = statusResponse['enabled'] ?? true;
         _disabledReason = statusResponse['reason'];
@@ -131,11 +150,13 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
 
       // Step 3: Subscribe to realtime channel
       await _subscribe();
+      if (gen != _hydrateGen) return;
 
       _connectionState = ChatConnectionState.connected;
       _unreadCount = 0;
       notifyListeners();
     } catch (e) {
+      if (gen != _hydrateGen) return;
       debugPrint('ChatService: Failed to hydrate - $e');
       _connectionState = ChatConnectionState.offline;
       notifyListeners();
@@ -145,11 +166,19 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
   /// Subscribe to the Supabase Realtime channel
   Future<void> _subscribe() async {
     if (_supabase == null) return;
-    
+    final gen = _hydrateGen;
+
     // Unsubscribe from existing channel first
     await _unsubscribe();
+    if (gen != _hydrateGen) return;
 
-    _channel = _supabase!.channel('radio-chat:$_radioId');
+    final channelName = _channelName();
+    if (channelName == null) {
+      _connectionState = ChatConnectionState.connected;
+      notifyListeners();
+      return;
+    }
+    _channel = _supabase!.channel(channelName);
     
     _channel!
       .onBroadcast(
@@ -173,7 +202,7 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
       .subscribe((status, error) {
         if (status == RealtimeSubscribeStatus.subscribed) {
           _connectionState = ChatConnectionState.connected;
-          debugPrint('ChatService: Connected to radio-chat:$_radioId channel');
+          debugPrint('ChatService: Connected to $channelName');
         } else if (status == RealtimeSubscribeStatus.timedOut) {
           _connectionState = ChatConnectionState.reconnecting;
           debugPrint('ChatService: Connection timed out, reconnecting...');
@@ -208,8 +237,14 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
     try {
       final message = ChatMessage.fromJson(_unwrapBroadcast(payload));
       if (message.id.isEmpty) return;
-      final messageRadioId = (message.radioId ?? 'global').trim();
-      if (messageRadioId != _radioId) return;
+      if (_thread == ChatThread.comments) {
+        final songId = (message.songId ?? '').trim();
+        if (songId.isEmpty || songId != (_commentSongId ?? '')) return;
+      } else {
+        if (message.kind == 'comment') return;
+        final messageRadioId = (message.radioId ?? 'global').trim();
+        if (messageRadioId != _radioId) return;
+      }
 
       // Avoid duplicates (including optimistic local inserts)
       if (_messages.any((m) => m.id == message.id)) return;
@@ -289,18 +324,26 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
   Future<bool> sendMessage(
     String message, {
     String? songId,
+    String? songTitle,
+    String? artistName,
     String? senderUserId,
     String? senderDisplayName,
     String? senderAvatarUrl,
   }) async {
     if (!_chatEnabled || message.trim().isEmpty) return false;
+    if (_thread == ChatThread.comments &&
+        (songId == null || songId.trim().isEmpty)) {
+      return false;
+    }
 
     final text = message.trim();
+    final kind = _thread == ChatThread.comments ? 'comment' : 'live';
     try {
       final response = await _apiService.post('chat/send', {
         'message': text,
         if (songId != null) 'songId': songId,
         'radioId': _radioId,
+        'kind': kind,
       });
       final id = response is Map ? response['id']?.toString() : null;
       if (id != null && id.isNotEmpty && !_messages.any((m) => m.id == id)) {
@@ -315,6 +358,9 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
             avatarUrl: senderAvatarUrl,
             message: text,
             createdAt: DateTime.now(),
+            songTitle: songTitle,
+            artistName: artistName,
+            kind: kind,
           ),
         );
         if (_messages.length > 100) {
@@ -357,6 +403,7 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Called when song changes to insert transition message
   void onSongChanged(String songTitle) {
+    if (_thread != ChatThread.live) return;
     addSystemMessage(ChatMessage.songTransition(songTitle));
   }
 
@@ -378,6 +425,44 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
         _connectionState == ChatConnectionState.reconnecting) {
       await _rehydrateAndSubscribe();
     }
+  }
+
+  /// Switch between station live chat and the current song's comments.
+  Future<void> setThread(ChatThread thread, {String? songId}) async {
+    final nextSong = songId?.trim();
+    final normalizedSong =
+        nextSong == null || nextSong.isEmpty ? null : nextSong;
+    final songChanged =
+        thread == ChatThread.comments && normalizedSong != _commentSongId;
+    if (thread == _thread && !songChanged) return;
+    _thread = thread;
+    if (thread == ChatThread.comments) {
+      _commentSongId = normalizedSong;
+    }
+    _messages = [];
+    _unreadCount = 0;
+    if (_initialized) {
+      await _rehydrateAndSubscribe();
+    } else {
+      notifyListeners();
+    }
+  }
+
+  String? _channelName() {
+    if (_thread == ChatThread.comments) {
+      final songId = _commentSongId?.trim();
+      if (songId == null || songId.isEmpty) return null;
+      return 'song-comments:$songId';
+    }
+    return 'radio-chat:$_radioId';
+  }
+
+  String _historyPath() {
+    if (_thread == ChatThread.comments) {
+      final songId = Uri.encodeComponent(_commentSongId ?? '');
+      return 'chat/comments?limit=100&songId=$songId';
+    }
+    return 'chat/history?limit=50&radioId=${Uri.encodeComponent(_radioId)}';
   }
 
   /// Switch chat to a different radio channel and rehydrate.

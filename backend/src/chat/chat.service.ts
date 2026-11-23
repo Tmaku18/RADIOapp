@@ -17,7 +17,12 @@ interface ChatMessage {
   avatar_url: string | null;
   message: string;
   created_at: string;
+  kind?: 'live' | 'comment' | null;
+  song_title?: string | null;
+  artist_name?: string | null;
 }
+
+type ChatKind = 'live' | 'comment';
 
 interface RateLimitEntry {
   count: number;
@@ -72,39 +77,61 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
     return `radio-chat:${radioId}`;
   }
 
+  private commentChannelKey(songId: string): string {
+    return `comment:${songId}`;
+  }
+
+  private commentChannelName(songId: string): string {
+    return `song-comments:${songId}`;
+  }
+
   private async ensureChannel(radioId: string): Promise<void> {
     const normalized = this.normalizeRadioId(radioId);
-    const existing = this.channels.get(normalized);
+    await this.ensureNamedChannel(normalized, this.channelNameFor(normalized));
+  }
+
+  private async ensureCommentChannel(songId: string): Promise<void> {
+    const id = songId.trim();
+    await this.ensureNamedChannel(
+      this.commentChannelKey(id),
+      this.commentChannelName(id),
+    );
+  }
+
+  private async ensureNamedChannel(
+    key: string,
+    channelName: string,
+  ): Promise<void> {
+    const existing = this.channels.get(key);
     if (existing) return;
 
     const supabase = getSupabaseClient();
-    const channelName = this.channelNameFor(normalized);
     const channel = supabase.channel(channelName);
 
-    this.channelReady.set(normalized, false);
+    this.channelReady.set(key, false);
     this.channelReadyPromises.set(
-      normalized,
+      key,
       new Promise((resolve) => {
-        this.channelReadyResolvers.set(normalized, resolve);
+        this.channelReadyResolvers.set(key, resolve);
       }),
     );
 
     channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
-        this.channelReady.set(normalized, true);
-        this.channelReadyResolvers.get(normalized)?.();
+        this.channelReady.set(key, true);
+        this.channelReadyResolvers.get(key)?.();
         this.logger.log(`Chat channel ready: ${channelName}`);
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
         this.logger.warn(`Chat channel unhealthy (${channelName}): ${status}`);
-        this.channelReady.set(normalized, false);
+        this.channelReady.set(key, false);
       } else if (status === 'CLOSED') {
         this.logger.warn(`Chat channel closed: ${channelName}`);
-        this.channelReady.set(normalized, false);
-        this.channels.delete(normalized);
+        this.channelReady.set(key, false);
+        this.channels.delete(key);
       }
     });
 
-    this.channels.set(normalized, channel);
+    this.channels.set(key, channel);
   }
 
   /**
@@ -165,6 +192,7 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
     radioId: string,
     displayName: string,
     avatarUrl: string | null,
+    kind: ChatKind = 'live',
   ): Promise<{ success: boolean; id: string }> {
     const supabase = getSupabaseClient();
 
@@ -213,6 +241,10 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
     }
 
     const normalizedRadioId = this.normalizeRadioId(radioId);
+    const messageKind: ChatKind = kind === 'comment' ? 'comment' : 'live';
+    if (messageKind === 'comment' && !songId?.trim()) {
+      throw new BadRequestException('Comments require a song');
+    }
 
     // Save message to database
     const { data: savedMessage, error } = await supabase
@@ -224,6 +256,7 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
         display_name: displayName,
         avatar_url: avatarUrl,
         message: message.trim(),
+        kind: messageKind,
       })
       .select()
       .single();
@@ -252,8 +285,11 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
 
     const { data, error } = await supabase
       .from('chat_messages')
-      .select('*')
+      .select(
+        'id, user_id, song_id, radio_id, display_name, avatar_url, message, created_at, kind, songs(title, artist_name)',
+      )
       .eq('radio_id', normalizedRadioId)
+      .eq('kind', 'live')
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -263,7 +299,75 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
     }
 
     // Return in chronological order (oldest first)
-    return (data || []).reverse();
+    return (data || []).reverse().map((row) => this.withSongLabel(row));
+  }
+
+  /**
+   * Comments posted while this song was playing. Shared across stations.
+   */
+  async getComments(songId: string, limit = 100): Promise<ChatMessage[]> {
+    const id = songId?.trim();
+    if (!id) {
+      throw new BadRequestException('songId is required');
+    }
+    const supabase = getSupabaseClient();
+    const capped = Math.min(Math.max(limit, 1), 100);
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .select(
+        'id, user_id, song_id, radio_id, display_name, avatar_url, message, created_at, kind, songs(title, artist_name)',
+      )
+      .eq('song_id', id)
+      .eq('kind', 'comment')
+      .order('created_at', { ascending: true })
+      .limit(capped);
+
+    if (error) {
+      this.logger.error(`Failed to fetch comments: ${error.message}`);
+      throw new BadRequestException('Failed to fetch comments');
+    }
+
+    return (data || []).map((row) => this.withSongLabel(row));
+  }
+
+  private withSongLabel(row: Record<string, unknown>): ChatMessage {
+    const songs = row.songs as
+      | { title?: string | null; artist_name?: string | null }
+      | { title?: string | null; artist_name?: string | null }[]
+      | null
+      | undefined;
+    const song = Array.isArray(songs) ? songs[0] : songs;
+    const kind = row.kind === 'comment' ? 'comment' : 'live';
+    return {
+      id: String(row.id),
+      user_id: String(row.user_id),
+      song_id: (row.song_id as string | null) ?? null,
+      radio_id: String(row.radio_id ?? 'global'),
+      display_name: String(row.display_name ?? 'Anonymous'),
+      avatar_url: (row.avatar_url as string | null) ?? null,
+      message: String(row.message ?? ''),
+      created_at: String(row.created_at ?? ''),
+      kind,
+      song_title: song?.title ?? null,
+      artist_name: song?.artist_name ?? null,
+    };
+  }
+
+  private async lookupSongLabel(songId: string | null): Promise<{
+    songTitle: string | null;
+    artistName: string | null;
+  }> {
+    if (!songId?.trim()) return { songTitle: null, artistName: null };
+    const supabase = getSupabaseClient();
+    const { data } = await supabase
+      .from('songs')
+      .select('title, artist_name')
+      .eq('id', songId)
+      .maybeSingle();
+    return {
+      songTitle: data?.title ?? null,
+      artistName: data?.artist_name ?? null,
+    };
   }
 
   /**
@@ -339,14 +443,22 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
    */
   private async broadcast(message: ChatMessage) {
     const radioId = this.normalizeRadioId(message.radio_id);
-    await this.ensureChannel(radioId);
-    const channel = this.channels.get(radioId);
+    const isComment = message.kind === 'comment' && !!message.song_id;
+    const channelKey = isComment
+      ? this.commentChannelKey(message.song_id as string)
+      : radioId;
+    if (isComment) {
+      await this.ensureCommentChannel(message.song_id as string);
+    } else {
+      await this.ensureChannel(radioId);
+    }
+    const channel = this.channels.get(channelKey);
     if (!channel) return;
 
     // Wait for channel to be ready before broadcasting
-    if (!this.channelReady.get(radioId)) {
-      this.logger.warn(`Chat channel not ready for ${radioId}, waiting...`);
-      const ready = await this.waitForChannel(radioId, 5000);
+    if (!this.channelReady.get(channelKey)) {
+      this.logger.warn(`Chat channel not ready for ${channelKey}, waiting...`);
+      const ready = await this.waitForChannel(channelKey, 5000);
       if (!ready) {
         this.logger.error(
           'Chat channel not ready after timeout - message not broadcasted',
@@ -354,6 +466,8 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
         return;
       }
     }
+
+    const label = await this.lookupSongLabel(message.song_id);
 
     try {
       // Use the persistent, already-subscribed channel
@@ -369,10 +483,13 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
           avatarUrl: message.avatar_url,
           message: message.message,
           createdAt: message.created_at,
+          kind: isComment ? 'comment' : 'live',
+          songTitle: label.songTitle,
+          artistName: label.artistName,
         },
       });
 
-      this.logger.debug(`Broadcasted message ${message.id} to ${radioId}`);
+      this.logger.debug(`Broadcasted message ${message.id} to ${channelKey}`);
     } catch (error) {
       this.logger.error(`Failed to broadcast message: ${error.message}`);
       // Don't throw - message is already saved

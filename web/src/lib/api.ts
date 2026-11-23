@@ -2404,10 +2404,21 @@ export const analyticsApi = {
 };
 
 export const chatApi = {
-  sendMessage: (message: string, songId?: string, radioId?: string) =>
-    api.post('/chat/send', { message, songId, radioId }, { timeout: 10000 }),
+  sendMessage: (
+    message: string,
+    songId?: string,
+    radioId?: string,
+    kind?: 'live' | 'comment',
+  ) =>
+    api.post(
+      '/chat/send',
+      { message, songId, radioId, kind },
+      { timeout: 10000 },
+    ),
   getHistory: (params?: { limit?: number; radioId?: string }) =>
     api.get('/chat/history', { params, timeout: 10000 }),
+  getComments: (params: { songId: string; limit?: number }) =>
+    api.get('/chat/comments', { params, timeout: 10000 }),
   getStatus: () => api.get('/chat/status', { timeout: 10000 }),
   sendEmoji: (emoji: string, radioId?: string) =>
     api.post('/chat/emoji', { emoji, radioId }, { timeout: 10000 }),

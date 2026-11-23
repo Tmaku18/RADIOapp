@@ -19,6 +19,9 @@ interface ChatMessage {
   avatarUrl: string | null;
   message: string;
   createdAt: string;
+  kind?: 'live' | 'comment';
+  songTitle?: string | null;
+  artistName?: string | null;
 }
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -69,14 +72,30 @@ export default function ChatSidebar({
   onExitMobile,
   dimensionChrome = false,
   standalone = false,
+  songId,
+  songTitle,
+  artistName,
 }: {
   radioId?: string;
   onExitMobile?: () => void;
   dimensionChrome?: boolean;
   standalone?: boolean;
+  songId?: string | null;
+  songTitle?: string | null;
+  artistName?: string | null;
 }) {
   const normalizedRadioId = radioId.trim() || 'global';
-  const channelName = `radio-chat:${normalizedRadioId}`;
+  const normalizedSongId = songId?.trim() || '';
+  const threadToggle = !standalone;
+  const [thread, setThread] = useState<'live' | 'comments'>(
+    threadToggle && normalizedSongId ? 'comments' : 'live',
+  );
+  const [threadMenuOpen, setThreadMenuOpen] = useState(false);
+  const userPickedThread = useRef(false);
+  const commentsMode = threadToggle && thread === 'comments';
+  const channelName = commentsMode
+    ? `song-comments:${normalizedSongId || 'none'}`
+    : `radio-chat:${normalizedRadioId}`;
 
   const { user, profile } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -101,6 +120,11 @@ export default function ChatSidebar({
   const setupChannelRef = useRef<(() => void) | null>(null);
   const connectionStatusRef = useRef<ConnectionStatus>(connectionStatus);
   connectionStatusRef.current = connectionStatus;
+
+  useEffect(() => {
+    if (!threadToggle || userPickedThread.current) return;
+    if (normalizedSongId) setThread('comments');
+  }, [threadToggle, normalizedSongId]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -153,8 +177,16 @@ export default function ChatSidebar({
     try {
       setError(null);
       setIsLoading(true);
+      if (commentsMode && !normalizedSongId) {
+        setMessages([]);
+        const statusRes = await chatApi.getStatus();
+        setChatEnabled(statusRes.data.enabled ?? true);
+        return;
+      }
       const [historyRes, statusRes] = await Promise.all([
-        chatApi.getHistory({ limit: 50, radioId: normalizedRadioId }),
+        commentsMode
+          ? chatApi.getComments({ songId: normalizedSongId, limit: 100 })
+          : chatApi.getHistory({ limit: 50, radioId: normalizedRadioId }),
         chatApi.getStatus(),
       ]);
       setMessages(historyRes.data.messages || []);
@@ -174,7 +206,7 @@ export default function ChatSidebar({
     } finally {
       setIsLoading(false);
     }
-  }, [normalizedRadioId]);
+  }, [commentsMode, normalizedSongId, normalizedRadioId]);
 
   useEffect(() => {
     if (user) loadHistory();
@@ -188,12 +220,21 @@ export default function ChatSidebar({
     const poll = async () => {
       if (stopped || document.visibilityState !== 'visible') return;
       try {
+        if (commentsMode && !normalizedSongId) {
+          setMessages([]);
+          return;
+        }
         const [historyRes, statusRes] = await Promise.all([
-          chatApi.getHistory({ limit: 50, radioId: normalizedRadioId }),
+          commentsMode
+            ? chatApi.getComments({ songId: normalizedSongId, limit: 100 })
+            : chatApi.getHistory({ limit: 50, radioId: normalizedRadioId }),
           chatApi.getStatus(),
         ]);
         const fetched = ((historyRes.data.messages || []) as ChatMessage[]).filter(
-          (m) => (m.radioId || 'global') === normalizedRadioId,
+          (m) =>
+            commentsMode
+              ? (m.songId || '') === normalizedSongId
+              : (m.radioId || 'global') === normalizedRadioId && m.kind !== 'comment',
         );
         setMessages((prev) => mergeMessages(prev, fetched));
         setChatEnabled(statusRes.data.enabled ?? true);
@@ -217,13 +258,18 @@ export default function ChatSidebar({
       stopped = true;
       clearInterval(interval);
     };
-  }, [user, normalizedRadioId]);
+  }, [user, normalizedRadioId, commentsMode, normalizedSongId]);
 
   // Subscribe to Supabase Realtime for new messages
   useEffect(() => {
     if (!supabaseUrl || !supabaseAnonKey) {
       console.warn('Supabase credentials missing, chat realtime disabled');
       setConnectionStatus('error');
+      return;
+    }
+
+    if (commentsMode && !normalizedSongId) {
+      setConnectionStatus('connected');
       return;
     }
 
@@ -268,7 +314,13 @@ export default function ChatSidebar({
         .channel(channelName)
         .on('broadcast', { event: 'new_message' }, (payload) => {
           const newMsg = payload.payload as ChatMessage;
-          if ((newMsg.radioId || 'global') !== normalizedRadioId) return;
+          if (commentsMode) {
+            if ((newMsg.songId || '') !== normalizedSongId) return;
+            if (newMsg.kind && newMsg.kind !== 'comment') return;
+          } else {
+            if (newMsg.kind === 'comment') return;
+            if ((newMsg.radioId || 'global') !== normalizedRadioId) return;
+          }
           setMessages((prev) => mergeMessages(prev, [newMsg]));
           // If we receive a message, we're definitely connected
           if (!hasConnected) {
@@ -386,7 +438,7 @@ export default function ChatSidebar({
         clearTimeout(connectionTimeoutId);
       }
     };
-  }, [channelName, normalizedRadioId]);
+  }, [channelName, normalizedRadioId, commentsMode, normalizedSongId]);
 
   const spawnLocalFloater = (emoji: string) => {
     floaterIdRef.current += 1;
@@ -419,13 +471,19 @@ export default function ChatSidebar({
     e.preventDefault();
     
     if (!newMessage.trim() || isSending || !chatEnabled) return;
+    if (commentsMode && !normalizedSongId) return;
 
     const text = newMessage.trim();
     setIsSending(true);
     setError(null);
 
     try {
-      const res = await chatApi.sendMessage(text, undefined, normalizedRadioId);
+      const res = await chatApi.sendMessage(
+        text,
+        normalizedSongId || undefined,
+        normalizedRadioId,
+        commentsMode ? 'comment' : 'live',
+      );
       const id = (res.data as { id?: string })?.id;
       setNewMessage('');
       inputRef.current?.focus();
@@ -434,12 +492,15 @@ export default function ChatSidebar({
         const optimistic: ChatMessage = {
           id,
           userId: profile.id,
-          songId: null,
           radioId: normalizedRadioId,
           displayName: profile.displayName || 'You',
           avatarUrl: profile.avatarUrl ?? null,
           message: text,
           createdAt: new Date().toISOString(),
+          kind: commentsMode ? 'comment' : 'live',
+          songId: normalizedSongId || null,
+          songTitle: songTitle ?? null,
+          artistName: artistName ?? null,
         };
         setMessages((prev) => mergeMessages(prev, [optimistic]));
       }
@@ -463,6 +524,18 @@ export default function ChatSidebar({
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const formatCommentStamp = (dateString: string) => {
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleString([], {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
   };
 
   if (!user) {
@@ -497,7 +570,7 @@ export default function ChatSidebar({
     >
       {/* Header */}
       <div
-        className={`px-4 py-3 border-b border-white/10 flex items-center justify-between shrink-0 ${
+        className={`relative z-20 px-4 py-3 border-b border-white/10 flex items-center justify-between shrink-0 ${
           dimensionChrome ? 'bg-transparent' : transparentMode ? 'bg-black/15' : 'bg-card/70'
         }`}
       >
@@ -506,10 +579,20 @@ export default function ChatSidebar({
             <div className="flex items-center gap-2 min-w-0">
               <span className="text-cyan-300 text-sm">💬</span>
               <div>
-                <div className="font-dim-mono text-[10px] tracking-[0.3em] text-cyan-300">LIVE CHAT</div>
-                <div className="font-dim-mono text-[9px] text-white/40 truncate">
-                  {normalizedRadioId} · {messages.length + 28} online
-                </div>
+                <button
+                  type="button"
+                  className="text-left"
+                  onClick={() => threadToggle && setThreadMenuOpen((open) => !open)}
+                >
+                  <div className="font-dim-mono text-[10px] tracking-[0.3em] text-cyan-300">
+                    {threadToggle ? (commentsMode ? 'COMMENTS ▾' : 'LIVE CHAT ▾') : 'LIVE CHAT'}
+                  </div>
+                  <div className="font-dim-mono text-[9px] text-white/40 truncate">
+                    {commentsMode
+                      ? (songTitle?.trim() || 'Waiting for a song')
+                      : `${normalizedRadioId} · ${messages.length + 28} online`}
+                  </div>
+                </button>
               </div>
             </div>
             <span className="live-dot w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0" />
@@ -519,14 +602,27 @@ export default function ChatSidebar({
         <div className="flex items-center gap-2">
           <span className="text-base">💬</span>
           <div>
-            <h2 className="font-semibold text-foreground text-sm">
-              {standalone ? 'The Chat Room' : 'Live Chat'}
-            </h2>
-            <p className="text-[11px] text-muted-foreground">
-              {normalizedRadioId === 'global'
-                ? 'Global channel'
-                : `${normalizedRadioId} channel`}
-            </p>
+            <button
+              type="button"
+              className="text-left"
+              onClick={() => threadToggle && setThreadMenuOpen((open) => !open)}
+            >
+              <h2 className="font-semibold text-foreground text-sm">
+                {standalone
+                  ? 'The Chat Room'
+                  : commentsMode
+                    ? 'Comments'
+                    : 'Live Chat'}
+                {threadToggle ? ' ▾' : ''}
+              </h2>
+              <p className="text-[11px] text-muted-foreground">
+                {commentsMode
+                  ? (songTitle?.trim() || 'Waiting for a song')
+                  : normalizedRadioId === 'global'
+                    ? 'Global channel'
+                    : `${normalizedRadioId} channel`}
+              </p>
+            </button>
           </div>
           {/* Connection status indicator */}
           {connectionStatus === 'connected' && (
@@ -583,6 +679,36 @@ export default function ChatSidebar({
         </div>
           </>
         )}
+        {threadToggle && threadMenuOpen && (
+          <div className="absolute left-3 top-full z-30 mt-1 w-56 rounded-lg border border-border bg-card p-1 shadow-lg">
+            <button
+              type="button"
+              className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-muted"
+              onClick={() => {
+                userPickedThread.current = true;
+                setThread('live');
+                setThreadMenuOpen(false);
+              }}
+            >
+              Live Chat
+              <span className="block text-xs text-muted-foreground">Talk with this station</span>
+            </button>
+            <button
+              type="button"
+              className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-muted"
+              onClick={() => {
+                userPickedThread.current = true;
+                setThread('comments');
+                setThreadMenuOpen(false);
+              }}
+            >
+              Comments
+              <span className="block text-xs text-muted-foreground">
+                {songTitle?.trim() || 'Reviews for the song that is playing'}
+              </span>
+            </button>
+          </div>
+        )}
       </div>
 
       <div
@@ -617,9 +743,19 @@ export default function ChatSidebar({
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
         ) : messages.length === 0 ? (
-          <div className="text-center text-muted-foreground py-8">
-            <p>No messages yet</p>
-            <p className="text-sm mt-1">Be the first to say something!</p>
+          <div className="text-center text-muted-foreground py-8 px-4">
+            <p>
+              {commentsMode
+                ? normalizedSongId
+                  ? 'No comments on this song yet'
+                  : 'Comments show while a song is playing'
+                : 'No messages yet'}
+            </p>
+            <p className="text-sm mt-1">
+              {commentsMode
+                ? 'Use comments for reviews and feedback. They come back the next time this song plays. Use Live Chat to talk with the room.'
+                : 'Be the first to say something!'}
+            </p>
           </div>
         ) : (
           messages.map((msg) => (
@@ -640,7 +776,9 @@ export default function ChatSidebar({
                 </Avatar>
                 <p className="text-[13px] leading-[1.2rem] break-words text-foreground/95">
                   <span className="text-[11px] opacity-55 mr-1">
-                    {formatTime(msg.createdAt)}
+                    {msg.kind === 'comment'
+                      ? formatCommentStamp(msg.createdAt)
+                      : formatTime(msg.createdAt)}
                   </span>
                   <span
                     className="font-semibold mr-1"
@@ -653,7 +791,7 @@ export default function ChatSidebar({
                       You
                     </span>
                   )}
-                  {connectionStatus === 'connected' && msg.userId !== profile?.id && (
+                  {!commentsMode && connectionStatus === 'connected' && msg.userId !== profile?.id && (
                     <span className="inline-flex items-center rounded-sm border border-white/25 bg-white/10 text-[9px] uppercase tracking-wide font-semibold px-1 mr-1 text-foreground/80">
                       Live
                     </span>
@@ -661,6 +799,13 @@ export default function ChatSidebar({
                   <span className={msg.userId === profile?.id ? 'text-white' : 'text-foreground/90'}>
                     {msg.message}
                   </span>
+                  {msg.kind !== 'comment' && msg.songTitle?.trim() && (
+                    <span className="text-foreground/55">
+                      {' '}
+                      ({msg.songTitle.trim()}
+                      {msg.artistName?.trim() ? ` by ${msg.artistName.trim()}` : ''})
+                    </span>
+                  )}
                 </p>
               </div>
             </div>
@@ -695,6 +840,7 @@ export default function ChatSidebar({
           </div>
         ) : (
           <div className="space-y-2">
+            {!commentsMode && (
             <div className="flex flex-wrap gap-1">
               {EMOJI_BAR.map((emoji) => (
                 <button
@@ -708,20 +854,27 @@ export default function ChatSidebar({
                 </button>
               ))}
             </div>
+            )}
             <div className="flex gap-2">
               <Input
                 ref={inputRef}
                 type="text"
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
-                placeholder="Send a message..."
+                placeholder={
+                  commentsMode ? 'Leave feedback on this song' : 'Send a message...'
+                }
+                disabled={isSending || (commentsMode && !normalizedSongId)}
                 maxLength={280}
-                disabled={isSending}
                 className={`flex-1 border-white/15 text-foreground placeholder:text-foreground/50 ${
                   transparentMode ? 'bg-black/40' : 'bg-background/80'
                 }`}
               />
-              <Button type="submit" size="icon" disabled={!newMessage.trim() || isSending}>
+              <Button
+                type="submit"
+                size="icon"
+                disabled={!newMessage.trim() || isSending || (commentsMode && !normalizedSongId)}
+              >
                 {isSending ? '...' : '→'}
               </Button>
             </div>

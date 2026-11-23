@@ -56,6 +56,11 @@ export class ChatController {
     try {
       const user = await this.getUserInfo(firebaseUser.uid);
 
+      const kind = dto.kind === 'comment' ? 'comment' : 'live';
+      if (kind === 'comment' && !dto.songId?.trim()) {
+        throw new BadRequestException('Comments require a song');
+      }
+
       const result = await this.chatService.sendMessage(
         user.id,
         dto.message,
@@ -63,6 +68,7 @@ export class ChatController {
         dto.radioId || 'global',
         user.display_name || 'Anonymous',
         user.avatar_url,
+        kind,
       );
 
       return result;
@@ -109,21 +115,72 @@ export class ChatController {
       );
 
       return {
-        messages: messages.map((m) => ({
-          id: m.id,
-          userId: m.user_id,
-          songId: m.song_id,
-          radioId: m.radio_id,
-          displayName: m.display_name,
-          avatarUrl: m.avatar_url,
-          message: m.message,
-          createdAt: m.created_at,
-        })),
+        messages: messages.map((m) => this.toClientMessage(m)),
       };
     } catch (err) {
       this.logger.warn(`getHistory failed: ${err?.message || err}`, err?.stack);
       return { messages: [] };
     }
+  }
+
+  /**
+   * Comments for one song, oldest first. Hidden until that song plays again.
+   * GET /api/chat/comments?songId=
+   */
+  @Public()
+  @Get('comments')
+  async getComments(
+    @Query('songId') songId?: string,
+    @Query('limit') limit?: string,
+  ) {
+    try {
+      if (!songId?.trim()) {
+        throw new BadRequestException('songId is required');
+      }
+      const parsedLimit = limit ? Math.min(parseInt(limit, 10), 100) : 100;
+      const messages = await this.chatService.getComments(
+        songId,
+        parsedLimit,
+      );
+      return {
+        messages: messages.map((m) => this.toClientMessage(m)),
+      };
+    } catch (err) {
+      if (err instanceof BadRequestException) throw err;
+      this.logger.warn(
+        `getComments failed: ${err?.message || err}`,
+        err?.stack,
+      );
+      return { messages: [] };
+    }
+  }
+
+  private toClientMessage(m: {
+    id: string;
+    user_id: string;
+    song_id: string | null;
+    radio_id: string;
+    display_name: string;
+    avatar_url: string | null;
+    message: string;
+    created_at: string;
+    kind?: 'live' | 'comment' | null;
+    song_title?: string | null;
+    artist_name?: string | null;
+  }) {
+    return {
+      id: m.id,
+      userId: m.user_id,
+      songId: m.song_id,
+      radioId: m.radio_id,
+      displayName: m.display_name,
+      avatarUrl: m.avatar_url,
+      message: m.message,
+      createdAt: m.created_at,
+      kind: m.kind === 'comment' ? 'comment' : 'live',
+      songTitle: m.song_title ?? null,
+      artistName: m.artist_name ?? null,
+    };
   }
 
   /**

@@ -75,10 +75,15 @@ class AppTutorial {
           'people listen, help choose what plays next. The playlist icon adds '
           'it to a playlist, and the share icon sends it.\n\n'
           'Lower down, under the progress bar, three controls sit in a row. '
-          'The chat bubble on the left opens The Room. The speaker in the '
-          'center mutes the station. The star on the right saves the song to '
-          'Favorites and turns on play alerts. Only the star sends on-air and '
-          'up-next notifications.',
+          'The chat bubble on the left opens the room. Tap the name at the '
+          'top to switch Comments and Live Chat, the same way you change '
+          'stations. Comments are reviews for the song that is playing. They '
+          'hide when the song changes and come back the next time it plays, '
+          'with the day and time. Live Chat is the station. Each live message '
+          'shows which song was on, and who it was by, when you posted. The '
+          'speaker in the center mutes the station. The star on the right '
+          'saves the song to Favorites and turns on play alerts. Only the '
+          'star sends on-air and up-next notifications.',
       nav: TutorialNavTarget.radio,
     ),
     TutorialStep(
@@ -196,11 +201,15 @@ class AppTutorial {
           '🔥 likes the song. 💩 passes on it. Listening time and how many '
           'people hear it also shape what plays next. The playlist icon and '
           'the share icon are the last two on that row.\n\n'
-          'Under the progress bar, the chat bubble on the left opens The Room '
-          'and the speaker in the center mutes the station. The star on the '
-          'right saves the song to Favorites and turns on play alerts. Fans '
-          'who star a song get notified when it is about to air. 🔥 does not '
-          'send those alerts.',
+          'Under the progress bar, the chat bubble on the left opens the room '
+          'and the speaker in the center mutes the station. Tap the name at '
+          'the top of the room to switch Comments and Live Chat. Comments are '
+          'for reviews and feedback on the song that is playing. They return '
+          'the next time that song plays, with the day and time. Live Chat is '
+          'how you talk with the station, and each message notes the song '
+          'that was playing. The star on the right saves the song to '
+          'Favorites and turns on play alerts. Fans who star a song get '
+          'notified when it is about to air. 🔥 does not send those alerts.',
       nav: TutorialNavTarget.radio,
     ),
     TutorialStep(

@@ -34,6 +34,7 @@ describe('ChatController', () => {
       'global',
       'User',
       null,
+      'live',
     );
     expect(result).toEqual({ success: true });
   });
@@ -70,6 +71,9 @@ describe('ChatController', () => {
           avatarUrl: null,
           message: 'hello',
           createdAt: 'now',
+          kind: 'live',
+          songTitle: null,
+          artistName: null,
         },
       ],
     });
