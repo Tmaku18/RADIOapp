@@ -212,6 +212,10 @@ class AuthService extends ChangeNotifier with WidgetsBindingObserver {
     return error is ApiException && error.statusCode == 404;
   }
 
+  bool _needsProfileSetup(app_user.User? profile) {
+    return (profile?.displayName ?? '').trim().isEmpty;
+  }
+
   String _googleDeveloperErrorMessage(PlatformException e) {
     return 'Google Sign-In is misconfigured for this build (DEVELOPER_ERROR).\n\n'
         'Emulator works with the debug SHA-1; Play Store uses Play App Signing.\n'
@@ -272,10 +276,21 @@ class AuthService extends ChangeNotifier with WidgetsBindingObserver {
         // Use a 10s budget per call so a slow Railway cold-start still has a
         // chance to succeed before we fall back to a Firebase-only profile.
         try {
-          return await _getUserProfile().timeout(const Duration(seconds: 10));
+          final profile = await _getUserProfile().timeout(
+            const Duration(seconds: 10),
+          );
+          if (_needsProfileSetup(profile)) {
+            throw ProfileSetupRequiredException(
+              suggestedName: _providerName(firebaseUser.displayName),
+              email: firebaseUser.email ?? '',
+            );
+          }
+          return profile;
         } on TimeoutException {
           debugPrint('Backend profile lookup timed out after Google sign-in.');
           return _buildFallbackUser(firebaseUser);
+        } on ProfileSetupRequiredException {
+          rethrow;
         } catch (e) {
           if (!_isMissingProfile(e)) rethrow;
           throw ProfileSetupRequiredException(
@@ -386,7 +401,22 @@ class AuthService extends ChangeNotifier with WidgetsBindingObserver {
         }
 
         try {
-          return await _getUserProfile();
+          final profile = await _getUserProfile();
+          if (_needsProfileSetup(profile)) {
+            throw ProfileSetupRequiredException(
+              suggestedName: _providerName(
+                appleFullName.isNotEmpty
+                    ? appleFullName
+                    : userCredential.user!.displayName,
+              ),
+              email: credential.email ??
+                  userCredential.user!.email ??
+                  'private@apple.relay',
+            );
+          }
+          return profile;
+        } on ProfileSetupRequiredException {
+          rethrow;
         } catch (e) {
           if (!_isMissingProfile(e)) rethrow;
           throw ProfileSetupRequiredException(

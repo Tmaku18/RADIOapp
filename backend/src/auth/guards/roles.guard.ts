@@ -7,7 +7,6 @@ import {
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { getSupabaseClient } from '../../config/supabase.config';
-import { generateUniqueUsername } from '../../common/username.util';
 import { ConfigService } from '@nestjs/config';
 
 /** Role hierarchy: listener ← artist ← service_provider (producer). Upload/artist gates also include dj + musician. */
@@ -45,6 +44,11 @@ function roleSatisfies(
 
 @Injectable()
 export class RolesGuard implements CanActivate {
+  private readonly roleCache = new Map<
+    string,
+    { role: string; extra: string[]; at: number }
+  >();
+
   constructor(
     private reflector: Reflector,
     private readonly configService: ConfigService,
@@ -68,7 +72,6 @@ export class RolesGuard implements CanActivate {
     const isAdminEmail = normalizedEmail
       ? adminEmails.includes(normalizedEmail)
       : false;
-    const defaultRole = isAdminEmail ? 'admin' : 'listener';
     const supabase = getSupabaseClient();
 
     const { data: existingByUid, error: existingByUidError } = await supabase
@@ -129,47 +132,8 @@ export class RolesGuard implements CanActivate {
       }
     }
 
-    if (!normalizedEmail) return null;
-
-    // username is NOT NULL/unique; generate a handle so the insert succeeds.
-    const username = await generateUniqueUsername(supabase, {
-      email: normalizedEmail,
-      userId: firebaseUid,
-    });
-    const { data, error } = await supabase
-      .from('users')
-      .insert({
-        firebase_uid: firebaseUid,
-        email: normalizedEmail,
-        username,
-        role: defaultRole,
-      })
-      .select('id, role')
-      .single();
-
-    if (error) {
-      // Handle race where another request created the row first.
-      if (error.code === '23505') {
-        const { data: existing } = await supabase
-          .from('users')
-          .select('role')
-          .eq('firebase_uid', firebaseUid)
-          .single();
-        if (existing?.role) return existing.role;
-        if (normalizedEmail) {
-          const { data: byEmail } = await supabase
-            .from('users')
-            .select('role')
-            .eq('email', normalizedEmail)
-            .single();
-          return byEmail?.role ?? null;
-        }
-        return null;
-      }
-      return null;
-    }
-
-    return data?.role ?? defaultRole;
+    // Brand-new Google/Apple accounts have no profile until they finish setup.
+    return null;
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -191,6 +155,11 @@ export class RolesGuard implements CanActivate {
 
     let userRole: string | null = user.dbRole ?? null;
     let extraRoles: string[] = [];
+    const cached = this.roleCache.get(user.uid);
+    if (cached && Date.now() - cached.at < 60_000) {
+      userRole = cached.role;
+      extraRoles = cached.extra;
+    } else {
     const supabase = getSupabaseClient();
     let profileRes = await supabase
       .from('users')
@@ -216,13 +185,26 @@ export class RolesGuard implements CanActivate {
         userRole = await this.ensureUserProfile(user.uid, user.email);
       }
       if (!userRole && error) {
-        const email = (user.email ?? '').trim().toLowerCase();
-        userRole = this.getAdminEmails().includes(email) ? 'admin' : 'listener';
+        const missingProfile =
+          error.code === 'PGRST116' ||
+          `${error.message ?? ''}`.toLowerCase().includes('0 rows');
+        if (!missingProfile) {
+          const email = (user.email ?? '').trim().toLowerCase();
+          userRole = this.getAdminEmails().includes(email)
+            ? 'admin'
+            : 'listener';
+        }
       }
     }
 
     if (!userRole) {
       throw new ForbiddenException('Account profile not found');
+    }
+    this.roleCache.set(user.uid, {
+      role: userRole,
+      extra: extraRoles,
+      at: Date.now(),
+    });
     }
 
     const allowed = requiredRoles.some((required) =>

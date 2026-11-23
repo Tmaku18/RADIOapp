@@ -10,7 +10,6 @@ import { Reflector } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { getFirebaseAuth } from '../../config/firebase.config';
 import { getSupabaseClient } from '../../config/supabase.config';
-import { generateUniqueUsername } from '../../common/username.util';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 @Injectable()
@@ -42,7 +41,6 @@ export class FirebaseAuthGuard implements CanActivate {
     const isAdminEmail = normalizedEmail
       ? adminEmails.includes(normalizedEmail)
       : false;
-    const defaultRole = isAdminEmail ? 'admin' : 'listener';
 
     const { data: existingByUid } = await supabase
       .from('users')
@@ -106,24 +104,9 @@ export class FirebaseAuthGuard implements CanActivate {
       }
     }
 
-    if (!normalizedEmail) return;
-
-    // username is NOT NULL/unique; generate a handle so the insert succeeds.
-    const username = await generateUniqueUsername(supabase, {
-      email: normalizedEmail,
-      userId: firebaseUid,
-    });
-    const { error } = await supabase.from('users').insert({
-      firebase_uid: firebaseUid,
-      email: normalizedEmail,
-      username,
-      role: defaultRole,
-    });
-    if (error && error.code !== '23505') {
-      this.logger.warn(
-        `Failed to auto-provision user profile for ${firebaseUid}: ${error.message}`,
-      );
-    }
+    // No row yet. Leave profile creation to the client so a first Google or
+    // Apple sign-in can choose a display name and role instead of becoming
+    // a listener automatically.
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -217,10 +200,8 @@ export class FirebaseAuthGuard implements CanActivate {
           `User lookup failed for ${decodedToken.uid}: ${userLookupError.message}`,
         );
       } else if (!user) {
-        // Brand-new user: provision the profile row now (awaited, with a hard
-        // deadline) so downstream controllers can resolve the user instead of
-        // failing with "User not found" on the first authenticated requests
-        // (e.g. uploading a song right after sign-up).
+        // Attach an existing email account. Do not insert a listener row;
+        // first-time Google/Apple users finish setup in the app.
         try {
           await withDeadline('ensureUserProfile', 5000, () =>
             this.ensureUserProfile(decodedToken.uid, decodedToken.email),
@@ -256,6 +237,7 @@ export class FirebaseAuthGuard implements CanActivate {
         email: decodedToken.email,
         emailVerified: decodedToken.email_verified,
         dbRole: user?.role ?? null,
+        dbUserId: user?.id ?? null,
       };
 
       return true;

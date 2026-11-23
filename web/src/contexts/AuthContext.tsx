@@ -17,6 +17,7 @@ import {
   peekOAuthRedirectPending,
 } from '@/lib/firebase-client';
 import { usersApi } from '@/lib/api';
+import { clearGuestBrowse } from '@/lib/guest';
 import { DisplayNameGate } from '@/components/DisplayNameGate';
 
 interface UserProfile {
@@ -182,11 +183,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       try {
         const response = await usersApi.getMe();
-        if (response.data) {
+        const ready = !!response.data?.displayName?.trim();
+        if (ready) {
           setProfile(response.data);
           setPendingProfileSetup(false);
           return;
         }
+        setProfile(null);
+        setPendingProfileSetup(true);
+        return;
       } catch (err) {
         if (getHttpStatus(err) !== 404) {
           return;
@@ -233,17 +238,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthChange(async (firebaseUser) => {
       clearTimeout(bootTimeout);
       setUser(firebaseUser);
+      if (firebaseUser) clearGuestBrowse();
       // Never block the app shell on profile/session network calls.
       setLoading(false);
       
       if (firebaseUser) {
         try {
           const response = await withTimeout(usersApi.getMe());
-          if (response.data) {
+          if (response.data?.displayName?.trim()) {
             setProfile(response.data);
             setPendingProfileSetup(false);
           } else {
             setProfile(null);
+            setPendingProfileSetup(true);
           }
         } catch (err) {
           // Only require profile setup when backend confirms the row is missing.
@@ -412,6 +419,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await signOut();
       setProfile(null);
+      clearGuestBrowse();
       if (typeof document !== 'undefined') {
         document.cookie =
           'user_role=; path=/; max-age=0; samesite=lax';

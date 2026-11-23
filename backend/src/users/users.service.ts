@@ -237,8 +237,8 @@ export class UsersService {
       .eq('firebase_uid', firebaseUid)
       .single();
 
-    if (existingUser) {
-      // User already exists - return existing user (idempotent)
+    if (existingUser && String(existingUser.display_name ?? '').trim()) {
+      // A finished profile already exists. Don't overwrite the role they chose.
       return transformUser(existingUser);
     }
 
@@ -258,6 +258,30 @@ export class UsersService {
     const displayName = createUserDto.displayName?.trim();
     if (!displayName) {
       throw new BadRequestException('Display name is required');
+    }
+
+    if (existingUser) {
+      // A first sign-in may have a row with no name yet. Finish that profile
+      // with the name and roles they just chose.
+      const { data: updated, error: updateError } = await supabase
+        .from('users')
+        .update({
+          display_name: displayName,
+          role,
+          user_roles: userRoles,
+          terms_accepted_at: createUserDto.termsAccepted
+            ? new Date().toISOString()
+            : existingUser.terms_accepted_at ?? null,
+        })
+        .eq('id', existingUser.id)
+        .select()
+        .single();
+      if (updateError || !updated) {
+        throw new BadRequestException(
+          `Failed to finish profile: ${updateError?.message ?? 'unknown error'}`,
+        );
+      }
+      return transformUser(updated);
     }
 
     // username is NOT NULL/unique; auto-generate a handle for the new account.
