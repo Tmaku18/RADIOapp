@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { analyticsApi, prospectorApi, usersApi } from '@/lib/api';
+import { hasArtistCapability } from '@/lib/roles';
 import { Reveal } from '@/components/dimension/Reveal';
 
 const WELCOME_HERO_IMAGE = '/images/welcome-to-the-networx.png';
@@ -344,7 +345,10 @@ function LoadingSpinner() {
 }
 
 export default function DashboardPage() {
-  const { profile, loading: authLoading } = useAuth();
+  const { profile, user, loading: authLoading } = useAuth();
+  // Auth clears its loading flag before the profile request returns. Until
+  // that profile arrives, this person is not a listener yet.
+  const profilePending = Boolean(user) && !profile;
   // Seed the hint synchronously from the cookie that the dashboard layout sets,
   // so admin users land on Admin Home immediately instead of flashing artist UI.
   const [adminRoleHint, setAdminRoleHint] = useState(false);
@@ -375,16 +379,29 @@ export default function DashboardPage() {
     };
   }, [profile?.role]);
 
-  const role = ((adminRoleHint ? 'admin' : profile?.role) ?? (authLoading ? null : 'listener')) as Role | null;
+  const role = ((adminRoleHint ? 'admin' : profile?.role) ??
+    (authLoading || profilePending ? null : 'listener')) as Role | null;
   const homeKey: keyof typeof ROLE_HOME = role === 'admin' ? 'admin' : role === 'service_provider' ? 'service_provider' : 'artist';
   const home = role ? (ROLE_HOME[homeKey] ?? ROLE_HOME.artist) : null;
-  const hasArtistStats = role === 'artist' || role === 'service_provider';
-  const wantsOwnStats = role === 'artist' || role === 'admin' || hasArtistStats;
+  const wantsOwnStats = role === 'admin' || hasArtistCapability(profile);
   const hasProspectorStats = role === 'listener';
   const roleResolved = !!role;
   const displayName = profile?.displayName || 'Prospector';
 
   useEffect(() => {
+    let cancelled = false;
+    async function loadOwnAnalytics() {
+      const read = () => analyticsApi.getMyAnalytics(30);
+      try {
+        return await read();
+      } catch (firstError) {
+        // The first call often races a cold token. One retry covers the refresh.
+        await new Promise((resolve) => setTimeout(resolve, 700));
+        if (cancelled) throw firstError;
+        return read();
+      }
+    }
+
     async function loadStats() {
       try {
         const next: DashboardStats = {};
@@ -419,7 +436,7 @@ export default function DashboardPage() {
 
         if (wantsOwnStats) {
           try {
-            const artistAnalyticsResponse = await analyticsApi.getMyAnalytics(30);
+            const artistAnalyticsResponse = await loadOwnAnalytics();
             const artist = artistAnalyticsResponse.data as {
               totalPlays?: number;
               totalListenCount?: number;
@@ -452,20 +469,25 @@ export default function DashboardPage() {
             songsRefinedCount: yieldData.songsRefinedCount ?? 0,
           };
         }
-        setStats(next);
+        if (!cancelled) setStats(next);
       } catch (error) {
         console.error('Failed to load dashboard stats:', error);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
 
+    if (authLoading || profilePending) return;
     if (profile?.id) {
-      loadStats();
+      setLoading(true);
+      void loadStats();
     } else {
       setLoading(false);
     }
-  }, [profile?.id, wantsOwnStats, hasProspectorStats]);
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.id, wantsOwnStats, hasProspectorStats, authLoading, profilePending]);
 
   return (
     <div data-dimension className="space-y-6">
@@ -516,7 +538,7 @@ export default function DashboardPage() {
 
       {loading ? (
         <LoadingSpinner />
-      ) : role === 'artist' ? (
+      ) : wantsOwnStats && role !== 'admin' ? (
         <div className="space-y-4">
           <StatRow caption="Your stats">
             <PersonalStatCards artist={stats.artist} />
@@ -603,50 +625,6 @@ export default function DashboardPage() {
                 );
               })}
             </div>
-          </div>
-        </Reveal>
-      )}
-
-      {role === 'service_provider' && (
-        <Reveal>
-          <div className="rounded-2xl glass p-6">
-            <div className="font-dim-mono text-[10px] tracking-[0.3em] text-pink-400 mb-4">
-              YOUR STATS
-            </div>
-            {loading ? (
-              <LoadingSpinner />
-            ) : (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <DimensionStatCard
-                  label="Ears Reached"
-                  value={stats.artist?.earsReached ?? 0}
-                  Icon={Heart}
-                  valueClass="text-yellow-300"
-                  borderClass="border-yellow-300/40"
-                />
-                <DimensionStatCard
-                  label="Listens"
-                  value={stats.artist?.totalListenCount ?? 0}
-                  Icon={Headphones}
-                  valueClass="text-cyan-300"
-                  borderClass="border-cyan-400/40"
-                />
-                <DimensionStatCard
-                  label="Your Songs"
-                  value={stats.artist?.totalSongs ?? 0}
-                  Icon={Music}
-                  valueClass="text-pink-400"
-                  borderClass="border-pink-400/40"
-                />
-                <DimensionStatCard
-                  label="Your Likes"
-                  value={stats.artist?.totalLikes ?? 0}
-                  Icon={Heart}
-                  valueClass="text-yellow-300"
-                  borderClass="border-yellow-300/40"
-                />
-              </div>
-            )}
           </div>
         </Reveal>
       )}

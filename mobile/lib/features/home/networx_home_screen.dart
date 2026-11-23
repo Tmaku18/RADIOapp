@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/auth/auth_service.dart';
 import '../../core/auth/role_helpers.dart';
+import '../../core/models/user.dart' as app_user;
 import '../../core/navigation/app_routes.dart';
 import '../../core/services/analytics_service.dart';
 import '../../core/theme/dimension_tokens.dart';
@@ -36,6 +37,7 @@ class NetworxHomeScreen extends StatefulWidget {
 class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
   final AnalyticsService _analytics = AnalyticsService();
   bool _loadingStats = true;
+  bool _showPersonal = false;
   String? _statsRole;
   int _personalSongs = 0;
   int _personalListens = 0;
@@ -54,15 +56,37 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadStats());
   }
 
+  bool _isFallbackProfile(app_user.User? profile) {
+    if (profile == null) return true;
+    // A timed-out profile is a Firebase-only listener, not the real account.
+    return profile.role == 'listener' &&
+        profile.id.isNotEmpty &&
+        profile.id == profile.firebaseUid;
+  }
+
+  bool _wantsPersonalStats(String? role, List<String> roles) {
+    if (role == 'admin') return true;
+    if (role != null && makerRoleOrder.contains(role)) return true;
+    return roles.any(makerRoleOrder.contains);
+  }
+
   Future<void> _loadStats() async {
     int asInt(dynamic v) =>
         v is int ? v : int.tryParse(v?.toString() ?? '') ?? 0;
     String? role = _statsRole;
+    List<String> makerRoles = const [];
     Map<String, dynamic>? stats;
+    final auth = Provider.of<AuthService>(context, listen: false);
     try {
-      final auth = Provider.of<AuthService>(context, listen: false);
-      final profile = await auth.getUserProfile();
-      role = profile?.role ?? role;
+      var profile = await auth.getUserProfile();
+      if (_isFallbackProfile(profile)) {
+        await auth.refreshIdToken();
+        profile = await auth.getUserProfile();
+      }
+      if (!_isFallbackProfile(profile)) {
+        role = profile?.role ?? role;
+        makerRoles = profile?.userRoles ?? const [];
+      }
     } catch (_) {
       // Keep the last known role so a refresh still picks the right bars.
     }
@@ -76,20 +100,31 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
     var personalListens = _personalListens;
     var personalEars = _personalEars;
     var personalLikes = _personalLikes;
-    if (role == 'artist' || role == 'admin') {
-      try {
+    if (_wantsPersonalStats(role, makerRoles)) {
+      Future<void> applyMine() async {
         final mine = await _analytics.getMyAnalytics();
         personalSongs = mine?.totalSongs ?? 0;
         personalListens = mine?.totalListenCount ?? 0;
         personalEars = mine?.earsReached ?? 0;
         personalLikes = mine?.totalLikes ?? 0;
+      }
+
+      try {
+        await applyMine();
       } catch (_) {
-        // Personal numbers stay at the last good value.
+        try {
+          if (!mounted) return;
+          await auth.refreshIdToken();
+          await applyMine();
+        } catch (_) {
+          // Personal numbers stay at the last good value.
+        }
       }
     }
     if (!mounted) return;
     setState(() {
       _statsRole = role;
+      _showPersonal = _wantsPersonalStats(role, makerRoles);
       _personalSongs = personalSongs;
       _personalListens = personalListens;
       _personalEars = personalEars;
@@ -541,7 +576,7 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
         yours,
       ];
     }
-    if (_statsRole == 'artist') {
+    if (_showPersonal) {
       return [
         _statCaption('Your stats'),
         yours,

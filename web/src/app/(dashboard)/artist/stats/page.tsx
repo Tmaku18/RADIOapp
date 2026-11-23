@@ -193,10 +193,18 @@ export default function StatsPage() {
   const loadStats = async () => {
     try {
       if (!analytics) setLoading(true);
+      const loadMine = async () => {
+        try {
+          return await analyticsApi.getMyAnalytics(30, songId || undefined);
+        } catch {
+          await new Promise((resolve) => setTimeout(resolve, 700));
+          return analyticsApi.getMyAnalytics(30, songId || undefined);
+        }
+      };
       const [creditsRes, analyticsRes, roiRes, regionsRes, discoverRes] =
         await Promise.allSettled([
           creditsApi.getBalance(),
-          analyticsApi.getMyAnalytics(30, songId || undefined),
+          loadMine(),
           analyticsApi.getMyRoi(30),
           analyticsApi.getMyPlaysByRegion(30),
           analyticsApi.getMyDiscoverSwipes(30),
