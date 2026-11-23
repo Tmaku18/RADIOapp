@@ -188,11 +188,13 @@ export function DimensionNavSubLink({
   label,
   isActive,
   signalRadioIntent,
+  icon: Icon,
 }: {
   href: string;
   label: string;
   isActive: boolean;
   signalRadioIntent?: boolean;
+  icon?: LucideIcon;
 }) {
   const onNavigate = signalRadioIntent
     ? () => {
@@ -205,12 +207,13 @@ export function DimensionNavSubLink({
       href={href}
       onClick={onNavigate}
       className={cn(
-        'block py-1.5 px-3 text-xs font-outfit rounded-md transition-colors',
+        'flex items-center gap-2 py-1.5 px-3 text-xs font-outfit rounded-md transition-colors',
         isActive
           ? 'text-primary bg-primary/10 dark:text-cyan-300 dark:bg-cyan-400/5'
           : 'text-muted-foreground hover:text-foreground dark:text-white/60 dark:hover:text-white',
       )}
     >
+      {Icon ? <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden /> : null}
       {label}
     </Link>
   );
