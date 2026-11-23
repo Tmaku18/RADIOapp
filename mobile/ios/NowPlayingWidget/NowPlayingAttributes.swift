@@ -10,6 +10,8 @@ let networxLockSongIdKey = "lockSongId"
 let networxLockPlayIdKey = "lockPlayId"
 let networxLockMutedKey = "lockMuted"
 let networxLockMutedAtKey = "lockMutedAt"
+let networxLockReactionShownKey = "lockReactionShown"
+let networxLockReactionSongKey = "lockReactionSongId"
 
 @available(iOS 16.1, *)
 struct NowPlayingAttributes: ActivityAttributes {
@@ -19,23 +21,27 @@ struct NowPlayingAttributes: ActivityAttributes {
     var station: String
     var isMuted: Bool
     var artworkToken: String
+    /// "fire", "shit", or empty when this song has no vote yet.
+    var reaction: String
 
     init(
       title: String,
       artist: String,
       station: String,
       isMuted: Bool = false,
-      artworkToken: String = ""
+      artworkToken: String = "",
+      reaction: String = ""
     ) {
       self.title = title
       self.artist = artist
       self.station = station
       self.isMuted = isMuted
       self.artworkToken = artworkToken
+      self.reaction = reaction
     }
 
     private enum CodingKeys: String, CodingKey {
-      case title, artist, station, isMuted, artworkToken
+      case title, artist, station, isMuted, artworkToken, reaction
     }
 
     init(from decoder: Decoder) throws {
@@ -45,6 +51,7 @@ struct NowPlayingAttributes: ActivityAttributes {
       station = try container.decodeIfPresent(String.self, forKey: .station) ?? "NetworX Radio"
       isMuted = try container.decodeIfPresent(Bool.self, forKey: .isMuted) ?? false
       artworkToken = try container.decodeIfPresent(String.self, forKey: .artworkToken) ?? ""
+      reaction = try container.decodeIfPresent(String.self, forKey: .reaction) ?? ""
     }
 
     func encode(to encoder: Encoder) throws {
@@ -54,6 +61,7 @@ struct NowPlayingAttributes: ActivityAttributes {
       try container.encode(station, forKey: .station)
       try container.encode(isMuted, forKey: .isMuted)
       try container.encode(artworkToken, forKey: .artworkToken)
+      try container.encode(reaction, forKey: .reaction)
     }
   }
 

@@ -147,7 +147,8 @@ enum LiveActivityBridge {
         artist: artist,
         station: station,
         isMuted: mutedPreferringCard(isMuted, requestedAt: requestedAt),
-        artworkToken: lastArtworkToken
+        artworkToken: lastArtworkToken,
+        reaction: shownReaction(songId: songId)
       )
       await publish(state)
       let token = await saveArtwork(from: artworkUrl)
@@ -159,8 +160,19 @@ enum LiveActivityBridge {
         state.isMuted = live.content.state.isMuted
       }
       state.isMuted = mutedPreferringCard(state.isMuted, requestedAt: requestedAt)
+      state.reaction = shownReaction(songId: songId)
       await publish(state)
     }
+  }
+
+  /// The emoji the listener just tapped. A different song clears it.
+  private static func shownReaction(songId: String) -> String {
+    let defaults = UserDefaults(suiteName: networxAppGroupId)
+    let votedSong = defaults?.string(forKey: networxLockReactionSongKey) ?? ""
+    let shown = defaults?.string(forKey: networxLockReactionShownKey) ?? ""
+    let known = shown == "fire" || shown == "shit"
+    guard !songId.isEmpty, votedSong == songId, known else { return "" }
+    return shown
   }
 
   /// A mute tap on the island writes a newer value than this update. Keep it.

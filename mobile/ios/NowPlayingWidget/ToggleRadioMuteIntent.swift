@@ -50,7 +50,7 @@ struct FireSongIntent: LiveActivityIntent {
   static var openAppWhenRun: Bool = false
 
   func perform() async throws -> some IntentResult {
-    postLockReaction("fire")
+    await postLockReaction("fire")
     return .result()
   }
 }
@@ -62,16 +62,25 @@ struct ShitSongIntent: LiveActivityIntent {
   static var openAppWhenRun: Bool = false
 
   func perform() async throws -> some IntentResult {
-    postLockReaction("shit")
+    await postLockReaction("shit")
     return .result()
   }
 }
 
 @available(iOS 17.0, *)
-private func postLockReaction(_ reaction: String) {
+private func postLockReaction(_ reaction: String) async {
   let defaults = UserDefaults(suiteName: networxAppGroupId)
   defaults?.set(reaction, forKey: networxLockReactionKey)
+  defaults?.set(reaction, forKey: networxLockReactionShownKey)
+  defaults?.set(defaults?.string(forKey: networxLockSongIdKey) ?? "", forKey: networxLockReactionSongKey)
   defaults?.synchronize()
+  #if canImport(ActivityKit)
+  for activity in Activity<NowPlayingAttributes>.activities {
+    var state = activity.content.state
+    state.reaction = reaction
+    await activity.update(ActivityContent(state: state, staleDate: nil))
+  }
+  #endif
   let name = CFNotificationName(networxLockReactNotification as CFString)
   CFNotificationCenterPostNotification(
     CFNotificationCenterGetDarwinNotifyCenter(),

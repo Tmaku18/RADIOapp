@@ -138,23 +138,23 @@ private struct LockScreenReactionButton: View {
   let emoji: String
   let fire: Bool
   var compact = false
+  var selected = false
 
   var body: some View {
-    Group {
-      if fire {
-        Button(intent: FireSongIntent()) { label }
-      } else {
-        Button(intent: ShitSongIntent()) { label }
-      }
+    if fire {
+      Button(intent: FireSongIntent()) { label }
+        .buttonStyle(.borderless)
+    } else {
+      Button(intent: ShitSongIntent()) { label }
+        .buttonStyle(.borderless)
     }
-    .buttonStyle(.borderless)
   }
 
   private var label: some View {
     Text(emoji)
-      .font(compact ? .body : .title2)
-      .frame(width: compact ? 36 : 64, height: compact ? 26 : 36)
-      .background(Color.white.opacity(compact ? 0.08 : 0), in: Capsule())
+      .font(compact ? .title3 : .title2)
+      .frame(width: compact ? 40 : 64, height: compact ? 28 : 36)
+      .background(selected ? networxCyan.opacity(0.35) : Color.white.opacity(0.1), in: Capsule())
   }
 }
 
@@ -187,9 +187,9 @@ private struct LockScreenNowPlaying: View {
       }
       if #available(iOS 17.0, *) {
         HStack(alignment: .center, spacing: 0) {
-          LockScreenReactionButton(emoji: "💩", fire: false)
+          LockScreenReactionButton(emoji: "💩", fire: false, selected: state.reaction == "shit")
           Spacer(minLength: 8)
-          LockScreenReactionButton(emoji: "🔥", fire: true)
+          LockScreenReactionButton(emoji: "🔥", fire: true, selected: state.reaction == "fire")
         }
       }
     }
@@ -217,25 +217,34 @@ struct NowPlayingLiveActivity: Widget {
           }
         }
         DynamicIslandExpandedRegion(.bottom) {
-          // The island clips anything past the song lines. Keep the votes
-          // on the artist row so the emoji sit fully inside the card.
-          VStack(alignment: .leading, spacing: 2) {
+          VStack(alignment: .leading, spacing: 1) {
             Text(context.state.station)
               .font(.caption2)
               .foregroundStyle(networxCyan)
               .lineLimit(1)
-            Text(context.state.title).font(.headline).lineLimit(1)
-            Text(context.state.artist)
+            Text(context.state.title)
               .font(.subheadline)
-              .foregroundStyle(.white.opacity(0.72))
+              .fontWeight(.semibold)
               .lineLimit(1)
-              .padding(.trailing, 84)
-          }
-          .overlay(alignment: .bottomTrailing) {
-            if #available(iOS 17.0, *) {
-              HStack(spacing: 4) {
-                LockScreenReactionButton(emoji: "💩", fire: false, compact: true)
-                LockScreenReactionButton(emoji: "🔥", fire: true, compact: true)
+            HStack(alignment: .center, spacing: 6) {
+              Text(context.state.artist)
+                .font(.caption)
+                .foregroundStyle(.white.opacity(0.72))
+                .lineLimit(1)
+              Spacer(minLength: 4)
+              if #available(iOS 17.0, *) {
+                LockScreenReactionButton(
+                  emoji: "💩",
+                  fire: false,
+                  compact: true,
+                  selected: context.state.reaction == "shit"
+                )
+                LockScreenReactionButton(
+                  emoji: "🔥",
+                  fire: true,
+                  compact: true,
+                  selected: context.state.reaction == "fire"
+                )
               }
             }
           }
