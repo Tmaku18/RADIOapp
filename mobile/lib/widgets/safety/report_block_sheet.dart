@@ -9,10 +9,13 @@ class ReportBlockSheet {
   static const reasons = <String>[
     'Spam',
     'Harassment or bullying',
-    'Hate or discrimination',
+    'Hate speech or discrimination',
     'Sexual content',
     'Violence or threats',
-    'Copyright',
+    'Copyright infringement',
+    'Misleading or scam',
+    'Impersonation',
+    'The song is bad',
     'Something else',
   ];
 

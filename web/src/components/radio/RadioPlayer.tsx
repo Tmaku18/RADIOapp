@@ -6,11 +6,18 @@ import {
   Flag,
   Flame,
   Heart,
+  MoreVertical,
   VolumeX,
   Radio as RadioIcon,
   Star,
   Volume2,
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { usePlayback } from '@/components/playback';
 import type { PlaybackTrack } from '@/components/playback';
 import { SyncedLyricsPanel } from './SyncedLyricsPanel';
@@ -186,6 +193,10 @@ export function RadioPlayer({
   const [favoriteLoading, setFavoriteLoading] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [ratingOpen, setRatingOpen] = useState(false);
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
+  const [listenerRating, setListenerRating] = useState<number | null>(null);
+  const [ratingScore, setRatingScore] = useState(7);
 
   const [refineryOpen, setRefineryOpen] = useState(false);
   const [refinerySongId, setRefinerySongId] = useState<string | null>(null);
@@ -502,6 +513,31 @@ export function RadioPlayer({
       toast.error(serverMessage || 'Could not submit report.');
     } finally {
       setReportSubmitting(false);
+    }
+  };
+
+  const submitTrackRating = async () => {
+    const track = state.track;
+    if (!track?.id || ratingSubmitting) return;
+    if (!profile) {
+      toast.error('Log in to rate songs.');
+      return;
+    }
+    const score = Math.max(1, Math.min(10, Math.round(ratingScore)));
+    setRatingSubmitting(true);
+    try {
+      const { data } = await songsApi.rateSong(track.id, score);
+      const saved = Number(data?.rating ?? score);
+      setListenerRating(saved);
+      setRatingOpen(false);
+      toast.success(`Rated ${saved} / 10`);
+    } catch (error) {
+      const serverMessage = (
+        error as { response?: { data?: { message?: string } } }
+      )?.response?.data?.message;
+      toast.error(serverMessage || 'Could not save your rating.');
+    } finally {
+      setRatingSubmitting(false);
     }
   };
 
@@ -1163,6 +1199,35 @@ export function RadioPlayer({
     };
   }, [state.track?.id]);
 
+  useEffect(() => {
+    const trackId = state.track?.id;
+    if (!trackId || !profile) {
+      setListenerRating(null);
+      return;
+    }
+    let cancelled = false;
+    const loadRating = async () => {
+      try {
+        const res = await songsApi.getRating(trackId);
+        if (cancelled) return;
+        const value = Number(res.data?.rating);
+        if (Number.isInteger(value) && value >= 1 && value <= 10) {
+          setListenerRating(value);
+          setRatingScore(value);
+        } else {
+          setListenerRating(null);
+          setRatingScore(7);
+        }
+      } catch {
+        if (!cancelled) setListenerRating(null);
+      }
+    };
+    void loadRating();
+    return () => {
+      cancelled = true;
+    };
+  }, [state.track?.id, profile]);
+
   const handleBuy = async () => {
     const trackId = state.track?.id;
     if (!trackId || isBuying) return;
@@ -1249,6 +1314,107 @@ export function RadioPlayer({
       submitting={reportSubmitting}
       onSubmit={submitTrackReport}
     />
+  );
+
+  const ratingDialog = (
+    <Dialog open={ratingOpen} onOpenChange={setRatingOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            Rate &quot;{state.track?.title ?? 'this song'}&quot;
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Score it from 1–10. This is separate from 🔥 / 💩.
+          </p>
+          <div className="flex items-center gap-3">
+            <input
+              type="range"
+              min={1}
+              max={10}
+              step={1}
+              value={ratingScore}
+              onChange={(e) => setRatingScore(parseInt(e.target.value, 10))}
+              className="w-full accent-cyan-400"
+            />
+            <div className="w-10 text-right font-semibold tabular-nums">
+              {ratingScore}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setRatingScore(n)}
+                className={cn(
+                  'h-8 w-8 rounded-md text-sm font-semibold transition',
+                  ratingScore === n
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => setRatingOpen(false)}
+            disabled={ratingSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button onClick={() => void submitTrackRating()} disabled={ratingSubmitting}>
+            {ratingSubmitting ? 'Saving…' : `Submit ${ratingScore} / 10`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
+  const canReportTrack = Boolean(
+    artistUserId && profile?.id && profile.id !== artistUserId && state.track,
+  );
+
+  const moreMenu = (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          data-testid="radio-more-menu"
+          title="More"
+          className="h-10 w-10 rounded-full border border-cyan-400/40 text-cyan-300 hover:bg-cyan-400/10 inline-flex items-center justify-center transition disabled:opacity-40"
+          disabled={!state.track}
+        >
+          <MoreVertical className="w-4 h-4" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-52">
+        <DropdownMenuItem
+          onClick={() => {
+            if (!profile) {
+              toast.error('Log in to rate songs.');
+              return;
+            }
+            setRatingScore(listenerRating ?? 7);
+            setRatingOpen(true);
+          }}
+        >
+          <Star className="w-4 h-4" />
+          Rate song (1–10)
+        </DropdownMenuItem>
+        {canReportTrack && (
+          <DropdownMenuItem onClick={() => setReportOpen(true)}>
+            <Flag className="w-4 h-4" />
+            Report
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 
   const refineryDialog = (
@@ -1474,19 +1640,7 @@ export function RadioPlayer({
                   songId={state.track?.id}
                   songTitle={state.track?.title}
                 />
-                {artistUserId && profile?.id && profile.id !== artistUserId && (
-                  <button
-                    type="button"
-                    onClick={() => setReportOpen(true)}
-                    disabled={!state.track}
-                    data-testid="radio-report-track"
-                    title="Report this song"
-                    className="h-10 px-4 rounded-full border border-red-400/40 text-red-300 hover:bg-red-400/10 text-xs font-dim-mono tracking-[0.18em] uppercase transition disabled:opacity-40 inline-flex items-center gap-2"
-                  >
-                    <Flag className="w-3.5 h-3.5" />
-                    Report
-                  </button>
-                )}
+                {moreMenu}
                 <div className="flex items-center gap-2 ml-auto w-44 min-w-[120px]">
                   <Volume2 className="w-4 h-4 text-white/50 shrink-0" />
                   <input
@@ -1549,12 +1703,34 @@ export function RadioPlayer({
                 >
                   🔥
                 </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!profile) {
+                      toast.error('Log in to rate songs.');
+                      return;
+                    }
+                    setRatingScore(listenerRating ?? 7);
+                    setRatingOpen(true);
+                  }}
+                  disabled={!state.track}
+                  title="Rate 1–10"
+                  className={`h-10 px-3 rounded-full text-sm font-semibold transition inline-flex items-center gap-1 ${
+                    listenerRating
+                      ? 'bg-amber-500/20 ring-2 ring-amber-400 text-amber-200'
+                      : 'bg-white/5 hover:bg-amber-500/10 text-white/80'
+                  } disabled:opacity-40`}
+                >
+                  <Star className="w-3.5 h-3.5" />
+                  {listenerRating ?? 'Rate'}
+                </button>
               </div>
             </div>
           </div>
         </div>
         {refineryDialog}
         {reportDialog}
+        {ratingDialog}
       </>
     );
   }
@@ -1763,10 +1939,10 @@ export function RadioPlayer({
               <span className="text-base leading-none">✓</span>
               <span>Owned</span>
             </span>
-          ) : (
+          ) : songAccess?.forSale === false ? null : (
             <button
               onClick={() => void handleBuy()}
-              disabled={!state.track || isBuying || songAccess?.forSale === false}
+              disabled={!state.track || isBuying}
               className="inline-flex items-center gap-2 rounded-full border border-primary/50 bg-primary/10 px-3 py-1.5 text-sm text-foreground transition hover:bg-primary/20 disabled:opacity-50"
               title="Buy this song"
             >
@@ -1828,6 +2004,7 @@ export function RadioPlayer({
             songId={state.track?.id}
             songTitle={state.track?.title}
           />
+          {moreMenu}
 
           <button
             onClick={() => void handleReaction('fire')}
@@ -1840,6 +2017,27 @@ export function RadioPlayer({
             title="Fire reaction (also saves to your library)"
           >
             🔥
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (!profile) {
+                toast.error('Log in to rate songs.');
+                return;
+              }
+              setRatingScore(listenerRating ?? 7);
+              setRatingOpen(true);
+            }}
+            disabled={!state.track}
+            title="Rate 1–10"
+            className={`h-12 px-3 rounded-full text-sm font-semibold transition inline-flex items-center gap-1 ${
+              listenerRating
+                ? 'bg-amber-500/20 ring-2 ring-amber-400 text-amber-700 dark:text-amber-200'
+                : 'bg-muted/40 hover:bg-amber-500/10'
+            } disabled:opacity-50`}
+          >
+            <Star className="w-4 h-4" />
+            {listenerRating ?? 'Rate'}
           </button>
         </div>
         <SongStoriesBar songId={state.track?.id} />
@@ -1898,6 +2096,8 @@ export function RadioPlayer({
       </div>
 
       {refineryDialog}
+      {reportDialog}
+      {ratingDialog}
     </Card>
   );
 }

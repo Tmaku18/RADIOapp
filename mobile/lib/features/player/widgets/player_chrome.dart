@@ -70,6 +70,58 @@ class _ReactionStrip extends StatelessWidget {
   }
 }
 
+class _RatingChip extends StatelessWidget {
+  const _RatingChip({
+    required this.rating,
+    required this.onTap,
+  });
+
+  final int? rating;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final selected = rating != null;
+    return Material(
+      color: selected
+          ? scheme.primary.withValues(alpha: 0.16)
+          : DimensionTokens.textPrimary.withValues(alpha: 0.08),
+      shape: StadiumBorder(
+        side: BorderSide(
+          color: selected ? scheme.primary : Colors.transparent,
+        ),
+      ),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                selected ? Icons.star_rounded : Icons.star_outline_rounded,
+                size: 16,
+                color: selected ? scheme.primary : DimensionTokens.textPrimary,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                selected ? '$rating' : 'Rate',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: DimensionTokens.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ReactionChip extends StatelessWidget {
   const _ReactionChip({
     required this.emoji,
@@ -443,6 +495,7 @@ class _PlayerBody extends StatelessWidget {
   final String? selectedReaction;
   final bool isFavorite;
   final bool favoriteBusy;
+  final int? listenerRating;
   final bool canVote;
   final int fireVotes;
   final int shitVotes;
@@ -451,6 +504,7 @@ class _PlayerBody extends StatelessWidget {
   final bool isBuying;
   final VoidCallback onBuy;
   final Future<void> Function(String reaction) onReact;
+  final VoidCallback onRate;
   final VoidCallback onToggleFavorite;
   final VoidCallback onAddToPlaylist;
   final VoidCallback onPlayPause;
@@ -471,6 +525,7 @@ class _PlayerBody extends StatelessWidget {
     required this.selectedReaction,
     required this.isFavorite,
     required this.favoriteBusy,
+    required this.listenerRating,
     required this.canVote,
     required this.fireVotes,
     required this.shitVotes,
@@ -479,6 +534,7 @@ class _PlayerBody extends StatelessWidget {
     required this.isBuying,
     required this.onBuy,
     required this.onReact,
+    required this.onRate,
     required this.onToggleFavorite,
     required this.onAddToPlaylist,
     required this.onPlayPause,
@@ -608,11 +664,12 @@ class _PlayerBody extends StatelessWidget {
         );
       }
 
-      final forSale = access?.forSale != false;
+      if (access != null && !access.forSale) {
+        return const SizedBox.shrink();
+      }
+
       final label = isBuying
           ? 'Starting…'
-          : !forSale
-          ? 'Not for sale'
           : access != null
           ? 'Buy ${_formatSongPrice(access.priceCents)}'
           : 'Buy song';
@@ -620,7 +677,7 @@ class _PlayerBody extends StatelessWidget {
       return SizedBox(
         width: double.infinity,
         child: FilledButton.tonalIcon(
-          onPressed: (!forSale || isBuying) ? null : onBuy,
+          onPressed: isBuying ? null : onBuy,
           icon: isBuying
               ? const SizedBox(
                   width: 18,
@@ -734,6 +791,11 @@ class _PlayerBody extends StatelessWidget {
                     enabled: canVote && !isVoting,
                     compact: true,
                     onTap: () => onReact('shit'),
+                  ),
+                  const SizedBox(width: 6),
+                  _RatingChip(
+                    rating: listenerRating,
+                    onTap: onRate,
                   ),
                   IconButton(
                     tooltip: 'Add to playlist',

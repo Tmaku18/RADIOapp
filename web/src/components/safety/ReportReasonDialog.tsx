@@ -15,10 +15,15 @@ import { cn } from '@/lib/utils';
 
 export const REPORT_REASONS = [
   'Spam',
-  'Harassment or hate',
-  'Inappropriate content',
+  'Harassment or bullying',
+  'Hate speech or discrimination',
+  'Sexual content',
+  'Violence or threats',
+  'Copyright infringement',
+  'Misleading or scam',
   'Impersonation',
-  'Other',
+  'The song is bad',
+  'Something else',
 ] as const;
 
 interface ReportReasonDialogProps {
@@ -45,7 +50,7 @@ export function ReportReasonDialog({
     const base = selected.trim();
     const extra = details.trim();
     const reason =
-      selected === 'Other'
+      selected === 'Something else'
         ? extra || base
         : extra
           ? `${base}: ${extra}`
@@ -85,9 +90,11 @@ export function ReportReasonDialog({
             value={details}
             onChange={(e) => setDetails(e.target.value)}
             placeholder={
-              selected === 'Other'
+              selected === 'Something else'
                 ? 'Describe the issue…'
-                : 'Add details (optional)…'
+                : selected === 'The song is bad'
+                  ? 'Optional: what makes it bad?'
+                  : 'Add details (optional)…'
             }
             rows={3}
           />
@@ -104,7 +111,10 @@ export function ReportReasonDialog({
           <Button
             type="button"
             variant="destructive"
-            disabled={submitting || (selected === 'Other' && !details.trim())}
+            disabled={
+              submitting ||
+              (selected === 'Something else' && !details.trim())
+            }
             onClick={() => void handleSubmit()}
           >
             {submitting ? 'Submitting…' : 'Submit report'}

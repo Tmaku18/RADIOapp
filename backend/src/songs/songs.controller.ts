@@ -1554,7 +1554,7 @@ export class SongsController {
     // Verify song ownership (unless admin)
     const { data: song } = await supabase
       .from('songs')
-      .select('artist_id')
+      .select('artist_id, demonetized')
       .eq('id', songId)
       .single();
 
@@ -1564,6 +1564,15 @@ export class SongsController {
 
     if (userData.role !== 'admin' && song.artist_id !== userData.id) {
       throw new ForbiddenException('You can only update your own songs');
+    }
+
+    if (
+      body.forSale === true &&
+      (song as { demonetized?: boolean }).demonetized === true
+    ) {
+      throw new BadRequestException(
+        'This song was demonetized because of a copyright match and cannot be put back on sale.',
+      );
     }
 
     // Build update object
@@ -2084,6 +2093,27 @@ export class SongsController {
   ) {
     const { id } = await this.resolveUserIdAndRole(user.uid);
     return this.songsService.unfavoriteSong(id, songId);
+  }
+
+  /** Listener 1–10 rating (separate from 🔥 / 💩 temperature votes). */
+  @Get(':id/rating')
+  async getSongRating(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') songId: string,
+  ) {
+    const { id } = await this.resolveUserIdAndRole(user.uid);
+    return this.songsService.getSongRating(id, songId);
+  }
+
+  @Post(':id/rating')
+  async rateSong(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') songId: string,
+    @Body() body: { rating?: number },
+  ) {
+    const { id } = await this.resolveUserIdAndRole(user.uid);
+    const rating = Number(body?.rating);
+    return this.songsService.rateSong(id, songId, rating);
   }
 
   /**

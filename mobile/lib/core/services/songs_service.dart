@@ -583,6 +583,28 @@ class SongsService {
     return false;
   }
 
+  /// Listener 1–10 score (separate from 🔥 / 💩 temperature votes).
+  Future<int?> getRating(String songId) async {
+    final res = await _api.get('songs/$songId/rating');
+    if (res is Map) {
+      final value = res['rating'];
+      if (value is int) return value;
+      return int.tryParse(value?.toString() ?? '');
+    }
+    return null;
+  }
+
+  Future<int> rateSong(String songId, int rating) async {
+    final res = await _api.post('songs/$songId/rating', {'rating': rating});
+    if (res is Map) {
+      final value = res['rating'];
+      if (value is int) return value;
+      final parsed = int.tryParse(value?.toString() ?? '');
+      if (parsed != null) return parsed;
+    }
+    return rating;
+  }
+
   Future<SongLikesResponse> getLikes(
     String songId, {
     int limit = 200,

@@ -3516,6 +3516,57 @@ export class SongsService {
     return { favorited: !!data };
   }
 
+  /**
+   * Listener 1–10 score for a song. Separate from 🔥 / 💩 temperature votes.
+   */
+  async rateSong(userId: string, songId: string, rating: number) {
+    if (!Number.isInteger(rating) || rating < 1 || rating > 10) {
+      throw new BadRequestException('Rating must be an integer from 1 to 10.');
+    }
+    const supabase = getSupabaseClient();
+    const { data: song, error: songError } = await supabase
+      .from('songs')
+      .select('id')
+      .eq('id', songId)
+      .maybeSingle();
+    if (songError) {
+      throw new BadRequestException(`Could not verify song: ${songError.message}`);
+    }
+    if (!song) throw new NotFoundException('Song not found');
+
+    const { error } = await supabase.from('song_listener_ratings').upsert(
+      {
+        user_id: userId,
+        song_id: songId,
+        rating,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id,song_id' },
+    );
+    if (error) {
+      throw new BadRequestException(`Could not save rating: ${error.message}`);
+    }
+    return { rating };
+  }
+
+  async getSongRating(userId: string, songId: string) {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('song_listener_ratings')
+      .select('rating')
+      .eq('user_id', userId)
+      .eq('song_id', songId)
+      .maybeSingle();
+    if (error) {
+      throw new BadRequestException(`Could not load rating: ${error.message}`);
+    }
+    const rating =
+      data && Number.isFinite(Number((data as { rating?: number }).rating))
+        ? Math.round(Number((data as { rating?: number }).rating))
+        : null;
+    return { rating: rating != null && rating >= 1 && rating <= 10 ? rating : null };
+  }
+
   /** Like and favorite status for many songs in one round trip. */
   async getSavedStatus(userId: string, songIds: string[]) {
     const ids = [...new Set(songIds.filter(Boolean))].slice(0, 300);

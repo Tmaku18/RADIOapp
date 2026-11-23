@@ -559,6 +559,10 @@ export const songsApi = {
     api.get<LibrarySong[]>('/songs/library'),
   getFavorites: () => api.get<LibrarySong[]>('/songs/favorites'),
   removeFavorite: (id: string) => api.delete(`/songs/${id}/favorite`),
+  getRating: (id: string) =>
+    api.get<{ rating: number | null }>(`/songs/${id}/rating`),
+  rateSong: (id: string, rating: number) =>
+    api.post<{ rating: number }>(`/songs/${id}/rating`, { rating }),
   listMarketplaceBeats: (params?: {
     q?: string;
     artistId?: string;
@@ -2137,6 +2141,8 @@ export const adminApi = {
   }) => api.get('/admin/songs', { params }),
   updateSongStatus: (id: string, status: 'approved' | 'rejected' | 'pending', reason?: string) =>
     api.patch(`/admin/songs/${id}`, { status, reason }),
+  demonetizeSong: (id: string) =>
+    api.post(`/admin/songs/${id}/demonetize`, {}),
   updateSongMetadata: (
     id: string,
     data: {

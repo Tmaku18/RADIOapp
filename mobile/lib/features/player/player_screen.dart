@@ -47,6 +47,8 @@ import 'widgets/radio_up_next_queue.dart';
 import 'widgets/chat_panel.dart';
 import 'widgets/synced_lyrics_panel.dart';
 import '../pro_radio/widgets/add_to_playlist_sheet.dart';
+import '../../widgets/player/song_rating_sheet.dart';
+import '../../widgets/safety/song_report_sheet.dart';
 
 part 'widgets/player_chrome.dart';
 
@@ -119,6 +121,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   bool _isVoting = false;
   bool _isFavorite = false;
   bool _favoriteBusy = false;
+  int? _listenerRating;
   String? _lastVotedPlayId;
   bool _noContent = false;
   String? _noContentMessage;
@@ -693,11 +696,13 @@ class _PlayerScreenState extends State<PlayerScreen>
       }
       _songAccess = null;
       _isFavorite = false;
+      _listenerRating = null;
     });
     _scheduleTrackBoundarySync(track);
     unawaited(_refreshTrackStats());
     unawaited(_loadSongAccess(track.id));
     unawaited(_loadFavorite(track.id));
+    unawaited(_loadListenerRating(track.id));
     unawaited(_applyBoothState(track));
   }
 
@@ -707,6 +712,15 @@ class _PlayerScreenState extends State<PlayerScreen>
       final favorited = await _radioService.isFavorited(songId);
       if (!mounted || _currentTrack?.id != songId) return;
       setState(() => _isFavorite = favorited);
+    } catch (_) {}
+  }
+
+  Future<void> _loadListenerRating(String songId) async {
+    if (songId.isEmpty || _me == null) return;
+    try {
+      final rating = await _songs.getRating(songId);
+      if (!mounted || _currentTrack?.id != songId) return;
+      setState(() => _listenerRating = rating);
     } catch (_) {}
   }
 
@@ -1155,10 +1169,12 @@ class _PlayerScreenState extends State<PlayerScreen>
             _isVoting = false;
             _songAccess = null;
             _isFavorite = false;
+            _listenerRating = null;
           });
           _scheduleTrackBoundarySync(serverTrack);
           unawaited(_loadSongAccess(serverTrack.id));
           unawaited(_loadFavorite(serverTrack.id));
+          unawaited(_loadListenerRating(serverTrack.id));
           await _applyBoothState(serverTrack);
           await _applyLiveSync(serverTrack);
           return;
@@ -1274,6 +1290,73 @@ class _PlayerScreenState extends State<PlayerScreen>
       // Best effort only.
     } finally {
       _presenceTickInFlight = false;
+    }
+  }
+
+  Future<void> _rateCurrentSong() async {
+    final track = _currentTrack;
+    if (track == null) return;
+    if (_me == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Log in to rate songs.')),
+      );
+      return;
+    }
+    final rating = await SongRatingSheet.show(
+      context,
+      songId: track.id,
+      songTitle: track.title,
+      initialRating: _listenerRating,
+    );
+    if (!mounted || rating == null || _currentTrack?.id != track.id) return;
+    setState(() => _listenerRating = rating);
+  }
+
+  Future<void> _reportCurrentSong() async {
+    final track = _currentTrack;
+    final artistId = track?.artistId?.trim() ?? '';
+    if (track == null || artistId.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Reporting is unavailable for this track.')),
+      );
+      return;
+    }
+    if (_me == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Log in to report songs.')),
+      );
+      return;
+    }
+    if (_me!.id == artistId) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You cannot report your own song.')),
+      );
+      return;
+    }
+    await SongReportSheet.show(
+      context,
+      artistId: artistId,
+      songId: track.id,
+      songTitle: track.title,
+      artistName: track.artistName,
+    );
+  }
+
+  void _onPlayerMoreSelected(String value) {
+    switch (value) {
+      case 'rate':
+        unawaited(_rateCurrentSong());
+        break;
+      case 'report':
+        unawaited(_reportCurrentSong());
+        break;
+      case 'upload':
+        widget.onUpload?.call();
+        break;
     }
   }
 
@@ -1527,12 +1610,46 @@ class _PlayerScreenState extends State<PlayerScreen>
                 onLight: showCoverBackdrop,
               ),
               actions: [
-                if (widget.onUpload != null)
-                  IconButton(
-                    onPressed: widget.onUpload,
-                    tooltip: 'Upload',
-                    icon: const Icon(Icons.cloud_upload_outlined),
-                  ),
+                PopupMenuButton<String>(
+                  tooltip: 'More',
+                  icon: const Icon(Icons.more_vert),
+                  onSelected: _onPlayerMoreSelected,
+                  itemBuilder: (context) {
+                    final track = _currentTrack;
+                    final artistId = track?.artistId?.trim() ?? '';
+                    final canReport = track != null &&
+                        artistId.isNotEmpty &&
+                        (_me == null || _me!.id != artistId);
+                    return [
+                      const PopupMenuItem(
+                        value: 'rate',
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(Icons.star_rate_rounded),
+                          title: Text('Rate song (1–10)'),
+                        ),
+                      ),
+                      if (canReport)
+                        const PopupMenuItem(
+                          value: 'report',
+                          child: ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(Icons.flag_outlined),
+                            title: Text('Report'),
+                          ),
+                        ),
+                      if (widget.onUpload != null)
+                        const PopupMenuItem(
+                          value: 'upload',
+                          child: ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: Icon(Icons.cloud_upload_outlined),
+                            title: Text('Upload'),
+                          ),
+                        ),
+                    ];
+                  },
+                ),
               ],
             ),
             body: Stack(
@@ -1597,6 +1714,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                       selectedReaction: _selectedReaction,
                       isFavorite: _isFavorite,
                       favoriteBusy: _favoriteBusy,
+                      listenerRating: _listenerRating,
                       canVote: (_currentTrack?.playId ?? '').isNotEmpty,
                       fireVotes: _currentTrack?.fireVotes ?? 0,
                       shitVotes: _currentTrack?.shitVotes ?? 0,
@@ -1606,6 +1724,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                       isBuying: _isBuying,
                       onBuy: _buySong,
                       onReact: _react,
+                      onRate: _rateCurrentSong,
                       onToggleFavorite: _toggleFavorite,
                       onAddToPlaylist: () {
                         final t = _currentTrack;
