@@ -9,7 +9,8 @@ The creator operating system, live discovery network, and music marketplace for 
 
 **Canonical terminology:** `docs/branding-terminology.md`  
 **Feature inventory:** `docs/features-summary.md`  
-**Store listing:** `docs/play-store-listing.md`
+**Store listing:** `docs/play-store-listing.md`  
+**Public claims (what marketing may say):** `docs/business/networx-truth-safe-brand-scope.md`
 
 ---
 
