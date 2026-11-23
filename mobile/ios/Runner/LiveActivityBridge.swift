@@ -34,6 +34,9 @@ enum LiveActivityBridge {
   private static var observingReact = false
   private static var lastArtworkToken = ""
   private static var lastArtworkUrl = ""
+  /// Bumped on every song update so a slow cover download cannot republish
+  /// the previous title over the song that is actually playing.
+  private static var updateGeneration = 0
 
   static func register(messenger: FlutterBinaryMessenger) {
     let methodChannel = FlutterMethodChannel(
@@ -139,10 +142,12 @@ enum LiveActivityBridge {
     // Captured before the queue waits, so a mute tap during an in-flight
     // song update still wins.
     let requestedAt = Date().timeIntervalSince1970
+    updateGeneration += 1
+    let generation = updateGeneration
     enqueue {
-      // Title first. Waiting on the artwork download left the card on the
-      // previous song while the system player had already moved on.
-      var state = NowPlayingAttributes.ContentState(
+      // A newer song already replaced this one while it waited.
+      guard generation == updateGeneration else { return }
+      let state = NowPlayingAttributes.ContentState(
         title: title,
         artist: artist,
         station: station,
@@ -151,17 +156,31 @@ enum LiveActivityBridge {
         reaction: shownReaction(songId: songId)
       )
       await publish(state)
-      let token = await saveArtwork(from: artworkUrl)
-      guard !token.isEmpty, token != state.artworkToken else { return }
+    }
+    // Cover art must not block the next title. The previous download used
+    // to finish late and paint the old song back onto the card.
+    Task {
+      let token = await saveArtwork(from: artworkUrl, generation: generation)
+      guard generation == updateGeneration else { return }
+      guard !token.isEmpty, token != lastArtworkToken else { return }
       lastArtworkUrl = artworkUrl
       lastArtworkToken = token
-      state.artworkToken = token
-      if let live = Activity<NowPlayingAttributes>.activities.first {
-        state.isMuted = live.content.state.isMuted
+      enqueue {
+        guard generation == updateGeneration else { return }
+        var state = NowPlayingAttributes.ContentState(
+          title: title,
+          artist: artist,
+          station: station,
+          isMuted: mutedPreferringCard(isMuted, requestedAt: requestedAt),
+          artworkToken: token,
+          reaction: shownReaction(songId: songId)
+        )
+        if let live = Activity<NowPlayingAttributes>.activities.first {
+          state.isMuted = live.content.state.isMuted
+        }
+        state.isMuted = mutedPreferringCard(state.isMuted, requestedAt: requestedAt)
+        await publish(state)
       }
-      state.isMuted = mutedPreferringCard(state.isMuted, requestedAt: requestedAt)
-      state.reaction = shownReaction(songId: songId)
-      await publish(state)
     }
   }
 
@@ -241,7 +260,7 @@ enum LiveActivityBridge {
   }
 
   /// Writes a small cover into the app group so the lock screen can show it.
-  private static func saveArtwork(from urlString: String) async -> String {
+  private static func saveArtwork(from urlString: String, generation: Int) async -> String {
     let trimmed = urlString.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty, let url = URL(string: trimmed) else { return "" }
     guard
@@ -250,10 +269,14 @@ enum LiveActivityBridge {
       )
     else { return "" }
     do {
-      let (data, _) = try await URLSession.shared.data(from: url)
+      var request = URLRequest(url: url)
+      request.timeoutInterval = 8
+      let (data, _) = try await URLSession.shared.data(for: request)
+      guard generation == updateGeneration else { return "" }
       guard let image = UIImage(data: data) else { return "" }
       let scaled = image.networxScaled(maxSide: 180)
       guard let jpeg = scaled.jpegData(compressionQuality: 0.72) else { return "" }
+      guard generation == updateGeneration else { return "" }
       let file = container.appendingPathComponent(networxLockArtworkName)
       try jpeg.write(to: file, options: .atomic)
       return trimmed
