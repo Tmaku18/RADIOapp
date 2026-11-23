@@ -196,7 +196,7 @@ export function RadioListenExperience({
               <Reveal>
                 <div
                   data-testid="player-hero"
-                  className="relative rounded-3xl glass overflow-visible"
+                  className="relative rounded-3xl chrome-bar overflow-visible"
                 >
                   <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none" aria-hidden>
                     <div className="absolute inset-0 cyber-grid opacity-20" />
@@ -211,7 +211,7 @@ export function RadioListenExperience({
                     cardClassName="relative z-10"
                   />
 
-                  <div className="relative z-10 border-t border-white/10 bg-black/40 px-6 md:px-8 py-5">
+                  <div className="relative z-10 border-t border-white/10 px-6 md:px-8 py-5">
                     <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
                       <div className="flex items-center gap-3 font-dim-mono text-[10px] tracking-[0.3em] text-cyan-300">
                         <span>FREQUENCY VISUALIZER</span>

@@ -241,7 +241,6 @@ class DimensionRadioBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     DimensionTokens.watch(context);
-    final isDark = DimensionTokens.isDark;
 
     return AnimatedBuilder(
       animation: dimensionPlayerController,
@@ -294,8 +293,7 @@ class DimensionRadioBar extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: shareParentGlass
                       ? Colors.transparent
-                      : (isDark ? const Color(0xFF0A0A0C) : Colors.white)
-                            .withValues(alpha: isDark ? 0.25 : 0.55),
+                      : DimensionTokens.chromeBarColor,
                   border: shareParentGlass
                       ? null
                       : Border(

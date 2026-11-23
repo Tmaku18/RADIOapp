@@ -430,11 +430,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color:
-                  (DimensionTokens.isDark
-                          ? const Color(0xFF0A0A0C)
-                          : Colors.white)
-                      .withValues(alpha: DimensionTokens.isDark ? 0.25 : 0.55),
+              color: DimensionTokens.chromeBarColor,
               border: Border(
                 top: BorderSide(color: DimensionTokens.glassBorder),
               ),

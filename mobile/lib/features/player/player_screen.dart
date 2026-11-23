@@ -402,18 +402,24 @@ class _PlayerScreenState extends State<PlayerScreen>
     return source != null && source.isNotEmpty && source != 'radio';
   }
 
-  /// Cold app open starts on Ready Now, but a *second* mounted instance (mini
-  /// bar tap, notification, Pro-Radio "open full player") must adopt whatever
-  /// station is already live. Resetting to the bootstrap default here is what
-  /// used to yank listeners back to Ready Now — and left the two instances
-  /// fighting over the shared player — whenever the full player was pushed
-  /// after a station switch.
+  /// A second mounted instance (mini bar, notification, Pro-Radio) adopts the
+  /// station already live. A cold open uses the last station the listener
+  /// tuned, and Ready Now only when nothing has been saved yet.
   Future<void> _restoreStationSelection() async {
-    final stationId =
-        _StationTuner.radioId ??
-        _liveSourceRadioId() ??
-        env('RADIO_STATION_ID') ??
-        'us-ready-now-rap';
+    final live = _StationTuner.radioId ?? _liveSourceRadioId();
+    if (live != null && live.isNotEmpty) {
+      _radioId = live;
+      await _persistStationSelection(live);
+      return;
+    }
+    var stationId = env('RADIO_STATION_ID') ?? 'us-ready-now-rap';
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getString(_selectedStationPrefKey)?.trim();
+      if (stored != null && stored.isNotEmpty) stationId = stored;
+    } catch (_) {
+      // Keep the fallback if storage is unavailable.
+    }
     _radioId = stationId;
     await _persistStationSelection(stationId);
   }

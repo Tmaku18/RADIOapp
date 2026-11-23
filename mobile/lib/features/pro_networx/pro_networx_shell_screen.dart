@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../../core/navigation/app_routes.dart';
@@ -54,8 +56,10 @@ class ProNetworxShellScreen extends StatefulWidget {
 
 class _ProNetworxShellScreenState extends State<ProNetworxShellScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  late int _index =
-      widget.initialTab.clamp(0, ProNetworxShellScreen.tabCount - 1);
+  late int _index = widget.initialTab.clamp(
+    0,
+    ProNetworxShellScreen.tabCount - 1,
+  );
 
   String get _sectionLabel {
     final tabs = ProNetworxNavDrawer.tabLabels;
@@ -90,86 +94,117 @@ class _ProNetworxShellScreenState extends State<ProNetworxShellScreen> {
   @override
   Widget build(BuildContext context) {
     DimensionTokens.watch(context);
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: DimensionTokens.bgBase,
-      drawer: ProNetworxNavDrawer(
-        currentTabIndex: _index,
-        onSelectTab: _selectTab,
-        onOpenRoute: _openRoute,
-        onBackToRadio: _exitToRadio,
-      ),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        foregroundColor: DimensionTokens.textPrimary,
-        iconTheme: IconThemeData(color: DimensionTokens.textPrimary),
-        leading: IconButton(
-          tooltip: 'Menu',
-          icon: const Icon(Icons.menu),
-          onPressed: _openDrawer,
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'NETWORX / PRO-NETWORX',
-              style: TextStyle(
-                color: DimensionTokens.cyan300,
-                fontSize: 9,
-                letterSpacing: 2.2,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            Text(
-              _sectionLabel.toUpperCase(),
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.6,
-                color: DimensionTokens.textPrimary,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          BackToNetworxRadioButton(
-            compact: true,
-            authenticatedTarget: true,
-            onPressed: _exitToRadio,
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const Positioned.fill(child: CyberBackdrop()),
+        Scaffold(
+          key: _scaffoldKey,
+          backgroundColor: Colors.transparent,
+          extendBodyBehindAppBar: false,
+          drawer: ProNetworxNavDrawer(
+            currentTabIndex: _index,
+            onSelectTab: _selectTab,
+            onOpenRoute: _openRoute,
+            onBackToRadio: _exitToRadio,
           ),
-        ],
-      ),
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          const Positioned.fill(child: CyberBackdrop()),
-          Column(
-            children: [
-              Expanded(
-                child: IndexedStack(
-                  index: _index,
-                  children: [
-                    const ProHomeFeedScreen(),
-                    SocialFeedScreen(
-                      embeddedInProShell: true,
-                      isActive: widget.visible &&
-                          _index == ProNetworxShellScreen.tabDiscover,
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(kToolbarHeight),
+            child: ClipRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(
+                  sigmaX: DimensionTokens.glassStrongBlur,
+                  sigmaY: DimensionTokens.glassStrongBlur,
+                ),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: DimensionTokens.chromeBarColor,
+                    border: Border(
+                      bottom: BorderSide(color: DimensionTokens.glassBorder),
                     ),
-                    const ProSearchScreen(),
-                    const ProBeatsMarketplaceScreen(),
-                    const ProServicesScreen(),
-                    ProStudiosScreen(initialNearby: widget.studiosOpenNearby),
-                    const JobBoardScreen(embedded: true),
-                    const ProRadioScreen(),
-                  ],
+                  ),
+                  child: AppBar(
+                    backgroundColor: Colors.transparent,
+                    foregroundColor: DimensionTokens.textPrimary,
+                    iconTheme: IconThemeData(
+                      color: DimensionTokens.textPrimary,
+                    ),
+                    leading: IconButton(
+                      tooltip: 'Menu',
+                      icon: const Icon(Icons.menu),
+                      onPressed: _openDrawer,
+                    ),
+                    title: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'NETWORX / PRO-NETWORX',
+                          style: TextStyle(
+                            color: DimensionTokens.cyan300,
+                            fontSize: 9,
+                            letterSpacing: 2.2,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          _sectionLabel.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.6,
+                            color: DimensionTokens.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    actions: [
+                      BackToNetworxRadioButton(
+                        compact: true,
+                        authenticatedTarget: true,
+                        onPressed: _exitToRadio,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              if (widget.onExitToRadio == null) const DimensionRadioBar(),
+            ),
+          ),
+          body: Stack(
+            fit: StackFit.expand,
+            children: [
+              const Positioned.fill(child: CyberBackdrop()),
+              Column(
+                children: [
+                  Expanded(
+                    child: IndexedStack(
+                      index: _index,
+                      children: [
+                        const ProHomeFeedScreen(),
+                        SocialFeedScreen(
+                          embeddedInProShell: true,
+                          isActive:
+                              widget.visible &&
+                              _index == ProNetworxShellScreen.tabDiscover,
+                        ),
+                        const ProSearchScreen(),
+                        const ProBeatsMarketplaceScreen(),
+                        const ProServicesScreen(),
+                        ProStudiosScreen(
+                          initialNearby: widget.studiosOpenNearby,
+                        ),
+                        const JobBoardScreen(embedded: true),
+                        const ProRadioScreen(),
+                      ],
+                    ),
+                  ),
+                  if (widget.onExitToRadio == null) const DimensionRadioBar(),
+                ],
+              ),
             ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

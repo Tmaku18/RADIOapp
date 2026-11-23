@@ -81,17 +81,19 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
     return tag.extras?['source'] == 'radio';
   }
 
-  /// Cold start always opens Ready Now so every launch hears the same home
-  /// station first. Mid-session switches still persist for Discover, etc.
+  /// Reopen the station the listener was last tuned to. Ready Now is only the
+  /// first-launch fallback.
   Future<String> _resolveBootstrapStationId() async {
-    final stationId = env('RADIO_STATION_ID') ?? _defaultBootstrapStationId;
+    final fallback = env('RADIO_STATION_ID') ?? _defaultBootstrapStationId;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_selectedStationPrefKey, stationId);
+      final stored = prefs.getString(_selectedStationPrefKey)?.trim();
+      if (stored != null && stored.isNotEmpty) return stored;
+      await prefs.setString(_selectedStationPrefKey, fallback);
     } catch (_) {
       // Prefs failure must not block audio bootstrap.
     }
-    return stationId;
+    return fallback;
   }
 
   /// Someone else already owns the shared player, so the cold-start bootstrap

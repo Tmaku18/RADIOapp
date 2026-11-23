@@ -105,6 +105,12 @@ class DimensionTokens {
   static const double glassBlur = 20;
   static const double glassStrongBlur = 30;
 
+  /// Shared by the radio player chrome, the bottom bar, and the Pro-Networx
+  /// top bar. A bit clearer than a solid black strip so the page shows through.
+  static Color get chromeBarColor => isDark
+      ? const Color(0xFF0A0A0C).withValues(alpha: 0.16)
+      : Colors.white.withValues(alpha: 0.42);
+
   /// Canonical corner radii. Kept tight and consistent — sprawling radii
   /// (8/12/14/16/18/999 in the same view) were a big part of the old clutter.
   static const double cardRadius = 12;

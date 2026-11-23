@@ -11,7 +11,7 @@ import {
 import { isMobileWeb } from '@/lib/audio-analyser';
 import type { PlaybackTrack } from './types';
 import { resolveTrackArtworkUrl } from '@/lib/media-artwork';
-import { setLastRadioStationId } from '@/lib/playback-preferences';
+import { getLastRadioStationId, setLastRadioStationId } from '@/lib/playback-preferences';
 import { DEFAULT_STATION_ID } from '@/data/station-map';
 import { usePlaybackOptional } from './PlaybackProvider';
 
@@ -19,9 +19,9 @@ const BACKGROUND_POLL_MS = 20000;
 const HIDDEN_TAB_POLL_MS = 60000;
 const HIDDEN_MOBILE_POLL_MS = 60000;
 
-/** Cold start always tunes Ready Now; mid-session switches still update last-station. */
-function resolveBootstrapStationId(_pathname: string | null): string {
-  return DEFAULT_STATION_ID;
+/** Reopen whatever station the listener was last tuned to. */
+function resolveBootstrapStationId(): string {
+  return getLastRadioStationId() || DEFAULT_STATION_ID;
 }
 
 async function loadStationIntoBar(
@@ -270,7 +270,7 @@ export function RadioBackgroundSync() {
     initAttemptedRef.current = true;
     let cancelled = false;
     void (async () => {
-      const stationId = resolveBootstrapStationId(pathname);
+      const stationId = resolveBootstrapStationId();
       try {
         const actions = actionsRef.current;
         if (!actions) {
@@ -288,39 +288,7 @@ export function RadioBackgroundSync() {
     return () => {
       cancelled = true;
     };
-  }, [radioPlayerUiActive, state?.track, state?.source, pathname]);
-
-  // Marketing home (/) always shows Ready Now Radio in the bottom bar.
-  useEffect(() => {
-    if (pathname !== '/') return;
-    if (radioPlayerUiActive) return;
-    if (state?.source && state.source !== 'radio') return;
-
-    const currentRadioId = state?.track?.radioId?.trim();
-    if (currentRadioId === DEFAULT_STATION_ID && state?.track) return;
-
-    let cancelled = false;
-    void (async () => {
-      const actions = actionsRef.current;
-      if (!actions) return;
-      try {
-        await loadStationIntoBar(DEFAULT_STATION_ID, false, actions);
-      } catch {
-        if (!cancelled) {
-          // no-op — bootstrap or next navigation can retry
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    pathname,
-    radioPlayerUiActive,
-    state?.source,
-    state?.track,
-    state?.track?.radioId,
-  ]);
+  }, [radioPlayerUiActive, state?.track, state?.source]);
 
   useEffect(() => {
     if (!shouldSync || !radioId) return;

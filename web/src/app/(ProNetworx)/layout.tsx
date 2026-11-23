@@ -46,7 +46,7 @@ export default function ProNetworxLayout({
       <SmoothScroll />
       <CyberBackdrop />
 
-      <header className="relative z-20 border-b border-white/10 glass-strong dimension-chrome">
+      <header className="relative z-20 border-b border-white/10 chrome-bar dimension-chrome">
         <nav className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center gap-4 h-20">
             <Link

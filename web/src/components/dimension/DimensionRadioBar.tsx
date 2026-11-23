@@ -179,7 +179,7 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
 
   return (
     <footer
-      className="fixed bottom-0 left-0 right-0 z-50 glass border-t border-white/10 pointer-events-none overflow-visible"
+      className="fixed bottom-0 left-0 right-0 z-50 chrome-bar border-t border-white/10 pointer-events-none overflow-visible"
       aria-label="Now playing"
       data-dimension
       data-testid="radio-player"

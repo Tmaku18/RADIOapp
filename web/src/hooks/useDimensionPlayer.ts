@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePlaybackOptional } from '@/components/playback/PlaybackProvider';
 import { leaderboardApi, radioApi, songsApi } from '@/lib/api';
-import { DEFAULT_STATION_ID } from '@/data/station-map';
 
 const REACTION_STORAGE_KEY = 'radio:reactionByVoteKey';
 type StoredReactions = Record<string, 'fire' | 'shit'>;
@@ -48,7 +47,7 @@ export function useDimensionPlayer(): DimensionPlayerModel {
   const actions = playback?.actions;
 
   const track = state?.track ?? null;
-  const radioId = track?.radioId?.trim() || DEFAULT_STATION_ID;
+  const radioId = track?.radioId?.trim() || null;
   const [temperature, setTemperature] = useState<number | null>(null);
   const [selectedReaction, setSelectedReaction] = useState<'fire' | 'shit' | null>(null);
   const [isVoting, setIsVoting] = useState(false);
@@ -115,6 +114,7 @@ export function useDimensionPlayer(): DimensionPlayerModel {
   }, [getVoteKey, readStoredReaction, track?.id, track?.playId]);
 
   const refreshTemperature = useCallback(async () => {
+    if (!radioId) return;
     if (state?.source && state.source !== 'radio') return;
     try {
       const res = await radioApi.getCurrentTrack(radioId);
