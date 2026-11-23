@@ -25,7 +25,6 @@ import { prospectorApi, radioApi, leaderboardApi, analyticsApi, songsApi, songSa
 import { artistProfilePath } from '@/lib/artist-links';
 import { requireAccount } from '@/lib/require-account';
 import { RadioShareMenu } from '@/components/radio/RadioShareMenu';
-import { RadioCaptureButton } from '@/components/radio/RadioCapture';
 import { SongStoriesBar } from '@/components/radio/SongStoriesBar';
 import { useAuth } from '@/contexts/AuthContext';
 import { hasListenerCapability } from '@/lib/roles';
@@ -1673,7 +1672,6 @@ export function RadioPlayer({
                     </button>
                   </>
                 )}
-                <RadioCaptureButton />
                 <RadioShareMenu
                   stationId={state.track?.radioId || effectiveRadioId}
                   artistId={artistUserId}
@@ -2053,7 +2051,6 @@ export function RadioPlayer({
             )}
           </button>
 
-          <RadioCaptureButton compact />
           <RadioShareMenu
             stationId={state.track?.radioId || effectiveRadioId}
             artistId={state.track?.artistId}
