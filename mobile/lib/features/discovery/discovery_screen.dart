@@ -54,6 +54,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
   bool _searchingArtists = false;
   String? _artistSearchError;
   List<Map<String, dynamic>> _artistResults = const [];
+  String _artistSort = 'popularity';
 
   bool get _hasArtistQuery => _searchCtrl.text.trim().length >= 2;
 
@@ -135,10 +136,12 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
       _searchingArtists = true;
       _artistSearchError = null;
     });
+    final sort = _artistSort;
     try {
       final res = await _people.listPeople(
         role: 'artist',
         search: q,
+        sort: sort,
         limit: 40,
       );
       final raw = (res['items'] is List) ? res['items'] as List : const [];
@@ -146,18 +149,31 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
           .whereType<Map>()
           .map((m) => Map<String, dynamic>.from(m))
           .toList();
-      if (!mounted || _searchCtrl.text.trim() != q) return;
+      if (!mounted || _searchCtrl.text.trim() != q || _artistSort != sort) {
+        return;
+      }
       setState(() => _artistResults = items);
     } catch (e) {
-      if (!mounted || _searchCtrl.text.trim() != q) return;
+      if (!mounted || _searchCtrl.text.trim() != q || _artistSort != sort) {
+        return;
+      }
       setState(() {
         _artistSearchError = "Couldn't search artists. Try again.";
         _artistResults = const [];
       });
     } finally {
-      if (mounted && _searchCtrl.text.trim() == q) {
+      if (mounted && _searchCtrl.text.trim() == q && _artistSort == sort) {
         setState(() => _searchingArtists = false);
       }
+    }
+  }
+
+  void _setArtistSort(String sort) {
+    if (_artistSort == sort) return;
+    setState(() => _artistSort = sort);
+    final q = _searchCtrl.text.trim();
+    if (_tabController.index == 1 && q.length >= 2) {
+      unawaited(_searchArtists(q));
     }
   }
 
@@ -244,6 +260,32 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
         ),
         body: Column(
           children: [
+            if (_tabController.index == 1)
+              SizedBox(
+                height: 48,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
+                  children: [
+                    for (final option in const [
+                      ('popularity', 'Popular'),
+                      ('songs', 'Most songs'),
+                      ('recent', 'Recent'),
+                    ])
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: FilterChip(
+                          label: Text(option.$2),
+                          selected: _artistSort == option.$1,
+                          onSelected: (_) => _setArtistSort(option.$1),
+                          visualDensity: VisualDensity.compact,
+                          selectedColor: scheme.primary.withValues(alpha: 0.22),
+                          checkmarkColor: scheme.primary,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             if (_tabController.index == 1 || _tabController.index == 2)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
@@ -301,7 +343,10 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
                         key: _swipeKey,
                         isActive: widget.isActive,
                       ),
-                      _LikedArtistsTab(key: _likedArtistsKey),
+                      _LikedArtistsTab(
+                        key: _likedArtistsKey,
+                        sort: _artistSort,
+                      ),
                       _LibraryTab(
                         key: _libraryKey,
                         filter: _tabController.index == 2
@@ -447,7 +492,9 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
 // Discover "Saved" tab removed — swipe likes live under Library → Liked.
 
 class _LikedArtistsTab extends StatefulWidget {
-  const _LikedArtistsTab({super.key});
+  const _LikedArtistsTab({super.key, required this.sort});
+
+  final String sort;
 
   @override
   State<_LikedArtistsTab> createState() => _LikedArtistsTabState();
@@ -467,6 +514,14 @@ class _LikedArtistsTabState extends State<_LikedArtistsTab> {
   void initState() {
     super.initState();
     unawaited(reload());
+  }
+
+  @override
+  void didUpdateWidget(covariant _LikedArtistsTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.sort != widget.sort) {
+      unawaited(_loadMoreArtists());
+    }
   }
 
   Future<void> reload() async {
@@ -496,9 +551,11 @@ class _LikedArtistsTabState extends State<_LikedArtistsTab> {
   }
 
   Future<void> _loadMoreArtists() async {
+    final sort = widget.sort;
     try {
       final res = await _people.listPeople(
         role: 'artist',
+        sort: sort,
         limit: 40,
         offset: 0,
       );
@@ -515,10 +572,10 @@ class _LikedArtistsTabState extends State<_LikedArtistsTab> {
             return id.isNotEmpty && !likedIds.contains(id);
           })
           .toList();
-      if (!mounted) return;
+      if (!mounted || widget.sort != sort) return;
       setState(() => _moreArtists = items);
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || widget.sort != sort) return;
       setState(
         () => _moreError = "Couldn't load more artists. Pull to refresh.",
       );

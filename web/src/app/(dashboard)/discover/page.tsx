@@ -790,20 +790,27 @@ function PeopleTabContent({
               />
               {isArtistTab ? (
                 <>
-                  <Select
-                    value={artistSort}
-                    onValueChange={(v) => setArtistSort?.(v as ArtistSort)}
-                    disabled={randomMode}
-                  >
-                    <SelectTrigger className="bg-background">
-                      <SelectValue placeholder="Sort" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="popularity">Popularity</SelectItem>
-                      <SelectItem value="songs">Most songs</SelectItem>
-                      <SelectItem value="recent">Recently uploaded</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
+                    <span className="text-xs font-medium text-muted-foreground">Sort</span>
+                    {(
+                      [
+                        ['popularity', 'Popular'],
+                        ['songs', 'Most songs'],
+                        ['recent', 'Recent'],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <Button
+                        key={value}
+                        type="button"
+                        size="sm"
+                        variant={artistSort === value ? 'secondary' : 'outline'}
+                        disabled={randomMode}
+                        onClick={() => setArtistSort?.(value)}
+                      >
+                        {label}
+                      </Button>
+                    ))}
+                  </div>
                   <Select
                     value={artistGenre}
                     onValueChange={(v) => setArtistGenre?.(v)}
