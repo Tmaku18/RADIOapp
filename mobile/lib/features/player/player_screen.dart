@@ -81,6 +81,8 @@ class PlayerScreen extends StatefulWidget {
     this.onOpenNavDrawer,
     this.onUpload,
     this.bottomOverlay = 0,
+    this.onSheetDragUpdate,
+    this.onSheetDragEnd,
   });
 
   /// Opens the app's left navigation drawer (shown as a hamburger in the bar).
@@ -88,6 +90,12 @@ class PlayerScreen extends StatefulWidget {
 
   /// Space taken by a glass tab bar drawn over the bottom of this screen.
   final double bottomOverlay;
+
+  /// Home shell owns the radio sheet. A downward drag reports finger travel
+  /// here so the shell can slide the player away. When unset, the player pops
+  /// its own route.
+  final void Function(double dy)? onSheetDragUpdate;
+  final void Function(double velocity)? onSheetDragEnd;
 
   /// Shown for Gem / Catalyst / Admin — web dashboard header Upload CTA.
   final VoidCallback? onUpload;
@@ -110,6 +118,7 @@ class _PlayerScreenState extends State<PlayerScreen>
       _mounted.isNotEmpty && identical(_mounted.last, this);
 
   final AudioPlayer _audioPlayer = AudioPlayerService().player;
+  final ScrollController _playerScroll = ScrollController();
   final ValueNotifier<Offset> _coverTilt = ValueNotifier(Offset.zero);
   final RadioService _radioService = RadioService();
   final VenueAdsService _venueAds = VenueAdsService();
@@ -1624,6 +1633,7 @@ class _PlayerScreenState extends State<PlayerScreen>
     _trackBoundaryTimer?.cancel();
     _prefetchTimer?.cancel();
     _rippleController.dispose();
+    _playerScroll.dispose();
     _roomSong.dispose();
     _coverTilt.dispose();
     super.dispose();
@@ -1704,7 +1714,11 @@ class _PlayerScreenState extends State<PlayerScreen>
               ? BrandAssets.displayArtworkUrl(_currentTrack!.artworkUrl)
               : null;
 
-          return Scaffold(
+          return _PullToClose(
+            scrollController: _playerScroll,
+            onDragUpdate: widget.onSheetDragUpdate,
+            onDragEnd: widget.onSheetDragEnd,
+            child: Scaffold(
             backgroundColor: DimensionTokens.bgBase,
             extendBodyBehindAppBar: showCoverBackdrop,
             // Over artwork the bar is pure chrome — the station name is the
@@ -1866,6 +1880,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                       },
                       onPlayPause: _togglePlayPause,
                       onEnterRoom: () => _openRoom(providerContext),
+                      scrollController: _playerScroll,
                       bottomOverlay: widget.bottomOverlay,
                       audioPlayer: _audioPlayer,
                       coverTilt: _coverTilt,
@@ -1881,8 +1896,186 @@ class _PlayerScreenState extends State<PlayerScreen>
                   ),
               ],
             ),
+          ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Closes the radio player on a downward swipe.
+///
+/// The song page scrolls, so a plain parent drag never wins that gesture.
+/// This watches the finger directly and only takes a downward swipe while the
+/// page is already at the top. A lyrics list that is itself scrolling keeps
+/// the swipe.
+class _PullToClose extends StatefulWidget {
+  const _PullToClose({
+    required this.scrollController,
+    required this.child,
+    this.onDragUpdate,
+    this.onDragEnd,
+  });
+
+  final ScrollController scrollController;
+  final Widget child;
+  final void Function(double dy)? onDragUpdate;
+  final void Function(double velocity)? onDragEnd;
+
+  @override
+  State<_PullToClose> createState() => _PullToCloseState();
+}
+
+class _PullToCloseState extends State<_PullToClose>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _snap;
+  int? _pointer;
+  bool _active = false;
+  bool _ignore = false;
+  bool _nested = false;
+  double _totalDx = 0;
+  double _totalDy = 0;
+  double _velocity = 0;
+  Duration _lastStamp = Duration.zero;
+  double _offset = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _snap = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+    );
+  }
+
+  @override
+  void dispose() {
+    _snap.dispose();
+    super.dispose();
+  }
+
+  bool get _scrolledAway {
+    final scroll = widget.scrollController;
+    return scroll.hasClients && scroll.offset > 1;
+  }
+
+  void _resetPointer() {
+    _pointer = null;
+    _active = false;
+    _ignore = false;
+    _nested = false;
+    _totalDx = 0;
+    _totalDy = 0;
+    _velocity = 0;
+  }
+
+  void _move(double dy) {
+    final parent = widget.onDragUpdate;
+    if (parent != null) {
+      parent(dy);
+      return;
+    }
+    setState(() => _offset = math.max(0, _offset + dy));
+  }
+
+  void _end(double velocity) {
+    final parent = widget.onDragEnd;
+    if (parent != null) {
+      parent(velocity);
+      return;
+    }
+    final close = velocity > 450 || _offset > 48;
+    if (close && Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+      return;
+    }
+    final from = _offset;
+    void tick() {
+      if (!mounted) return;
+      setState(() {
+        _offset = from * (1 - Curves.easeOutCubic.transform(_snap.value));
+      });
+    }
+
+    _snap.addListener(tick);
+    _snap.forward(from: 0).whenComplete(() {
+      _snap.removeListener(tick);
+      if (mounted) setState(() => _offset = 0);
+    });
+  }
+
+  void _onDown(PointerDownEvent event) {
+    if (_pointer != null) return;
+    _pointer = event.pointer;
+    _active = false;
+    _ignore = false;
+    _nested = false;
+    _totalDx = 0;
+    _totalDy = 0;
+    _velocity = 0;
+    _lastStamp = event.timeStamp;
+  }
+
+  void _onMove(PointerMoveEvent event) {
+    if (event.pointer != _pointer || _ignore) return;
+    final dt = event.timeStamp - _lastStamp;
+    _lastStamp = event.timeStamp;
+    if (dt > Duration.zero) {
+      final instant = event.delta.dy / (dt.inMicroseconds / 1000000);
+      _velocity = _velocity == 0 ? instant : _velocity * 0.45 + instant * 0.55;
+    }
+    _totalDx += event.delta.dx;
+    _totalDy += event.delta.dy;
+    if (_nested) {
+      if (_active) {
+        _active = false;
+        _end(0);
+      }
+      _ignore = true;
+      return;
+    }
+    if (!_active) {
+      if (math.max(_totalDx.abs(), _totalDy.abs()) < 18) return;
+      if (_totalDx.abs() > _totalDy.abs() || _totalDy < 0 || _scrolledAway) {
+        _ignore = true;
+        return;
+      }
+      _active = true;
+      _move(_totalDy);
+      return;
+    }
+    _move(event.delta.dy);
+  }
+
+  void _onUp(PointerEvent event) {
+    if (event.pointer != _pointer) return;
+    final active = _active;
+    final velocity = _velocity;
+    _resetPointer();
+    if (active) _end(velocity);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      onPointerDown: _onDown,
+      onPointerMove: _onMove,
+      onPointerUp: _onUp,
+      onPointerCancel: _onUp,
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          if (notification.depth > 0 &&
+              notification is ScrollUpdateNotification &&
+              notification.dragDetails != null) {
+            _nested = true;
+          }
+          return false;
+        },
+        child: Transform.translate(
+          offset: Offset(0, _offset),
+          child: widget.child,
+        ),
       ),
     );
   }

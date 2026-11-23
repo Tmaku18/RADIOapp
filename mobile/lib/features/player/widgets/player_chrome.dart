@@ -538,6 +538,7 @@ class _PlayerBody extends StatelessWidget {
   final VoidCallback onAddToPlaylist;
   final VoidCallback onPlayPause;
   final VoidCallback onEnterRoom;
+  final ScrollController scrollController;
   final double bottomOverlay;
   final AudioPlayer audioPlayer;
   final ValueNotifier<Offset> coverTilt;
@@ -569,6 +570,7 @@ class _PlayerBody extends StatelessWidget {
     required this.onAddToPlaylist,
     required this.onPlayPause,
     required this.onEnterRoom,
+    required this.scrollController,
     this.bottomOverlay = 0,
     required this.audioPlayer,
     required this.coverTilt,
@@ -1094,6 +1096,7 @@ class _PlayerBody extends StatelessWidget {
                   : double.infinity,
             ),
             child: SingleChildScrollView(
+          controller: scrollController,
           padding: EdgeInsets.fromLTRB(
             outerPadding,
             outerPadding,

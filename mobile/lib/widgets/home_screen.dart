@@ -44,6 +44,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   bool _sheetCovers = false;
   bool _radioHighlighted = false;
   bool _sheetDragging = false;
+  bool _sheetPulling = false;
+  double _sheetGestureDy = 0;
   late final AnimationController _playerSheet;
 
   static const int _tabRadio = 1;
@@ -113,6 +115,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   void _applySheetDelta(double dy) {
+    _sheetGestureDy += dy;
+    _sheetPulling = true;
     final height = MediaQuery.sizeOf(context).height;
     if (height <= 0) return;
     final next = (_playerSheet.value - dy / height).clamp(0.0, 1.0);
@@ -131,13 +135,26 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   void _settleSheet(double velocity) {
     final wasDragging = _sheetDragging;
+    final wasPulling = _sheetPulling;
     _sheetDragging = false;
-    final flungUp = velocity < -800;
-    final flungDown = velocity > 800;
-    final open = flungUp || (!flungDown && _playerSheet.value >= 0.3);
+    _sheetPulling = false;
+    final progress = _playerSheet.value;
+    final height = MediaQuery.sizeOf(context).height;
+    final netDown = _sheetGestureDy > 12 || velocity > 500;
+    final netUp = _sheetGestureDy < -12 || velocity < -500;
+    _sheetGestureDy = 0;
+    final bool open;
+    if (netDown) {
+      final pulled = (1 - progress) * height;
+      open = velocity < 500 && pulled < 48 && progress > 0.5;
+    } else if (netUp) {
+      open = velocity < -500 || progress >= 0.18;
+    } else {
+      open = progress >= 0.5;
+    }
     if (open && !_playerEverOpened) {
       setState(() => _playerEverOpened = true);
-    } else if (wasDragging) {
+    } else if (wasDragging || wasPulling) {
       setState(() {});
     }
     _playerSheet.animateTo(open ? 1 : 0, curve: Curves.easeOutCubic);
@@ -393,7 +410,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               final progress = _playerSheet.value;
               final height = MediaQuery.sizeOf(context).height;
               return IgnorePointer(
-                ignoring: progress == 0,
+                ignoring: progress == 0 && !_sheetPulling,
                 child: Transform.translate(
                   offset: Offset(0, (1 - progress) * height),
                   child: child,
@@ -403,20 +420,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             child: _playerEverOpened
                 ? TickerMode(
                     enabled: _sheetCovers,
-                    child: GestureDetector(
-                    onVerticalDragUpdate: (details) =>
-                        _applySheetDelta(details.delta.dy),
-                    onVerticalDragEnd: (details) =>
-                        _settleSheet(details.primaryVelocity ?? 0),
-                    onVerticalDragCancel: () => _settleSheet(0),
                     child: PlayerScreen(
                       key: const ValueKey('radio-player-sheet'),
                       onOpenNavDrawer: _openNavDrawer,
                       onUpload: _openUpload,
                       bottomOverlay: navHeight + safeBottom,
+                      onSheetDragUpdate: _applySheetDelta,
+                      onSheetDragEnd: _settleSheet,
                     ),
-                  ),
-                )
+                  )
                 : const SizedBox.shrink(),
           ),
         ],
