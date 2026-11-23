@@ -160,9 +160,12 @@ function toDiscographyTrack(
 export function ArtistPageView({
   artistId,
   mode,
+  variant = 'page',
 }: {
   artistId: string;
   mode: 'dashboard' | 'public';
+  /** `catalog` is the radio discography embedded on a Pro-Networx profile. */
+  variant?: 'page' | 'catalog';
 }) {
   const { profile } = useAuth();
   const { actions } = usePlayback();
@@ -632,16 +635,26 @@ export function ArtistPageView({
   };
 
   if (loading) {
+    if (variant === 'catalog') return null;
     return <div className="p-6 text-muted-foreground">Loading artist page...</div>;
   }
 
   if (error || !data) {
+    if (variant === 'catalog') return null;
     return <div className="p-6 text-destructive">{error ?? 'Artist not found.'}</div>;
   }
 
+  if (variant === 'catalog' && data.librarySongs.length === 0) {
+    return null;
+  }
+
+  const artistProfileHref = (id: string) =>
+    variant === 'catalog' ? `/pro-networx/u/${id}` : `/artist/${id}`;
+
   return (
     <div className="space-y-6">
-      {mode === 'public' ? <AppDownloadBanner /> : null}
+      {variant === 'page' && mode === 'public' ? <AppDownloadBanner /> : null}
+      {variant === 'page' && (
       <div className="rounded-xl overflow-hidden bg-gradient-to-b from-primary/40 to-card border border-border">
         <div className="p-6 md:p-8">
           <div className="flex flex-col md:flex-row md:items-end gap-4">
@@ -713,7 +726,9 @@ export function ArtistPageView({
           </div>
         </div>
       </div>
+      )}
 
+      {variant === 'page' && (
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Followers</p><p className="text-xl font-bold">{formatNumber(data.stats.followerCount)}</p></CardContent></Card>
         <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Listens</p><p className="text-xl font-bold">{formatNumber(data.stats.totalListenCount ?? 0)}</p></CardContent></Card>
@@ -721,8 +736,9 @@ export function ArtistPageView({
         <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Songs</p><p className="text-xl font-bold">{formatNumber(data.stats.totalSongs)}</p></CardContent></Card>
         <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Monthly listeners</p><p className="text-xl font-bold">{formatNumber(data.stats.monthlyListenerCount)}</p></CardContent></Card>
       </div>
+      )}
 
-      {data.artist.bio && (
+      {variant === 'page' && data.artist.bio && (
         <Card>
           <CardContent className="pt-6">
             <h2 className="font-semibold mb-2">About</h2>
@@ -731,7 +747,7 @@ export function ArtistPageView({
         </Card>
       )}
 
-      {(data.artist.socials.instagramUrl ||
+      {variant === 'page' && (data.artist.socials.instagramUrl ||
         data.artist.socials.twitterUrl ||
         data.artist.socials.youtubeUrl ||
         data.artist.socials.tiktokUrl ||
@@ -787,7 +803,7 @@ export function ArtistPageView({
                           <span key={artist.id}>
                             {index > 0 ? ', ' : ''}
                             <Link
-                              href={`/artist/${artist.id}`}
+                              href={artistProfileHref(artist.id)}
                               className="text-primary hover:underline"
                             >
                               {artist.displayName || 'Artist'}
@@ -861,7 +877,9 @@ export function ArtistPageView({
       <Card>
         <CardContent className="pt-6 space-y-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="font-semibold text-xl">Discography</h2>
+            <h2 className="font-semibold text-xl">
+              {variant === 'catalog' ? 'On Networx Radio' : 'Discography'}
+            </h2>
             <label className="flex items-center gap-2 text-sm text-muted-foreground">
               Sort
               <select
@@ -943,11 +961,13 @@ export function ArtistPageView({
         </CardContent>
       </Card>
 
+      {variant === 'page' && (
       <FanEmailCard
         artistId={data.artist.id}
         artistName={data.artist.displayName || 'this artist'}
         isOwner={profile?.id === data.artist.id}
       />
+      )}
 
       <SongLikesDialog
         open={likesDialogOpen}
@@ -958,7 +978,7 @@ export function ArtistPageView({
 
       {proRadioPaywallOpen && (
         <div className="space-y-2">
-          <ProRadioPaywallCard successPath={`/artist/${artistId}`} />
+          <ProRadioPaywallCard successPath={artistProfileHref(artistId)} />
           <Button variant="ghost" type="button" onClick={() => setProRadioPaywallOpen(false)}>
             Close
           </Button>

@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserSafetyMenu } from '@/components/safety/UserSafetyMenu';
+import { ArtistPageView } from '@/components/artist/ArtistPageView';
 
 type ProviderListing = {
   id: string;
@@ -578,6 +579,8 @@ export default function ProNetworxProfilePage() {
                   </CardContent>
                 </Card>
               )}
+
+              <ArtistPageView artistId={id} mode="dashboard" variant="catalog" />
 
               {/* Instagram-style portfolio grid (Pro-Networx feed posts) */}
               <Card className="glass-panel border border-border">

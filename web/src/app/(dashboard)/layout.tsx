@@ -39,6 +39,7 @@ import {
   Megaphone,
   MessageCircle,
   MessageSquare,
+  Mic,
   Mic2,
   Music,
   Network,
@@ -56,26 +57,6 @@ import {
   Shield,
 } from '@/components/dimension/DimensionSidebarNav';
 
-// Pro-Networx lives on a separate domain. Dashboard users are already
-// authenticated, so we route them through the cross-domain auth handoff: their
-// session transfers and they land in Pro-Networx without a second sign-in.
-// Logged-out visitors reach the public landing via the marketing layout instead.
-function getProNetworxOrigin(): string {
-  const raw = (
-    process.env.NEXT_PUBLIC_PRO_NETWORX_APP_URL || 'https://www.pro-networx.com'
-  )
-    .trim()
-    .replace(/\/$/, '');
-  try {
-    return new URL(raw.startsWith('http') ? raw : `https://${raw}`).origin;
-  } catch {
-    return 'https://www.pro-networx.com';
-  }
-}
-const PRO_NETWORX_RETURN_URL = `${getProNetworxOrigin()}/pro-networx/home`;
-const PRO_NETWORX_INTERNAL_URL = `/auth-handoff?return_url=${encodeURIComponent(
-  PRO_NETWORX_RETURN_URL,
-)}`;
 const SUPPORT_DISCORD_URL = 'https://discord.gg/a9S5m8fUJy';
 type MainNavItem = { name: string; href: string; icon: LucideIcon; external?: boolean };
 
@@ -85,7 +66,7 @@ const listenerNavigation: MainNavItem[] = [
   { name: 'Radio', href: '/listen', icon: Music },
   { name: 'Pro-Radio', href: '/pro-radio', icon: ListMusic },
   { name: 'The Chat Room', href: '/room', icon: MessageSquare },
-  { name: 'Pro-Networx', href: PRO_NETWORX_INTERNAL_URL, icon: Network },
+  { name: 'Pro-Networx', href: '/pro-networx/home', icon: Network },
   { name: 'DMs', href: '/messages', icon: MessageCircle },
   { name: 'Live DJ', href: '/dj', icon: Headphones },
   { name: 'Live Performances', href: '/performances', icon: Mic2 },
@@ -100,7 +81,7 @@ const artistNavigation: MainNavItem[] = [
   { name: 'Radio', href: '/listen', icon: Music },
   { name: 'Pro-Radio', href: '/pro-radio', icon: ListMusic },
   { name: 'The Chat Room', href: '/room', icon: MessageSquare },
-  { name: 'Pro-Networx', href: PRO_NETWORX_INTERNAL_URL, icon: Network },
+  { name: 'Pro-Networx', href: '/pro-networx/home', icon: Network },
   { name: 'DMs', href: '/messages', icon: MessageCircle },
   { name: 'Live DJ', href: '/dj', icon: Headphones },
   { name: 'Live Performances', href: '/performances', icon: Mic2 },
@@ -122,13 +103,17 @@ const moreNav = [
 ];
 const streamerNav = { name: 'Stream settings', href: '/stream-settings' };
 
-const adminSubNavigation = [
+const adminSubNavigation: {
+  name: string;
+  href: string;
+  icon?: LucideIcon;
+}[] = [
   { name: 'Songs', href: '/admin/songs' },
   { name: 'Lyrics', href: '/admin/lyrics' },
   { name: 'Users', href: '/admin/users' },
   { name: 'Swipe', href: '/admin/swipe' },
   { name: 'Queue', href: '/admin/queue' },
-  { name: 'DJ Booth', href: '/admin/dj-booth' },
+  { name: 'DJ Booth', href: '/admin/dj-booth', icon: Mic },
   { name: 'Streamers', href: '/admin/streamers' },
   { name: 'Feed', href: '/admin/feed' },
   { name: 'Reports', href: '/admin/reports' },
@@ -331,12 +316,8 @@ export default function DashboardLayout({
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
+  if (loading && !user) {
+    return null;
   }
 
   if (!user) {
@@ -483,6 +464,7 @@ export default function DashboardLayout({
                       key={item.name}
                       href={item.href}
                       label={item.name}
+                      icon={item.icon}
                       isActive={pathname.startsWith(item.href)}
                       signalRadioIntent={item.href === '/listen'}
                     />

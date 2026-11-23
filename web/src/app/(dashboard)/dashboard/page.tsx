@@ -56,9 +56,6 @@ interface DashboardStats {
 }
 
 type Role = 'listener' | 'artist' | 'admin' | 'service_provider';
-const PRO_NETWORX_EXTERNAL_URL =
-  process.env.NEXT_PUBLIC_PRO_NETWORX_APP_URL ||
-  'https://www.pro-networx.com/directory';
 
 const ROLE_HOME: Record<
   Role,
@@ -88,7 +85,7 @@ const ROLE_HOME: Record<
       { href: '/refinery', icon: '🔬', title: 'The Refinery', desc: 'Get an in-depth review of your song ($4.99).' },
       { href: '/listen', icon: '🎧', title: 'Listen', desc: 'Tune in to the radio.' },
       { href: '/artist/live-services', icon: '📅', title: 'Live Services', desc: 'Schedule and manage live events.' },
-      { href: PRO_NETWORX_EXTERNAL_URL, icon: '💼', title: 'Pro-Networx', desc: 'Find and offer creative services.', external: true },
+      { href: '/pro-networx/home', icon: '💼', title: 'Pro-Networx', desc: 'Find and offer creative services.' },
       { href: '/yield', icon: '⛏️', title: 'Rewards', desc: 'Track rewards and redeem at thresholds.' },
       { href: '/profile', icon: '👤', title: 'Your Profile', desc: 'View and edit your profile.' },
     ],
@@ -114,7 +111,7 @@ const ROLE_HOME: Record<
     actions: [
       { href: '/artist/upload', icon: '📤', title: 'Upload Music', desc: 'Submit tracks to the radio rotation.' },
       { href: '/artist/stats', icon: '📈', title: 'Analytics', desc: 'Track ears reached, listens, and growth.' },
-      { href: PRO_NETWORX_EXTERNAL_URL, icon: '💼', title: 'Pro-Networx', desc: 'Manage your Catalyst profile and services.', external: true },
+      { href: '/pro-networx/home', icon: '💼', title: 'Pro-Networx', desc: 'Manage your Catalyst profile and services.' },
       { href: '/artist/live-services', icon: '📅', title: 'Live Services', desc: 'Schedule live sessions.' },
       { href: '/discover', icon: '✨', title: 'Discover', desc: 'Find gems and other providers.' },
       { href: '/messages', icon: '💬', title: 'DMs', desc: 'Chat with clients.' },

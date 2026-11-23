@@ -382,6 +382,18 @@ class _ProNetworxProfileScreenState extends State<ProNetworxProfileScreen> {
                           ],
                         ],
                       ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () => AppRoutes.openArtistProfile(
+                            context,
+                            artistId: widget.userId,
+                          ),
+                          icon: const Icon(Icons.library_music_outlined, size: 18),
+                          label: const Text('Discography'),
+                        ),
+                      ),
                     ],
                   ),
                 ),

@@ -39,7 +39,7 @@ import {
   type ProMarketingStats,
 } from '@/lib/pro-networx-marketing-stats';
 import { useAuth } from '@/contexts/AuthContext';
-import { PRO_NETWORX_APP_HOME, getProNetworxAppUrl, getSiteUrl } from '@/lib/site-url';
+import { PRO_NETWORX_APP_HOME, getProNetworxAppUrl } from '@/lib/site-url';
 
 type AccentColor = 'cyan' | 'pink' | 'yellow';
 
@@ -152,7 +152,7 @@ export function ProNetworxLanding({
   initialMarketingStats?: ProMarketingStats | null;
 }) {
   const directoryHref = variant === 'app' ? '/pro-networx/home' : '/pro-directory';
-  const backToRadioHref = variant === 'app' ? `${getSiteUrl()}/` : '/';
+  const backToRadioHref = variant === 'app' ? '/listen' : '/';
   const loginFooterHref = variant === 'app' ? LOGIN_REDIRECT : '/signup';
 
   const [disciplines, setDisciplines] = useState<ProDiscipline[]>(() =>

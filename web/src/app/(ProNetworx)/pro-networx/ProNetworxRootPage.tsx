@@ -22,11 +22,7 @@ export function ProNetworxRootPage({
   }, [loading, user, router]);
 
   if (loading || user) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-cyan-400/30 border-t-cyan-400" />
-      </div>
-    );
+    return <div className="min-h-[50vh]" />;
   }
 
   return (

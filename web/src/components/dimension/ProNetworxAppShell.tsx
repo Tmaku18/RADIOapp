@@ -33,10 +33,6 @@ const TABS = [
   { href: '/pro-networx/radio', label: 'Radio', icon: Radio },
 ] as const;
 
-const NETWORX_RADIO_DASHBOARD = 'https://www.networxradio.com/dashboard';
-// Song library (saved songs) — consolidated into Pro-Networx from the main
-// sidebar; lives on the radio dashboard origin, so route via auth handoff.
-const NETWORX_RADIO_LIBRARY = 'https://www.networxradio.com/browse/saved';
 
 type ProNetworxAppShellProps = {
   children: React.ReactNode;
@@ -123,19 +119,15 @@ export function ProNetworxAppShell({ children }: ProNetworxAppShellProps) {
             )}
           </Link>
 
-          <a
-            href={
-              user
-                ? `/auth-handoff?return_url=${encodeURIComponent(NETWORX_RADIO_LIBRARY)}`
-                : 'https://www.networxradio.com/'
-            }
+          <Link
+            href={user ? '/browse/saved' : '/'}
             data-testid="pro-tab-library"
             title="Library"
             className="relative flex items-center gap-3 px-3 py-2.5 rounded-lg font-dim-mono text-[11px] tracking-[0.2em] uppercase text-white/70 hover:bg-white/5 hover:text-cyan-300 transition-colors"
           >
             <Library className="w-4 h-4 shrink-0" />
             <span className="hidden lg:inline truncate">Library</span>
-          </a>
+          </Link>
 
           <Link
             href="/messages"
@@ -153,18 +145,14 @@ export function ProNetworxAppShell({ children }: ProNetworxAppShellProps) {
           </Link>
 
           <div className="mt-auto space-y-1 pt-3 border-t border-white/10">
-            <a
-              href={
-                user
-                  ? `/auth-handoff?return_url=${encodeURIComponent(NETWORX_RADIO_DASHBOARD)}`
-                  : 'https://www.networxradio.com/'
-              }
+            <Link
+              href={user ? '/listen' : '/'}
               data-testid="pro-app-exit"
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-white/60 font-dim-mono text-[11px] tracking-[0.2em] uppercase hover:text-white/90 hover:bg-white/5"
             >
               <ArrowLeft className="w-4 h-4 shrink-0" />
               <span className="hidden lg:inline">Back to Radio</span>
-            </a>
+            </Link>
             <Link
               href="/pro-networx"
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-white/60 font-dim-mono text-[11px] tracking-[0.2em] uppercase hover:text-white/90 hover:bg-white/5"

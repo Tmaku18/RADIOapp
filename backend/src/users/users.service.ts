@@ -1136,7 +1136,8 @@ export class UsersService {
       .from('songs')
       .select(songsBaseFields.join(','))
       .eq('artist_id', resolvedUserId)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(5000);
     if (!requestingOwnProfile) {
       songsQuery = songsQuery.eq('status', 'approved');
     }
@@ -1158,7 +1159,8 @@ export class UsersService {
             .join(','),
         )
         .eq('artist_id', resolvedUserId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(5000);
       if (!requestingOwnProfile) {
         fallbackSongsQuery = fallbackSongsQuery.eq('status', 'approved');
       }

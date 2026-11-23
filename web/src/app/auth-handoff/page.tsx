@@ -96,16 +96,7 @@ function AuthHandoffContent() {
     );
   }
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-4" />
-        <p className="text-muted-foreground">
-          {status === 'getting-token' ? 'Preparing sign-in…' : 'Redirecting to Networx Radio…'}
-        </p>
-      </div>
-    </div>
-  );
+  return <div className="min-h-screen bg-background" />;
 }
 
 /**
@@ -115,14 +106,7 @@ function AuthHandoffContent() {
 export default function AuthHandoffPage() {
   return (
     <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center bg-background p-4">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-4" />
-            <p className="text-muted-foreground">Loading…</p>
-          </div>
-        </div>
-      }
+      fallback={<div className="min-h-screen bg-background" />}
     >
       <AuthHandoffContent />
     </Suspense>

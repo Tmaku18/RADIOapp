@@ -5,7 +5,6 @@ const REF_COOKIE = 'networx_ref';
 const REF_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
 const PRO_NETWORX_HOSTS = ['pro-networx.com', 'www.pro-networx.com'];
-const NETWORXRADIO_HOSTS = ['networxradio.com', 'www.networxradio.com'];
 function getProNetworxOrigin(): string {
   const raw = (
     process.env.NEXT_PUBLIC_PRO_NETWORX_APP_URL || 'https://www.pro-networx.com'
@@ -57,7 +56,6 @@ export function middleware(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
   const hostname = request.nextUrl.hostname?.toLowerCase() ?? '';
 
-  const isNetworxDomain = NETWORXRADIO_HOSTS.some((h) => hostname === h);
   const isProNetworxRoute =
     pathname === '/pro-networx' ||
     pathname.startsWith('/pro-networx/') ||
@@ -68,13 +66,11 @@ export function middleware(request: NextRequest) {
 
   if (isProNetworxRoute) {
     const targetPath = mapProNetworxPath(pathname) + request.nextUrl.search;
-    const proUrl = new URL(targetPath, PRO_NETWORX_DOMAIN);
-    if (
-      isNetworxDomain ||
-      (PRO_NETWORX_HOSTS.some((h) => hostname === h) &&
-        `${request.nextUrl.pathname}${request.nextUrl.search}` !== targetPath)
-    ) {
-      const redirect = NextResponse.redirect(proUrl, 308);
+    const current = `${pathname}${request.nextUrl.search}`;
+    // Stay on the host the member is already using. Crossing to the other
+    // domain forces a full reload and a sign-in handoff.
+    if (current !== targetPath) {
+      const redirect = NextResponse.redirect(new URL(targetPath, request.url), 308);
       redirect.headers.set('X-Robots-Tag', 'noindex, nofollow');
       return redirect;
     }

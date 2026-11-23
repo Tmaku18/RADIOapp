@@ -10,12 +10,10 @@ import { CyberBackdrop, SmoothScroll } from '@/components/dimension';
 import { BassPulseLogo } from '@/components/dimension/BassPulseLogo';
 import { useAuth } from '@/contexts/AuthContext';
 import { NETWORX_LOGO, NETWORX_LOGO_LIGHT } from '@/lib/brand-assets';
-import { PRO_NETWORX_APP_HOME, getSiteUrl } from '@/lib/site-url';
+import { PRO_NETWORX_APP_HOME } from '@/lib/site-url';
 
 const SUPPORT_DISCORD_URL = 'https://discord.gg/a9S5m8fUJy';
-const NETWORX_RADIO_ORIGIN = getSiteUrl();
-const NETWORX_RADIO_DASHBOARD = `${NETWORX_RADIO_ORIGIN}/dashboard`;
-const NETWORX_RADIO_HOME = `${NETWORX_RADIO_ORIGIN}/`;
+const NETWORX_RADIO_HOME = '/';
 
 export default function ProNetworxLayout({
   children,
@@ -38,9 +36,7 @@ export default function ProNetworxLayout({
     }
   };
 
-  const radioHref = user
-    ? `/auth-handoff?return_url=${encodeURIComponent(NETWORX_RADIO_DASHBOARD)}`
-    : NETWORX_RADIO_HOME;
+  const radioHref = user ? '/listen' : NETWORX_RADIO_HOME;
 
   return (
     <div
@@ -142,9 +138,9 @@ export default function ProNetworxLayout({
       <footer className="relative z-10 border-t border-white/10 glass-strong dimension-chrome">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 text-center">
           <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 text-sm text-white/60 font-dim-mono tracking-wider">
-            <a href={radioHref} className="hover:text-cyan-300 transition-colors">
+            <Link href={radioHref} className="hover:text-cyan-300 transition-colors">
               Networx Radio
-            </a>
+            </Link>
             <span className="text-white/30">·</span>
             <Link href="/pro-directory" className="hover:text-cyan-300 transition-colors">
               Pro-Directory
