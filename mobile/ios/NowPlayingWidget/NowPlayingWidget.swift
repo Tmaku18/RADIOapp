@@ -152,8 +152,8 @@ private struct LockScreenReactionButton: View {
 
   private var label: some View {
     Text(emoji)
-      .font(compact ? .title3 : .title2)
-      .frame(width: compact ? 56 : 64, height: compact ? 32 : 36)
+      .font(compact ? .body : .title2)
+      .frame(width: compact ? 36 : 64, height: compact ? 26 : 36)
       .background(Color.white.opacity(compact ? 0.08 : 0), in: Capsule())
   }
 }
@@ -217,20 +217,26 @@ struct NowPlayingLiveActivity: Widget {
           }
         }
         DynamicIslandExpandedRegion(.bottom) {
+          // The island clips anything past the song lines. Keep the votes
+          // on the artist row so the emoji sit fully inside the card.
           VStack(alignment: .leading, spacing: 2) {
             Text(context.state.station)
               .font(.caption2)
               .foregroundStyle(networxCyan)
               .lineLimit(1)
             Text(context.state.title).font(.headline).lineLimit(1)
-            Text(context.state.artist).font(.subheadline).lineLimit(1)
+            Text(context.state.artist)
+              .font(.subheadline)
+              .foregroundStyle(.white.opacity(0.72))
+              .lineLimit(1)
+              .padding(.trailing, 84)
+          }
+          .overlay(alignment: .bottomTrailing) {
             if #available(iOS 17.0, *) {
-              HStack(alignment: .center, spacing: 0) {
+              HStack(spacing: 4) {
                 LockScreenReactionButton(emoji: "💩", fire: false, compact: true)
-                Spacer(minLength: 8)
                 LockScreenReactionButton(emoji: "🔥", fire: true, compact: true)
               }
-              .padding(.top, 2)
             }
           }
         }
