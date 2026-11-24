@@ -135,7 +135,7 @@ export default function ProNetworxServicesPage() {
           No services match your filters.
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid min-w-0 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {items.map((listing) => (
             <ServiceCard key={listing.id} listing={listing} />
           ))}
@@ -163,53 +163,55 @@ export default function ProNetworxServicesPage() {
 
 function ServiceCard({ listing }: { listing: ProServiceListing }) {
   return (
-    <Card className="relative h-full cursor-pointer gap-0 p-0 py-0">
+    <Card className="relative isolate h-full min-w-0 cursor-pointer gap-0 overflow-hidden bg-card p-0 py-0">
       <Link
         href={`/pro-networx/u/${listing.ownerUserId}`}
         aria-label={`Open ${listing.ownerDisplayName || 'profile'}`}
-        className="absolute inset-0 z-[1]"
+        className="absolute inset-0 z-0"
       />
-      <div className="relative z-[2] flex flex-col gap-3 h-full p-4 pointer-events-none">
-      <div className="flex items-center gap-3">
-        {listing.ownerAvatarUrl ? (
-          <Image
-            src={listing.ownerAvatarUrl}
-            alt={listing.ownerDisplayName ?? 'Avatar'}
-            width={36}
-            height={36}
-            className="rounded-full object-cover"
-            unoptimized={shouldUnoptimize(listing.ownerAvatarUrl)}
-          />
-        ) : (
-          <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center">
-            🎨
+      <div className="pointer-events-none relative z-[1] flex h-full min-w-0 flex-col gap-3 bg-card p-4">
+        <div className="flex min-w-0 items-center gap-3">
+          {listing.ownerAvatarUrl ? (
+            <Image
+              src={listing.ownerAvatarUrl}
+              alt={listing.ownerDisplayName ?? 'Avatar'}
+              width={36}
+              height={36}
+              className="rounded-full object-cover shrink-0"
+              unoptimized={shouldUnoptimize(listing.ownerAvatarUrl)}
+            />
+          ) : (
+            <div className="w-9 h-9 shrink-0 rounded-full bg-muted flex items-center justify-center">
+              🎨
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="font-medium leading-5 text-foreground truncate">
+              {listing.ownerDisplayName || 'Creator'}
+            </p>
+            {listing.ownerHeadline && (
+              <p className="text-xs leading-4 text-muted-foreground truncate">{listing.ownerHeadline}</p>
+            )}
           </div>
-        )}
-        <div className="min-w-0 flex-1">
-          <p className="font-medium text-foreground truncate">
-            {listing.ownerDisplayName || 'Creator'}
-          </p>
-          {listing.ownerHeadline && (
-            <p className="text-xs text-muted-foreground truncate">{listing.ownerHeadline}</p>
+        </div>
+        <div className="min-w-0 overflow-hidden">
+          <h3 className="font-semibold leading-snug text-foreground line-clamp-2 break-words">
+            {listing.title}
+          </h3>
+          {listing.description && (
+            <p className="mt-1 text-sm leading-5 text-muted-foreground line-clamp-3 break-words">
+              {listing.description}
+            </p>
           )}
         </div>
-      </div>
-      <div className="relative z-[2] pointer-events-none">
-        <h3 className="font-semibold text-foreground line-clamp-1">{listing.title}</h3>
-        {listing.description && (
-          <p className="text-sm text-muted-foreground mt-1 line-clamp-3 whitespace-pre-wrap">
-            {listing.description}
-          </p>
-        )}
-      </div>
-      <div className="mt-auto flex items-center justify-between gap-2">
-        <span className="text-base font-semibold text-foreground">
-          {formatPrice(listing.priceCents, listing.currency, listing.rateType)}
-        </span>
-        <Button size="sm" variant="outline" asChild className="pointer-events-auto">
-          <Link href={`/pro-networx/services/${listing.id}`}>View</Link>
-        </Button>
-      </div>
+        <div className="mt-auto flex min-w-0 items-center justify-between gap-2">
+          <span className="min-w-0 truncate text-base font-semibold leading-5 text-foreground">
+            {formatPrice(listing.priceCents, listing.currency, listing.rateType)}
+          </span>
+          <Button size="sm" variant="outline" asChild className="pointer-events-auto relative z-[1] shrink-0">
+            <Link href={`/pro-networx/services/${listing.id}`}>View</Link>
+          </Button>
+        </div>
       </div>
     </Card>
   );

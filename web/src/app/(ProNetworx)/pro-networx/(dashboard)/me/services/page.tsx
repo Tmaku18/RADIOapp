@@ -252,7 +252,7 @@ export default function MyServicesPage() {
                 </div>
               </div>
               {listing.description && (
-                <p className="text-sm text-muted-foreground line-clamp-2 whitespace-pre-wrap">
+                <p className="text-sm leading-5 text-muted-foreground line-clamp-2 break-words">
                   {listing.description}
                 </p>
               )}
