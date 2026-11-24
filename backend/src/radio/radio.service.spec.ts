@@ -11,6 +11,7 @@ describe('RadioService', () => {
         logPlayDecision: jest.fn(),
         getLastAdvanceAt: jest.fn().mockResolvedValue(0),
         setLastAdvanceAt: jest.fn().mockResolvedValue(undefined),
+        saveLastGood: jest.fn().mockResolvedValue(undefined),
         ...(overrides.stateService ?? {}),
       } as any,
       { broadcast: jest.fn().mockResolvedValue(undefined) } as any,
@@ -31,9 +32,11 @@ describe('RadioService', () => {
   });
 
   describe('force advance guard', () => {
+    // Near the end of the song: the guard only honours a finish report inside
+    // the grace window before the station clock says the song is over.
     const state = (songId: string) => ({
       songId,
-      startedAt: Date.now(),
+      startedAt: Date.now() - 175_000,
       durationMs: 180_000,
       priorityScore: 0,
       isFallback: false,
@@ -260,9 +263,10 @@ describe('RadioService', () => {
       expect(service.stationRealtime.broadcast).not.toHaveBeenCalled();
 
       jest.advanceTimersByTime(8_000);
-      expect(service.stationRealtime.broadcast).toHaveBeenCalledWith('us-rap', {
-        type: 'queue_updated',
-      });
+      expect(service.stationRealtime.broadcast).toHaveBeenCalledWith(
+        'us-rap',
+        expect.objectContaining({ type: 'queue_updated' }),
+      );
     });
 
     it('supersedes a pending resync push when the station rotates again', () => {

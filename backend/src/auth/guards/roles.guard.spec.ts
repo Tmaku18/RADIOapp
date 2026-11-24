@@ -33,8 +33,13 @@ describe('RolesGuard', () => {
   });
 
   it('denies when request user missing', async () => {
+    // Roles are required, but the route is not marked @Public.
     const reflector = {
-      getAllAndOverride: jest.fn().mockReturnValue(['admin']),
+      getAllAndOverride: jest
+        .fn()
+        .mockImplementation((key: string) =>
+          key === 'isPublic' ? false : ['admin'],
+        ),
     } as unknown as Reflector;
     const guard = new RolesGuard(reflector, mockConfig);
     const context = createContext({ headers: {} });
