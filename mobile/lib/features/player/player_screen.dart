@@ -1337,17 +1337,19 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   void _startTrackStatsTimer() {
     _presenceTimer?.cancel();
-    _presenceTimer = Timer.periodic(const Duration(seconds: 60), (_) {
+    _presenceTimer = Timer.periodic(const Duration(seconds: 20), (_) {
       _refreshTrackStats();
     });
   }
 
-  Future<void> _refreshTrackStats() async {
-    if (!mounted || _presenceTickInFlight || !_isSyncDriver) return;
+  Future<void> _refreshTrackStats({bool force = false}) async {
+    if (!mounted || _presenceTickInFlight) return;
+    if (!force && !_isSyncDriver) return;
     final track = _currentTrack;
     final isTunedIn =
         _isPlaying || AudioPlayerService.handler.userPausedNotifier.value;
-    if (!isTunedIn || track == null || track.id.isEmpty) return;
+    if (track == null || track.id.isEmpty) return;
+    if (!force && !isTunedIn) return;
 
     _presenceTickInFlight = true;
     try {
@@ -1361,6 +1363,10 @@ class _PlayerScreenState extends State<PlayerScreen>
           fireVotes: latestTrack.fireVotes,
           shitVotes: latestTrack.shitVotes,
           temperaturePercent: latestTrack.temperaturePercent,
+          popularTemperature: latestTrack.popularTemperature,
+          peerTemperature: latestTrack.peerTemperature,
+          popularRating: latestTrack.popularRating,
+          peerRating: latestTrack.peerRating,
           playId: latestTrack.playId ?? track.playId,
         );
       });
@@ -1389,6 +1395,7 @@ class _PlayerScreenState extends State<PlayerScreen>
     );
     if (!mounted || rating == null || _currentTrack?.id != track.id) return;
     setState(() => _listenerRating = rating);
+    unawaited(_refreshTrackStats(force: true));
   }
 
   Future<void> _reportCurrentSong() async {
@@ -1540,6 +1547,9 @@ class _PlayerScreenState extends State<PlayerScreen>
         _lastVotedPlayId = serverReaction != null ? playId : null;
         _isVoting = false;
       });
+
+      // Replace the local estimate with the server's numbers right away.
+      unawaited(_refreshTrackStats(force: true));
 
       if (mounted) {
         final changedToFire =

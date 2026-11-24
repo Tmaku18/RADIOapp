@@ -566,6 +566,16 @@ export function RadioPlayer({
       setListenerRating(saved);
       setRatingOpen(false);
       toast.success(`Rated ${saved} / 10`);
+      // Pull the new rating averages right away instead of waiting for the poll.
+      try {
+        const latest = await radioApi.getCurrentTrack(effectiveRadioId);
+        const latestTrack = latest.data;
+        if (latestTrack && !latestTrack.no_content && latestTrack.id === track.id) {
+          applySplitScores(latestTrack);
+        }
+      } catch {
+        // The next poll will catch up.
+      }
     } catch (error) {
       const serverMessage = (
         error as { response?: { data?: { message?: string } } }
@@ -1137,7 +1147,7 @@ export function RadioPlayer({
     const interval = setInterval(() => {
       if (document.hidden) return;
       void refreshReactions();
-    }, 45000);
+    }, 15000);
     return () => {
       cancelled = true;
       clearInterval(interval);

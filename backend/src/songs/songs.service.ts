@@ -19,6 +19,7 @@ import { PushNotificationService } from '../push-notifications/push-notification
 import { EmailService } from '../email/email.service';
 import { promoteListenerToArtist } from '../users/promote-listener';
 import { isActionFlood, stampVote } from '../common/vote-integrity';
+import { markVotesChanged } from '../common/vote-cache';
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegStatic from 'ffmpeg-static';
 import { existsSync, promises as fs } from 'node:fs';
@@ -3583,6 +3584,7 @@ export class SongsService {
       throw new BadRequestException(`Could not save rating: ${error.message}`);
     }
     await supabase.rpc('refresh_song_temperature', { p_song_id: songId });
+    markVotesChanged(songId);
     return { rating };
   }
 

@@ -15,6 +15,7 @@ import { EmojiService } from '../chat/emoji.service';
 import { StationRealtimeService } from './station-realtime.service';
 import { CROSSFADE_MS, buildDegradedStation } from './radio-degraded';
 import { randomUUID } from 'crypto';
+import { markVotesChanged, votesChangedSince } from '../common/vote-cache';
 import {
   RadioStateService,
   RadioState,
@@ -573,6 +574,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
    */
   invalidateSongTemperatureCache(songId: string): void {
     if (!songId) return;
+    markVotesChanged(songId);
     const prefix = `${songId}:`;
     for (const key of Array.from(this.temperatureCache.keys())) {
       if (key.startsWith(prefix)) {
@@ -599,12 +601,52 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   }> {
     const cacheKey = `${args.songId}:${args.playId ?? ''}`;
     const cached = this.temperatureCache.get(cacheKey);
-    if (cached && Date.now() - cached.at < this.temperatureCacheTtlMs) {
+    if (
+      cached &&
+      Date.now() - cached.at < this.temperatureCacheTtlMs &&
+      !votesChangedSince(args.songId, cached.at)
+    ) {
       return cached.value;
     }
     const value = await this.getSongTemperatureUncached(args);
     this.temperatureCache.set(cacheKey, { value, at: Date.now() });
     return value;
+  }
+
+  /**
+   * Fresh vote counts and scores laid over a cached track snapshot. The
+   * snapshot is rebuilt at most every 30s, so without this a vote (or anyone
+   * else's) would not show in the numbers or percentages until then.
+   */
+  async withLiveVotes<T extends Record<string, any>>(payload: T): Promise<T> {
+    const songId = typeof payload?.id === 'string' ? payload.id : '';
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(songId)) {
+      return payload;
+    }
+    const t = await this.withTimeoutFallback(
+      this.getSongTemperature({
+        playId: payload.play_id ?? null,
+        songId,
+        startedAtIso: payload.started_at ?? null,
+      }),
+      null,
+      1500,
+      `withLiveVotes(${songId})`,
+    );
+    if (!t) return payload;
+    return {
+      ...payload,
+      fire_votes: t.fireVotes,
+      shit_votes: t.shitVotes,
+      total_votes: t.totalVotes,
+      temperature_percent: t.temperaturePercent,
+      popular_temperature_percent:
+        t.popularTemperature ?? payload.popular_temperature_percent ?? null,
+      peer_temperature_percent:
+        t.peerTemperature ?? payload.peer_temperature_percent ?? null,
+      popular_rating_avg: t.popularRating ?? payload.popular_rating_avg ?? null,
+      peer_rating_avg: t.peerRating ?? payload.peer_rating_avg ?? null,
+    };
   }
 
   /**

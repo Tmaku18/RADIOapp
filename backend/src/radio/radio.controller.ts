@@ -86,7 +86,9 @@ export class RadioController {
           )
           .finally(() => this.swrInFlight.delete(id));
       }
-      return { ...existing, stale: true };
+      // The snapshot only rebuilds every 30s; lay current votes over it.
+      const live = await this.radioService.withLiveVotes(existing);
+      return { ...live, stale: true };
     }
 
     try {
