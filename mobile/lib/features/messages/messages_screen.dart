@@ -46,8 +46,8 @@ class _MessagesScreenState extends State<MessagesScreen> {
     _load();
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
+  Future<void> _load({bool showLoading = true}) async {
+    if (showLoading && mounted) setState(() => _loading = true);
     try {
       final auth = Provider.of<AuthService>(context, listen: false);
       // Ensure auth token is set before calling messages endpoints.
@@ -59,7 +59,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
         _conversations = conv;
       });
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && showLoading) setState(() => _loading = false);
     }
   }
 
@@ -151,12 +151,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
       showNeonLine: true,
       backdrop: const ChatBackdrop(),
       loading: _loading,
-      actions: [
-        IconButton(
-          onPressed: _loading ? null : _load,
-          icon: const Icon(Icons.refresh),
-        ),
-      ],
       body: Column(
         children: [
           Padding(
@@ -181,9 +175,10 @@ class _MessagesScreenState extends State<MessagesScreen> {
           ),
           Expanded(
             child: RefreshIndicator(
-              onRefresh: _load,
+              onRefresh: () => _load(showLoading: false),
               child: visible.isEmpty
                 ? ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     children: [
                       SizedBox(
                         height: 360,
@@ -192,6 +187,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                     ],
                   )
                 : ListView.separated(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(12),
                     itemCount: visible.length,
                     separatorBuilder: (_, index) => const SizedBox(height: 8),
@@ -226,11 +222,21 @@ class ThreadScreen extends StatefulWidget {
   State<ThreadScreen> createState() => _ThreadScreenState();
 }
 
-class _ThreadScreenState extends State<ThreadScreen> {
+class _ThreadScreenState extends State<ThreadScreen>
+    with SingleTickerProviderStateMixin {
+  static const _stampWidth = 84.0;
+
   final MessagesService _service = MessagesService();
   final ProNetworxService _proNetworx = ProNetworxService();
   final TextEditingController _draft = TextEditingController();
   final ScrollController _scroll = ScrollController();
+  late final AnimationController _stampAnim;
+
+  /// How far the thread has been pulled off the right edge. 0 keeps
+  /// day and time stamps fully hidden.
+  double _stampPull = 0;
+  bool _stampDragging = false;
+  Animation<double>? _stampCurve;
 
   bool _loading = true;
   bool _sending = false;
@@ -248,9 +254,35 @@ class _ThreadScreenState extends State<ThreadScreen> {
     super.initState();
     _myUserId = widget.myUserId.trim();
     _pendingRequest = widget.isRequest;
+    _stampAnim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 180),
+    );
     _ensureMyUserId();
     _load();
     _loadAccess();
+  }
+
+  void _onStampTick() {
+    if (!mounted || _stampDragging) return;
+    setState(() => _stampPull = _stampCurve?.value ?? 0);
+  }
+
+  void _hideStamps() {
+    final start = _stampPull;
+    _stampCurve?.removeListener(_onStampTick);
+    _stampCurve = null;
+    _stampAnim.stop();
+    if (!mounted || start <= 0.5) {
+      if (mounted && start != 0) setState(() => _stampPull = 0);
+      return;
+    }
+    final curve = Tween<double>(begin: start, end: 0).animate(
+      CurvedAnimation(parent: _stampAnim, curve: Curves.easeOutCubic),
+    );
+    _stampCurve = curve;
+    curve.addListener(_onStampTick);
+    _stampAnim.forward(from: 0);
   }
 
   Future<void> _acceptRequest() async {
@@ -286,6 +318,8 @@ class _ThreadScreenState extends State<ThreadScreen> {
 
   @override
   void dispose() {
+    _stampCurve?.removeListener(_onStampTick);
+    _stampAnim.dispose();
     _draft.dispose();
     _scroll.dispose();
     super.dispose();
@@ -810,10 +844,6 @@ class _ThreadScreenState extends State<ThreadScreen> {
           ),
           icon: const Icon(Icons.more_vert),
         ),
-        IconButton(
-          onPressed: _loading ? null : _load,
-          icon: const Icon(Icons.refresh),
-        ),
       ],
       body: Column(
         children: [
@@ -895,16 +925,70 @@ class _ThreadScreenState extends State<ThreadScreen> {
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
-                    controller: _scroll,
-                    padding: const EdgeInsets.all(12),
-                    itemCount: _messages.length,
-                    itemBuilder: (context, i) {
-                      final m = _messages[i];
-                      final isMine = m.senderId == _myUserId;
-                      return _buildMessage(m, isMine, surfaces, scheme);
+                : RefreshIndicator(
+                    onRefresh: _refreshSilently,
+                    child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onHorizontalDragStart: (_) {
+                      _stampDragging = true;
+                      _stampAnim.stop();
                     },
+                    onHorizontalDragUpdate: (details) {
+                      setState(() {
+                        _stampPull = (_stampPull - details.delta.dx)
+                            .clamp(0.0, _stampWidth)
+                            .toDouble();
+                      });
+                    },
+                    onHorizontalDragEnd: (_) {
+                      _stampDragging = false;
+                      _hideStamps();
+                    },
+                    onHorizontalDragCancel: () {
+                      _stampDragging = false;
+                      _hideStamps();
+                    },
+                    child: ListView.builder(
+                      controller: _scroll,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      itemCount: _messages.length,
+                      itemBuilder: (context, i) {
+                        final m = _messages[i];
+                        final isMine = m.senderId == _myUserId;
+                        return ClipRect(
+                          child: Stack(
+                            children: [
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 12),
+                                child: Transform.translate(
+                                  offset: Offset(-_stampPull, 0),
+                                  child: _buildMessage(
+                                    m,
+                                    isMine,
+                                    surfaces,
+                                    scheme,
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                right: -_stampWidth + _stampPull,
+                                top: 0,
+                                bottom: 0,
+                                width: _stampWidth,
+                                child: _DmStamp(
+                                  createdAt: m.createdAt,
+                                  color: surfaces.textMuted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
                   ),
+                ),
           ),
           Padding(
             padding: const EdgeInsets.all(12),
@@ -941,6 +1025,72 @@ class _ThreadScreenState extends State<ThreadScreen> {
       ),
     );
   }
+}
+
+class _DmStamp extends StatelessWidget {
+  const _DmStamp({required this.createdAt, required this.color});
+
+  final DateTime createdAt;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final local = createdAt.toLocal();
+    final style = TextStyle(color: color, fontSize: 11, height: 1.15);
+    return Padding(
+      padding: const EdgeInsets.only(left: 8),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _stampDay(local),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: style,
+          ),
+          Text(_stampClock(local), maxLines: 1, style: style),
+        ],
+      ),
+    );
+  }
+}
+
+const _stampWeekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const _stampMonths = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
+
+String _stampDay(DateTime local) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final day = DateTime(local.year, local.month, local.day);
+  final diff = today.difference(day).inDays;
+  if (diff == 0) return 'Today';
+  if (diff == 1) return 'Yesterday';
+  if (diff > 1 && diff < 7) return _stampWeekdays[local.weekday - 1];
+  if (local.year == now.year) {
+    return '${_stampMonths[local.month - 1]} ${local.day}';
+  }
+  return '${_stampMonths[local.month - 1]} ${local.day}, ${local.year}';
+}
+
+String _stampClock(DateTime local) {
+  final hour12 = local.hour % 12 == 0 ? 12 : local.hour % 12;
+  final minute = local.minute.toString().padLeft(2, '0');
+  final period = local.hour >= 12 ? 'PM' : 'AM';
+  return '$hour12:$minute $period';
 }
 
 String _formatTime(DateTime dt) {

@@ -67,13 +67,25 @@ const messagesRealtimeClient =
     ? createClient(supabaseUrl, supabaseAnonKey)
     : null;
 
-function formatTime(dateString: string): string {
+const STAMP_WIDTH = 84;
+
+function formatStamp(dateString: string): { day: string; time: string } {
   const d = new Date(dateString);
   const now = new Date();
-  if (d.toDateString() === now.toDateString()) {
-    return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diffDays = Math.round((startOfToday.getTime() - startOfDay.getTime()) / 86_400_000);
+  let day: string;
+  if (diffDays === 0) day = 'Today';
+  else if (diffDays === 1) day = 'Yesterday';
+  else if (diffDays > 1 && diffDays < 7) day = d.toLocaleDateString([], { weekday: 'short' });
+  else if (d.getFullYear() === now.getFullYear()) {
+    day = d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  } else {
+    day = d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
   }
-  return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return { day, time };
 }
 
 export default function MessagesPage() {
@@ -104,11 +116,81 @@ export default function MessagesPage() {
   const [hasSubscription, setHasSubscription] = useState(false);
   const [messagingBetaFree, setMessagingBetaFree] = useState(true);
   const threadEndRef = useRef<HTMLDivElement>(null);
+  const [stampPull, setStampPull] = useState(0);
+  const stampPullRef = useRef(0);
+  const stampDrag = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    origin: number;
+    axis: 'undecided' | 'x' | 'y';
+  } | null>(null);
+  const stampFrame = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const typingChannelRef = useRef<RealtimeChannel | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSentAtRef = useRef<number>(0);
+
+  const setPull = useCallback((value: number) => {
+    const next = Math.max(0, Math.min(STAMP_WIDTH, value));
+    stampPullRef.current = next;
+    setStampPull(next);
+  }, []);
+
+  const hideStamps = useCallback(() => {
+    if (stampFrame.current != null) cancelAnimationFrame(stampFrame.current);
+    const start = stampPullRef.current;
+    if (start <= 0) return;
+    const t0 = performance.now();
+    const step = (now: number) => {
+      if (stampDrag.current?.axis === 'x') return;
+      const t = Math.min(1, (now - t0) / 180);
+      const eased = 1 - (1 - t) ** 3;
+      setPull(start * (1 - eased));
+      if (t < 1) stampFrame.current = requestAnimationFrame(step);
+    };
+    stampFrame.current = requestAnimationFrame(step);
+  }, [setPull]);
+
+  useEffect(() => () => {
+    if (stampFrame.current != null) cancelAnimationFrame(stampFrame.current);
+  }, []);
+
+  const onStampPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (stampFrame.current != null) cancelAnimationFrame(stampFrame.current);
+    stampDrag.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      origin: stampPullRef.current,
+      axis: 'undecided',
+    };
+  };
+
+  const onStampPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = stampDrag.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+    if (drag.axis === 'undecided') {
+      if (Math.hypot(dx, dy) < 8) return;
+      drag.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+      if (drag.axis !== 'x') return;
+      e.currentTarget.setPointerCapture(e.pointerId);
+    }
+    if (drag.axis !== 'x') return;
+    setPull(drag.origin - dx);
+  };
+
+  const onStampPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    const drag = stampDrag.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    const wasHorizontal = drag.axis === 'x';
+    stampDrag.current = null;
+    if (wasHorizontal) hideStamps();
+  };
 
   const loadConversations = useCallback(async () => {
     setLoadingConversations(true);
@@ -152,6 +234,10 @@ export default function MessagesPage() {
     },
     [],
   );
+
+  useEffect(() => {
+    if (searchParams.get('tab') === 'requests') setInboxTab('requests');
+  }, [searchParams]);
 
   useEffect(() => {
     if (withUserId) {
@@ -270,7 +356,7 @@ export default function MessagesPage() {
     const interval = setInterval(() => {
       loadConversations();
       loadThread(selectedOther.userId);
-    }, 5000);
+    }, 30000);
     return () => clearInterval(interval);
   }, [selectedOther?.userId, loadConversations, loadThread]);
 
@@ -547,14 +633,31 @@ export default function MessagesPage() {
                   </div>
                 )}
 
-                <div className="relative flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
+                <div
+                  className="relative flex-1 min-h-0 overflow-hidden"
+                  onPointerDown={onStampPointerDown}
+                  onPointerMove={onStampPointerMove}
+                  onPointerUp={onStampPointerUp}
+                  onPointerCancel={onStampPointerUp}
+                >
+                <div
+                  className={`h-full overflow-x-hidden overflow-y-auto py-4 min-h-0 ${stampPull > 0 ? 'select-none' : ''}`}
+                  style={{
+                    width: `calc(100% + ${STAMP_WIDTH}px)`,
+                    transform: `translateX(-${stampPull}px)`,
+                    touchAction: 'pan-y',
+                  }}
+                >
                   {loadingThread ? (
-                    <div className="flex justify-center py-8 text-muted-foreground">Loading messages...</div>
+                    <div className="flex justify-center py-8 text-muted-foreground" style={{ width: `calc(100% - ${STAMP_WIDTH}px)` }}>Loading messages...</div>
                   ) : (
                     messages.map((msg) => {
                       const isMe = msg.senderId === myId;
+                      const stamp = formatStamp(msg.createdAt);
                       return (
-                        <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                        <div key={msg.id} className="mb-3 flex items-center pl-4">
+                        <div className="min-w-0 pr-4" style={{ width: `calc(100% - ${STAMP_WIDTH}px)` }}>
+                        <div className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                           <div className={`max-w-[80%] rounded-lg px-3 py-2 ${isMe ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                             {msg.unsentAt ? (
                               <p className="text-sm italic opacity-80">Message unsent</p>
@@ -623,7 +726,6 @@ export default function MessagesPage() {
                                 ))}
                               </div>
                             )}
-                            <p className={`text-xs mt-1 ${isMe ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>{formatTime(msg.createdAt)}</p>
                             <div className="mt-1 flex items-center gap-2">
                               <button type="button" className="text-[11px] opacity-75 hover:opacity-100" onClick={() => handleReact(msg.id, '❤️')}>❤️</button>
                               <button type="button" className="text-[11px] opacity-75 hover:opacity-100" onClick={() => handleReact(msg.id, '🔥')}>🔥</button>
@@ -650,10 +752,17 @@ export default function MessagesPage() {
                             </div>
                           </div>
                         </div>
+                        </div>
+                        <div className="flex w-[84px] shrink-0 flex-col justify-center pl-2 text-[11px] leading-tight whitespace-nowrap text-muted-foreground">
+                          <span>{stamp.day}</span>
+                          <span>{stamp.time}</span>
+                        </div>
+                        </div>
                       );
                     })
                   )}
                   <div ref={threadEndRef} />
+                </div>
                 </div>
 
                 {error && <Alert variant="destructive" className="mx-4 mt-2"><AlertDescription>{error}</AlertDescription></Alert>}
