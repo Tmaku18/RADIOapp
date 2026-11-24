@@ -320,7 +320,7 @@ export class PushNotificationService {
       userId: song.artist_id,
       type: 'song_live_now',
       title: 'You are LIVE now!',
-      message: `"${song.title}" is playing. Check out the chat reactions!`,
+      message: `"${song.title}" is playing.`,
       metadata: { songId: song.id, songTitle: song.title },
     });
 
@@ -333,7 +333,7 @@ export class PushNotificationService {
         payload: {
           songId: song.id,
           title: song.title,
-          message: 'You are LIVE now! Check out the chat reactions.',
+          message: 'You are LIVE now.',
         },
       });
       await supabase.removeChannel(channel);
@@ -597,7 +597,7 @@ export class PushNotificationService {
     await this.sendPushNotification({
       userId: dto.artistId,
       title: 'Your song has been played',
-      body: `"${dto.songTitle}" just finished. Tap to see how it performed.`,
+      body: `"${dto.songTitle}" just finished.`,
       storeInApp: false,
       data: {
         type: 'song_played',
@@ -671,8 +671,7 @@ export class PushNotificationService {
     }
 
     const title = `${dto.artistName} is live now`;
-    const body =
-      'Join the livestream from the artist page while the track is on-air.';
+    const body = 'Their set is on the air.';
     let successCount = 0;
 
     await Promise.allSettled(
@@ -969,15 +968,15 @@ export class PushNotificationService {
       .filter(Boolean);
     const stationHint =
       stations.length === 0
-        ? 'Watch for it on Networx Radio.'
+        ? ''
         : stations.length === 1
-          ? `Look for it first on ${stations[0]}.`
-          : `Stations: ${stations.slice(0, 3).join(', ')}${
+          ? ` It will play on ${stations[0]}.`
+          : ` Stations: ${stations.slice(0, 3).join(', ')}${
               stations.length > 3 ? '…' : ''
             }.`;
 
     const title = `${dto.artistName} uploaded a new song`;
-    const body = `"${dto.songTitle}" is in. ${stationHint}`;
+    const body = `"${dto.songTitle}" is in.${stationHint}`.trim();
     const notificationData = {
       type: 'followed_artist_new_upload',
       artistId: dto.artistId,
@@ -1052,7 +1051,7 @@ export class PushNotificationService {
       ? `${dto.artistName} (${dto.artistEmail})`
       : dto.artistName;
     const title = 'New song pending review';
-    const body = `${artistLabel} uploaded "${dto.songTitle}".${stationHint} Open Admin → Songs to approve or reject.`;
+    const body = `${artistLabel} uploaded "${dto.songTitle}".${stationHint}`.trim();
 
     let notified = 0;
     await Promise.allSettled(

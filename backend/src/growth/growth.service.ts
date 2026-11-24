@@ -344,7 +344,7 @@ export class GrowthService {
           title: 'Your week on NetworX',
           body:
             plays > 0
-              ? `Your songs were played ${plays} time${plays === 1 ? '' : 's'} this week. Open Analytics for region and ROI.`
+              ? `Your songs were played ${plays} time${plays === 1 ? '' : 's'} this week.`
               : 'No new radio plays this week. Upload or boost a song to get back on a station.',
           data: { type: 'weekly_digest' },
         });

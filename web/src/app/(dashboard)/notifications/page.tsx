@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { notificationsApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -14,15 +14,88 @@ interface Notification {
   type: string;
   title: string;
   message?: string;
-  metadata?: {
-    songId?: string;
-    songTitle?: string;
-    playId?: string;
-    action?: string;
-    reason?: string;
-  };
+  metadata?: Record<string, unknown> | null;
   read: boolean;
   createdAt: string;
+}
+
+function meta(notification: Notification, ...keys: string[]): string | null {
+  const data = notification.metadata;
+  if (!data) return null;
+  for (const key of keys) {
+    const value = data[key];
+    if (value == null) continue;
+    const text = String(value).trim();
+    if (text && text !== 'null') return text;
+  }
+  return null;
+}
+
+/** In-app path the notification should open. Null when there is nowhere to go. */
+function notificationHref(notification: Notification): string | null {
+  const type = notification.type;
+  const playId = meta(notification, 'playId', 'play_id');
+  const songId = meta(notification, 'songId', 'song_id');
+  const artistId = meta(notification, 'artistId', 'artist_id');
+  const senderId = meta(notification, 'senderId', 'sender_id');
+  const followerId = meta(notification, 'followerId', 'follower_id');
+  const requestId = meta(notification, 'requestId', 'request_id');
+  const storeUrl = meta(notification, 'storeUrl', 'store_url');
+
+  switch (type) {
+    case 'song_played':
+      return playId ? `/artist/stats?playId=${encodeURIComponent(playId)}` : '/artist/stats';
+    case 'weekly_digest':
+      return '/artist/stats';
+    case 'song_approved':
+    case 'song_rejected':
+    case 'song_status_changed':
+    case 'song_liked':
+      return '/artist/songs';
+    case 'song_pending_review':
+    case 'admin_song_status':
+      return '/admin/songs';
+    case 'artist_live_nudge':
+      return '/go-live';
+    case 'artist_live_now':
+      return artistId ? `/watch/${encodeURIComponent(artistId)}` : null;
+    case 'new_message':
+      return senderId ? `/messages?with=${encodeURIComponent(senderId)}` : '/messages';
+    case 'message_request':
+      return senderId
+        ? `/messages?with=${encodeURIComponent(senderId)}`
+        : '/messages?tab=requests';
+    case 'new_follower':
+      return followerId ? `/artist/${encodeURIComponent(followerId)}` : null;
+    case 'followed_artist_new_upload':
+      return artistId ? `/artist/${encodeURIComponent(artistId)}` : '/listen';
+    case 'feed_post_liked':
+      return '/social';
+    case 'content_liked':
+      return '/pro-networx/me';
+    case 'job_application':
+      return requestId
+        ? `/job-board?request=${encodeURIComponent(requestId)}`
+        : '/job-board';
+    case 'refinery_new_review':
+      return songId ? `/refinery/analytics/${encodeURIComponent(songId)}` : '/refinery';
+    case 'refinery_submission_received':
+      return '/refinery';
+    case 'app_update':
+      return storeUrl;
+    case 'up_next':
+    case 'live_now':
+    case 'song_up_next':
+    case 'song_up_next_5min':
+    case 'song_live_now':
+    case 'artist_song_on_radio':
+    case 'artist_song_first_play':
+    case 'followed_artist_up_next':
+    case 'followed_artist_up_next_5min':
+      return '/listen';
+    default:
+      return null;
+  }
 }
 const SUPPORT_DISCORD_URL = 'https://discord.gg/a9S5m8fUJy';
 
@@ -60,6 +133,7 @@ function formatTimeAgo(dateString: string): string {
 }
 
 export default function NotificationsPage() {
+  const router = useRouter();
   const { user, loading: authLoading } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -197,66 +271,58 @@ export default function NotificationsPage() {
         <Card>
           <div className="divide-y divide-border">
             {notifications.map((notification) => {
-              const isSongPlayed = notification.type === 'song_played' && notification.metadata?.playId;
-              const isArtistOnRadio = notification.type === 'artist_song_on_radio';
-              const content = (
-                <div className="flex items-start space-x-4">
-                  <div className="text-2xl">{getNotificationIcon(notification.type)}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <p className={`font-medium ${notification.read ? 'text-foreground' : 'text-foreground'}`}>
-                        {notification.title}
-                      </p>
-                      <span className="text-xs text-muted-foreground">{formatTimeAgo(notification.createdAt)}</span>
-                    </div>
-                    {notification.message && (
-                      <p className="mt-1 text-sm text-muted-foreground">{notification.message}</p>
-                    )}
-                    {isSongPlayed && (
-                      <p className="mt-2 text-sm text-primary font-medium">View analytics →</p>
-                    )}
-                    {isArtistOnRadio && (
-                      <p className="mt-2 text-sm text-primary font-medium">Listen now →</p>
-                    )}
-                    {notification.type === 'song_rejected' && (
-                      <div className="mt-2 text-sm">
-                        <a
-                          href={SUPPORT_DISCORD_URL}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary hover:underline"
-                        >
-                          Contact Support (Discord)
-                        </a>
-                        <span className="text-muted-foreground mx-2">•</span>
-                        <span className="text-muted-foreground">48 hours to appeal</span>
-                      </div>
-                    )}
-                    {!notification.read && (
-                      <div className="mt-2">
-                        <Badge variant="secondary">New</Badge>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
+              const href = notificationHref(notification);
               return (
                 <div
                   key={notification.id}
-                  onClick={() => !notification.read && handleMarkAsRead(notification.id)}
-                  className={`p-4 cursor-pointer transition-colors ${notification.read ? 'bg-card' : 'bg-primary/5 hover:bg-primary/10'}`}
+                  onClick={() => {
+                    if (!notification.read) void handleMarkAsRead(notification.id);
+                    if (!href) return;
+                    if (href.startsWith('http')) {
+                      window.location.assign(href);
+                      return;
+                    }
+                    router.push(href);
+                  }}
+                  className={`p-4 transition-colors ${href ? 'cursor-pointer' : ''} ${notification.read ? 'bg-card' : 'bg-primary/5 hover:bg-primary/10'}`}
                 >
-                  {isSongPlayed ? (
-                    <Link href={`/artist/stats?playId=${notification.metadata!.playId}`} className="block">
-                      {content}
-                    </Link>
-                  ) : isArtistOnRadio ? (
-                    <Link href="/listen" className="block">
-                      {content}
-                    </Link>
-                  ) : (
-                    content
-                  )}
+                  <div className="flex items-start space-x-4">
+                    <div className="text-2xl">{getNotificationIcon(notification.type)}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-medium text-foreground">
+                          {notification.title}
+                        </p>
+                        <span className="text-xs text-muted-foreground shrink-0">{formatTimeAgo(notification.createdAt)}</span>
+                      </div>
+                      {notification.message && (
+                        <p className="mt-1 text-sm text-muted-foreground">{notification.message}</p>
+                      )}
+                      {notification.type === 'song_rejected' && (
+                        <div className="mt-2 text-sm">
+                          <a
+                            href={SUPPORT_DISCORD_URL}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline"
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            Contact Support (Discord)
+                          </a>
+                          <span className="text-muted-foreground mx-2">•</span>
+                          <span className="text-muted-foreground">48 hours to appeal</span>
+                        </div>
+                      )}
+                      {!notification.read && (
+                        <div className="mt-2">
+                          <Badge variant="secondary">New</Badge>
+                        </div>
+                      )}
+                    </div>
+                    {href ? (
+                      <span className="text-muted-foreground" aria-hidden>›</span>
+                    ) : null}
+                  </div>
                 </div>
               );
             })}

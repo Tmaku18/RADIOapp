@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/models/notification_models.dart';
-import '../../core/navigation/app_routes.dart';
+import '../../core/navigation/notification_destination.dart';
 import '../../core/services/notifications_service.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
@@ -275,28 +275,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           child: ListTile(
                             onTap: () async {
                               await _markAsRead(n);
-                              if (!mounted) return;
-                              if (n.type == 'artist_song_on_radio' ||
-                                  n.type == 'followed_artist_up_next' ||
-                                  n.type == 'song_up_next' ||
-                                  n.type == 'song_live_now' ||
-                                  n.type == 'up_next' ||
-                                  n.type == 'live_now') {
-                                Navigator.of(context)
-                                    .pushNamed(AppRoutes.player);
-                              } else if (n.type == 'song_rejected' ||
-                                  n.type == 'song_approved' ||
-                                  n.type == 'song_status_changed') {
-                                Navigator.of(context).pushNamed(AppRoutes.studio);
-                              } else if (n.type == 'message_request') {
-                                Navigator.of(context).pushNamed(
-                                  AppRoutes.messages,
-                                  arguments: {'tab': 'requests'},
-                                );
-                              } else if (n.type == 'new_message') {
-                                Navigator.of(context)
-                                    .pushNamed(AppRoutes.messages);
-                              }
+                              if (!context.mounted) return;
+                              final data = <String, dynamic>{
+                                'type': n.type,
+                                ...?n.metadata,
+                              };
+                              await openNotificationTarget(
+                                Navigator.of(context),
+                                data,
+                              );
                             },
                             leading: Icon(
                               _iconForType(n.type),
@@ -345,9 +332,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                 ),
                               ],
                             ),
-                            trailing: n.read
-                                ? null
-                                : const Icon(Icons.mark_email_read_outlined),
+                            trailing: notificationHasTarget({
+                              'type': n.type,
+                              ...?n.metadata,
+                            })
+                                ? Icon(
+                                    Icons.chevron_right,
+                                    color: surfaces.textMuted,
+                                  )
+                                : null,
                           ),
                         );
                       },

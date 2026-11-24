@@ -226,13 +226,13 @@ export class EmailService {
           <li><strong>Artist:</strong> ${artistLine}</li>
           <li><strong>Song ID:</strong> ${params.songId}</li>
         </ul>
-        <p>Open the admin songs queue to approve or reject with a clear explanation for the artist.</p>
+        <p><a href="https://www.networxradio.com/admin/songs">Review this song</a></p>
         <br>
         <p>- Networx Admin Alerts</p>
       `,
       text: `New song pending review: "${params.songTitle}" by ${params.artistName}${
         params.artistEmail ? ` (${params.artistEmail})` : ''
-      }. Song ID: ${params.songId}. Open Admin → Songs to review.`,
+      }. Song ID: ${params.songId}. Review it at https://www.networxradio.com/admin/songs`,
     });
   }
 

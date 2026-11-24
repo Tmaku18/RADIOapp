@@ -251,8 +251,12 @@ class AppRouter {
           settings,
         );
       case AppRoutes.adminDashboard:
+        final songsTab = args is Map &&
+            (args['tab'] == 'songs' || args['tab'] == 1);
         return _route(
-          const RequireAdmin(child: AdminDashboardScreen()),
+          RequireAdmin(
+            child: AdminDashboardScreen(initialTab: songsTab ? 1 : 0),
+          ),
           settings,
         );
       case AppRoutes.adminDjBooth:

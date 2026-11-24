@@ -453,81 +453,15 @@ class PushNotificationService {
     );
   }
 
-  /// Handle notification tap (opens app from background/terminated)
+  /// Handle notification tap (opens app from background/terminated).
+  /// The full data payload is forwarded so the app can open the screen
+  /// the notification is about.
   void _handleNotificationTap(RemoteMessage message) {
     debugPrint(
       'PushNotificationService: Notification tapped - ${message.data}',
     );
-    final type = message.data['type']?.toString();
-    final payload = Map<String, dynamic>.from(message.data);
-
-    if (type == 'song_played' && message.data['playId'] != null) {
-      onNotificationTap?.call({
-        'type': 'song_played',
-        'playId': message.data['playId'],
-      });
-      return;
-    }
-
-    // Artist about-to-play / live (backend uses song_up_next / song_live_now).
-    if (type == 'up_next' ||
-        type == 'live_now' ||
-        type == 'song_up_next' ||
-        type == 'song_live_now') {
-      onNotificationTap?.call({
-        'type': type,
-        'songId': message.data['songId'],
-        'songTitle': message.data['songTitle'],
-        'radioId': message.data['radioId'],
-      });
-      return;
-    }
-
-    if (type == 'artist_live_now' && message.data['artistId'] != null) {
-      onNotificationTap?.call({
-        'type': 'artist_live_now',
-        'artistId': message.data['artistId'],
-      });
-      return;
-    }
-
-    if (type == 'song_liked' || type == 'feed_post_liked') {
-      onNotificationTap?.call({'type': type});
-      return;
-    }
-
-    if (type == 'new_follower' && message.data['followerId'] != null) {
-      onNotificationTap?.call({
-        'type': 'new_follower',
-        'followerId': message.data['followerId'],
-      });
-      return;
-    }
-
-    if (type == 'artist_song_on_radio' || type == 'followed_artist_up_next') {
-      onNotificationTap?.call({
-        'type': type,
-        'artistId': message.data['artistId'],
-        'songId': message.data['songId'],
-        'radioId': message.data['radioId'],
-      });
-      return;
-    }
-
-    if (type == 'app_update') {
-      onNotificationTap?.call({
-        'type': 'app_update',
-        'storeUrl': message.data['storeUrl'],
-        'latestVersion': message.data['latestVersion'],
-        'forceUpdate': message.data['forceUpdate'],
-      });
-      return;
-    }
-
-    // Fallback: forward raw payload so callers can still react.
-    if (type != null && type.isNotEmpty) {
-      onNotificationTap?.call(payload);
-    }
+    if (message.data.isEmpty) return;
+    onNotificationTap?.call(Map<String, dynamic>.from(message.data));
   }
 
   /// Unregister device token (call on logout)

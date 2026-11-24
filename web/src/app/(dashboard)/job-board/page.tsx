@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { jobBoardApi, proNetworkSubscriptionApi } from '@/lib/api';
 import { PaywallCard } from '@/components/pro-networx/PaywallCard';
@@ -54,6 +55,7 @@ interface ServiceRequestApplicationRow {
 const SERVICE_TYPES = ['mixing', 'mastering', 'production', 'session', 'collab', 'other'];
 
 export default function JobBoardPage() {
+  const searchParams = useSearchParams();
   const { profile } = useAuth();
   const myId = profile?.id ?? null;
   const [tab, setTab] = useState<'browse' | 'mine'>('browse');
@@ -153,6 +155,25 @@ export default function JobBoardPage() {
       setLoadingDetail(false);
     }
   }, []);
+
+  useEffect(() => {
+    const requestId = searchParams.get('request');
+    if (!requestId) return;
+    let alive = true;
+    void (async () => {
+      try {
+        const res = await jobBoardApi.getRequest(requestId);
+        if (!alive) return;
+        setTab('mine');
+        setSelectedRequest(res.data as ServiceRequestRow);
+      } catch (e) {
+        console.error('Failed to open job from notification:', e);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [searchParams]);
 
   useEffect(() => {
     if (selectedRequest?.id) {
