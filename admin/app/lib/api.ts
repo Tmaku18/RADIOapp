@@ -59,6 +59,13 @@ export const adminApi = {
     return apiRequest<{ songs: Song[]; total: number }>(endpoint, { token });
   },
 
+  async demonetizeSong(token: string, songId: string) {
+    return apiRequest<{ song: Song }>(`admin/songs/${songId}/demonetize`, {
+      method: 'POST',
+      token,
+    });
+  },
+
   async updateSongStatus(
     token: string,
     songId: string,
@@ -129,6 +136,8 @@ export interface Song {
     score?: number;
     provider?: string;
   } | null;
+  demonetized?: boolean;
+  is_for_sale?: boolean;
   created_at: string;
   updated_at: string;
 }

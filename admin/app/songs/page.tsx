@@ -118,6 +118,28 @@ export default function SongsPage() {
   // Approve a rejected song (manual override). Surfaces the copyright match
   // in the confirm prompt so the admin reviews before overriding an
   // automated copyright rejection.
+  const handleDemonetize = async (song: Song) => {
+    const confirmed = window.confirm(
+      `Demonetize "${song.title}"? The buy button will be removed, and the artist cannot put it back on sale.`,
+    );
+    if (!confirmed) return;
+    try {
+      const token = await getIdToken();
+      if (!token) return;
+      await adminApi.demonetizeSong(token, song.id);
+      setSongs((rows) =>
+        rows.map((row) =>
+          row.id === song.id
+            ? { ...row, demonetized: true, is_for_sale: false }
+            : row,
+        ),
+      );
+    } catch (err) {
+      console.error('Failed to demonetize song:', err);
+      alert('Failed to demonetize song. Please try again.');
+    }
+  };
+
   const handleApproveRejected = async (song: Song) => {
     const match = song.copyright_match;
     const matchLabel = match?.title
@@ -386,6 +408,19 @@ export default function SongsPage() {
                         Approve anyway
                       </button>
                     )}
+                    {isCopyrightFlagged(song) &&
+                      (song.demonetized ? (
+                        <span className="ml-3 text-xs font-medium text-red-700">
+                          Demonetized
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleDemonetize(song)}
+                          className="ml-3 text-red-700 hover:text-red-900"
+                        >
+                          Demonetize
+                        </button>
+                      ))}
                   </td>
                 </tr>
               ))
