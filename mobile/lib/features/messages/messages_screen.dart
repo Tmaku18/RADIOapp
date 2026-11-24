@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/auth/auth_service.dart';
@@ -82,7 +83,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
       child: ListTile(
         leading: c.otherAvatarUrl != null
             ? CircleAvatar(
-                backgroundImage: NetworkImage(c.otherAvatarUrl!),
+                backgroundImage: CachedNetworkImageProvider(c.otherAvatarUrl!),
               )
             : const CircleAvatar(child: Text('👤')),
         title: Text(c.otherDisplayName ?? 'Unknown'),
@@ -608,10 +609,10 @@ class _ThreadScreenState extends State<ThreadScreen> {
           children.add(
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
-              child: Image.network(
-                m.mediaUrl!,
+              child: CachedNetworkImage(
+                imageUrl: m.mediaUrl!,
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) =>
+                errorWidget: (_, _, _) =>
                     Icon(Icons.broken_image_outlined, color: mutedFg),
               ),
             ),
@@ -703,10 +704,10 @@ class _ThreadScreenState extends State<ThreadScreen> {
                       child: const Icon(Icons.play_circle_outline,
                           size: 48, color: Colors.white70),
                     )
-                  : Image.network(
-                      post.imageUrl,
+                  : CachedNetworkImage(
+                      imageUrl: post.imageUrl,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => Container(
+                      errorWidget: (_, _, _) => Container(
                         color: fg.withValues(alpha: 0.1),
                         alignment: Alignment.center,
                         child: Icon(Icons.broken_image_outlined, color: mutedFg),

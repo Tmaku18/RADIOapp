@@ -23,7 +23,15 @@ import { UserSafetyMenu } from '@/components/safety/UserSafetyMenu';
 import { toast } from 'sonner';
 
 function shouldUnoptimize(url?: string | null): boolean {
-  return !!url && /^https?:\/\//i.test(url);
+  if (!url || !/^https?:\/\//i.test(url)) return false;
+  try {
+    const host = new URL(url).hostname;
+    if (host.endsWith('.supabase.co') || host.endsWith('.r2.dev')) return false;
+    if (host.endsWith('r2.cloudflarestorage.com')) return false;
+  } catch {
+    return true;
+  }
+  return true;
 }
 
 interface FeedPostCardProps {

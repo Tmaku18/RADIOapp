@@ -31,6 +31,7 @@ import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { getSupabaseClient } from '../config/supabase.config';
 import { signSongAudioUrl } from '../common/song-audio.util';
+import { publicObjectUrl, uploadStoredObject } from '../common/media-store';
 import { generateUniqueUsername } from '../common/username.util';
 import { getFirebaseAuth } from '../config/firebase.config';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -520,33 +521,23 @@ export class SongsController {
     const userData = await this.resolveUploaderUser(user);
     this.assertArtistProfileComplete(userData);
 
-    // Convert storage paths to public URLs
-    const { data: audioUrlData } = supabase.storage
-      .from('songs')
-      .getPublicUrl(dto.audioPath);
+    // Convert storage paths to public URLs. Songs stay a Supabase-shaped
+    // reference (playback re-signs, and prefers R2). Public images use R2.
+    const audioPublicUrl = publicObjectUrl('songs', dto.audioPath);
 
     let artworkUrl: string | undefined;
     if (dto.artworkPath) {
-      const { data: artworkUrlData } = supabase.storage
-        .from('artwork')
-        .getPublicUrl(dto.artworkPath);
-      artworkUrl = artworkUrlData.publicUrl;
+      artworkUrl = publicObjectUrl('artwork', dto.artworkPath);
     }
 
     let discoverClipUrl: string | undefined;
     if (dto.discoverClipPath) {
-      const { data: discoverClipUrlData } = supabase.storage
-        .from('songs')
-        .getPublicUrl(dto.discoverClipPath);
-      discoverClipUrl = discoverClipUrlData.publicUrl;
+      discoverClipUrl = publicObjectUrl('songs', dto.discoverClipPath);
     }
 
     let discoverBackgroundUrl: string | undefined;
     if (dto.discoverBackgroundPath) {
-      const { data: discoverBackgroundUrlData } = supabase.storage
-        .from('artwork')
-        .getPublicUrl(dto.discoverBackgroundPath);
-      discoverBackgroundUrl = discoverBackgroundUrlData.publicUrl;
+      discoverBackgroundUrl = publicObjectUrl('artwork', dto.discoverBackgroundPath);
     }
 
     // Privacy-policy screening for direct-to-storage image uploads: these
@@ -566,8 +557,7 @@ export class SongsController {
     let downloadedMime: string | undefined;
     try {
       const audioUrl =
-        (await signSongAudioUrl(audioUrlData.publicUrl)) ??
-        audioUrlData.publicUrl;
+        (await signSongAudioUrl(audioPublicUrl)) ?? audioPublicUrl;
       if (audioUrl) {
         const abortController = new AbortController();
         const timeout = setTimeout(() => abortController.abort(), 15000);
@@ -628,20 +618,21 @@ export class SongsController {
         const streamPath =
           dto.audioPath.replace(/\.[^./]+$/, '') +
           `-stream192-${Date.now()}.mp3`;
-        const { error: streamUploadError } = await supabase.storage
-          .from('songs')
-          .upload(streamPath, mp3, {
-            contentType: 'audio/mpeg',
-            upsert: false,
-          });
-        if (streamUploadError) {
-          this.logger.warn(
-            `Failed to upload streamable copy, keeping original: ${streamUploadError.message}`,
+        try {
+          streamAudioUrl = await uploadStoredObject(
+            'songs',
+            streamPath,
+            mp3,
+            'audio/mpeg',
           );
-        } else {
-          streamAudioUrl = supabase.storage
-            .from('songs')
-            .getPublicUrl(streamPath).data.publicUrl;
+        } catch (streamUploadError) {
+          this.logger.warn(
+            `Failed to upload streamable copy, keeping original: ${
+              streamUploadError instanceof Error
+                ? streamUploadError.message
+                : streamUploadError
+            }`,
+          );
         }
       }
     }
@@ -659,7 +650,7 @@ export class SongsController {
       artistName: (userData.display_name ?? '').trim(),
       artistOriginCity: dto.artistOriginCity.trim(),
       artistOriginState: dto.artistOriginState.trim(),
-      audioUrl: streamAudioUrl ?? audioUrlData.publicUrl,
+      audioUrl: streamAudioUrl ?? audioPublicUrl,
       artworkUrl,
       durationSeconds,
       stationId: fromPathStationIds[0],

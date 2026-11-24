@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
@@ -188,7 +189,7 @@ class _SongStoriesStripState extends State<SongStoriesStrip> {
               child: CircleAvatar(
                 backgroundImage:
                     story.avatarUrl != null && story.avatarUrl!.isNotEmpty
-                    ? NetworkImage(story.avatarUrl!)
+                    ? CachedNetworkImageProvider(story.avatarUrl!)
                     : null,
                 child: story.avatarUrl == null || story.avatarUrl!.isEmpty
                     ? Text(

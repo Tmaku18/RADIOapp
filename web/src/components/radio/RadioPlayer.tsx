@@ -643,7 +643,7 @@ export function RadioPlayer({
     if (!state.isPlaying) return;
 
     let cancelled = false;
-    const heartbeatIntervalMs = 30000;
+    const heartbeatIntervalMs = 60000;
     const send = async () => {
       try {
         await radioApi.sendPresence(
@@ -763,10 +763,19 @@ export function RadioPlayer({
         lastServerPosition.current = serverPosition;
 
         const live = playbackStateRef.current;
-        const normalizeAudioSource = (url: string) =>
-          url
-            .split('?')[0]
-            .replace('/storage/v1/object/sign/', '/storage/v1/object/public/');
+        const normalizeAudioSource = (url: string) => {
+          const path = url.split('?')[0];
+          if (
+            path.includes('.r2.cloudflarestorage.com') ||
+            !path.includes('/storage/v1/object/sign/')
+          ) {
+            return path;
+          }
+          return path.replace(
+            '/storage/v1/object/sign/',
+            '/storage/v1/object/public/',
+          );
+        };
         const sameTrackDifferentSourcePath =
           !!live.track &&
           live.track.id === track.id &&
@@ -1125,7 +1134,10 @@ export function RadioPlayer({
         // Count refresh failures should not affect playback.
       }
     };
-    const interval = setInterval(refreshReactions, 20000);
+    const interval = setInterval(() => {
+      if (document.hidden) return;
+      void refreshReactions();
+    }, 45000);
     return () => {
       cancelled = true;
       clearInterval(interval);

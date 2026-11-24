@@ -587,7 +587,11 @@ export default function DiscoverPage() {
                               fill
                               className="object-cover"
                               sizes="(max-width: 640px) 100vw, 50vw"
-                              unoptimized={post.imageUrl.includes('supabase')}
+                              unoptimized={
+                                !/supabase\.co|\.r2\.dev|r2\.cloudflarestorage\.com/.test(
+                                  post.imageUrl,
+                                )
+                              }
                             />
                           )}
                         </div>

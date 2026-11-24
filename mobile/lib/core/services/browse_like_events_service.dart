@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class BrowseLikeEvent {
@@ -25,35 +24,7 @@ class BrowseLikeEventsService {
   bool _started = false;
 
   Future<void> start() async {
-    if (_started) return;
-    _started = true;
-
-    SupabaseClient client;
-    try {
-      client = Supabase.instance.client;
-    } catch (e) {
-      debugPrint('BrowseLikeEventsService: Supabase not initialized: $e');
-      return;
-    }
-
-    _channel = client
-        .channel('global-like-events')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.insert,
-          schema: 'public',
-          table: 'likes',
-          callback: (payload) {
-            final row = payload.newRecord;
-            if (row.isEmpty) return;
-            _controller.add(
-              BrowseLikeEvent(
-                contentId: row['content_id']?.toString(),
-                songId: row['song_id']?.toString(),
-              ),
-            );
-          },
-        )
-        .subscribe();
+    // Nothing listens to this global likes feed. Skip the realtime channel.
   }
 
   Future<void> stop() async {

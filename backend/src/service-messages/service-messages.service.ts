@@ -10,6 +10,8 @@ import { PushNotificationService } from '../push-notifications/push-notification
 import { ProNetworkSubscriptionService } from '../pro-network-subscription/pro-network-subscription.service';
 import { PRO_NETWORK_PAYWALL_PAYLOAD } from '../pro-network-subscription/pro-network-subscription.constants';
 import { ConfigService } from '@nestjs/config';
+import { publicObjectUrl } from '../common/media-store';
+import { presignLogicalPut, r2Enabled } from '../common/r2-storage';
 import { randomUUID } from 'crypto';
 import { UsersService } from '../users/users.service';
 import { ImageModerationService } from '../moderation/image-moderation.service';
@@ -996,12 +998,24 @@ export class ServiceMessagesService {
     userId: string,
     filename: string,
     contentType: string,
-  ): Promise<{ signedUrl: string; path: string; expiresIn: number }> {
+  ): Promise<{ signedUrl: string; path: string; expiresIn: number; publicUrl: string }> {
     if (!this.allowedDmMediaMimeTypes.includes(contentType)) {
       throw new BadRequestException('Unsupported DM media type');
     }
     const extension = filename.split('.').pop() || 'bin';
     const path = `${userId}/${Date.now()}-${randomUUID()}.${extension}`;
+    if (r2Enabled('dm-media')) {
+      const signed = presignLogicalPut('dm-media', path, contentType, 900);
+      if (!signed) {
+        throw new BadRequestException('Failed to generate upload URL');
+      }
+      return {
+        signedUrl: signed.url,
+        path,
+        expiresIn: 900,
+        publicUrl: publicObjectUrl('dm-media', path),
+      };
+    }
     const supabase = getSupabaseClient();
     const { data, error } = await supabase.storage
       .from('dm-media')
@@ -1025,6 +1039,7 @@ export class ServiceMessagesService {
       signedUrl: normalizedSignedUrl,
       path: data.path,
       expiresIn: 60,
+      publicUrl: publicObjectUrl('dm-media', data.path),
     };
   }
 

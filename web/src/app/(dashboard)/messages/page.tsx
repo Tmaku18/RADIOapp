@@ -285,7 +285,11 @@ export default function MessagesPage() {
       filename: file.name,
       contentType: file.type || 'application/octet-stream',
     });
-    const { signedUrl, path } = uploadUrl.data as { signedUrl: string; path: string };
+    const { signedUrl, path, publicUrl } = uploadUrl.data as {
+      signedUrl: string;
+      path: string;
+      publicUrl?: string;
+    };
     setUploadProgress(10);
     const response = await fetch(signedUrl, {
       method: 'PUT',
@@ -297,7 +301,8 @@ export default function MessagesPage() {
     }
     setUploadProgress(90);
     const base = (supabaseUrl || '').replace(/\/$/, '');
-    const mediaUrl = `${base}/storage/v1/object/public/dm-media/${path}`;
+    const mediaUrl =
+      publicUrl || `${base}/storage/v1/object/public/dm-media/${path}`;
     return { mediaUrl, messageType: resolveMessageType(file) };
   };
 

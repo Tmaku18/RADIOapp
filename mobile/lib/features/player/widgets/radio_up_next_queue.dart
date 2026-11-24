@@ -73,7 +73,7 @@ class _RadioUpNextQueueState extends State<RadioUpNextQueue> {
   void _schedulePoll() {
     _pollTimer?.cancel();
     final pollMs = _tracks.isEmpty && _radioActive && _emptyPollCount < 12
-        ? const Duration(seconds: 5)
+        ? const Duration(seconds: 20)
         : const Duration(seconds: 60);
     _pollTimer = Timer.periodic(pollMs, (_) => unawaited(_load()));
   }

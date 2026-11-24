@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:audio_service/audio_service.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:provider/provider.dart';
@@ -287,7 +288,7 @@ class _StudioScreenState extends State<StudioScreen>
                                 leading: CircleAvatar(
                                   backgroundImage:
                                       (like.avatarUrl ?? '').trim().isNotEmpty
-                                      ? NetworkImage(like.avatarUrl!)
+                                      ? CachedNetworkImageProvider(like.avatarUrl!)
                                       : null,
                                   child: (like.avatarUrl ?? '').trim().isEmpty
                                       ? const Icon(Icons.person_outline)
@@ -968,10 +969,10 @@ class _StudioScreenState extends State<StudioScreen>
               width: 48,
               height: 48,
               child: artwork.isNotEmpty
-                  ? Image.network(
-                      artwork,
+                  ? CachedNetworkImage(
+                      imageUrl: artwork,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, error, stackTrace) => const ColoredBox(
+                      errorWidget: (_, error, stackTrace) => const ColoredBox(
                         color: Colors.black26,
                         child: Icon(Icons.music_note),
                       ),
@@ -1126,10 +1127,10 @@ class _PlayFullButton extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(DimensionTokens.tileRadius),
               child: artwork.isNotEmpty
-                  ? Image.network(
-                      artwork,
+                  ? CachedNetworkImage(
+                      imageUrl: artwork,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => ColoredBox(
+                      errorWidget: (context, error, stackTrace) => ColoredBox(
                         color: scheme.surfaceContainerHighest,
                         child: const Icon(Icons.music_note),
                       ),

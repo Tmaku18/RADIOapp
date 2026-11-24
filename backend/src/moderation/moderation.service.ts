@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
+import { deleteStoredObject, storageKeyFromUrl } from '../common/media-store';
 import { ChatAdminService } from '../chat/chat-admin.service';
 
 const UUID_RE =
@@ -318,24 +319,27 @@ export class ModerationService {
       .eq('id', id);
     if (deleteError) throw new BadRequestException('Could not remove that story.');
     const mediaUrl = String(data.media_url ?? '');
-    const marker = '/feed/';
-    const index = mediaUrl.indexOf(marker);
-    if (index < 0) return;
-    const path = decodeURIComponent(mediaUrl.slice(index + marker.length).split('?')[0]);
+    const path = storageKeyFromUrl(mediaUrl, 'feed');
+    if (!path) return;
     const ownerId = String(data.user_id ?? '');
     if (!ownerId || !path.startsWith(`${ownerId}/`)) return;
-    await supabase.storage.from('feed').remove([path]);
+    await deleteStoredObject('feed', path);
   }
 
   private async removeStorageObject(url: string): Promise<void> {
     if (!url) return;
     try {
-      const path = new URL(url).pathname.match(
-        /\/storage\/v1\/object\/public\/([^/]+)\/(.+)/,
-      );
-      if (!path) return;
-      const supabase = getSupabaseClient();
-      await supabase.storage.from(path[1]).remove([decodeURIComponent(path[2])]);
+      const parsed = new URL(url);
+      const marker = '/storage/v1/object/public/';
+      const markerIndex = parsed.pathname.indexOf(marker);
+      let bucket = 'feed';
+      if (markerIndex >= 0) {
+        const after = parsed.pathname.slice(markerIndex + marker.length);
+        bucket = after.split('/')[0] || 'feed';
+      }
+      const key = storageKeyFromUrl(url, bucket);
+      if (!key) return;
+      await deleteStoredObject(bucket, key);
     } catch {
       // The row delete still removes the post from the feed.
     }

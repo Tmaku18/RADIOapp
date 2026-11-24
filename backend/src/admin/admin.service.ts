@@ -6,6 +6,11 @@ import {
 } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 import { signSongAudioUrl } from '../common/song-audio.util';
+import {
+  deleteStoredObject,
+  storageKeyFromUrl,
+  uploadStoredObject,
+} from '../common/media-store';
 import { getFirebaseAuth } from '../config/firebase.config';
 import { revokeAppleAuthorizationCode } from '../users/apple-token-revoke';
 import Stripe from 'stripe';
@@ -928,28 +933,27 @@ export class AdminService {
       }
 
       const storagePath = `${song.artist_id}/trimmed/${song.id}-${Date.now()}.mp3`;
-      const { error: uploadError } = await supabase.storage
-        .from('songs')
-        .upload(storagePath, trimmedBuffer, {
-          contentType: 'audio/mpeg',
-          upsert: false,
-        });
-
-      if (uploadError) {
+      let trimmedUrl: string;
+      try {
+        trimmedUrl = await uploadStoredObject(
+          'songs',
+          storagePath,
+          trimmedBuffer,
+          'audio/mpeg',
+        );
+      } catch (uploadError) {
         throw new BadRequestException(
-          `Failed to upload trimmed file: ${uploadError.message}`,
+          `Failed to upload trimmed file: ${
+            uploadError instanceof Error ? uploadError.message : uploadError
+          }`,
         );
       }
-
-      const { data: publicUrlData } = supabase.storage
-        .from('songs')
-        .getPublicUrl(storagePath);
 
       const newDurationSeconds = Math.ceil(duration);
       const { data: updatedSong, error: updateError } = await supabase
         .from('songs')
         .update({
-          audio_url: publicUrlData.publicUrl,
+          audio_url: trimmedUrl,
           duration_seconds: newDurationSeconds,
           file_size_bytes: trimmedBuffer.length,
           updated_at: new Date().toISOString(),
@@ -2490,22 +2494,19 @@ export class AdminService {
    * URL format: https://xxx.supabase.co/storage/v1/object/public/bucket/path
    */
   private async deleteFromStorage(bucket: string, url: string): Promise<void> {
-    const supabase = getSupabaseClient();
     try {
-      const urlObj = new URL(url);
-      const pathMatch = urlObj.pathname.match(
-        /\/storage\/v1\/object\/public\/[^/]+\/(.+)/,
-      );
-      if (!pathMatch) {
+      const filePath = storageKeyFromUrl(url, bucket);
+      if (!filePath) {
         this.logger.warn(`Could not extract path from URL: ${url}`);
         return;
       }
-      const filePath = pathMatch[1];
-      const { error } = await supabase.storage.from(bucket).remove([filePath]);
-      if (error)
-        this.logger.warn(`Failed to delete from ${bucket}: ${error.message}`);
-    } catch {
-      this.logger.warn(`Could not parse storage URL: ${url}`);
+      await deleteStoredObject(bucket, filePath);
+    } catch (error) {
+      this.logger.warn(
+        `Failed to delete from ${bucket}: ${
+          error instanceof Error ? error.message : error
+        }`,
+      );
     }
   }
 

@@ -7,6 +7,7 @@ import {
   OnModuleInit,
   BadRequestException,
 } from '@nestjs/common';
+import { signSongAudioUrl } from '../common/song-audio.util';
 import { getSupabaseClient } from '../config/supabase.config';
 import { directQuery, getDirectPool } from '../config/postgres.config';
 import { PushNotificationService } from '../push-notifications/push-notification.service';
@@ -1216,13 +1217,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         if (hit && Date.now() - hit.at < this.signedUrlCacheTtlMs) {
           return hit.value;
         }
-        const supabase = getSupabaseClient();
-        const { data, error } = await supabase.storage
-          .from('songs')
-          .createSignedUrl(path, 60 * 60);
-        if (error || !data?.signedUrl) return null;
-        this.signedUrlCache.set(path, { value: data.signedUrl, at: Date.now() });
-        return data.signedUrl;
+        const signed = await signSongAudioUrl(path);
+        if (!signed) return null;
+        this.signedUrlCache.set(path, { value: signed, at: Date.now() });
+        return signed;
       };
 
       // Legacy rows may store only storage path (not full URL).

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:audio_session/audio_session.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/audio/headphone_route.dart';
@@ -862,12 +863,12 @@ class _NowPlayingCard extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: artworkUrl != null && artworkUrl!.isNotEmpty
-                ? Image.network(
-                    artworkUrl!,
+                ? CachedNetworkImage(
+                    imageUrl: artworkUrl!,
                     width: 72,
                     height: 72,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => _artPlaceholder(theme),
+                    errorWidget: (_, _, _) => _artPlaceholder(theme),
                   )
                 : _artPlaceholder(theme),
           ),

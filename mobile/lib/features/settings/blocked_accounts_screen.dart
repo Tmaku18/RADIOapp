@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/services/users_service.dart';
@@ -93,7 +94,7 @@ class _BlockedAccountsScreenState extends State<BlockedAccountsScreen> {
                           return ListTile(
                             leading: CircleAvatar(
                               backgroundImage: (user.avatarUrl ?? '').isNotEmpty
-                                  ? NetworkImage(user.avatarUrl!)
+                                  ? CachedNetworkImageProvider(user.avatarUrl!)
                                   : null,
                               child: (user.avatarUrl ?? '').isEmpty
                                   ? const Icon(Icons.person)

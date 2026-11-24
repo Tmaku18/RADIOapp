@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/models/user.dart' as app_user;
@@ -534,7 +535,7 @@ class _UserFooter extends StatelessWidget {
                     ),
                     backgroundImage:
                         (avatarUrl != null && avatarUrl.isNotEmpty)
-                            ? NetworkImage(avatarUrl)
+                            ? CachedNetworkImageProvider(avatarUrl)
                             : null,
                     child: (avatarUrl == null || avatarUrl.isEmpty)
                         ? Text(

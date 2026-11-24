@@ -37,7 +37,6 @@ export function DimensionSongCard({ song, index, playing, onPlay }: DimensionSon
             fill
             className="object-cover transition-transform duration-700 group-hover:scale-110"
             sizes="(max-width: 768px) 50vw, 25vw"
-            unoptimized
           />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/20 to-pink-500/20" />

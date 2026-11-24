@@ -1,5 +1,5 @@
 import { getSupabaseClient } from '../config/supabase.config';
-import { presignR2Get, r2BucketName, r2Config } from './r2-storage';
+import { presignLogicalGet, r2Enabled } from './r2-storage';
 
 /**
  * Storage helpers for song audio. Full tracks live in the `songs` bucket and
@@ -79,8 +79,8 @@ export async function signSongAudioUrl(
   }
 
   try {
-    if (r2Config() && r2BucketName('songs')) {
-      const signed = presignR2Get(r2BucketName('songs')!, path, expiry);
+    if (r2Enabled('songs')) {
+      const signed = presignLogicalGet('songs', path, expiry);
       if (signed) {
         if (!wantsDownload) {
           signedUrlCache.set(cacheKey, { value: signed, at: Date.now() });

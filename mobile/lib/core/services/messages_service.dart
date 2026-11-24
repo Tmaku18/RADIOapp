@@ -177,12 +177,15 @@ class MessagesService {
     final ticket = await getMessageUploadUrl(contentType: mime, fileName: name);
     final signedUrl = '${ticket['signedUrl'] ?? ''}'.trim();
     final path = '${ticket['path'] ?? ''}'.trim();
+    final publicUrl = '${ticket['publicUrl'] ?? ''}'.trim();
     final base = (env('SUPABASE_URL') ?? '').trim().replaceAll(RegExp(r'/+$'), '');
-    if (signedUrl.isEmpty || path.isEmpty || base.isEmpty) {
+    if (signedUrl.isEmpty || path.isEmpty || (publicUrl.isEmpty && base.isEmpty)) {
       throw Exception('Could not upload the clip');
     }
     await _api.putFileToSignedUrl(signedUrl, file, contentType: mime);
-    final mediaUrl = '$base/storage/v1/object/public/dm-media/$path';
+    final mediaUrl = publicUrl.isNotEmpty
+        ? publicUrl
+        : '$base/storage/v1/object/public/dm-media/$path';
     for (final friendId in friendIds) {
       await sendMessage(
         friendId,

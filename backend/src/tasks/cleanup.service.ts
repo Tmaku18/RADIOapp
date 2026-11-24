@@ -1,7 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { randomUUID } from 'crypto';
 import { getSupabaseClient } from '../config/supabase.config';
+import { getRedisClient, isRedisAvailable } from '../config/redis.config';
 import { AdminService } from '../admin/admin.service';
+import {
+  deleteStoredObject,
+  storageKeyFromUrl,
+  storedObjectExists,
+} from '../common/media-store';
 
 /**
  * Service for cleaning up:
@@ -20,8 +27,45 @@ export class CleanupService {
    * Archive old chat messages (preserves business value for artist sentiment analysis)
    * Runs every hour, moves messages older than 24 hours to chat_archives table
    */
+  private async claimCleanupLock(name: string): Promise<string | null> {
+    const token = randomUUID();
+    const key = `lock:cleanup:${name}`;
+    try {
+      if (await isRedisAvailable()) {
+        const ok = await getRedisClient().set(key, token, 'EX', 3600, 'NX');
+        if (ok !== 'OK') return null;
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Cleanup lock skipped: ${error instanceof Error ? error.message : error}`,
+      );
+    }
+    return token;
+  }
+
+  private async releaseCleanupLock(name: string, token: string | null) {
+    if (!token) return;
+    const key = `lock:cleanup:${name}`;
+    try {
+      const current = await getRedisClient().get(key);
+      if (current === token) await getRedisClient().del(key);
+    } catch {
+      // The lock expires on its own.
+    }
+  }
+
   @Cron(CronExpression.EVERY_HOUR)
   async archiveOldChatMessages() {
+    const lock = await this.claimCleanupLock('chat-archive');
+    if (!lock) return;
+    try {
+      await this.archiveOldChatMessagesLocked();
+    } finally {
+      await this.releaseCleanupLock('chat-archive', lock);
+    }
+  }
+
+  private async archiveOldChatMessagesLocked() {
     this.logger.log('Starting chat message archival...');
 
     const supabase = getSupabaseClient();
@@ -67,6 +111,16 @@ export class CleanupService {
    */
   @Cron(CronExpression.EVERY_DAY_AT_4AM)
   async pruneAutomatedNotifications() {
+    const lock = await this.claimCleanupLock('notifications');
+    if (!lock) return;
+    try {
+      await this.pruneAutomatedNotificationsLocked();
+    } finally {
+      await this.releaseCleanupLock('notifications', lock);
+    }
+  }
+
+  private async pruneAutomatedNotificationsLocked() {
     this.logger.log('Pruning automated notifications older than 30 days...');
 
     const supabase = getSupabaseClient();
@@ -99,8 +153,49 @@ export class CleanupService {
    * Empty-station advances used to write a decision row on every song.
    * Keep two weeks for debugging and drop the rest.
    */
-  @Cron(CronExpression.EVERY_DAY_AT_4AM)
+  @Cron('10 4 * * *')
   async prunePlayDecisionLog() {
+    const lock = await this.claimCleanupLock('play-decision');
+    if (!lock) return;
+    try {
+      await this.prunePlayDecisionLogLocked();
+    } finally {
+      await this.releaseCleanupLock('play-decision', lock);
+    }
+  }
+
+  /** Drop listener-presence rows once the listen is stored on song_listen_events. */
+  @Cron('20 4 * * *')
+  async pruneRadioListenerPresence() {
+    const lock = await this.claimCleanupLock('listener-presence');
+    if (!lock) return;
+    const supabase = getSupabaseClient();
+    let total = 0;
+    try {
+      for (;;) {
+        const { data, error } = await supabase.rpc(
+          'prune_radio_listener_presence',
+          { p_older_than: '24 hours', p_batch: 20000 },
+        );
+        if (error) {
+          this.logger.error(`Presence prune failed: ${error.message}`);
+          return;
+        }
+        const deleted = typeof data === 'number' ? data : Number(data) || 0;
+        total += deleted;
+        if (deleted === 0) break;
+      }
+      this.logger.log(`Pruned ${total} listener presence rows`);
+    } catch (error) {
+      this.logger.error(
+        `Presence prune error: ${error instanceof Error ? error.message : error}`,
+      );
+    } finally {
+      await this.releaseCleanupLock('listener-presence', lock);
+    }
+  }
+
+  private async prunePlayDecisionLogLocked() {
     const supabase = getSupabaseClient();
     let total = 0;
     try {
@@ -129,6 +224,16 @@ export class CleanupService {
    */
   @Cron(CronExpression.EVERY_HOUR)
   async purgeScheduledAccountDeletions() {
+    const lock = await this.claimCleanupLock('account-deletions');
+    if (!lock) return;
+    try {
+      await this.purgeScheduledAccountDeletionsLocked();
+    } finally {
+      await this.releaseCleanupLock('account-deletions', lock);
+    }
+  }
+
+  private async purgeScheduledAccountDeletionsLocked() {
     const supabase = getSupabaseClient();
     const now = new Date().toISOString();
     const { data, error } = await supabase
@@ -172,6 +277,16 @@ export class CleanupService {
    */
   @Cron(CronExpression.EVERY_HOUR)
   async cleanupRejectedSongs() {
+    const lock = await this.claimCleanupLock('rejected-songs');
+    if (!lock) return;
+    try {
+      await this.cleanupRejectedSongsLocked();
+    } finally {
+      await this.releaseCleanupLock('rejected-songs', lock);
+    }
+  }
+
+  private async cleanupRejectedSongsLocked() {
     this.logger.log('Starting rejected songs cleanup...');
 
     const supabase = getSupabaseClient();
@@ -252,8 +367,18 @@ export class CleanupService {
    * Auto-quarantine radio entries that point to missing storage objects.
    * Prevents "Audio source not available" incidents caused by stale URLs.
    */
-  @Cron('0 */3 * * *')
+  @Cron('0 5 * * *')
   async quarantineBrokenRadioAudioSources() {
+    const lock = await this.claimCleanupLock('audio-integrity');
+    if (!lock) return;
+    try {
+      await this.quarantineBrokenRadioAudioSourcesLocked();
+    } finally {
+      await this.releaseCleanupLock('audio-integrity', lock);
+    }
+  }
+
+  private async quarantineBrokenRadioAudioSourcesLocked() {
     this.logger.log('Starting radio audio integrity check...');
     const supabase = getSupabaseClient();
 
@@ -368,34 +493,20 @@ export class CleanupService {
    * Extract storage path from URL and delete the file.
    */
   private async deleteFromStorage(bucket: string, url: string) {
-    const supabase = getSupabaseClient();
-
     try {
-      // Extract the path from the URL
-      // URL format: https://xxx.supabase.co/storage/v1/object/public/bucket/path
-      const urlObj = new URL(url);
-      const pathMatch = urlObj.pathname.match(
-        /\/storage\/v1\/object\/public\/[^\/]+\/(.+)/,
-      );
-
-      if (!pathMatch) {
+      const filePath = storageKeyFromUrl(url, bucket);
+      if (!filePath) {
         this.logger.warn(`Could not extract path from URL: ${url}`);
         return;
       }
-
-      const filePath = pathMatch[1];
-
-      const { error } = await supabase.storage.from(bucket).remove([filePath]);
-
-      if (error) {
-        this.logger.warn(
-          `Failed to delete file from ${bucket}: ${error.message}`,
-        );
-      } else {
-        this.logger.debug(`Deleted file from ${bucket}: ${filePath}`);
-      }
+      await deleteStoredObject(bucket, filePath);
+      this.logger.debug(`Deleted file from ${bucket}: ${filePath}`);
     } catch (error) {
-      this.logger.warn(`Error parsing URL for deletion: ${url}`);
+      this.logger.warn(
+        `Failed to delete file from ${bucket}: ${
+          error instanceof Error ? error.message : error
+        }`,
+      );
     }
   }
 
@@ -414,6 +525,13 @@ export class CleanupService {
   private async storageObjectsExist(paths: string[]): Promise<Set<string>> {
     const found = new Set<string>();
     const unique = [...new Set(paths.filter(Boolean))];
+    const { r2Enabled } = await import('../common/r2-storage');
+    if (r2Enabled('songs')) {
+      for (const name of unique) {
+        if (await storedObjectExists('songs', name)) found.add(name);
+      }
+      return found;
+    }
     const supabase = getSupabaseClient();
     const chunkSize = 80;
     for (let i = 0; i < unique.length; i += chunkSize) {

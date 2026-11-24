@@ -5,6 +5,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
+import {
+  deleteStoredObject,
+  publicObjectUrl,
+} from '../common/media-store';
+import { presignLogicalPut, r2Enabled } from '../common/r2-storage';
 import { RadioService } from '../radio/radio.service';
 import {
   RadioStateService,
@@ -301,14 +306,12 @@ export class DjBoothService {
   }
 
   private clipToPublic(row: Record<string, unknown>) {
-    const supabase = getSupabaseClient();
     const path = String(row.storage_path ?? '');
-    const { data } = supabase.storage.from('dj-soundboard').getPublicUrl(path);
     return {
       id: row.id,
       name: row.name,
       durationSeconds: row.duration_seconds,
-      clipUrl: data.publicUrl,
+      clipUrl: publicObjectUrl('dj-soundboard', path),
       createdAt: row.created_at,
     };
   }
@@ -343,6 +346,16 @@ export class DjBoothService {
   ) {
     const ext = payload.fileName.split('.').pop()?.toLowerCase() || 'mp3';
     const path = `${adminUserId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    if (r2Enabled('dj-soundboard')) {
+      const signed = presignLogicalPut(
+        'dj-soundboard',
+        path,
+        payload.contentType || 'audio/mpeg',
+        900,
+      );
+      if (!signed) throw new BadRequestException('Upload URL failed');
+      return { path, signedUrl: signed.url, token: '' };
+    }
     const supabase = getSupabaseClient();
     const { data, error } = await supabase.storage
       .from('dj-soundboard')
@@ -361,7 +374,7 @@ export class DjBoothService {
       .eq('id', clipId)
       .maybeSingle();
     if (!clip) throw new NotFoundException('Clip not found');
-    await supabase.storage.from('dj-soundboard').remove([clip.storage_path]);
+    await deleteStoredObject('dj-soundboard', clip.storage_path);
     await supabase.from('dj_soundboard_clips').delete().eq('id', clipId);
     return { deleted: true };
   }

@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
+import { deleteStoredObject, storageKeyFromUrl } from '../common/media-store';
 import {
   approximatePublicCoords,
   geocodeCityZip,
@@ -182,6 +183,8 @@ export class DiscoveryService {
   private feedStoragePathFromPublicUrl(imageUrl: string): string | null {
     try {
       const urlObj = new URL(imageUrl);
+      const fromStore = storageKeyFromUrl(imageUrl, 'feed');
+      if (fromStore) return fromStore;
       const feedMarker = '/storage/v1/object/public/feed/';
       const feedIdx = urlObj.pathname.indexOf(feedMarker);
       if (feedIdx >= 0) {
@@ -2183,7 +2186,7 @@ export class DiscoveryService {
       try {
         const storagePath = this.feedStoragePathFromPublicUrl(mediaUrl);
         if (storagePath) {
-          await supabase.storage.from('feed').remove([storagePath]);
+          await deleteStoredObject('feed', storagePath);
         }
       } catch {
         // Best-effort storage cleanup.

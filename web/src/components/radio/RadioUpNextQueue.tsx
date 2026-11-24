@@ -88,7 +88,7 @@ export function RadioUpNextQueue({ radioId }: RadioUpNextQueueProps) {
   useEffect(() => {
     const pollMs =
       tracks.length === 0 && radioActive && emptyWhilePlayingRef.current < 12
-        ? 5000
+        ? 20000
         : 60000;
     const interval = setInterval(() => {
       void loadQueue();

@@ -51,7 +51,7 @@ export function NowPlayingBar() {
     if (!songId) return;
 
     let cancelled = false;
-    const heartbeatIntervalMs = 30000;
+    const heartbeatIntervalMs = 60000;
     const send = async () => {
       try {
         await radioApi.sendPresence(

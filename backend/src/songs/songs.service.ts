@@ -24,6 +24,7 @@ import ffmpegStatic from 'ffmpeg-static';
 import { existsSync, promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { uploadStoredObject } from '../common/media-store';
 import {
   signSongAudioUrl,
   resolveSampleWindow,
@@ -151,7 +152,6 @@ export class SongsService {
     startSeconds: number;
     endSeconds: number;
   }): Promise<string> {
-    const supabase = getSupabaseClient();
     // The full track lives in the private `songs` bucket, so sign the source
     // before fetching it for trimming.
     const signedSource =
@@ -207,21 +207,20 @@ export class SongsService {
       }
 
       const storagePath = `${params.artistId}/discover-clips/${params.songKey}-${Date.now()}.mp3`;
-      const { error: uploadError } = await supabase.storage
-        .from('songs')
-        .upload(storagePath, trimmedBuffer, {
-          contentType: 'audio/mpeg',
-          upsert: false,
-        });
-      if (uploadError) {
+      try {
+        return await uploadStoredObject(
+          'songs',
+          storagePath,
+          trimmedBuffer,
+          'audio/mpeg',
+        );
+      } catch (uploadError) {
         throw new BadRequestException(
-          `Failed to upload trimmed discover clip: ${uploadError.message}`,
+          `Failed to upload trimmed discover clip: ${
+            uploadError instanceof Error ? uploadError.message : uploadError
+          }`,
         );
       }
-      const { data: publicUrlData } = supabase.storage
-        .from('songs')
-        .getPublicUrl(storagePath);
-      return publicUrlData.publicUrl;
     } catch (error) {
       if (error instanceof BadRequestException) throw error;
       throw new BadRequestException(
@@ -245,7 +244,6 @@ export class SongsService {
     startSeconds: number;
     endSeconds: number;
   }): Promise<string> {
-    const supabase = getSupabaseClient();
     if (!this.ffmpegConfigured) {
       throw new BadRequestException(
         'FFmpeg is not configured on the server. Set FFMPEG_PATH or install ffmpeg.',
@@ -301,21 +299,20 @@ export class SongsService {
       }
 
       const storagePath = `${params.artistId}/samples/${params.songKey}-${Date.now()}.mp3`;
-      const { error: uploadError } = await supabase.storage
-        .from('songs')
-        .upload(storagePath, sampleBuffer, {
-          contentType: 'audio/mpeg',
-          upsert: false,
-        });
-      if (uploadError) {
+      try {
+        return await uploadStoredObject(
+          'songs',
+          storagePath,
+          sampleBuffer,
+          'audio/mpeg',
+        );
+      } catch (uploadError) {
         throw new BadRequestException(
-          `Failed to upload sample: ${uploadError.message}`,
+          `Failed to upload sample: ${
+            uploadError instanceof Error ? uploadError.message : uploadError
+          }`,
         );
       }
-      const { data: publicUrlData } = supabase.storage
-        .from('songs')
-        .getPublicUrl(storagePath);
-      return publicUrlData.publicUrl;
     } catch (error) {
       if (error instanceof BadRequestException) throw error;
       throw new BadRequestException(

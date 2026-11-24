@@ -1,8 +1,15 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { getSupabaseClient } from '../config/supabase.config';
-import { putR2Object, r2PublicUrl } from '../common/r2-storage';
+import {
+  deleteStoredObject,
+  publicObjectUrl,
+  STORAGE_CACHE_CONTROL,
+  uploadStoredObject,
+} from '../common/media-store';
+import { headR2Object, presignLogicalPut, r2Enabled } from '../common/r2-storage';
 import { ImageModerationService } from '../moderation/image-moderation.service';
+import { ImageOptimizeService, ImageOptimizeKind } from './image-optimize.service';
 import * as crypto from 'crypto';
 
 /**
@@ -98,7 +105,16 @@ export class UploadsService {
   constructor(
     private configService: ConfigService,
     private readonly imageModeration: ImageModerationService,
+    private readonly imageOptimize: ImageOptimizeService = new ImageOptimizeService(),
   ) {}
+
+  private imageKind(options: UploadOptions): ImageOptimizeKind {
+    if (options.bucket === 'avatars' && options.pathPrefix !== 'hero') {
+      return 'avatar';
+    }
+    if (options.bucket === 'artwork') return 'artwork';
+    return 'general';
+  }
 
   private isBucketNotFoundError(error: unknown, bucket: string): boolean {
     const maybe = error as { message?: string; code?: string } | null;
@@ -405,8 +421,22 @@ export class UploadsService {
       );
     }
 
+    let body = file.buffer;
+    let contentType = file.mimetype;
+    let extension = file.originalname.split('.').pop() || 'bin';
+    if (file.mimetype.startsWith('image/')) {
+      const optimized = await this.imageOptimize.optimize(
+        file.buffer,
+        this.imageKind(options),
+      );
+      if (optimized) {
+        body = optimized.buffer;
+        contentType = optimized.contentType;
+        extension = optimized.extension;
+      }
+    }
+
     // Generate unique filename
-    const extension = file.originalname.split('.').pop() || 'bin';
     const pathPrefix = options.pathPrefix ? `${options.pathPrefix}/` : '';
     const fileName = `${userId}/${pathPrefix}${crypto.randomUUID()}.${extension}`;
 
@@ -429,10 +459,28 @@ export class UploadsService {
         await this.ensureImageBucketLimit(bucketName);
       }
 
+      if (r2Enabled(bucketName)) {
+        try {
+          return await uploadStoredObject(
+            bucketName,
+            fileName,
+            body,
+            contentType,
+          );
+        } catch (mirrorError) {
+          this.logger.warn(
+            `R2 upload failed for ${bucketName}/${fileName}, using Supabase: ${
+              mirrorError instanceof Error ? mirrorError.message : mirrorError
+            }`,
+          );
+        }
+      }
+
       const attemptUpload = async () =>
-        supabase.storage.from(bucketName).upload(fileName, file.buffer, {
-          contentType: file.mimetype,
+        supabase.storage.from(bucketName).upload(fileName, body, {
+          contentType,
           upsert: false,
+          cacheControl: STORAGE_CACHE_CONTROL,
         });
 
       let { data, error } = await attemptUpload();
@@ -468,17 +516,6 @@ export class UploadsService {
       const { data: urlData } = supabase.storage
         .from(bucketName)
         .getPublicUrl(data.path);
-      try {
-        await putR2Object(bucketName, data.path, file.buffer, file.mimetype);
-        const mirrored = r2PublicUrl(bucketName, data.path);
-        if (mirrored) return mirrored;
-      } catch (mirrorError) {
-        this.logger.warn(
-          `R2 mirror skipped for ${bucketName}/${data.path}: ${
-            mirrorError instanceof Error ? mirrorError.message : mirrorError
-          }`,
-        );
-      }
       return urlData.publicUrl;
     }
 
@@ -566,6 +603,16 @@ export class UploadsService {
       throw new BadRequestException('Invalid upload path.');
     }
 
+    if (r2Enabled('feed')) {
+      const exists = await headR2Object('feed', path);
+      if (!exists) {
+        throw new BadRequestException(
+          'Your upload was not found in storage. Please try again.',
+        );
+      }
+      return { publicUrl: publicObjectUrl('feed', path), sizeBytes: null };
+    }
+
     const supabase = getSupabaseClient();
     const slash = path.lastIndexOf('/');
     const directory = path.slice(0, slash);
@@ -607,8 +654,7 @@ export class UploadsService {
    */
   async removeFeedObject(objectPath: string): Promise<void> {
     try {
-      const supabase = getSupabaseClient();
-      await supabase.storage.from('feed').remove([objectPath]);
+      await deleteStoredObject('feed', objectPath);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.warn(`Could not remove rejected upload: ${message}`);
@@ -675,6 +721,7 @@ export class UploadsService {
       .upload(fileName, file.buffer, {
         contentType: 'application/pdf',
         upsert: false,
+        cacheControl: STORAGE_CACHE_CONTROL,
       });
     if (error || !data) {
       throw new BadRequestException(
@@ -789,6 +836,14 @@ export class UploadsService {
     // Keep feed objects under posts/ so they match the multipart path layout.
     const prefix = bucket === 'feed' ? `${userId}/posts` : userId;
     const path = `${prefix}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
+
+    if (r2Enabled(bucket)) {
+      const signed = presignLogicalPut(bucket, path, contentType, 900);
+      if (!signed) {
+        throw new BadRequestException('Failed to generate upload URL');
+      }
+      return { signedUrl: signed.url, path, expiresIn: 900 };
+    }
 
     // Generate signed upload URL (60 seconds expiry)
     const supabase = getSupabaseClient();

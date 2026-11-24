@@ -9,8 +9,25 @@ const withPWA = withPWAInit({
   },
 });
 
+const mediaHost = (() => {
+  const raw = process.env.NEXT_PUBLIC_R2_PUBLIC_BASE_URL || process.env.R2_PUBLIC_BASE_URL;
+  if (!raw) return null;
+  try {
+    return new URL(raw).hostname;
+  } catch {
+    return null;
+  }
+})();
+
 const nextConfig: NextConfig = {
   turbopack: {},
+  images: {
+    remotePatterns: [
+      { protocol: "https", hostname: "*.supabase.co" },
+      { protocol: "https", hostname: "*.r2.dev" },
+      ...(mediaHost ? [{ protocol: "https" as const, hostname: mediaHost }] : []),
+    ],
+  },
   async rewrites() {
     const raw =
       process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";

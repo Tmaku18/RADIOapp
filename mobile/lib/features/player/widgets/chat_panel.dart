@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/auth/auth_service.dart';
@@ -336,7 +337,7 @@ class _ChatPanelState extends State<ChatPanel> {
                 radius: 14,
                 backgroundColor: scheme.primary.withValues(alpha: 0.25),
                 backgroundImage: message.avatarUrl != null
-                    ? NetworkImage(message.avatarUrl!)
+                    ? CachedNetworkImageProvider(message.avatarUrl!)
                     : null,
                 child: message.avatarUrl == null
                     ? Text(
