@@ -51,8 +51,10 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      # Newer stable Flutter requires Gradle 9.3.1+; stay on the version the app builds with.
       - uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.44.7'
           channel: stable
           cache: true
       - run: flutter pub get
