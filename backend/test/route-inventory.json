@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-08-24T04:06:58.944Z",
-  "count": 381,
+  "generatedAt": "2026-11-24T17:03:00.574Z",
+  "count": 414,
   "routes": [
     {
       "method": "GET",
@@ -10,6 +10,17 @@
       "public": false,
       "roles": [],
       "file": "app.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/activity-flags",
+      "controller": "admin.controller",
+      "handler": "getActivityFlags",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
     },
     {
       "method": "GET",
@@ -551,6 +562,17 @@
       "file": "admin/admin.controller.ts"
     },
     {
+      "method": "POST",
+      "path": "/api/admin/payouts/:artistId/settle",
+      "controller": "admin.controller",
+      "handler": "settleArtistPayout",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
       "method": "GET",
       "path": "/api/admin/payouts/pending",
       "controller": "admin.controller",
@@ -640,6 +662,39 @@
     },
     {
       "method": "GET",
+      "path": "/api/admin/reports/content",
+      "controller": "admin.controller",
+      "handler": "getContentReports",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/reports/content/:id/dismiss",
+      "controller": "admin.controller",
+      "handler": "dismissContentReport",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/reports/content/:id/remove",
+      "controller": "admin.controller",
+      "handler": "removeReportedContent",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "GET",
       "path": "/api/admin/reports/posts",
       "controller": "admin.controller",
       "handler": "getDiscoverFeedPostReports",
@@ -687,6 +742,17 @@
       "path": "/api/admin/songs/:id",
       "controller": "admin.controller",
       "handler": "updateSongStatus",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/songs/:id/demonetize",
+      "controller": "admin.controller",
+      "handler": "demonetizeSong",
       "public": false,
       "roles": [
         "admin"
@@ -1282,6 +1348,24 @@
       "file": "auth/auth.controller.ts"
     },
     {
+      "method": "POST",
+      "path": "/api/auth/phone/send",
+      "controller": "auth.controller",
+      "handler": "sendPhoneCode",
+      "public": false,
+      "roles": [],
+      "file": "auth/auth.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/phone/verify",
+      "controller": "auth.controller",
+      "handler": "verifyPhoneCode",
+      "public": false,
+      "roles": [],
+      "file": "auth/auth.controller.ts"
+    },
+    {
       "method": "GET",
       "path": "/api/auth/verify",
       "controller": "auth.controller",
@@ -1354,6 +1438,15 @@
       "file": "browse/browse.controller.ts"
     },
     {
+      "method": "GET",
+      "path": "/api/chat/comments",
+      "controller": "chat.controller",
+      "handler": "getComments",
+      "public": true,
+      "roles": [],
+      "file": "chat/chat.controller.ts"
+    },
+    {
       "method": "POST",
       "path": "/api/chat/emoji",
       "controller": "emoji.controller",
@@ -1368,6 +1461,15 @@
       "controller": "chat.controller",
       "handler": "getHistory",
       "public": true,
+      "roles": [],
+      "file": "chat/chat.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/chat/messages/:id",
+      "controller": "chat.controller",
+      "handler": "deleteOwnMessage",
+      "public": false,
       "roles": [],
       "file": "chat/chat.controller.ts"
     },
@@ -1515,7 +1617,7 @@
       "path": "/api/discovery/feed",
       "controller": "discovery.controller",
       "handler": "listFeed",
-      "public": false,
+      "public": true,
       "roles": [],
       "file": "discovery/discovery.controller.ts"
     },
@@ -1542,7 +1644,7 @@
       "path": "/api/discovery/feed/explore",
       "controller": "discovery.controller",
       "handler": "exploreTiles",
-      "public": false,
+      "public": true,
       "roles": [],
       "file": "discovery/discovery.controller.ts"
     },
@@ -1551,7 +1653,7 @@
       "path": "/api/discovery/feed/explore-stream",
       "controller": "discovery.controller",
       "handler": "exploreStream",
-      "public": false,
+      "public": true,
       "roles": [],
       "file": "discovery/discovery.controller.ts"
     },
@@ -1596,7 +1698,7 @@
       "path": "/api/discovery/feed/posts/:id/comments",
       "controller": "discovery.controller",
       "handler": "listComments",
-      "public": false,
+      "public": true,
       "roles": [],
       "file": "discovery/discovery.controller.ts"
     },
@@ -1641,7 +1743,7 @@
       "path": "/api/discovery/feed/search",
       "controller": "discovery.controller",
       "handler": "searchFeed",
-      "public": false,
+      "public": true,
       "roles": [],
       "file": "discovery/discovery.controller.ts"
     },
@@ -1664,7 +1766,7 @@
       "path": "/api/discovery/feed/users/:userId/posts",
       "controller": "discovery.controller",
       "handler": "listUserPosts",
-      "public": false,
+      "public": true,
       "roles": [],
       "file": "discovery/discovery.controller.ts"
     },
@@ -1700,7 +1802,7 @@
       "path": "/api/discovery/people",
       "controller": "discovery.controller",
       "handler": "listPeople",
-      "public": false,
+      "public": true,
       "roles": [],
       "file": "discovery/discovery.controller.ts"
     },
@@ -1709,9 +1811,36 @@
       "path": "/api/discovery/people/directory",
       "controller": "discovery.controller",
       "handler": "listPeopleDirectory",
-      "public": false,
+      "public": true,
       "roles": [],
       "file": "discovery/discovery.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/fans/:artistId",
+      "controller": "fans.controller",
+      "handler": "subscribe",
+      "public": false,
+      "roles": [],
+      "file": "fans/fans.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/fans/me",
+      "controller": "fans.controller",
+      "handler": "mine",
+      "public": false,
+      "roles": [],
+      "file": "fans/fans.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/fans/me/:fanId",
+      "controller": "fans.controller",
+      "handler": "remove",
+      "public": false,
+      "roles": [],
+      "file": "fans/fans.controller.ts"
     },
     {
       "method": "GET",
@@ -1721,6 +1850,98 @@
       "public": false,
       "roles": [],
       "file": "feed/feed.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/flags",
+      "controller": "flags.controller",
+      "handler": "list",
+      "public": true,
+      "roles": [],
+      "file": "flags/flags.controller.ts"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/flags",
+      "controller": "flags.controller",
+      "handler": "update",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "flags/flags.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/growth/favorites",
+      "controller": "growth.controller",
+      "handler": "favorites",
+      "public": false,
+      "roles": [],
+      "file": "growth/growth.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/growth/history",
+      "controller": "growth.controller",
+      "handler": "history",
+      "public": false,
+      "roles": [],
+      "file": "growth/growth.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/growth/history",
+      "controller": "growth.controller",
+      "handler": "record",
+      "public": false,
+      "roles": [],
+      "file": "growth/growth.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/growth/notifications",
+      "controller": "growth.controller",
+      "handler": "prefs",
+      "public": false,
+      "roles": [],
+      "file": "growth/growth.controller.ts"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/growth/notifications",
+      "controller": "growth.controller",
+      "handler": "updatePrefs",
+      "public": false,
+      "roles": [],
+      "file": "growth/growth.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/growth/referrals/claim",
+      "controller": "growth.controller",
+      "handler": "claim",
+      "public": false,
+      "roles": [],
+      "file": "growth/growth.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/growth/referrals/me",
+      "controller": "growth.controller",
+      "handler": "referral",
+      "public": false,
+      "roles": [],
+      "file": "growth/growth.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/growth/search",
+      "controller": "growth.controller",
+      "handler": "search",
+      "public": false,
+      "roles": [],
+      "file": "growth/growth.controller.ts"
     },
     {
       "method": "GET",
@@ -2023,6 +2244,15 @@
       "public": false,
       "roles": [],
       "file": "service-messages/service-messages.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/moderation/reports",
+      "controller": "moderation.controller",
+      "handler": "report",
+      "public": false,
+      "roles": [],
+      "file": "moderation/moderation.controller.ts"
     },
     {
       "method": "DELETE",
@@ -2405,6 +2635,15 @@
       "path": "/api/playlists/:id/tracks/:songId",
       "controller": "playlists.controller",
       "handler": "removeTrack",
+      "public": false,
+      "roles": [],
+      "file": "playlists/playlists.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/playlists/catalog",
+      "controller": "playlists.controller",
+      "handler": "catalog",
       "public": false,
       "roles": [],
       "file": "playlists/playlists.controller.ts"
@@ -3023,10 +3262,46 @@
     },
     {
       "method": "GET",
+      "path": "/api/song-stories",
+      "controller": "song-stories.controller",
+      "handler": "list",
+      "public": false,
+      "roles": [],
+      "file": "song-stories/song-stories.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/song-stories",
+      "controller": "song-stories.controller",
+      "handler": "create",
+      "public": false,
+      "roles": [],
+      "file": "song-stories/song-stories.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/song-stories/:id",
+      "controller": "song-stories.controller",
+      "handler": "remove",
+      "public": false,
+      "roles": [],
+      "file": "song-stories/song-stories.controller.ts"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/song-stories/:id",
+      "controller": "song-stories.controller",
+      "handler": "setVisibility",
+      "public": false,
+      "roles": [],
+      "file": "song-stories/song-stories.controller.ts"
+    },
+    {
+      "method": "GET",
       "path": "/api/songs",
       "controller": "songs.controller",
       "handler": "getSongs",
-      "public": false,
+      "public": true,
       "roles": [],
       "file": "songs/songs.controller.ts"
     },
@@ -3222,6 +3497,24 @@
       "file": "songs/songs.controller.ts"
     },
     {
+      "method": "GET",
+      "path": "/api/songs/:id/rating",
+      "controller": "songs.controller",
+      "handler": "getSongRating",
+      "public": false,
+      "roles": [],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/songs/:id/rating",
+      "controller": "songs.controller",
+      "handler": "rateSong",
+      "public": false,
+      "roles": [],
+      "file": "songs/songs.controller.ts"
+    },
+    {
       "method": "POST",
       "path": "/api/songs/:id/sample",
       "controller": "songs.controller",
@@ -3287,7 +3580,7 @@
       "path": "/api/songs/artists/search",
       "controller": "songs.controller",
       "handler": "searchArtists",
-      "public": false,
+      "public": true,
       "roles": [
         "listener",
         "artist",
@@ -3310,7 +3603,7 @@
       "path": "/api/songs/discover/feed",
       "controller": "songs.controller",
       "handler": "getDiscoverFeed",
-      "public": false,
+      "public": true,
       "roles": [
         "listener",
         "artist",
@@ -3500,6 +3793,15 @@
         "service_provider",
         "admin"
       ],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/songs/saved-status",
+      "controller": "songs.controller",
+      "handler": "getSavedStatus",
+      "public": false,
+      "roles": [],
       "file": "songs/songs.controller.ts"
     },
     {
@@ -3844,6 +4146,15 @@
       "path": "/api/users/me",
       "controller": "users.controller",
       "handler": "updateCurrentUser",
+      "public": false,
+      "roles": [],
+      "file": "users/users.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/users/me/apple-authorization",
+      "controller": "users.controller",
+      "handler": "saveAppleAuthorization",
       "public": false,
       "roles": [],
       "file": "users/users.controller.ts"
