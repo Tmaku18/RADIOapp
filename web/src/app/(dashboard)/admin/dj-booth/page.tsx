@@ -18,6 +18,7 @@ import {
 import { ArtworkImage } from '@/components/common/ArtworkImage';
 import { Badge } from '@/components/ui/badge';
 import { subscribeDjBoothEvents } from '@/lib/dj-booth-listener';
+import { Mic } from 'lucide-react';
 
 type RadioOption = { id: string; state: string; label: string };
 
@@ -301,7 +302,10 @@ export default function DjBoothPage() {
     <div className="space-y-6 p-4 md:p-6 max-w-6xl mx-auto">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">DJ Booth</h1>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Mic className="h-6 w-6" aria-hidden />
+            DJ Booth
+          </h1>
           <p className="text-sm text-muted-foreground">
             Control the radio player, queue, mic, and soundboard for any station.
           </p>

@@ -20,7 +20,10 @@ const int _kAdminDiscoverMinSeconds = 5;
 const int _kAdminDiscoverMaxSeconds = 15;
 
 class AdminDashboardScreen extends StatefulWidget {
-  const AdminDashboardScreen({super.key});
+  const AdminDashboardScreen({super.key, this.initialTab = 0});
+
+  /// 0 Overview, 1 Songs, then the remaining admin tabs.
+  final int initialTab;
 
   @override
   State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
@@ -1152,8 +1155,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       );
     }
 
+    final tabCount = 7;
+    final initialTab = widget.initialTab.clamp(0, tabCount - 1);
     return DefaultTabController(
-      length: 7,
+      length: tabCount,
+      initialIndex: initialTab,
       child: DimensionScreenShell(
         title: 'Admin Dashboard',
         showNeonLine: true,
@@ -1162,7 +1168,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             tooltip: 'DJ Booth',
             onPressed: () =>
                 Navigator.pushNamed(context, AppRoutes.adminDjBooth),
-            icon: const Icon(Icons.headphones),
+            icon: const Icon(Icons.mic),
           ),
           IconButton(onPressed: _loadInitial, icon: const Icon(Icons.refresh)),
         ],

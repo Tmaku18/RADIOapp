@@ -597,7 +597,14 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('DJ Booth'),
+        title: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.mic),
+            SizedBox(width: 8),
+            Text('DJ Booth'),
+          ],
+        ),
         actions: [
           if (_stationId != null)
             IconButton(
