@@ -9,6 +9,7 @@ import {
   storageKeyFromUrl,
   storedObjectExists,
 } from '../common/media-store';
+import { r2Enabled } from '../common/r2-storage';
 
 /**
  * Service for cleaning up:
@@ -525,7 +526,6 @@ export class CleanupService {
   private async storageObjectsExist(paths: string[]): Promise<Set<string>> {
     const found = new Set<string>();
     const unique = [...new Set(paths.filter(Boolean))];
-    const { r2Enabled } = await import('../common/r2-storage');
     if (r2Enabled('songs')) {
       for (const name of unique) {
         if (await storedObjectExists('songs', name)) found.add(name);
