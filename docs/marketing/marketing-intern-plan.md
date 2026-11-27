@@ -2,7 +2,11 @@
 
 **What this is:** The packet a school can approve, the 12-week task list, and one campaign plus one flier brief for each feature that is safe to explain in public.
 
+**Employer:** DiscoverMeRadio LLC
+
 **Who it is for:** The marketing intern, the site supervisor, and the school internship coordinator.
+
+**Word version:** [DiscoverMeRadio_LLC_Marketing_Internship.docx](DiscoverMeRadio_LLC_Marketing_Internship.docx) (generated from this file)
 
 **Term:** 12 weeks, about 10 hours a week, about 120 hours.
 
@@ -22,7 +26,7 @@ Do not send Part 1 with blank fields.
 
 | Field | Write it here | Notes |
 | --- | --- | --- |
-| Legal entity on the letter | | Play Console company name on file is DISCOVERMERADIO GROUP LLC. The app bundle is published as TMAK Technologies (`com.tmaktechnologies.networxradio`). Use the entity the school should name as the employer. Confirm before signing. |
+| Legal entity on the letter | DiscoverMeRadio LLC | This is the employer name on the school letter. The Google Play Console company name on file is DISCOVERMERADIO GROUP LLC. The app bundle is published as TMAK Technologies (`com.tmaktechnologies.networxradio`). |
 | Business address | | |
 | Supervisor name and title | | |
 | Supervisor email and phone | | Public support mail is support@networxradio.com. Use the supervisor's own contact on the letter. |
@@ -80,6 +84,7 @@ Give the coordinator this part plus the weekly plan in Part 2. Parts 3 and 4 sho
 
 | Item | Detail |
 | --- | --- |
+| Employer | DiscoverMeRadio LLC |
 | Title | Marketing intern |
 | Department | Marketing, reporting to the site supervisor |
 | Hours | About 10 hours a week for 12 weeks (about 120 hours) |
@@ -98,7 +103,7 @@ If the school requires a primary-beneficiary statement for an unpaid internship,
 
 ## 1.3 Employer letter
 
-Copy this onto letterhead after the fill-in table is complete.
+This letter is from DiscoverMeRadio LLC. Copy it onto that company's letterhead after the remaining blanks (address, supervisor, intern, dates, pay, and schedule) are filled in.
 
 ---
 
@@ -109,7 +114,7 @@ Internship coordinator
 
 I am writing to confirm a marketing internship for [intern name].
 
-[Legal entity] is building NETWORX, a music discovery platform and creative network for independent artists, listeners, and creative service providers. The public products are NETWORX Radio ([networxradio.com](https://www.networxradio.com)) and Pro-Networx ([pro-networx.com](https://www.pro-networx.com)).
+DiscoverMeRadio LLC is building NETWORX, a music discovery platform and creative network for independent artists, listeners, and creative service providers. The public products are NETWORX Radio ([networxradio.com](https://www.networxradio.com)) and Pro-Networx ([pro-networx.com](https://www.pro-networx.com)).
 
 [Intern name] will work about 10 hours a week from [start date] through [end date], about 120 hours in total. The schedule is [days and hours]. The work site is [remote / office / both]. The internship is [paid at $__ an hour / unpaid].
 
@@ -132,7 +137,7 @@ Sincerely,
 
 [Supervisor name]  
 [Title]  
-[Legal entity]  
+DiscoverMeRadio LLC  
 [Phone] · [Email]
 
 ---
