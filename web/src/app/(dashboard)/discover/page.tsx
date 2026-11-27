@@ -34,6 +34,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { artistProfilePath } from '@/lib/artist-links';
 import { StationNetworkSelector } from '@/components/discovery/StationNetworkSelector';
 import { ArtistGlassCard } from '@/components/dimension/ArtistGlassCard';
+import { FeedReels } from '@/components/pro-networx/FeedReels';
 import { GENRE_OPTIONS } from '@/data/genre-options';
 import { getStationAutoplayEnabled, getLastRadioStationId, signalRadioNavIntent } from '@/lib/playback-preferences';
 import { usePlaybackOptional } from '@/components/playback/PlaybackProvider';
@@ -207,7 +208,6 @@ export default function DiscoverPage() {
   const [feedNextCursor, setFeedNextCursor] = useState<string | null>(null);
   const [feedLoading, setFeedLoading] = useState(true);
   const [feedLoadingMore, setFeedLoadingMore] = useState(false);
-  const feedSentinelRef = useRef<HTMLDivElement>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadCover, setUploadCover] = useState<File | null>(null);
@@ -265,20 +265,6 @@ export default function DiscoverPage() {
   useEffect(() => {
     if (activeTab === 'feed') loadFeed(false);
   }, [activeTab, loadFeed]);
-
-  useEffect(() => {
-    if (activeTab !== 'feed' || !feedNextCursor || feedLoadingMore) return;
-    const el = feedSentinelRef.current;
-    if (!el) return;
-    const obs = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) loadFeed(true, feedNextCursor);
-      },
-      { rootMargin: '200px', threshold: 0.1 },
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [activeTab, feedNextCursor, feedLoadingMore, loadFeed]);
 
   const handleCreatePost = async () => {
     if (!uploadFile) {
@@ -448,14 +434,31 @@ export default function DiscoverPage() {
             <DiscoveryHeatMap stationId={selectedStationId} role={role} />
           </TabsContent>
 
-          {/* Feed tab: endless scroll of catalyst posts */}
+          {/* Feed tab: full-screen vertical feed, one post per screen */}
           <TabsContent value="feed" className="mt-0 pt-6">
-            <div className="flex flex-col gap-4">
-              {isCatalyst && (
-                <div className="flex justify-end">
+            {activeTab === 'feed' && (
+              <FeedReels
+                title="Feed"
+                posts={feedPosts}
+                loading={feedLoading}
+                loadingMore={feedLoadingMore}
+                hasMore={Boolean(feedNextCursor)}
+                onLoadMore={() => {
+                  if (feedNextCursor && !feedLoadingMore) loadFeed(true, feedNextCursor);
+                }}
+                onPostChange={(next) =>
+                  setFeedPosts((prev) => prev.map((p) => (p.id === next.id ? next : p)))
+                }
+                onPostRemoved={(postId) =>
+                  setFeedPosts((prev) => prev.filter((p) => p.id !== postId))
+                }
+                onClose={() => setActiveTab('station')}
+                topRight={
+                  isCatalyst ? (
+                    <>
                   <Dialog open={uploadOpen} onOpenChange={(o) => { setUploadOpen(o); if (!o) setUploadError(null); }}>
                     <DialogTrigger asChild>
-                      <Button size="sm" className="bg-primary text-primary-foreground">Add post</Button>
+                      <Button size="sm" className="rounded-full bg-primary text-primary-foreground">Add post</Button>
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-md">
                       <DialogHeader>
@@ -512,108 +515,16 @@ export default function DiscoverPage() {
                       </div>
                     </DialogContent>
                   </Dialog>
-                </div>
-              )}
-              {feedLoading ? (
-                <div className="flex justify-center py-12">
-                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
-                </div>
-              ) : feedPosts.length === 0 ? (
-                <p className="text-center text-muted-foreground py-12">
-                  No posts yet. Share a photo or short video — posts also show on your profile.
-                </p>
-              ) : (
-                <div className="grid gap-6 sm:grid-cols-2">
-                  {feedPosts.map((post) => {
-                    const canDelete =
-                      profile?.id === post.authorUserId ||
-                      profile?.role === 'admin';
-                    return (
-                    <Card key={post.id} className="overflow-hidden border-border/80">
-                      <CardContent className="p-0">
-                        <div className="flex items-center gap-3 p-3 border-b border-border/60">
-                          <Link href={artistProfilePath(post.authorUserId)} className="flex min-w-0 flex-1 items-center gap-3">
-                            {post.authorAvatarUrl ? (
-                              <Image
-                                src={post.authorAvatarUrl}
-                                alt={post.authorDisplayName ?? 'Avatar'}
-                                width={40}
-                                height={40}
-                                className="rounded-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-lg">🛠️</div>
-                            )}
-                            <div className="min-w-0">
-                              <p className="font-medium text-foreground truncate">{post.authorDisplayName || 'Creator'}</p>
-                              {post.authorHeadline && (
-                                <p className="text-xs text-muted-foreground truncate">{post.authorHeadline}</p>
-                              )}
-                            </div>
-                          </Link>
-                          {canDelete && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="text-muted-foreground hover:text-destructive"
-                              onClick={async () => {
-                                if (!window.confirm('Delete this post from the feed?')) return;
-                                try {
-                                  await discoveryApi.deletePost(post.id);
-                                  setFeedPosts((prev) => prev.filter((p) => p.id !== post.id));
-                                } catch {
-                                  // leave card; user can retry
-                                }
-                              }}
-                            >
-                              Delete
-                            </Button>
-                          )}
-                        </div>
-                        <div className="relative aspect-square w-full bg-muted">
-                          {post.mediaType === 'video' ? (
-                            <video
-                              src={post.imageUrl}
-                              controls
-                              playsInline
-                              preload="metadata"
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <Image
-                              src={post.imageUrl}
-                              alt={post.caption || 'Post'}
-                              fill
-                              className="object-cover"
-                              sizes="(max-width: 640px) 100vw, 50vw"
-                              unoptimized={
-                                !/supabase\.co|\.r2\.dev|r2\.cloudflarestorage\.com/.test(
-                                  post.imageUrl,
-                                )
-                              }
-                            />
-                          )}
-                        </div>
-                        {post.caption && (
-                          <p className="p-3 text-sm text-foreground/90 whitespace-pre-wrap">{post.caption}</p>
-                        )}
-                        <p className="px-3 pb-2 text-xs text-muted-foreground">
-                          {new Date(post.createdAt).toLocaleDateString(undefined, { dateStyle: 'medium' })}
-                        </p>
-                      </CardContent>
-                    </Card>
-                    );
-                  })}
-                </div>
-              )}
-              <div ref={feedSentinelRef} className="h-4" />
-              {feedLoadingMore && (
-                <div className="flex justify-center py-4">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-                </div>
-              )}
-            </div>
+                    </>
+                  ) : null
+                }
+                empty={
+                  <p className="text-white/70">
+                    No posts yet. Share a photo or short video. Posts also show on your profile.
+                  </p>
+                }
+              />
+            )}
           </TabsContent>
 
           {/* People tabs: same filters + grid for Artists and Catalysts */}

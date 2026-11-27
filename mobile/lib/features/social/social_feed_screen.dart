@@ -4,14 +4,13 @@ import '../../core/models/pro_networx_models.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/navigation/home_tab_intent.dart';
 import '../../core/services/pro_networx_service.dart';
-import '../../core/theme/dimension_tokens.dart';
-import '../../widgets/dimension/dimension_widgets.dart';
 import '../pro_networx/pro_create_post_screen.dart';
 import '../pro_networx/pro_networx_shell_screen.dart';
 import '../pro_networx/widgets/feed_post_video.dart';
-import '../pro_networx/widgets/pro_feed_post_card.dart';
+import '../pro_networx/widgets/pro_feed_reel_item.dart';
 
-/// Networks Radio "Social"/Feed tab — public Discover + Pro-Networx posts.
+/// Networks Radio "Social"/Feed tab — public Discover + Pro-Networx posts, shown
+/// as full-screen reels: one post per screen, swipe up for the next.
 ///
 /// Posts come from Pro-Networx create-post and Discover create-video. Listeners
 /// and artists can like/comment here; create via Post or Discover create video.
@@ -39,7 +38,8 @@ class SocialFeedScreen extends StatefulWidget {
 
 class _SocialFeedScreenState extends State<SocialFeedScreen> {
   final ProNetworxService _service = ProNetworxService();
-  final ScrollController _controller = ScrollController();
+  final PageController _pageController = PageController();
+  int _page = 0;
   final List<ProFeedPost> _posts = [];
   String? _nextCursor;
   bool _loading = true;
@@ -49,7 +49,6 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
   @override
   void initState() {
     super.initState();
-    _controller.addListener(_onScroll);
     SocialFeedRefresh.tick.addListener(_onExternalRefresh);
     _load();
   }
@@ -57,8 +56,7 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
   @override
   void dispose() {
     SocialFeedRefresh.tick.removeListener(_onExternalRefresh);
-    _controller.removeListener(_onScroll);
-    _controller.dispose();
+    _pageController.dispose();
     super.dispose();
   }
 
@@ -71,6 +69,7 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
       if (refresh) {
         _posts.clear();
         _nextCursor = null;
+        _page = 0;
       }
       _loading = true;
       _error = null;
@@ -83,7 +82,9 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
           ..clear()
           ..addAll(res.items);
         _nextCursor = res.nextCursor;
+        _page = 0;
       });
+      if (_pageController.hasClients) _pageController.jumpToPage(0);
     } catch (_) {
       if (!mounted) return;
       setState(() => _error = 'Could not load feed.');
@@ -96,10 +97,7 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
     if (_loadingMore || _nextCursor == null) return;
     setState(() => _loadingMore = true);
     try {
-      final res = await _service.listFeed(
-        scope: 'all',
-        cursor: _nextCursor,
-      );
+      final res = await _service.listFeed(scope: 'all', cursor: _nextCursor);
       if (!mounted) return;
       setState(() {
         _posts.addAll(res.items);
@@ -112,18 +110,17 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
     }
   }
 
-  void _onScroll() {
-    if (_controller.position.pixels >=
-        _controller.position.maxScrollExtent - 600) {
-      _loadMore();
-    }
+  void _onPageChanged(int index) {
+    setState(() => _page = index);
+    // Fetch the next batch while the viewer is still a few reels away.
+    if (index >= _posts.length - 3) _loadMore();
   }
 
   Future<void> _openProNetworxToPost() async {
     if (widget.embeddedInProShell) {
-      await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const ProCreatePostScreen()),
-      );
+      await Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const ProCreatePostScreen()));
       if (mounted) await _load(refresh: true);
       return;
     }
@@ -135,44 +132,23 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final body = Column(
+    final body = Stack(
+      fit: StackFit.expand,
       children: [
-        Container(
-          width: double.infinity,
-          margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-          decoration: BoxDecoration(
-            color: scheme.primaryContainer.withValues(alpha: 0.25),
-            borderRadius: BorderRadius.circular(DimensionTokens.cardRadius),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.08),
-            ),
-          ),
+        _buildBody(),
+        Positioned(
+          top: 10,
+          right: 10,
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.workspaces_outlined, color: scheme.primary),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.embeddedInProShell
-                          ? 'Discover'
-                          : 'Posts from Pro-Networx',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    Text(
-                      widget.embeddedInProShell
-                          ? 'Browse creator posts. Share your work from here.'
-                          : 'Videos and posts you share show up here and on your profile.',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
+              if (widget.embeddedInProShell)
+                IconButton.filledTonal(
+                  tooltip: 'Refresh',
+                  icon: const Icon(Icons.refresh, size: 20),
+                  onPressed: _loading ? null : () => _load(refresh: true),
                 ),
-              ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 6),
               FilledButton.icon(
                 onPressed: _openProNetworxToPost,
                 icon: const Icon(Icons.add_a_photo_outlined, size: 18),
@@ -181,21 +157,19 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
             ],
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 2),
-          child: Row(
-            children: [
-              const Expanded(child: NeonLine()),
-              if (widget.embeddedInProShell)
-                IconButton(
-                  tooltip: 'Refresh',
-                  icon: const Icon(Icons.refresh, size: 20),
-                  onPressed: _loading ? null : () => _load(refresh: true),
-                ),
-            ],
+        if (_loadingMore)
+          const Positioned(
+            top: 16,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
           ),
-        ),
-        Expanded(child: _buildBody()),
       ],
     );
 
@@ -206,26 +180,26 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
     return FeedMediaPlayback(
       active: widget.isActive,
       child: Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
         backgroundColor: Colors.transparent,
-        leading: widget.onOpenNavDrawer != null
-            ? IconButton(
-                icon: const Icon(Icons.menu),
-                tooltip: 'Menu',
-                onPressed: widget.onOpenNavDrawer,
-              )
-            : null,
-        title: const Text('Social'),
-        actions: [
-          IconButton(
-            tooltip: 'Refresh',
-            icon: const Icon(Icons.refresh),
-            onPressed: _loading ? null : () => _load(refresh: true),
-          ),
-        ],
-      ),
-      body: body,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          leading: widget.onOpenNavDrawer != null
+              ? IconButton(
+                  icon: const Icon(Icons.menu),
+                  tooltip: 'Menu',
+                  onPressed: widget.onOpenNavDrawer,
+                )
+              : null,
+          title: const Text('Social'),
+          actions: [
+            IconButton(
+              tooltip: 'Refresh',
+              icon: const Icon(Icons.refresh),
+              onPressed: _loading ? null : () => _load(refresh: true),
+            ),
+          ],
+        ),
+        body: body,
       ),
     );
   }
@@ -277,26 +251,31 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
         ),
       );
     }
-    return RefreshIndicator(
-      onRefresh: () => _load(refresh: true),
-      child: ListView.builder(
-        controller: _controller,
-        physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: _posts.length + (_loadingMore ? 1 : 0),
-        itemBuilder: (_, i) {
-          if (i >= _posts.length) {
-            return const Padding(
-              padding: EdgeInsets.all(20),
-              child: Center(child: CircularProgressIndicator()),
-            );
-          }
-          return ProFeedPostCard(
-            post: _posts[i],
-            onChange: (next) => setState(() => _posts[i] = next),
-            onDeleted: () => setState(() => _posts.removeAt(i)),
-          );
-        },
-      ),
+    return PageView.builder(
+      controller: _pageController,
+      scrollDirection: Axis.vertical,
+      // Build the neighbouring reels so the next clip is already loaded.
+      allowImplicitScrolling: true,
+      itemCount: _posts.length,
+      onPageChanged: _onPageChanged,
+      itemBuilder: (_, i) {
+        final post = _posts[i];
+        return ProFeedReelItem(
+          key: ValueKey(post.id),
+          post: post,
+          active: i == _page && widget.isActive,
+          onChange: (next) {
+            final at = _posts.indexWhere((p) => p.id == next.id);
+            if (at >= 0) setState(() => _posts[at] = next);
+          },
+          onDeleted: () => setState(() {
+            _posts.removeWhere((p) => p.id == post.id);
+            if (_page >= _posts.length) {
+              _page = _posts.isEmpty ? 0 : _posts.length - 1;
+            }
+          }),
+        );
+      },
     );
   }
 }
