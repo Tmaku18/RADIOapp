@@ -2425,6 +2425,7 @@ export const analyticsApi = {
     api.get('/analytics/me', {
       params: { days, ...(songId ? { songId } : {}) },
     }),
+  getMySummary: () => api.get('/analytics/me/summary'),
   getMyRoi: (days?: number) => api.get('/analytics/me/roi', { params: { days } }),
   getMyPlaysByRegion: (days?: number) => api.get('/analytics/me/plays-by-region', { params: { days } }),
   getSongAnalytics: (songId: string, days?: number) =>

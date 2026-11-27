@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 import { RadioStateService } from '../radio/radio-state.service';
 import { STATION_IDS } from '../radio/station.constants';
@@ -82,6 +82,13 @@ export interface ArtistAnalytics {
   recentPlays: any[];
 }
 
+export interface ArtistSummary {
+  totalSongs: number;
+  totalListenCount: number;
+  earsReached: number;
+  totalLikes: number;
+}
+
 type PlatformTotals = {
   totalUsers: number;
   totalArtists: number;
@@ -104,10 +111,12 @@ type PlatformLiveStats = {
  * Provides real-time and historical analytics for artists and platform.
  */
 @Injectable()
-export class AnalyticsService {
+export class AnalyticsService implements OnModuleInit {
   private readonly logger = new Logger(AnalyticsService.name);
   private static readonly PLATFORM_TOTALS_TTL_MS = 60_000;
   private static readonly PLATFORM_LIVE_TTL_MS = 15_000;
+  private static readonly ARTIST_SUMMARY_TTL_MS = 45_000;
+  private static readonly ARTIST_SUMMARY_MAX_ENTRIES = 500;
 
   private platformTotalsCache: { at: number; value: PlatformTotals } | null =
     null;
@@ -115,8 +124,24 @@ export class AnalyticsService {
   private platformLiveCache: { at: number; value: PlatformLiveStats } | null =
     null;
   private platformLiveInflight: Promise<PlatformLiveStats> | null = null;
+  private artistSummaryCache = new Map<
+    string,
+    { at: number; value: ArtistSummary }
+  >();
+  private artistSummaryInflight = new Map<string, Promise<ArtistSummary>>();
 
   constructor(private readonly radioStateService: RadioStateService) {}
+
+  onModuleInit(): void {
+    // Warm public platform stats in the background so the first app open
+    // after a deploy does not wait on cold counts.
+    if (process.env.NODE_ENV === 'test') return;
+    void this.getPlatformStats().catch((error) => {
+      this.logger.warn(
+        `Platform stats warmup failed: ${(error as Error)?.message ?? error}`,
+      );
+    });
+  }
 
   /**
    * Serve a cached value, and refresh it in the background once it is stale,
@@ -682,6 +707,95 @@ export class AnalyticsService {
   }
 
   /**
+   * Fast home-screen summary for an artist (4 headline numbers only).
+   * Cached per artist with stale-while-revalidate so opening Home doesn't run
+   * the full 30-day charts and per-song breakdown.
+   */
+  getArtistSummary(artistId: string): Promise<ArtistSummary> {
+    const cached = this.artistSummaryCache.get(artistId) ?? null;
+    return this.serveCached(
+      cached,
+      AnalyticsService.ARTIST_SUMMARY_TTL_MS,
+      this.artistSummaryInflight.get(artistId) ?? null,
+      (pending) => {
+        if (pending) {
+          this.artistSummaryInflight.set(artistId, pending);
+        } else {
+          this.artistSummaryInflight.delete(artistId);
+        }
+      },
+      (entry) => {
+        this.artistSummaryCache.set(artistId, entry);
+        if (
+          this.artistSummaryCache.size >
+          AnalyticsService.ARTIST_SUMMARY_MAX_ENTRIES
+        ) {
+          const oldestKey = this.artistSummaryCache.keys().next().value;
+          if (oldestKey) this.artistSummaryCache.delete(oldestKey);
+        }
+      },
+      () => this.loadArtistSummary(artistId),
+    );
+  }
+
+  private async loadArtistSummary(artistId: string): Promise<ArtistSummary> {
+    const supabase = getSupabaseClient();
+    const [songsRes, artistEarsReached, artistListenCount] = await Promise.all([
+      supabase
+        .from('songs')
+        .select('id, like_count')
+        .eq('artist_id', artistId),
+      this.getArtistEarsReached(artistId),
+      this.getArtistListenCount(artistId),
+    ]);
+
+    const songs = (songsRes.data ?? []) as Array<{
+      id: string;
+      like_count?: number | null;
+    }>;
+    if (songs.length === 0) {
+      return {
+        totalSongs: 0,
+        totalListenCount: 0,
+        earsReached: 0,
+        totalLikes: 0,
+      };
+    }
+
+    const songIds = songs.map((s) => s.id);
+    const [likesRes, fallbackEarsMap, fallbackListensMap] = await Promise.all([
+      supabase
+        .from('likes')
+        .select('*', { count: 'exact', head: true })
+        .in('song_id', songIds),
+      artistEarsReached === null
+        ? this.getEarsReachedBySongId(songIds)
+        : Promise.resolve(null),
+      artistListenCount === null
+        ? this.getListenCountBySongId(songIds)
+        : Promise.resolve(null),
+    ]);
+
+    const totalLikes =
+      !likesRes.error && typeof likesRes.count === 'number'
+        ? likesRes.count
+        : songs.reduce((sum, s) => sum + (Number(s.like_count) || 0), 0);
+    const earsReached =
+      artistEarsReached ??
+      [...(fallbackEarsMap?.values() ?? [])].reduce((sum, n) => sum + n, 0);
+    const totalListenCount =
+      artistListenCount ??
+      [...(fallbackListensMap?.values() ?? [])].reduce((sum, n) => sum + n, 0);
+
+    return {
+      totalSongs: songs.length,
+      totalListenCount,
+      earsReached,
+      totalLikes,
+    };
+  }
+
+  /**
    * Get comprehensive analytics for an artist.
    */
   async getArtistAnalytics(
@@ -1033,45 +1147,39 @@ export class AnalyticsService {
    * Totals stay cached for about a minute. Live numbers refresh faster.
    */
   async getPlatformStats() {
-    const totals = await this.serveCached(
-      this.platformTotalsCache,
-      AnalyticsService.PLATFORM_TOTALS_TTL_MS,
-      this.platformTotalsInflight,
-      (pending) => {
-        this.platformTotalsInflight = pending;
-      },
-      (entry) => {
-        this.platformTotalsCache = entry;
-      },
-      () => this.loadPlatformTotals(),
-    );
-
-    // Live radio metrics (current listeners + cumulative unique ears). Folded
-    // into the public platform payload so clients that only poll /platform
-    // (e.g. the mobile welcome/about stats strip) still get real values.
-    // Best-effort: never let a transient radio/Redis issue fail the totals.
-    let liveListeners = 0;
-    let earsReached = 0;
-    let listens = 0;
-    try {
-      const live = await this.getPlatformLiveStats();
-      liveListeners = live.liveListeners;
-      earsReached = live.earsReached;
-      listens = live.listens;
-    } catch (error) {
-      this.logger.warn(
-        `Live stats unavailable for platform payload: ${
-          (error as Error)?.message ?? error
-        }`,
-      );
-    }
+    const [totals, live] = await Promise.all([
+      this.serveCached(
+        this.platformTotalsCache,
+        AnalyticsService.PLATFORM_TOTALS_TTL_MS,
+        this.platformTotalsInflight,
+        (pending) => {
+          this.platformTotalsInflight = pending;
+        },
+        (entry) => {
+          this.platformTotalsCache = entry;
+        },
+        () => this.loadPlatformTotals(),
+      ),
+      // Live radio metrics (current listeners + cumulative unique ears). Folded
+      // into the public platform payload so clients that only poll /platform
+      // (e.g. the mobile welcome/about stats strip) still get real values.
+      // Best-effort: never let a transient radio/Redis issue fail the totals.
+      this.getPlatformLiveStats().catch((error) => {
+        this.logger.warn(
+          `Live stats unavailable for platform payload: ${
+            (error as Error)?.message ?? error
+          }`,
+        );
+        return { liveListeners: 0, earsReached: 0, listens: 0 };
+      }),
+    ]);
 
     return {
       ...totals,
-      totalListenCount: listens,
-      liveListeners,
-      earsReached,
-      listens,
+      totalListenCount: live.listens,
+      liveListeners: live.liveListeners,
+      earsReached: live.earsReached,
+      listens: live.listens,
     };
   }
 

@@ -344,6 +344,10 @@ function LoadingSpinner() {
   );
 }
 
+const PLATFORM_STATS_CACHE_KEY = 'networx:dashboard:platform_stats:v1';
+const personalStatsCacheKey = (userId: string) =>
+  `networx:dashboard:personal_stats:v1:${userId}`;
+
 export default function DashboardPage() {
   const { profile, user, loading: authLoading } = useAuth();
   // Auth clears its loading flag before the profile request returns. Until
@@ -354,6 +358,66 @@ export default function DashboardPage() {
   const [adminRoleHint, setAdminRoleHint] = useState(false);
   const [stats, setStats] = useState<DashboardStats>({});
   const [loading, setLoading] = useState(true);
+
+  // Hydrate cached platform stats immediately so the stats strip renders on
+  // first paint while fresh numbers load in the background.
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(PLATFORM_STATS_CACHE_KEY);
+      if (raw) {
+        const cached = JSON.parse(raw) as DashboardStats['platform'];
+        if (cached && typeof cached.totalSongs === 'number') {
+          setStats((prev) => ({ ...prev, platform: prev.platform ?? cached }));
+          setLoading(false);
+        }
+      }
+    } catch {
+      // Cache is best-effort.
+    }
+
+    let cancelled = false;
+    void analyticsApi
+      .getPlatformStats()
+      .then((platformResponse) => {
+        if (cancelled) return;
+        const p = platformResponse.data as {
+          totalArtists?: number;
+          totalUsers?: number;
+          totalSongs?: number;
+          totalPlays?: number;
+          totalListenCount?: number;
+          listens?: number;
+          earsReached?: number;
+          totalLikes?: number;
+        };
+        const platform: NonNullable<DashboardStats['platform']> = {
+          totalArtists: p.totalArtists ?? 0,
+          totalUsers: p.totalUsers ?? 0,
+          totalSongs: p.totalSongs ?? 0,
+          totalPlays: p.totalPlays ?? 0,
+          totalListenCount: p.listens ?? p.totalListenCount ?? 0,
+          earsReached: p.earsReached ?? 0,
+          totalLikes: p.totalLikes ?? 0,
+        };
+        setStats((prev) => ({ ...prev, platform }));
+        setLoading(false);
+        try {
+          window.localStorage.setItem(
+            PLATFORM_STATS_CACHE_KEY,
+            JSON.stringify(platform),
+          );
+        } catch {
+          // Ignore storage quota errors.
+        }
+      })
+      .catch((platformError) => {
+        console.error('Failed to load platform stats:', platformError);
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -390,8 +454,37 @@ export default function DashboardPage() {
 
   useEffect(() => {
     let cancelled = false;
-    async function loadOwnAnalytics() {
-      const read = () => analyticsApi.getMyAnalytics(30);
+    const profileId = profile?.id;
+    if (authLoading || profilePending) return;
+    if (!profileId) {
+      setLoading(false);
+      return;
+    }
+    const userId = profileId;
+
+    if (wantsOwnStats) {
+      try {
+        const raw = window.localStorage.getItem(personalStatsCacheKey(userId));
+        if (raw) {
+          const cached = JSON.parse(raw) as DashboardStats['artist'];
+          if (cached && typeof cached.totalSongs === 'number') {
+            setStats((prev) => ({ ...prev, artist: prev.artist ?? cached }));
+            setLoading(false);
+          }
+        }
+      } catch {
+        // Cache is best-effort.
+      }
+    }
+
+    async function loadOwnSummary() {
+      const read = async () => {
+        try {
+          return await analyticsApi.getMySummary();
+        } catch {
+          return await analyticsApi.getMyAnalytics(30);
+        }
+      };
       try {
         return await read();
       } catch (firstError) {
@@ -402,61 +495,32 @@ export default function DashboardPage() {
       }
     }
 
-    async function loadStats() {
-      try {
-        const next: DashboardStats = {};
-
-        const [platformResult, artistResult, yieldResult] = await Promise.all([
-          analyticsApi.getPlatformStats().then(
-            (platformResponse) => platformResponse.data as {
-              totalArtists?: number;
-              totalUsers?: number;
-              totalSongs?: number;
-              totalPlays?: number;
-              totalListenCount?: number;
-              listens?: number;
-              earsReached?: number;
-              totalLikes?: number;
-            },
-            (platformError) => {
-              console.error('Failed to load platform stats:', platformError);
-              return null;
-            },
-          ),
-          wantsOwnStats
-            ? loadOwnAnalytics().then(
-                (artistAnalyticsResponse) =>
-                  artistAnalyticsResponse.data as {
-                    totalPlays?: number;
-                    totalListenCount?: number;
-                    earsReached?: number;
-                    totalSongs?: number;
-                    totalLikes?: number;
-                  },
-                (artistError) => {
-                  console.error('Failed to load personal stats:', artistError);
-                  return null;
+    async function loadUserStats() {
+      const [artistResult, yieldResult] = await Promise.all([
+        wantsOwnStats
+          ? loadOwnSummary().then(
+              (res) =>
+                res.data as {
+                  totalPlays?: number;
+                  totalListenCount?: number;
+                  earsReached?: number;
+                  totalSongs?: number;
+                  totalLikes?: number;
                 },
-              )
-            : Promise.resolve(null),
-          hasProspectorStats
-            ? prospectorApi.getYield()
-            : Promise.resolve(null),
-        ]);
+              (artistError) => {
+                console.error('Failed to load personal stats:', artistError);
+                return null;
+              },
+            )
+          : Promise.resolve(null),
+        hasProspectorStats
+          ? prospectorApi.getYield().catch(() => null)
+          : Promise.resolve(null),
+      ]);
 
-        if (platformResult) {
-          next.platform = {
-            totalArtists: platformResult.totalArtists ?? 0,
-            totalUsers: platformResult.totalUsers ?? 0,
-            totalSongs: platformResult.totalSongs ?? 0,
-            totalPlays: platformResult.totalPlays ?? 0,
-            totalListenCount:
-              platformResult.listens ?? platformResult.totalListenCount ?? 0,
-            earsReached: platformResult.earsReached ?? 0,
-            totalLikes: platformResult.totalLikes ?? 0,
-          };
-        }
-
+      if (cancelled) return;
+      setStats((prev) => {
+        const next: DashboardStats = { ...prev };
         if (artistResult) {
           next.artist = {
             totalPlays: artistResult.totalPlays ?? 0,
@@ -465,11 +529,17 @@ export default function DashboardPage() {
             totalSongs: artistResult.totalSongs ?? 0,
             totalLikes: artistResult.totalLikes ?? 0,
           };
+          try {
+            window.localStorage.setItem(
+              personalStatsCacheKey(userId),
+              JSON.stringify(next.artist),
+            );
+          } catch {
+            // Ignore storage quota errors.
+          }
         }
-
         if (yieldResult) {
-          const yieldResponse = yieldResult;
-          const yieldData = yieldResponse.data as {
+          const yieldData = yieldResult.data as {
             balanceCents?: number;
             tier?: string;
             songsRefinedCount?: number;
@@ -480,21 +550,12 @@ export default function DashboardPage() {
             songsRefinedCount: yieldData.songsRefinedCount ?? 0,
           };
         }
-        if (!cancelled) setStats(next);
-      } catch (error) {
-        console.error('Failed to load dashboard stats:', error);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    if (authLoading || profilePending) return;
-    if (profile?.id) {
-      setLoading(true);
-      void loadStats();
-    } else {
+        return next;
+      });
       setLoading(false);
     }
+
+    void loadUserStats();
     return () => {
       cancelled = true;
     };

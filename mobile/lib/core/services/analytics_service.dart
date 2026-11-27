@@ -17,6 +17,27 @@ class AnalyticsService {
     return null;
   }
 
+  /// Fast 4-number summary for the Home screen (Songs, Listens, Ears, Likes).
+  /// Falls back to the full analytics endpoint if the backend hasn't rolled out
+  /// `/analytics/me/summary` yet.
+  Future<Map<String, dynamic>?> getMySummary() async {
+    try {
+      final res = await _api.get('analytics/me/summary');
+      if (res is Map<String, dynamic>) return res;
+    } catch (_) {
+      final full = await getMyAnalytics(days: 30);
+      if (full != null) {
+        return {
+          'totalSongs': full.totalSongs,
+          'totalListenCount': full.totalListenCount,
+          'earsReached': full.earsReached,
+          'totalLikes': full.totalLikes,
+        };
+      }
+    }
+    return null;
+  }
+
   /// Fetch a single play's analytics (for "Your song has been played" notification).
   Future<Map<String, dynamic>?> getPlayById(String playId) async {
     final res = await _api.get('analytics/plays/$playId');

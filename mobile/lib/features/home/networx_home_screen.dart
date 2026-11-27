@@ -1,5 +1,9 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/auth/auth_service.dart';
 import '../../core/auth/role_helpers.dart';
@@ -35,8 +39,13 @@ class NetworxHomeScreen extends StatefulWidget {
 }
 
 class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
+  static const _platformCacheKey = 'networx:home:platform_stats:v1';
+  static String _personalCacheKey(String uid) =>
+      'networx:home:personal_stats:v1:$uid';
+
   final AnalyticsService _analytics = AnalyticsService();
-  bool _loadingStats = true;
+  bool _hasPlatformStats = false;
+  bool _loadingPlatform = true;
   bool _showPersonal = false;
   String? _statsRole;
   int _personalSongs = 0;
@@ -53,8 +62,12 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
   @override
   void initState() {
     super.initState();
+    unawaited(_hydrateCachedStats());
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadStats());
   }
+
+  int _asInt(dynamic v) =>
+      v is int ? v : int.tryParse(v?.toString() ?? '') ?? 0;
 
   bool _isFallbackProfile(app_user.User? profile) {
     if (profile == null) return true;
@@ -70,20 +83,137 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
     return roles.any(makerRoleOrder.contains);
   }
 
+  Future<void> _hydrateCachedStats() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final rawPlatform = prefs.getString(_platformCacheKey);
+      Map<String, dynamic>? cachedPlatform;
+      if (rawPlatform != null && rawPlatform.isNotEmpty) {
+        final decoded = jsonDecode(rawPlatform);
+        if (decoded is Map<String, dynamic>) cachedPlatform = decoded;
+      }
+
+      String? uid;
+      if (mounted) {
+        uid = Provider.of<AuthService>(context, listen: false).currentUser?.uid;
+      }
+      Map<String, dynamic>? cachedPersonal;
+      if (uid != null && uid.isNotEmpty) {
+        final rawPersonal = prefs.getString(_personalCacheKey(uid));
+        if (rawPersonal != null && rawPersonal.isNotEmpty) {
+          final decoded = jsonDecode(rawPersonal);
+          if (decoded is Map<String, dynamic>) cachedPersonal = decoded;
+        }
+      }
+
+      if (!mounted) return;
+      if (cachedPlatform == null && cachedPersonal == null) return;
+      setState(() {
+        if (cachedPlatform != null && !_hasPlatformStats) {
+          _applyPlatformMap(cachedPlatform);
+          _hasPlatformStats = true;
+          _loadingPlatform = false;
+        }
+        if (cachedPersonal != null && !_showPersonal) {
+          final cachedRole = cachedPersonal['role'] as String?;
+          final cachedShow = cachedPersonal['showPersonal'] == true;
+          _statsRole = cachedRole ?? _statsRole;
+          _showPersonal = cachedShow;
+          _personalSongs = _asInt(cachedPersonal['totalSongs']);
+          _personalListens = _asInt(cachedPersonal['totalListenCount']);
+          _personalEars = _asInt(cachedPersonal['earsReached']);
+          _personalLikes = _asInt(cachedPersonal['totalLikes']);
+        }
+      });
+    } catch (_) {
+      // Cache read is best-effort only.
+    }
+  }
+
+  void _applyPlatformMap(Map<String, dynamic> stats) {
+    _platformSongs = _asInt(stats['totalSongs'] ?? stats['total_songs']);
+    _platformEars = _asInt(stats['earsReached'] ?? stats['ears_reached']);
+    _platformListens = _asInt(
+      stats['listens'] ??
+          stats['totalListenCount'] ??
+          stats['total_listen_count'],
+    );
+    _platformLikes = _asInt(stats['totalLikes'] ?? stats['total_likes']);
+    _platformArtists = _asInt(stats['totalArtists'] ?? stats['total_artists']);
+    _platformUsers = _asInt(stats['totalUsers'] ?? stats['total_users']);
+  }
+
+  Future<void> _savePlatformCache(Map<String, dynamic> stats) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_platformCacheKey, jsonEncode(stats));
+    } catch (_) {}
+  }
+
+  Future<void> _savePersonalCache(
+    String? uid, {
+    required String? role,
+    required bool showPersonal,
+    required int totalSongs,
+    required int totalListenCount,
+    required int earsReached,
+    required int totalLikes,
+  }) async {
+    if (uid == null || uid.isEmpty) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _personalCacheKey(uid),
+        jsonEncode({
+          'role': role,
+          'showPersonal': showPersonal,
+          'totalSongs': totalSongs,
+          'totalListenCount': totalListenCount,
+          'earsReached': earsReached,
+          'totalLikes': totalLikes,
+        }),
+      );
+    } catch (_) {}
+  }
+
   Future<void> _loadStats() async {
-    int asInt(dynamic v) =>
-        v is int ? v : int.tryParse(v?.toString() ?? '') ?? 0;
+    final auth = Provider.of<AuthService>(context, listen: false);
+    final uid = auth.currentUser?.uid;
+
+    // Run platform stats and personal stats independently so Platform renders
+    // immediately without waiting for profile + personal analytics.
+    await Future.wait([
+      _loadPlatformStats(),
+      _loadPersonalStats(auth, uid),
+    ]);
+  }
+
+  Future<void> _loadPlatformStats() async {
+    try {
+      final stats = await _analytics.getPlatformStats();
+      if (!mounted) return;
+      if (stats != null) {
+        setState(() {
+          _applyPlatformMap(stats);
+          _hasPlatformStats = true;
+          _loadingPlatform = false;
+        });
+        unawaited(_savePlatformCache(stats));
+      } else {
+        setState(() => _loadingPlatform = false);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _loadingPlatform = false);
+      }
+    }
+  }
+
+  Future<void> _loadPersonalStats(AuthService auth, String? uid) async {
     String? role = _statsRole;
     List<String> makerRoles = const [];
-    Map<String, dynamic>? stats;
-    final auth = Provider.of<AuthService>(context, listen: false);
     try {
-      final results = await Future.wait([
-        auth.getUserProfile(),
-        _analytics.getPlatformStats(),
-      ]);
-      var profile = results[0] as app_user.User?;
-      stats = results[1] as Map<String, dynamic>?;
+      var profile = await auth.getUserProfile();
       if (_isFallbackProfile(profile)) {
         await auth.refreshIdToken();
         profile = await auth.getUserProfile(force: true);
@@ -93,62 +223,68 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
         makerRoles = profile?.userRoles ?? const [];
       }
     } catch (_) {
-      try {
-        stats = await _analytics.getPlatformStats();
-      } catch (_) {
-        stats = null;
-      }
+      // Keep last known role if profile check fails transiently.
     }
     if (!mounted) return;
+
+    final wantsPersonal = _wantsPersonalStats(role, makerRoles);
+    if (!wantsPersonal) {
+      setState(() {
+        _statsRole = role;
+        _showPersonal = false;
+      });
+      return;
+    }
+
     var personalSongs = _personalSongs;
     var personalListens = _personalListens;
     var personalEars = _personalEars;
     var personalLikes = _personalLikes;
-    if (_wantsPersonalStats(role, makerRoles)) {
-      Future<void> applyMine() async {
-        final mine = await _analytics.getMyAnalytics();
-        personalSongs = mine?.totalSongs ?? 0;
-        personalListens = mine?.totalListenCount ?? 0;
-        personalEars = mine?.earsReached ?? 0;
-        personalLikes = mine?.totalLikes ?? 0;
-      }
 
+    Future<bool> applyMine() async {
+      final mine = await _analytics.getMySummary();
+      if (mine == null) return false;
+      personalSongs = _asInt(mine['totalSongs']);
+      personalListens = _asInt(mine['totalListenCount']);
+      personalEars = _asInt(mine['earsReached']);
+      personalLikes = _asInt(mine['totalLikes']);
+      return true;
+    }
+
+    var loaded = false;
+    try {
+      loaded = await applyMine();
+    } catch (_) {
       try {
-        await applyMine();
+        if (!mounted) return;
+        await auth.refreshIdToken();
+        loaded = await applyMine();
       } catch (_) {
-        try {
-          if (!mounted) return;
-          await auth.refreshIdToken();
-          await applyMine();
-        } catch (_) {
-          // Personal numbers stay at the last good value.
-        }
+        // Personal numbers stay at the last good value.
       }
     }
     if (!mounted) return;
     setState(() {
       _statsRole = role;
-      _showPersonal = _wantsPersonalStats(role, makerRoles);
+      _showPersonal = true;
       _personalSongs = personalSongs;
       _personalListens = personalListens;
       _personalEars = personalEars;
       _personalLikes = personalLikes;
-      if (stats != null) {
-        _platformSongs = asInt(stats['totalSongs'] ?? stats['total_songs']);
-        _platformEars = asInt(stats['earsReached'] ?? stats['ears_reached']);
-        _platformListens = asInt(
-          stats['listens'] ??
-              stats['totalListenCount'] ??
-              stats['total_listen_count'],
-        );
-        _platformLikes = asInt(stats['totalLikes'] ?? stats['total_likes']);
-        _platformArtists = asInt(
-          stats['totalArtists'] ?? stats['total_artists'],
-        );
-        _platformUsers = asInt(stats['totalUsers'] ?? stats['total_users']);
-      }
-      _loadingStats = false;
     });
+    if (loaded) {
+      unawaited(
+        _savePersonalCache(
+          uid,
+          role: role,
+          showPersonal: true,
+          totalSongs: personalSongs,
+          totalListenCount: personalListens,
+          earsReached: personalEars,
+          totalLikes: personalLikes,
+        ),
+      );
+    }
   }
 
   String _greeting() {
@@ -482,7 +618,7 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
                     const SizedBox(height: 16),
                     const _WelcomeBanner(),
                     const SizedBox(height: 20),
-                    if (_loadingStats)
+                    if (_loadingPlatform && !_hasPlatformStats && !_showPersonal)
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 24),
                         child: Center(child: CircularProgressIndicator()),

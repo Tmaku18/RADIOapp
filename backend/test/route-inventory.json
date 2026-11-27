@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-11-24T17:03:00.574Z",
-  "count": 414,
+  "generatedAt": "2026-11-27T21:27:37.119Z",
+  "count": 415,
   "routes": [
     {
       "method": "GET",
@@ -1038,6 +1038,18 @@
       "path": "/api/analytics/me/roi",
       "controller": "analytics.controller",
       "handler": "getMyRoi",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "analytics/analytics.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/analytics/me/summary",
+      "controller": "analytics.controller",
+      "handler": "getMySummary",
       "public": false,
       "roles": [
         "artist",

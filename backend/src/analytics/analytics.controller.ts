@@ -59,6 +59,17 @@ export class AnalyticsController {
   }
 
   /**
+   * Lightweight headline totals for the Home screen (Songs, Listens, Ears, Likes).
+   */
+  @Get('me/summary')
+  @UseGuards(RolesGuard)
+  @Roles('artist', 'admin')
+  async getMySummary(@CurrentUser() user: FirebaseUser) {
+    const userId = await this.resolveDbUserId(user);
+    return this.analyticsService.getArtistSummary(userId);
+  }
+
+  /**
    * ROI = (New Followers / Credits Spent) * 100 over a window.
    */
   @Get('me/roi')
