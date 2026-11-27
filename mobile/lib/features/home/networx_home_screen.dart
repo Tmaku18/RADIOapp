@@ -55,7 +55,6 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
   int _platformSongs = 0;
   int _platformListens = 0;
   int _platformEars = 0;
-  int _platformLikes = 0;
   int _platformArtists = 0;
   int _platformUsers = 0;
 
@@ -138,7 +137,6 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
           stats['totalListenCount'] ??
           stats['total_listen_count'],
     );
-    _platformLikes = _asInt(stats['totalLikes'] ?? stats['total_likes']);
     _platformArtists = _asInt(stats['totalArtists'] ?? stats['total_artists']);
     _platformUsers = _asInt(stats['totalUsers'] ?? stats['total_users']);
   }
@@ -699,7 +697,7 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
       ('Songs', _platformSongs),
       ('Listens', _platformListens),
       ('Ears', _platformEars),
-      ('Likes', _platformLikes),
+      ('Users', _platformUsers),
     ]);
     final platformTotals = _statRow([
       ('Songs', _platformSongs),

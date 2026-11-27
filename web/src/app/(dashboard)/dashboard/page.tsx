@@ -168,9 +168,9 @@ const PLATFORM_STATS = [
     borderClass: 'border-cyan-400/40',
   },
   {
-    label: 'Likes',
-    key: 'totalLikes' as const,
-    Icon: Flame,
+    label: 'Users',
+    key: 'totalUsers' as const,
+    Icon: User,
     valueClass: 'text-cyan-300',
     borderClass: 'border-cyan-400/40',
   },
