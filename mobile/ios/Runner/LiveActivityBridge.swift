@@ -37,6 +37,10 @@ enum LiveActivityBridge {
   /// Bumped on every song update so a slow cover download cannot republish
   /// the previous title over the song that is actually playing.
   private static var updateGeneration = 0
+  /// False after the listener leaves a pause that started in the app, or
+  /// after an outside pause is handed to the system to remove later.
+  /// Song ticks must not start a new card until they listen again.
+  private static var acceptUpdates = true
 
   static func register(messenger: FlutterBinaryMessenger) {
     let methodChannel = FlutterMethodChannel(
@@ -53,6 +57,10 @@ enum LiveActivityBridge {
       }
       switch call.method {
       case "update":
+        guard acceptUpdates else {
+          result(true)
+          return
+        }
         let args = call.arguments as? [String: Any]
         update(
           title: args?["title"] as? String ?? "NetworX Radio",
@@ -66,6 +74,21 @@ enum LiveActivityBridge {
         result(true)
       case "end":
         end()
+        result(true)
+      case "endHold":
+        acceptUpdates = false
+        end()
+        result(true)
+      case "allowUpdates":
+        acceptUpdates = true
+        result(true)
+      case "replaceCard":
+        acceptUpdates = true
+        end()
+        result(true)
+      case "armDismiss":
+        let seconds = (call.arguments as? [String: Any])?["seconds"] as? NSNumber
+        armDismiss(after: seconds?.doubleValue ?? (30 * 60))
         result(true)
       case "drain":
         deliverLockReaction()
@@ -166,6 +189,7 @@ enum LiveActivityBridge {
       lastArtworkUrl = artworkUrl
       lastArtworkToken = token
       enqueue {
+        guard acceptUpdates else { return }
         guard generation == updateGeneration else { return }
         var state = NowPlayingAttributes.ContentState(
           title: title,
@@ -223,6 +247,8 @@ enum LiveActivityBridge {
       }
       return
     }
+    // A pause already told the system to drop the card. Do not start another.
+    guard acceptUpdates else { return }
     do {
       _ = try Activity.request(
         attributes: NowPlayingAttributes(stationId: state.station),
@@ -246,6 +272,22 @@ enum LiveActivityBridge {
     enqueue {
       for activity in Activity<NowPlayingAttributes>.activities {
         await activity.end(nil, dismissalPolicy: .immediate)
+      }
+    }
+  }
+
+  /// Keep the paused card long enough to resume, then let the system remove
+  /// it even if this process is suspended. A later song update cannot start
+  /// a second card while [acceptUpdates] is false.
+  @available(iOS 16.2, *)
+  private static func armDismiss(after seconds: TimeInterval) {
+    acceptUpdates = false
+    let lifetime = max(seconds, 1)
+    let deadline = Date().addingTimeInterval(lifetime)
+    enqueue {
+      for activity in Activity<NowPlayingAttributes>.activities {
+        let content = ActivityContent(state: activity.content.state, staleDate: nil)
+        await activity.end(content, dismissalPolicy: .after(deadline))
       }
     }
   }

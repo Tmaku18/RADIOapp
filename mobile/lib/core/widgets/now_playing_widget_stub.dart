@@ -1,4 +1,5 @@
 import 'package:audio_service/audio_service.dart';
+import 'package:flutter/widgets.dart';
 
 /// Web builds have no home-screen widget.
 class NowPlayingWidgetSync {
@@ -9,4 +10,8 @@ class NowPlayingWidgetSync {
   static Future<void> end() async {}
 
   static Future<void> drainLockReaction() async {}
+
+  static void onLifecycle(AppLifecycleState state) {}
+
+  static Future<void> onUserPausedChanged(bool paused) async {}
 }

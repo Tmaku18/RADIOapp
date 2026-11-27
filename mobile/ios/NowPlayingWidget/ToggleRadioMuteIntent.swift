@@ -12,25 +12,33 @@ struct ToggleRadioMuteIntent: LiveActivityIntent {
   static var openAppWhenRun: Bool = false
 
   func perform() async throws -> some IntentResult {
+    let defaults = UserDefaults(suiteName: networxAppGroupId)
+    var nextMuted: Bool?
     #if canImport(ActivityKit)
     if #available(iOS 16.2, *) {
-      var nextMuted: Bool?
-      for activity in Activity<NowPlayingAttributes>.activities {
-        var state = activity.content.state
-        state.isMuted.toggle()
-        nextMuted = state.isMuted
-        await activity.update(ActivityContent(state: state, staleDate: nil))
-      }
-      if let nextMuted {
-        // Absolute value plus a time, so a song update already in flight
-        // cannot paint Mute back over Unmute.
-        let defaults = UserDefaults(suiteName: networxAppGroupId)
-        defaults?.set(nextMuted ? "true" : "false", forKey: networxLockMutedKey)
-        defaults?.set(Date().timeIntervalSince1970, forKey: networxLockMutedAtKey)
-        defaults?.synchronize()
+      let activities = Activity<NowPlayingAttributes>.activities
+      if let first = activities.first {
+        nextMuted = !first.content.state.isMuted
+        for activity in activities {
+          var state = activity.content.state
+          state.isMuted = nextMuted ?? true
+          await activity.update(ActivityContent(state: state, staleDate: nil))
+        }
       }
     }
     #endif
+    if nextMuted == nil {
+      let current = defaults?.string(forKey: networxLockMutedKey) == "true"
+      nextMuted = !current
+    }
+    if let nextMuted {
+      // Absolute value plus a time, so a song update already in flight
+      // cannot paint Mute back over Unmute. Written even when the card was
+      // already handed to the system to expire, so Unmute still reaches the app.
+      defaults?.set(nextMuted ? "true" : "false", forKey: networxLockMutedKey)
+      defaults?.set(Date().timeIntervalSince1970, forKey: networxLockMutedAtKey)
+      defaults?.synchronize()
+    }
     let name = CFNotificationName(networxLockMuteNotification as CFString)
     CFNotificationCenterPostNotification(
       CFNotificationCenterGetDarwinNotifyCenter(),

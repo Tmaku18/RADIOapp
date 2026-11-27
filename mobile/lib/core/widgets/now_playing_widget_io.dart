@@ -16,6 +16,87 @@ const _liveActivity = MethodChannel('networx/live_activity');
 class NowPlayingWidgetSync {
   static bool _listening = false;
 
+  /// A pause from the lock screen or island can stay so the listener can
+  /// resume. It does not sit there for the rest of the day.
+  static const pausedOutsideCardLifetime = Duration(minutes: 30);
+
+  static bool _inForeground = true;
+  static bool _dismissWhenLeaving = false;
+  static bool _suppressLiveCard = false;
+  static bool _needsOutsideArm = false;
+  static bool _outsidePauseArmed = false;
+
+  /// Pause inside the app, then leave: the card goes away. Pause from the
+  /// lock screen or island: the card stays for [pausedOutsideCardLifetime].
+  static void onLifecycle(AppLifecycleState state) {
+    if (!Platform.isIOS) return;
+    if (state == AppLifecycleState.resumed) {
+      _inForeground = true;
+      final paused = AudioPlayerService.handler.userPaused;
+      if (!paused) {
+        _dismissWhenLeaving = false;
+        _suppressLiveCard = false;
+        _needsOutsideArm = false;
+        _outsidePauseArmed = false;
+        unawaited(_allowCardUpdates());
+        return;
+      }
+      // They paused in the app, left, and came back. Show the card while
+      // they are here. Leaving again removes it.
+      if (_dismissWhenLeaving && _suppressLiveCard) {
+        _suppressLiveCard = false;
+        unawaited(_showCardAgain());
+      }
+      return;
+    }
+    final left = state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached;
+    if (!left) return;
+    _inForeground = false;
+    final paused = AudioPlayerService.handler.userPaused;
+    if (paused && _dismissWhenLeaving) {
+      _needsOutsideArm = false;
+      _suppressLiveCard = true;
+      unawaited(_endAndHold());
+      return;
+    }
+    if (state == AppLifecycleState.detached && !paused) {
+      unawaited(end());
+    }
+  }
+
+  static Future<void> onUserPausedChanged(bool paused) async {
+    if (!Platform.isIOS) {
+      await push(AudioPlayerService.handler.mediaItem.valueOrNull);
+      return;
+    }
+    if (!paused) {
+      final recreate = _suppressLiveCard || _outsidePauseArmed;
+      _dismissWhenLeaving = false;
+      _suppressLiveCard = false;
+      _needsOutsideArm = false;
+      _outsidePauseArmed = false;
+      if (recreate) {
+        await _replaceCard();
+      } else {
+        await _allowCardUpdates();
+      }
+      await push(AudioPlayerService.handler.mediaItem.valueOrNull);
+      return;
+    }
+    if (_inForeground) {
+      _dismissWhenLeaving = true;
+      _needsOutsideArm = false;
+      _outsidePauseArmed = false;
+      await push(AudioPlayerService.handler.mediaItem.valueOrNull);
+      return;
+    }
+    _dismissWhenLeaving = false;
+    _needsOutsideArm = true;
+    await push(AudioPlayerService.handler.mediaItem.valueOrNull);
+  }
+
   /// Lock-screen Mute asks the playing app to silence the station.
   static void listenForLockMute() {
     if (_listening || !Platform.isIOS) return;
@@ -28,7 +109,6 @@ class NowPlayingWidgetSync {
           desired ?? !handler.userPaused,
           fromUser: true,
         );
-        await push(handler.mediaItem.valueOrNull);
         return;
       }
       if (call.method == 'react') {
@@ -69,6 +149,50 @@ class NowPlayingWidgetSync {
       await _liveActivity.invokeMethod<void>('end');
     } catch (e) {
       debugPrint('Live Activity end skipped: $e');
+    }
+  }
+
+  /// Dismiss now, and ignore later song updates until playback resumes.
+  static Future<void> _endAndHold() async {
+    try {
+      await _liveActivity.invokeMethod<void>('endHold');
+    } catch (e) {
+      debugPrint('Live Activity hold skipped: $e');
+    }
+  }
+
+  static Future<void> _allowCardUpdates() async {
+    try {
+      await _liveActivity.invokeMethod<void>('allowUpdates');
+    } catch (e) {
+      debugPrint('Live Activity allow skipped: $e');
+    }
+  }
+
+  /// Drop a card that was frozen after an outside pause, so a new one can start.
+  static Future<void> _replaceCard() async {
+    try {
+      await _liveActivity.invokeMethod<void>('replaceCard');
+    } catch (e) {
+      debugPrint('Live Activity replace skipped: $e');
+    }
+  }
+
+  static Future<void> _showCardAgain() async {
+    await _replaceCard();
+    await push(AudioPlayerService.handler.mediaItem.valueOrNull);
+  }
+
+  static Future<void> _armOutsideDismissal() async {
+    _needsOutsideArm = false;
+    _outsidePauseArmed = true;
+    _suppressLiveCard = true;
+    try {
+      await _liveActivity.invokeMethod<void>('armDismiss', {
+        'seconds': pausedOutsideCardLifetime.inSeconds,
+      });
+    } catch (e) {
+      debugPrint('Live Activity dismiss timer skipped: $e');
     }
   }
 
@@ -127,10 +251,13 @@ class NowPlayingWidgetSync {
     }
     if (!Platform.isIOS) return;
     try {
-      // A muted station still keeps the card so Mute can turn into Unmute
-      // and the vote buttons stay reachable from the island.
-      if (item == null || title.isEmpty) {
-        await _liveActivity.invokeMethod<void>('end');
+      final paused = AudioPlayerService.handler.userPaused;
+      // Empty queue, or a pause that already dismissed the card. A later
+      // song tick must not put the card back.
+      if (item == null || title.isEmpty || (paused && _suppressLiveCard)) {
+        if (item == null || title.isEmpty) {
+          await _liveActivity.invokeMethod<void>('end');
+        }
         return;
       }
       final songId =
@@ -141,10 +268,13 @@ class NowPlayingWidgetSync {
         'artist': shownArtist,
         'station': station.isEmpty ? 'NetworX Radio' : station,
         'artworkUrl': item.artUri?.toString() ?? '',
-        'isMuted': AudioPlayerService.handler.userPaused,
+        'isMuted': paused,
         'songId': songId.startsWith('station:') ? '' : songId,
         'playId': playId,
       });
+      if (paused && _needsOutsideArm) {
+        await _armOutsideDismissal();
+      }
     } catch (e) {
       debugPrint('Live Activity update skipped: $e');
     }

@@ -236,7 +236,9 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
     });
     AudioPlayerService.handler.userPausedNotifier.addListener(() {
       unawaited(
-        NowPlayingWidgetSync.push(AudioPlayerService.handler.mediaItem.valueOrNull),
+        NowPlayingWidgetSync.onUserPausedChanged(
+          AudioPlayerService.handler.userPaused,
+        ),
       );
     });
     unawaited(_bootstrapLiveRadioIfIdle());
@@ -289,6 +291,7 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    NowPlayingWidgetSync.onLifecycle(state);
     final wasBackground = _appInBackground;
     _appInBackground =
         state == AppLifecycleState.paused ||
@@ -312,11 +315,6 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
             state == AppLifecycleState.paused ||
             state == AppLifecycleState.hidden)) {
       unawaited(handler.applyOutputVolume());
-    }
-    // Swiping the app away ends the card. Muting does not: the island stays
-    // so Mute can switch to Unmute and votes still count.
-    if (state == AppLifecycleState.detached) {
-      unawaited(NowPlayingWidgetSync.end());
     }
   }
 
